@@ -1,2 +1,3 @@
-import { AttendanceSettingsPage } from "@/components/attendance-pages";
-export default function Page(){return <AttendanceSettingsPage/>}
+import { redirect } from "next/navigation";
+
+export default function Page(){redirect("/admin/attendance")}

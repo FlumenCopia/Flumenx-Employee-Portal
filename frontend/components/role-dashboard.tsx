@@ -1,8 +1,8 @@
 import { BriefcaseBusiness, Calculator, Target } from "lucide-react";
 import { PageHeader, Section, StatCard } from "./ui";
 
-export function RoleDashboard({ role }: { role: "Admin" | "Accountant" | "BDO" }) {
-  const Icon = role === "Accountant" ? Calculator : role === "BDO" ? Target : BriefcaseBusiness;
+export function RoleDashboard({ role }: { role: "Admin" | "Accountant" | "BDE" }) {
+  const Icon = role === "Accountant" ? Calculator : role === "BDE" ? Target : BriefcaseBusiness;
   return <>
     <PageHeader eyebrow={`FLUMENX / ${role.toUpperCase()}`} title={`Welcome ${role}.`} subtitle={`Your ${role} workspace is ready.`} />
     <div className="stats-grid">

@@ -1,2 +1,3 @@
-import { SalaryPage } from "@/components/resource-pages";
-export default function Page(){return <SalaryPage/>}
+import { redirect } from "next/navigation";
+
+export default function Page(){redirect("/accountant/dashboard")}

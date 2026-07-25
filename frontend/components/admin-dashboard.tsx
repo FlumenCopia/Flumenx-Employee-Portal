@@ -1,47 +1,99 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { ArrowRight, Clock3, TimerOff, UserCheck, UserX } from "lucide-react";
-import { announcements, employees, leaves, meetings } from "@/lib/demo-data";
+import { api } from "@/lib/api";
+import { Employee, Leave, Meeting, Paginated } from "@/lib/types";
+import { AttendanceSummary } from "@/features/attendance/types";
 import { Avatar } from "./icons";
-import { Badge, PageHeader, Section, StatCard } from "./ui";
+import { Badge, EmptyState, PageHeader, Section, StatCard } from "./ui";
+
+type DashboardData = {
+  total_employees?: number;
+  active_employees?: number;
+  pending_leaves?: number;
+  recent_leaves?: Leave[];
+  upcoming_meetings?: Meeting[];
+  attendance?: AttendanceSummary;
+};
 
 export function AdminDashboard({ basePath = "/admin" }: { basePath?: "/admin" | "/hr" }) {
   const today = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "2-digit", month: "long" }).format(new Date());
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [employeesLoading, setEmployeesLoading] = useState(true);
+  const [meetingsLoading, setMeetingsLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
+  const [employeesError, setEmployeesError] = useState("");
+  const [meetingsError, setMeetingsError] = useState("");
+
+  useEffect(() => {
+    setDashboardLoading(true);
+    setDashboardError("");
+    api<DashboardData>("/dashboard/")
+      .then(setDashboard)
+      .catch(err => {
+        setDashboard(null);
+        setDashboardError(err instanceof Error ? err.message : "Could not load dashboard.");
+      })
+      .finally(() => setDashboardLoading(false));
+
+    setEmployeesLoading(true);
+    setEmployeesError("");
+    api<Paginated<Employee>>("/employees/")
+      .then(data => setEmployees(data.results))
+      .catch(err => {
+        setEmployees([]);
+        setEmployeesError(err instanceof Error ? err.message : "Could not load employees.");
+      })
+      .finally(() => setEmployeesLoading(false));
+
+    setMeetingsLoading(true);
+    setMeetingsError("");
+    api<Paginated<Meeting>>("/meetings/")
+      .then(data => setMeetings(data.results))
+      .catch(err => {
+        setMeetings([]);
+        setMeetingsError(err instanceof Error ? err.message : "Could not load meetings.");
+      })
+      .finally(() => setMeetingsLoading(false));
+  }, []);
+
+  const attendance = dashboard?.attendance;
+  const recentLeaves = dashboard?.recent_leaves || [];
+  const displayMeetings = dashboard?.upcoming_meetings?.length ? dashboard.upcoming_meetings : meetings;
+
   return <>
-    <PageHeader eyebrow={`COMMAND CENTRE Â· ${today.toUpperCase()}`} title="Good morning." subtitle="Hereâ€™s the pulse of FLUMENX today." action={<Link className="text-action" href={`${basePath}/employees`}>View employees <ArrowRight size={17} /></Link>} />
+    <PageHeader eyebrow={`COMMAND CENTRE - ${today.toUpperCase()}`} title="Good morning." subtitle="Here is the pulse of FLUMENX today." action={<Link className="text-action" href={`${basePath}/employees`}>View employees <ArrowRight size={17} /></Link>} />
+    {dashboardError && <EmptyState title="Could not load dashboard" text={dashboardError} />}
     <div className="stats-grid">
-      <StatCard label="Absent today" value="11" note="4 employees on leave" icon={<UserX />} />
-      <StatCard label="Present today" value="132" note="89.2% attendance" icon={<UserCheck />} />
-      <StatCard label="Late today" value="08" note="74 minutes combined" icon={<Clock3 />} accent />
-      <StatCard label="Early exits" value="05" note="2 awaiting checkout" icon={<TimerOff />} />
+      <StatCard label="Absent today" value={attendance ? String(attendance.absent).padStart(2, "0") : "Not available"} note={attendance ? `${attendance.leave} on leave` : "Attendance summary unavailable"} icon={<UserX />} />
+      <StatCard label="Present today" value={attendance ? String(attendance.present).padStart(2, "0") : "Not available"} note={attendance ? `${attendance.attendance_percentage}% attendance` : "Attendance summary unavailable"} icon={<UserCheck />} />
+      <StatCard label="Late today" value={attendance ? String(attendance.late).padStart(2, "0") : "Not available"} note="Calculated from office time" icon={<Clock3 />} accent />
+      <StatCard label="Early exits" value={attendance ? String(attendance.early_exits).padStart(2, "0") : "Not available"} note="Before office end time" icon={<TimerOff />} />
     </div>
-    <div className="dashboard-attendance-link"><div><span>ATTENDANCE CONTROL</span><b>09:30 â€” 18:30</b><small>5 minute grace period Â· 89.2% present today</small></div><Link href={`${basePath}/attendance`}>Open live register <ArrowRight size={17}/></Link></div>
+    <div className="dashboard-attendance-link"><div><span>ATTENDANCE CONTROL</span><b>Live register</b><small>{attendance ? `${attendance.attendance_percentage}% attendance today` : "Attendance summary unavailable"}</small></div><Link href={`${basePath}/attendance`}>Open live register <ArrowRight size={17}/></Link></div>
     <div className="dashboard-grid">
       <Section title="People pulse" kicker="WORKFORCE / 30 DAYS" action={<span className="chart-legend"><i /> Active headcount</span>}>
-        <div className="chart-wrap">
-          <div className="chart-number"><strong>+12</strong><span>net growth</span></div>
-          <svg viewBox="0 0 700 190" preserveAspectRatio="none" aria-label="Employee growth chart">
-            <path className="grid-line" d="M0 25H700M0 80H700M0 135H700M0 188H700" />
-            <path className="chart-line" d="M0 160 C55 154,75 132,125 138 S195 110,245 118 S315 76,365 91 S440 68,490 73 S555 42,610 56 S665 28,700 31" />
-            {[["0","160"],["125","138"],["245","118"],["365","91"],["490","73"],["610","56"],["700","31"]].map(([x,y]) => <circle key={x} cx={x} cy={y} r="4" />)}
-          </svg>
-          <div className="chart-labels"><span>01 JUN</span><span>08 JUN</span><span>15 JUN</span><span>22 JUN</span><span>30 JUN</span></div>
-        </div>
+        <EmptyState title="Trend data unavailable" text="No workforce trend endpoint is available yet." />
       </Section>
       <Section title="Up next" kicker="TODAY / SCHEDULE" action={<Link href={`${basePath}/meetings`}>View all</Link>}>
-        <div className="schedule-list">{meetings.slice(0,3).map((m, i) => <div className="schedule-item" key={m.id}><div className="time-block"><b>{m.time.slice(0,5)}</b><span>{i ? "PM" : "AM"}</span></div><i className={i === 1 ? "amber" : ""} /><div><b>{m.title}</b><span>{m.location} Â· {m.department}</span></div></div>)}</div>
+        {meetingsLoading && <EmptyState title="Loading meetings" text="Fetching the latest schedule." />}
+        {meetingsError && <EmptyState title="Could not load meetings" text={meetingsError} />}
+        {!meetingsLoading && !meetingsError && !displayMeetings.length && <EmptyState title="No meetings scheduled" text="There are no meetings to show yet." />}
+        {!meetingsLoading && !meetingsError && Boolean(displayMeetings.length) && <div className="schedule-list">{displayMeetings.slice(0,3).map(m => <div className="schedule-item" key={m.id}><div className="time-block"><b>{m.time.slice(0,5)}</b><span>{m.time >= "12:00" ? "PM" : "AM"}</span></div><i /><div><b>{m.title}</b><span>{m.location || "Location not assigned"} - {m.department || "Audience not assigned"}</span></div></div>)}</div>}
       </Section>
     </div>
     <div className="dashboard-grid lower">
       <Section title="Leave requests" kicker="NEEDS ATTENTION" action={<Link href={`${basePath}/leaves`}>Review all</Link>}>
-        <div className="compact-table">{leaves.map(l => <div className="compact-row" key={l.id}><Avatar name={l.employee_name || ""} /><div className="grow"><b>{l.employee_name}</b><span>{l.leave_type} Â· {l.days} day{l.days === 1 ? "" : "s"}</span></div><div className="date-cell"><b>{new Date(l.start_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</b><span>START</span></div><Badge tone={l.status}>{l.status}</Badge></div>)}</div>
-      </Section>
-      <Section title="Latest updates" kicker="FLUMENX / NOTICEBOARD" action={<Link href={`${basePath}/announcements`}>Manage</Link>}>
-        <div className="announcement-list">{announcements.map(a => <div key={a.id}><div className="announcement-index">{String(a.id).padStart(2, "0")}</div><div><b>{a.title}</b><p>{a.message}</p></div><Badge tone={a.priority}>{a.priority}</Badge></div>)}</div>
+        {dashboardLoading && <EmptyState title="Loading leave requests" text="Fetching pending requests." />}
+        {!dashboardLoading && !dashboardError && !recentLeaves.length && <EmptyState title="No leave requests" text="There are no leave requests to review." />}
+        {!dashboardLoading && !dashboardError && Boolean(recentLeaves.length) && <div className="compact-table">{recentLeaves.map(l => <div className="compact-row" key={l.id}><Avatar name={l.employee_name || "User"} /><div className="grow"><b>{l.employee_name || "Not assigned"}</b><span>{l.leave_type} - {l.days ?? "No"} day{l.days === 1 ? "" : "s"}</span></div><div className="date-cell"><b>{new Date(l.start_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</b><span>START</span></div><Badge tone={l.status}>{l.status}</Badge></div>)}</div>}
       </Section>
     </div>
-    <div className="team-strip"><div><span>THE FLUMENX / NEWEST MEMBERS</span><h3>Fresh energy in the room.</h3></div><div className="member-stack">{employees.slice(0,5).map(e => <Avatar key={e.id} name={e.name} size={46} />)}<span>+7</span></div><Link href={`${basePath}/employees`}>Meet the team <ArrowRight size={17} /></Link></div>
+    <div className="team-strip"><div><span>THE FLUMENX / NEWEST MEMBERS</span><h3>Fresh energy in the room.</h3></div>{employeesLoading && <span>Loading employees</span>}{employeesError && <span>{employeesError}</span>}{!employeesLoading && !employeesError && !employees.length && <span>No employee data available</span>}{!employeesLoading && !employeesError && Boolean(employees.length) && <div className="member-stack">{employees.slice(0,5).map(e => <Avatar key={e.id} name={e.name} size={46} />)}</div>}<Link href={`${basePath}/employees`}>Meet the team <ArrowRight size={17} /></Link></div>
   </>;
 }
-

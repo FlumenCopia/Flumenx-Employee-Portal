@@ -13,10 +13,9 @@ export function Section({ title, kicker, children, action }: { title: string; ki
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: string }) {
   return <span className={`badge ${tone.toLowerCase()}`}>{children}</span>;
 }
-export function PrimaryButton({ children, type = "button", onClick }: { children: ReactNode; type?: "button" | "submit"; onClick?: () => void }) {
-  return <button type={type} className="primary-button" onClick={onClick}>{children}<ArrowUpRight size={17} /></button>;
+export function PrimaryButton({ children, type = "button", onClick, disabled }: { children: ReactNode; type?: "button" | "submit"; onClick?: () => void; disabled?: boolean }) {
+  return <button type={type} className="primary-button" onClick={onClick} disabled={disabled}>{children}<ArrowUpRight size={17} /></button>;
 }
 export function EmptyState({ title, text }: { title: string; text: string }) {
   return <div className="empty-state"><span>H</span><h3>{title}</h3><p>{text}</p></div>;
 }
-

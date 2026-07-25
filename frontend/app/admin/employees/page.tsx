@@ -1,2 +1,2 @@
 import { EmployeesPage } from "@/components/resource-pages";
-export default function Page(){return <EmployeesPage/>}
+export default function Page(){return <EmployeesPage role="admin"/>}

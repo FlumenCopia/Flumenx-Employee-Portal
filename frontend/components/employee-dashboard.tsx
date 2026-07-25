@@ -1,34 +1,85 @@
-﻿import Link from "next/link";
-import { ArrowRight, CalendarDays, Clock3, Download, LogIn, LogOut, TimerOff } from "lucide-react";
-import { announcements, meetings, salarySlips } from "@/lib/demo-data";
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { ArrowRight, CalendarDays, Clock3, LogIn } from "lucide-react";
+import { api } from "@/lib/api";
+import { AuthUser, AttendanceRecord, Meeting, Paginated } from "@/lib/types";
+import { AttendanceSummary } from "@/features/attendance/types";
 import { Avatar } from "./icons";
-import { Badge, PageHeader, Section, StatCard } from "./ui";
+import { useShellUser } from "./shell";
+import { Badge, EmptyState, PageHeader, Section, StatCard } from "./ui";
+
+type EmployeeDashboardData = {
+  profile?: AuthUser["employee"];
+  upcoming_meetings?: Meeting[];
+  attendance?: {
+    today: AttendanceRecord | null;
+    monthly: AttendanceSummary;
+    late_count: number;
+    early_exit_count: number;
+  };
+};
+
+const displayTime = (value: string | null | undefined) => value ? new Date(`2026-01-01T${value}`).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Not recorded";
 
 export function EmployeeDashboard() {
+  const user = useShellUser();
+  const [dashboard, setDashboard] = useState<EmployeeDashboardData | null>(null);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [meetingsLoading, setMeetingsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [meetingsError, setMeetingsError] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    setError("");
+    api<EmployeeDashboardData>("/dashboard/")
+      .then(setDashboard)
+      .catch(err => {
+        setDashboard(null);
+        setError(err instanceof Error ? err.message : "Could not load dashboard.");
+      })
+      .finally(() => setLoading(false));
+
+    setMeetingsLoading(true);
+    setMeetingsError("");
+    api<Paginated<Meeting>>("/meetings/")
+      .then(data => setMeetings(data.results))
+      .catch(err => {
+        setMeetings([]);
+        setMeetingsError(err instanceof Error ? err.message : "Could not load meetings.");
+      })
+      .finally(() => setMeetingsLoading(false));
+
+  }, []);
+
+  const employee = dashboard?.profile || user?.employee || null;
+  const name = employee?.name || user?.first_name || user?.email || user?.username || "User";
+  const todayRecord = dashboard?.attendance?.today || null;
+  const monthly = dashboard?.attendance?.monthly;
+  const displayMeetings = dashboard?.upcoming_meetings?.length ? dashboard.upcoming_meetings : meetings;
+
   return <>
-    <PageHeader eyebrow="MY WORKSPACE Â· THURSDAY" title="Hello, Maya." subtitle="Everything you need, without the noise." />
+    <PageHeader eyebrow="MY WORKSPACE" title={`Hello, ${name}.`} subtitle="Everything you need, without the noise." />
+    {error && <EmptyState title="Could not load workspace" text={error} />}
     <div className="employee-hero">
-      <div className="profile-feature"><Avatar name="Maya Kapoor" size={76} /><div><span>FLX-001 Â· ENGINEERING</span><h2>Maya Kapoor</h2><p>Senior Product Engineer Â· Bengaluru</p></div><Link href="/employee/profile">View profile <ArrowRight size={17} /></Link></div>
-      <div className="leave-balance"><span>ANNUAL LEAVE</span><strong>14<small>/ 24 days</small></strong><div><i style={{ width: "58%" }} /></div><Link href="/employee/leaves">Request time off</Link></div>
+      <div className="profile-feature"><Avatar name={name} size={76} /><div><span>{employee?.employee_code || "Not assigned"} - {employee?.department || "Not assigned"}</span><h2>{name}</h2><p>{employee?.designation || "Not assigned"} - {employee?.location || "Not assigned"}</p></div><Link href="/employee/profile">View profile <ArrowRight size={17} /></Link></div>
+      <div className="leave-balance"><span>ANNUAL LEAVE</span><strong>Not available</strong><p>Leave balance unavailable.</p><Link href="/employee/leaves">Request time off</Link></div>
     </div>
     <div className="stats-grid employee-stats">
-      <StatCard label="Today's check-in" value="09:24" note="On time Â· Location verified" icon={<LogIn />} />
-      <StatCard label="Today's checkout" value="18:38" note="Normal checkout" icon={<LogOut />} />
-      <StatCard label="Late this month" value="03" note="24 minutes total" icon={<Clock3 />} accent />
-      <StatCard label="Early exits" value="02" note="43 minutes total" icon={<TimerOff />} />
+      <StatCard label="Today's check-in" value={displayTime(todayRecord?.check_in_time)} note={todayRecord?.check_in_status || "Not recorded"} icon={<LogIn />} />
+      <StatCard label="Late this month" value={dashboard?.attendance ? dashboard.attendance.late_count : "Not available"} note="Calculated from your check-ins" icon={<Clock3 />} accent />
     </div>
-    <div className="dashboard-attendance-link employee"><div><span>TODAYâ€™S ATTENDANCE</span><b>Present Â· 9.23 hours</b><small>Shift 09:30 â€” 18:30 Â· Grace until 09:35</small></div><Link href="/employee/attendance">View attendance <ArrowRight size={17}/></Link></div>
+    <div className="dashboard-attendance-link employee"><div><span>TODAY'S ATTENDANCE</span><b>{todayRecord ? `${todayRecord.attendance_status} - ${todayRecord.working_hours} hours` : "No attendance recorded today"}</b><small>{monthly ? `${monthly.attendance_percentage}% attendance this month` : "Monthly attendance unavailable"}</small></div><Link href="/employee/attendance">View attendance <ArrowRight size={17}/></Link></div>
     <div className="dashboard-grid">
       <Section title="Your day" kicker="UPCOMING / SCHEDULE" action={<Link href="/employee/meetings">Full calendar</Link>}>
-        <div className="day-list">{meetings.map((m, i) => <div key={m.id}><div className="day-date"><b>{new Date(m.date).getDate()}</b><span>{new Date(m.date).toLocaleDateString("en-US", { month: "short" })}</span></div><div className="day-line"><i className={i === 0 ? "active" : ""} /></div><div><b>{m.title}</b><span><CalendarDays size={14} /> {m.time.slice(0,5)} Â· {m.location}</span></div><Badge>{m.department}</Badge></div>)}</div>
-      </Section>
-      <Section title="Latest payslips" kicker="PRIVATE / DOCUMENTS" action={<Link href="/employee/salary-slips">View arcflumenx</Link>}>
-        <div className="payslip-list">{salarySlips.map(s => <div key={s.id}><div className="doc-icon">PDF</div><div><b>{new Date(s.year, s.month - 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</b><span>Net pay Â· â‚¹{Number(s.net_salary).toLocaleString("en-IN")}</span></div><button><Download size={18} /></button></div>)}</div>
+        {meetingsLoading && <EmptyState title="Loading meetings" text="Fetching the latest schedule." />}
+        {meetingsError && <EmptyState title="Could not load meetings" text={meetingsError} />}
+        {!meetingsLoading && !meetingsError && !displayMeetings.length && <EmptyState title="No meetings scheduled" text="There are no meetings to show yet." />}
+        {!meetingsLoading && !meetingsError && Boolean(displayMeetings.length) && <div className="day-list">{displayMeetings.map((m, i) => <div key={m.id}><div className="day-date"><b>{new Date(m.date).getDate()}</b><span>{new Date(m.date).toLocaleDateString("en-US", { month: "short" })}</span></div><div className="day-line"><i className={i === 0 ? "active" : ""} /></div><div><b>{m.title}</b><span><CalendarDays size={14} /> {m.time.slice(0,5)} - {m.location || "Location not assigned"}</span></div><Badge>{m.department || "Audience not assigned"}</Badge></div>)}</div>}
       </Section>
     </div>
-    <Section title="From the noticeboard" kicker="COMPANY / UPDATES" action={<Link href="/employee/announcements">See all</Link>}>
-      <div className="notice-grid">{announcements.map((a, i) => <article key={a.id}><span>0{i + 1} / {a.priority.toUpperCase()}</span><h3>{a.title}</h3><p>{a.message}</p><time>{new Date(a.date).toLocaleDateString("en-IN", { day: "2-digit", month: "long" })}</time></article>)}</div>
-    </Section>
   </>;
 }
-
