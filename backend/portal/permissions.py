@@ -21,14 +21,39 @@ class IsHR(HasPortalRole):
 class IsAccountant(HasPortalRole):
     allowed_roles = ("ACCOUNTANT",)
 
-class IsBDO(HasPortalRole):
-    allowed_roles = ("BDO",)
+class IsBDE(HasPortalRole):
+    allowed_roles = ("BDE",)
 
 class IsEmployeeRole(HasPortalRole):
     allowed_roles = ("EMPLOYEE",)
 
 class IsAdminOrHR(HasPortalRole):
     allowed_roles = ("ADMIN", "HR")
+
+class IsWorkClientUser(BasePermission):
+    read_roles = ("ADMIN", "HR", "BDE", "TEAM_LEAD")
+    write_roles = ("ADMIN", "HR", "BDE")
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        role = portal_role(request.user)
+        if request.method in SAFE_METHODS:
+            return role in self.read_roles
+        return role in self.write_roles
+
+class IsWorkAssignmentUser(BasePermission):
+    allowed_roles = ("ADMIN", "HR", "BDE", "TEAM_LEAD", "EMPLOYEE")
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        role = portal_role(request.user)
+        if request.method == "POST":
+            return role in ("ADMIN", "HR", "BDE", "TEAM_LEAD")
+        if request.method == "DELETE":
+            return role in ("ADMIN", "HR", "BDE", "TEAM_LEAD")
+        return role in self.allowed_roles
 
 class IsAdminOrAccountant(HasPortalRole):
     allowed_roles = ("ADMIN", "ACCOUNTANT")

@@ -1,13 +1,26 @@
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.db import models
 from datetime import datetime, timedelta
+
+DEPARTMENT_CHOICES = [
+    ("Web Development", "Web Development"),
+    ("Video Editing", "Video Editing"),
+    ("Design", "Design"),
+    ("Digital Marketing", "Digital Marketing"),
+    ("Accountant", "Accountant"),
+    ("HR", "HR"),
+    ("Operations", "Operations"),
+]
+
 
 class UserRole(models.Model):
     ROLES = [
         ("HR", "HR"),
         ("ADMIN", "Admin"),
         ("ACCOUNTANT", "Accountant"),
-        ("BDO", "BDO"),
+        ("BDE", "BDE"),
+        ("TEAM_LEAD", "Team Lead"),
         ("EMPLOYEE", "Employee"),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="portal_profile")
@@ -17,7 +30,7 @@ class UserRole(models.Model):
         return f"{self.user.username} · {self.role}"
 
 class Employee(models.Model):
-    DEPARTMENTS = [("Engineering", "Engineering"), ("Design", "Design"), ("Finance", "Finance"), ("HR", "HR"), ("Operations", "Operations"), ("Sales", "Sales")]
+    DEPARTMENTS = DEPARTMENT_CHOICES
     STATUS = [("Active", "Active"), ("On Leave", "On Leave"), ("Inactive", "Inactive")]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="employee", null=True, blank=True)
     employee_code = models.CharField(max_length=20, unique=True)
@@ -30,12 +43,119 @@ class Employee(models.Model):
     status = models.CharField(max_length=20, choices=STATUS, default="Active")
     avatar = models.URLField(blank=True)
     location = models.CharField(max_length=100, blank=True)
+    team_lead = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="team_members")
 
     class Meta:
         ordering = ["name"]
 
+    def clean(self):
+        super().clean()
+        if self.team_lead_id and self.pk and self.team_lead_id == self.pk:
+            raise ValidationError({"team_lead": "Employee cannot be assigned as their own team lead."})
+
+    def save(self, *args, **kwargs):
+        if self.team_lead_id and self.pk and self.team_lead_id == self.pk:
+            raise ValidationError({"team_lead": "Employee cannot be assigned as their own team lead."})
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.employee_code} · {self.name}"
+
+class Client(models.Model):
+    name = models.CharField(max_length=160, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def clean(self):
+        super().clean()
+        self.name = self.name.strip()
+        if not self.name:
+            raise ValidationError({"name": "Client name is required."})
+        duplicate = Client.objects.filter(name__iexact=self.name)
+        if self.pk:
+            duplicate = duplicate.exclude(pk=self.pk)
+        if duplicate.exists():
+            raise ValidationError({"name": "Client name must be unique."})
+
+    def save(self, *args, **kwargs):
+        self.name = self.name.strip()
+        if not self.name:
+            raise ValidationError({"name": "Client name is required."})
+        duplicate = Client.objects.filter(name__iexact=self.name)
+        if self.pk:
+            duplicate = duplicate.exclude(pk=self.pk)
+        if duplicate.exists():
+            raise ValidationError({"name": "Client name must be unique."})
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class WorkAssignment(models.Model):
+    PRIORITIES = [
+        ("Low", "Low"),
+        ("Normal", "Normal"),
+        ("High", "High"),
+        ("Urgent", "Urgent"),
+    ]
+    STATUSES = [
+        ("Pending", "Pending"),
+        ("In Progress", "In Progress"),
+        ("Blocked", "Blocked"),
+        ("Completed", "Completed"),
+    ]
+
+    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="work_assignments")
+    client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name="work_assignments")
+    title = models.CharField(max_length=180)
+    description = models.TextField(blank=True)
+    priority = models.CharField(max_length=20, choices=PRIORITIES, default="Normal")
+    assigned_date = models.DateField()
+    due_date = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUSES, default="Pending")
+    progress = models.PositiveSmallIntegerField(default=0)
+    assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="assigned_work")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_date", "employee__name", "title"]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(progress__gte=0, progress__lte=100),
+                name="work_progress_between_0_and_100",
+            ),
+            models.CheckConstraint(
+                check=models.Q(due_date__gte=models.F("assigned_date")),
+                name="work_due_date_on_or_after_assigned_date",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        self.title = self.title.strip()
+        if not self.title:
+            raise ValidationError({"title": "Work title is required."})
+        if self.due_date and self.assigned_date and self.due_date < self.assigned_date:
+            raise ValidationError({"due_date": "Due date cannot be before assigned date."})
+        if self.progress < 0 or self.progress > 100:
+            raise ValidationError({"progress": "Progress must be between 0 and 100."})
+        if self.status == "Completed" and self.progress != 100:
+            raise ValidationError({"progress": "Completed work must have 100 progress."})
+        if self.status != "Completed" and self.progress == 100:
+            raise ValidationError({"progress": "Only completed work can have 100 progress."})
+
+    def save(self, *args, **kwargs):
+        self.title = self.title.strip()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.title} Â· {self.employee}"
+
 
 class LeaveRequest(models.Model):
     TYPES = [("Annual", "Annual"), ("Sick", "Sick"), ("Personal", "Personal"), ("Unpaid", "Unpaid")]
@@ -190,10 +310,8 @@ class AttendanceRecord(models.Model):
         if self.check_in_time:
             if self.check_out_time and float(self.working_hours) < float(policy.half_day_hours):
                 self.attendance_status = "Half Day"
-            elif self.is_late and self.is_early_exit:
-                self.attendance_status = "Present (Late + Early Exit)"
             elif self.is_late:
-                self.attendance_status = "Present (Late)"
+                self.attendance_status = "Half Day"
             elif self.is_early_exit:
                 self.attendance_status = "Present (Early Exit)"
             else:
