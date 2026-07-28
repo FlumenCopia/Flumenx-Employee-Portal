@@ -44,15 +44,23 @@ export type Client = {
 };
 export type WorkPriority = "Low" | "Normal" | "High" | "Urgent";
 export type WorkStatus = "Pending" | "In Progress" | "Blocked" | "Completed";
+export type WorkDeliverable = {
+  id: number; assignment: number; assignment_title: string; employee_name: string;
+  client: number; client_name: string; title: string; brief: string; work_type: string;
+  due_date: string; status: WorkStatus; completed_at: string | null; is_overdue: boolean;
+  created_at: string; updated_at: string;
+};
 export type WorkAssignment = {
   id: number; employee: number; employee_name: string; client: number; client_name: string;
   title: string; description: string; priority: WorkPriority; assigned_date: string; due_date: string;
-  status: WorkStatus; progress: number; assigned_by: number | null; assigned_by_name: string;
-  is_overdue: boolean; created_at: string; updated_at: string;
+  status: WorkStatus; progress: number; assigned_quantity: number; completed_quantity: number;
+  remaining_quantity: number; unit: string; completed_at: string | null;
+  assigned_by: number | null; assigned_by_name: string;
+  is_overdue: boolean; deliverables: WorkDeliverable[]; created_at: string; updated_at: string;
 };
 export type WorkSummary = {
   total: number; pending: number; in_progress: number; blocked: number; completed: number; overdue: number;
 };
 export type WorkEmployeeOption = {
-  id: number; display_name: string;
+  id: number; display_name: string; department: Department;
 };

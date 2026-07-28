@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from portal.models import Client, Employee, UserRole, WorkAssignment
+from portal.models import Client, Employee, UserRole, WorkAssignment, WorkDeliverable
 
 
 class WorkManagementAPITests(TestCase):
@@ -46,18 +46,17 @@ class WorkManagementAPITests(TestCase):
         self.other_client = Client.objects.create(name="Globex")
         self.today = timezone.localdate()
         self.team_work = self.create_assignment(self.team_member, status="Pending", due_date=self.today + timedelta(days=2))
-        self.other_work = self.create_assignment(self.other_member, status="In Progress", progress=40, due_date=self.today + timedelta(days=3))
+        self.other_work = self.create_assignment(self.other_member, completed_quantity=40, due_date=self.today + timedelta(days=3))
         self.own_work = self.create_assignment(
             self.employees["EMPLOYEE"],
             status="Blocked",
-            progress=20,
+            completed_quantity=20,
             assigned_date=self.today - timedelta(days=5),
             due_date=self.today - timedelta(days=1),
         )
         self.completed_work = self.create_assignment(
             self.team_member,
-            status="Completed",
-            progress=100,
+            completed_quantity=100,
             assigned_date=self.today - timedelta(days=5),
             due_date=self.today - timedelta(days=2),
             title="Done work",
@@ -87,7 +86,9 @@ class WorkManagementAPITests(TestCase):
             "assigned_date": self.today,
             "due_date": self.today + timedelta(days=5),
             "status": "Pending",
-            "progress": 0,
+            "assigned_quantity": 100,
+            "completed_quantity": 0,
+            "unit": "%",
             "assigned_by": self.users["ADMIN"],
         }
         values.update(overrides)
@@ -109,7 +110,9 @@ class WorkManagementAPITests(TestCase):
             "assigned_date": self.today.isoformat(),
             "due_date": (self.today + timedelta(days=7)).isoformat(),
             "status": "Pending",
-            "progress": 0,
+            "assigned_quantity": 10,
+            "completed_quantity": 0,
+            "unit": "tasks",
             "assigned_by": self.users["HR"].id,
         }
         values.update(overrides)
@@ -180,7 +183,7 @@ class WorkManagementAPITests(TestCase):
                 self.assertIn(self.team_member.id, self.ids_from_options(response))
                 self.assertIn(self.other_member.id, self.ids_from_options(response))
                 self.assertNotIn(inactive.id, self.ids_from_options(response))
-                self.assertEqual(set(response.data[0]), {"id", "display_name"})
+                self.assertEqual(set(response.data[0]), {"id", "display_name", "department"})
 
     def test_work_employee_options_for_team_lead_are_own_active_team_only(self):
         inactive_team_member = self.create_employee(
@@ -249,6 +252,8 @@ class WorkManagementAPITests(TestCase):
             {"assigned_date": (self.today - timedelta(days=1)).isoformat()},
             {"due_date": (self.today + timedelta(days=10)).isoformat()},
             {"assigned_by": self.users["HR"].id},
+            {"progress": 60},
+            {"completed_at": timezone.now().isoformat()},
         ]
         for payload in protected_payloads:
             with self.subTest(payload=payload):
@@ -257,7 +262,7 @@ class WorkManagementAPITests(TestCase):
 
         valid = self.client_api.patch(
             f"/api/work-assignments/{self.own_work.id}/",
-            {"status": "In Progress", "progress": 60},
+            {"completed_quantity": 60},
             format="json",
         )
 
@@ -265,7 +270,18 @@ class WorkManagementAPITests(TestCase):
         self.own_work.refresh_from_db()
         self.assertEqual(self.own_work.status, "In Progress")
         self.assertEqual(self.own_work.progress, 60)
+        self.assertEqual(self.own_work.completed_quantity, 60)
+        self.assertEqual(self.own_work.remaining_quantity, 40)
         self.assertEqual(self.own_work.assigned_by, self.users["ADMIN"])
+
+        blocked = self.client_api.patch(
+            f"/api/work-assignments/{self.own_work.id}/",
+            {"status": "Blocked"},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, 200, blocked.data)
+        self.own_work.refresh_from_db()
+        self.assertEqual(self.own_work.status, "Blocked")
 
     def test_filters_and_summary_are_scoped(self):
         self.as_role("ADMIN")
@@ -293,37 +309,53 @@ class WorkManagementAPITests(TestCase):
         self.assertEqual(scoped_summary.data["completed"], 1)
         self.assertEqual(scoped_summary.data["overdue"], 0)
 
-    def test_partial_update_preserves_model_validation(self):
+    def test_quantity_update_preserves_model_validation(self):
         self.as_role("ADMIN")
-        invalid_completed = self.client_api.patch(
+        invalid_completed_quantity = self.client_api.patch(
             f"/api/work-assignments/{self.team_work.id}/",
-            {"status": "Completed"},
+            {"completed_quantity": 101},
             format="json",
         )
-        invalid_progress = self.client_api.patch(
+        invalid_assigned_quantity = self.client_api.patch(
             f"/api/work-assignments/{self.team_work.id}/",
-            {"progress": 100},
+            {"assigned_quantity": 0},
             format="json",
         )
 
-        self.assertEqual(invalid_completed.status_code, 400)
-        self.assertEqual(invalid_progress.status_code, 400)
+        self.assertEqual(invalid_completed_quantity.status_code, 400)
+        self.assertEqual(invalid_assigned_quantity.status_code, 400)
 
-    def test_employee_partial_update_preserves_model_validation(self):
+    def test_employee_quantity_update_preserves_model_validation(self):
         self.as_role("EMPLOYEE")
-        invalid_completed = self.client_api.patch(
+        invalid_completed_quantity = self.client_api.patch(
+            f"/api/work-assignments/{self.own_work.id}/",
+            {"completed_quantity": 101},
+            format="json",
+        )
+        manual_completed_status = self.client_api.patch(
             f"/api/work-assignments/{self.own_work.id}/",
             {"status": "Completed"},
             format="json",
         )
-        invalid_progress = self.client_api.patch(
-            f"/api/work-assignments/{self.own_work.id}/",
-            {"progress": 100},
+
+        self.assertEqual(invalid_completed_quantity.status_code, 400)
+        self.assertEqual(manual_completed_status.status_code, 403)
+
+    def test_response_includes_quantity_fields_and_progress_is_read_only(self):
+        self.as_role("ADMIN")
+        response = self.client_api.post(
+            "/api/work-assignments/",
+            self.assignment_payload(assigned_quantity=20, completed_quantity=5, progress=99),
             format="json",
         )
 
-        self.assertEqual(invalid_completed.status_code, 400)
-        self.assertEqual(invalid_progress.status_code, 400)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["assigned_quantity"], 20)
+        self.assertEqual(response.data["completed_quantity"], 5)
+        self.assertEqual(response.data["remaining_quantity"], 15)
+        self.assertEqual(response.data["unit"], "tasks")
+        self.assertEqual(response.data["progress"], 25)
+        self.assertIsNone(response.data["completed_at"])
 
     def test_manager_update_preserves_original_assigned_by(self):
         self.as_role("HR")
@@ -336,3 +368,173 @@ class WorkManagementAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.team_work.refresh_from_db()
         self.assertEqual(self.team_work.assigned_by, self.users["ADMIN"])
+
+    def deliverable_payload(self, assignment=None, client=None, **overrides):
+        values = {
+            "assignment": assignment or self.team_work.id,
+            "client": client or self.client.id,
+            "title": "Onam Poster",
+            "brief": "Create a festival poster.",
+            "work_type": "poster",
+            "due_date": (self.today + timedelta(days=2)).isoformat(),
+            "status": "Pending",
+        }
+        values.update(overrides)
+        return values
+
+    def create_deliverable(self, assignment=None, **overrides):
+        values = {
+            "assignment": assignment or self.own_work,
+            "client": self.client,
+            "title": "Instagram Reel",
+            "brief": "Edit a short reel.",
+            "work_type": "video",
+            "due_date": self.today + timedelta(days=2),
+            "status": "Pending",
+        }
+        values.update(overrides)
+        return WorkDeliverable.objects.create(**values)
+
+    def test_assignment_response_includes_deliverables_and_parent_rollup(self):
+        first = self.create_deliverable(assignment=self.team_work, title="Poster One", status="Completed")
+        second = self.create_deliverable(assignment=self.team_work, title="Poster Two")
+
+        self.as_role("ADMIN")
+        response = self.client_api.get(f"/api/work-assignments/{self.team_work.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["assigned_quantity"], 2)
+        self.assertEqual(response.data["completed_quantity"], 1)
+        self.assertEqual(response.data["progress"], 50)
+        self.assertEqual(len(response.data["deliverables"]), 2)
+        self.assertCountEqual([item["id"] for item in response.data["deliverables"]], [first.id, second.id])
+
+    def test_management_can_create_update_and_delete_deliverables(self):
+        self.as_role("ADMIN")
+        created = self.client_api.post("/api/work-deliverables/", self.deliverable_payload(), format="json")
+        self.assertEqual(created.status_code, 201, created.data)
+
+        patched = self.client_api.patch(
+            f"/api/work-deliverables/{created.data['id']}/",
+            {"status": "Completed", "title": "Updated poster"},
+            format="json",
+        )
+        self.assertEqual(patched.status_code, 200, patched.data)
+        self.team_work.refresh_from_db()
+        self.assertEqual(self.team_work.status, "Completed")
+        self.assertEqual(self.team_work.progress, 100)
+
+        deleted = self.client_api.delete(f"/api/work-deliverables/{created.data['id']}/")
+        self.assertEqual(deleted.status_code, 204)
+
+    def test_employee_updates_own_deliverable_only_and_parent_refreshes(self):
+        deliverable = self.create_deliverable(assignment=self.own_work)
+
+        self.as_role("EMPLOYEE")
+        response = self.client_api.patch(
+            f"/api/work-deliverables/{deliverable.id}/",
+            {"status": "Completed"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        deliverable.refresh_from_db()
+        self.own_work.refresh_from_db()
+        self.assertEqual(deliverable.status, "Completed")
+        self.assertIsNotNone(deliverable.completed_at)
+        self.assertEqual(self.own_work.status, "Completed")
+        self.assertEqual(self.own_work.progress, 100)
+
+    def test_employee_can_block_deliverable_but_cannot_change_protected_fields(self):
+        deliverable = self.create_deliverable(assignment=self.own_work)
+
+        self.as_role("EMPLOYEE")
+        blocked = self.client_api.patch(f"/api/work-deliverables/{deliverable.id}/", {"status": "Blocked"}, format="json")
+        protected = self.client_api.patch(f"/api/work-deliverables/{deliverable.id}/", {"title": "Changed"}, format="json")
+
+        self.assertEqual(blocked.status_code, 200, blocked.data)
+        self.assertEqual(protected.status_code, 403)
+        deliverable.refresh_from_db()
+        self.own_work.refresh_from_db()
+        self.assertEqual(deliverable.status, "Blocked")
+        self.assertEqual(self.own_work.status, "Blocked")
+
+    def test_employee_blocked_deliverable_is_reflected_in_assignment_api(self):
+        blocked = self.create_deliverable(assignment=self.own_work)
+        completed = self.create_deliverable(
+            assignment=self.own_work,
+            title="Completed Item",
+            status="Completed",
+        )
+
+        self.as_role("EMPLOYEE")
+        response = self.client_api.patch(f"/api/work-deliverables/{blocked.id}/", {"status": "Blocked"}, format="json")
+        assignment_response = self.client_api.get(f"/api/work-assignments/{self.own_work.id}/")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(assignment_response.status_code, 200)
+        self.assertEqual(assignment_response.data["status"], "Blocked")
+        self.assertEqual(assignment_response.data["completed_quantity"], 1)
+        self.assertEqual(assignment_response.data["remaining_quantity"], 1)
+        completed.refresh_from_db()
+        self.assertEqual(completed.status, "Completed")
+
+    def test_employee_can_use_full_deliverable_status_workflow(self):
+        deliverable = self.create_deliverable(assignment=self.own_work)
+
+        self.as_role("EMPLOYEE")
+        in_progress = self.client_api.patch(f"/api/work-deliverables/{deliverable.id}/", {"status": "In Progress"}, format="json")
+        completed = self.client_api.patch(f"/api/work-deliverables/{deliverable.id}/", {"status": "Completed"}, format="json")
+        pending = self.client_api.patch(f"/api/work-deliverables/{deliverable.id}/", {"status": "Pending"}, format="json")
+
+        self.assertEqual(in_progress.status_code, 200, in_progress.data)
+        self.assertEqual(completed.status_code, 200, completed.data)
+        self.assertEqual(pending.status_code, 200, pending.data)
+        deliverable.refresh_from_db()
+        self.own_work.refresh_from_db()
+        self.assertEqual(deliverable.status, "Pending")
+        self.assertIsNone(deliverable.completed_at)
+        self.assertEqual(self.own_work.status, "Pending")
+        self.assertEqual(self.own_work.completed_quantity, 0)
+        self.assertEqual(self.own_work.progress, 0)
+
+    def test_employee_parent_update_is_rejected_when_assignment_has_deliverables(self):
+        self.create_deliverable(assignment=self.own_work)
+
+        self.as_role("EMPLOYEE")
+        response = self.client_api.patch(
+            f"/api/work-assignments/{self.own_work.id}/",
+            {"completed_quantity": 1},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_deliverable_permissions_follow_assignment_scope(self):
+        team_deliverable = self.create_deliverable(assignment=self.team_work)
+        other_deliverable = self.create_deliverable(assignment=self.other_work)
+
+        self.as_role("TEAM_LEAD")
+        response = self.client_api.get("/api/work-deliverables/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(team_deliverable.id, self.ids_from_list(response))
+        self.assertNotIn(other_deliverable.id, self.ids_from_list(response))
+        self.assertEqual(self.client_api.get(f"/api/work-deliverables/{other_deliverable.id}/").status_code, 404)
+        self.assertEqual(
+            self.client_api.post(
+                "/api/work-deliverables/",
+                self.deliverable_payload(assignment=self.other_work.id),
+                format="json",
+            ).status_code,
+            403,
+        )
+
+    def test_deliverable_filters_are_scoped(self):
+        own = self.create_deliverable(assignment=self.own_work, status="Blocked", due_date=self.today - timedelta(days=1))
+        self.create_deliverable(assignment=self.team_work, status="Pending")
+
+        self.as_role("EMPLOYEE")
+        response = self.client_api.get("/api/work-deliverables/?is_overdue=true&status=Blocked")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.ids_from_list(response), [own.id])

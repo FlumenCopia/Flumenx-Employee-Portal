@@ -23,7 +23,7 @@ from .view_modules.leaves import LeaveViewSet
 from .view_modules.meetings import MeetingViewSet
 from .view_modules.notifications import NotificationViewSet
 from .view_modules.salary import SalarySlipViewSet
-from .view_modules.work import ClientViewSet, WorkAssignmentViewSet, WorkEmployeeOptionsView
+from .view_modules.work import ClientViewSet, WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView
 
 
 class FlumenxTokenSerializer(TokenObtainPairSerializer):

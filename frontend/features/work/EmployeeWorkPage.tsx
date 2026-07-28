@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { BriefcaseBusiness, RotateCw, SlidersHorizontal } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
-import type { Paginated, WorkAssignment, WorkPriority, WorkStatus, WorkSummary } from "@/lib/types";
+import type { Paginated, WorkAssignment, WorkDeliverable, WorkPriority, WorkStatus, WorkSummary } from "@/lib/types";
 import { Badge, EmptyState, PageHeader, PrimaryButton, StatCard } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
 
@@ -37,6 +37,29 @@ function fieldErrors(err: unknown) {
   return err instanceof ApiError ? err.fields : {};
 }
 
+function quantityLabel(item: WorkAssignment) {
+  return `${item.completed_quantity}/${item.assigned_quantity} ${item.unit}`;
+}
+
+function ProgressMeter({ value }: { value: number }) {
+  const width = Math.max(0, Math.min(100, value));
+  return <div className="work-progress"><div><i style={{ width: `${width}%` }} /></div><span>{value}%</span></div>;
+}
+
+function groupedDeliverables(deliverables: WorkDeliverable[]) {
+  return deliverables.reduce<Array<{ client: string; items: WorkDeliverable[]; completed: number }>>((groups, deliverable) => {
+    const client = deliverable.client_name || "Client";
+    let group = groups.find(item => item.client === client);
+    if (!group) {
+      group = { client, items: [], completed: 0 };
+      groups.push(group);
+    }
+    group.items.push(deliverable);
+    if (deliverable.status === "Completed") group.completed += 1;
+    return groups;
+  }, []);
+}
+
 export function EmployeeWorkPage() {
   const [summary, setSummary] = useState<WorkSummary>(EMPTY_SUMMARY);
   const [items, setItems] = useState<WorkAssignment[]>([]);
@@ -46,10 +69,13 @@ export function EmployeeWorkPage() {
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const [editing, setEditing] = useState<WorkAssignment | null>(null);
-  const [status, setStatus] = useState<WorkStatus>("Pending");
-  const [progress, setProgress] = useState("0");
+  const [editingDeliverable, setEditingDeliverable] = useState<WorkDeliverable | null>(null);
+  const [statusMode, setStatusMode] = useState<"AUTO" | "Blocked">("AUTO");
+  const [deliverableStatus, setDeliverableStatus] = useState<WorkStatus>("Pending");
+  const [completedQuantity, setCompletedQuantity] = useState("0");
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [collapsedDeliverables, setCollapsedDeliverables] = useState<Record<number, boolean>>({});
   const requestRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -90,13 +116,16 @@ export function EmployeeWorkPage() {
   }, [filters, loadWork]);
 
   useEffect(() => {
-    if (!editing) return;
+    if (!editing && !editingDeliverable) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !submitting) setEditing(null);
+      if (event.key === "Escape" && !submitting) {
+        setEditing(null);
+        setEditingDeliverable(null);
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [editing, submitting]);
+  }, [editing, editingDeliverable, submitting]);
 
   function updateFilter(key: keyof EmployeeWorkFilters, value: string) {
     setFilters(current => ({ ...current, [key]: value }));
@@ -104,21 +133,30 @@ export function EmployeeWorkPage() {
 
   function openUpdate(item: WorkAssignment) {
     setEditing(item);
-    setStatus(item.status);
-    setProgress(String(item.progress));
+    setEditingDeliverable(null);
+    setStatusMode(item.status === "Blocked" ? "Blocked" : "AUTO");
+    setCompletedQuantity(String(item.completed_quantity));
     setFormErrors({});
     setActionError("");
   }
 
-  function effectiveProgress() {
-    if (status === "Completed") return 100;
-    return Number(progress);
+  function openDeliverableUpdate(deliverable: WorkDeliverable) {
+    setEditing(null);
+    setEditingDeliverable(deliverable);
+    setDeliverableStatus(deliverable.status);
+    setFormErrors({});
+    setActionError("");
+  }
+
+  function toggleDeliverables(id: number) {
+    setCollapsedDeliverables(current => ({ ...current, [id]: !current[id] }));
   }
 
   function clientValidationError() {
-    const nextProgress = effectiveProgress();
-    if (Number.isNaN(nextProgress) || nextProgress < 0 || nextProgress > 100) return "Progress must be between 0 and 100.";
-    if (status !== "Completed" && nextProgress === 100) return "Set status to Completed when progress is 100.";
+    if (!editing) return "";
+    const nextCompleted = Number(completedQuantity);
+    if (!Number.isFinite(nextCompleted) || nextCompleted < 0) return "Completed quantity cannot be negative.";
+    if (nextCompleted > editing.assigned_quantity) return "Completed quantity cannot exceed assigned quantity.";
     return "";
   }
 
@@ -136,14 +174,39 @@ export function EmployeeWorkPage() {
     try {
       await api<WorkAssignment>(`/work-assignments/${editing.id}/`, {
         method: "PATCH",
-        body: JSON.stringify({ status, progress: effectiveProgress() }),
+        body: JSON.stringify({
+          completed_quantity: Number(completedQuantity),
+          ...(statusMode === "Blocked" ? { status: "Blocked" } : {}),
+        }),
       });
       setEditing(null);
-      setMessage("Work progress updated.");
+      setMessage("Work quantity updated.");
       await loadWork(filters);
     } catch (err) {
       setFormErrors(fieldErrors(err));
-      setActionError(apiError(err, "Could not update work progress."));
+      setActionError(apiError(err, "Could not update work quantity."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitDeliverableUpdate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingDeliverable || submitting) return;
+    setSubmitting(true);
+    setActionError("");
+    setFormErrors({});
+    try {
+      await api<WorkDeliverable>(`/work-deliverables/${editingDeliverable.id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: deliverableStatus }),
+      });
+      setEditingDeliverable(null);
+      setMessage(deliverableStatus === "Completed" ? "Deliverable completed." : "Deliverable blocked.");
+      await loadWork(filters);
+    } catch (err) {
+      setFormErrors(fieldErrors(err));
+      setActionError(apiError(err, "Could not update deliverable."));
     } finally {
       setSubmitting(false);
     }
@@ -192,39 +255,97 @@ export function EmployeeWorkPage() {
     <div className="data-card work-card">
       <div className="data-table employee-work-table">
         <div className="table-head">
-          <span>Client</span><span>Work</span><span>Priority</span><span>Status</span><span>Progress</span><span>Assigned</span><span>Due</span><span>Assigned by</span><span />
+          <span>Client</span><span>Work</span><span>Quantity</span><span>Priority</span><span>Status</span><span>Progress</span><span>Assigned</span><span>Due</span><span>Assigned by</span><span />
         </div>
-        {!loading && !error && items.map(item => <div className={`table-row ${item.is_overdue ? "overdue-row" : ""}`} key={item.id}>
-          <span>{item.client_name}</span>
-          <div className="work-title"><b>{item.title}</b><small>{item.description || "No description"}</small></div>
-          <Badge tone={item.priority}>{item.priority}</Badge>
-          <Badge tone={item.status}>{item.status}</Badge>
-          <span>{item.progress}%</span>
-          <span>{formatDate(item.assigned_date)}</span>
-          <span>{formatDate(item.due_date)} {item.is_overdue && <em>Overdue</em>}</span>
-          <span>{item.assigned_by_name || "Portal"}</span>
-          <div className="row-actions">
-            <button type="button" disabled={submitting} onClick={() => openUpdate(item)}>Update</button>
-          </div>
-        </div>)}
+        {!loading && !error && items.map(item => {
+          const groups = groupedDeliverables(item.deliverables);
+          const collapsed = collapsedDeliverables[item.id] === true;
+          return <Fragment key={item.id}>
+            <div className={`table-row ${item.is_overdue ? "overdue-row" : ""}`}>
+              <span>{item.client_name}</span>
+              <div className="work-title">
+                <b>{item.title}</b>
+                <small>{item.description || "No description"}</small>
+                {item.deliverables.length > 0 && <small>{item.deliverables.length} deliverable items</small>}
+              </div>
+              <div className="quantity-cell"><b>{quantityLabel(item)}</b><small>{item.remaining_quantity} {item.unit} remaining</small></div>
+              <Badge tone={item.priority}>{item.priority}</Badge>
+              <Badge tone={item.status}>{item.status}</Badge>
+              <ProgressMeter value={item.progress} />
+              <span>{formatDate(item.assigned_date)}</span>
+              <span>{formatDate(item.due_date)} {item.is_overdue && <em>Overdue</em>}</span>
+              <span>{item.assigned_by_name || "Portal"}</span>
+              <div className="row-actions">
+                {item.deliverables.length === 0
+                  ? <button type="button" disabled={submitting} onClick={() => openUpdate(item)}>Update</button>
+                  : <button type="button" onClick={() => toggleDeliverables(item.id)}>{collapsed ? "View Items" : "Hide Items"}</button>}
+              </div>
+            </div>
+            {item.deliverables.length > 0 && !collapsed && <div className="employee-deliverables-panel">
+              {groups.map(group => <section className="employee-deliverable-group" key={group.client}>
+                <div className="employee-deliverable-group-head">
+                  <div><b>{group.client}</b><span>{group.items.length} deliverables</span></div>
+                  <span>{group.completed} completed / {group.items.length - group.completed} remaining</span>
+                </div>
+                <div className="employee-deliverable-rows">
+                  {group.items.map(deliverable => <div className="employee-deliverable-row" key={deliverable.id}>
+                    <div>
+                      <b>{deliverable.title}</b>
+                      <small>{deliverable.brief || "No brief added"}</small>
+                    </div>
+                    <span>{deliverable.work_type}</span>
+                    <span>{formatDate(deliverable.due_date)} {deliverable.is_overdue && <em>Overdue</em>}</span>
+                    <Badge tone={deliverable.status}>{deliverable.status}</Badge>
+                    <button type="button" disabled={submitting} onClick={() => openDeliverableUpdate(deliverable)}>Update Item</button>
+                  </div>)}
+                </div>
+              </section>)}
+            </div>}
+          </Fragment>;
+        })}
       </div>
       {loading && <EmptyState title="Loading your work" text="Fetching your assigned work." />}
       {error && <EmptyState title="Could not load your work" text={error} />}
       {!loading && !error && !items.length && <EmptyState title="No work assigned" text="There are no assignments to show for these filters." />}
     </div>
 
-    {editing && <Modal title="Update work progress" onClose={() => !submitting && setEditing(null)}>
+    {editing && <Modal title="Update completed quantity" onClose={() => !submitting && setEditing(null)}>
       <form className="modal-form" onSubmit={submitUpdate}>
         <label>Work title<input value={editing.title} readOnly /></label>
-        <label>Status<select value={status} onChange={event => {
-          const nextStatus = event.target.value as WorkStatus;
-          setStatus(nextStatus);
-          if (nextStatus === "Completed") setProgress("100");
-          if (nextStatus !== "Completed" && progress === "100") setProgress("99");
-        }}>{STATUSES.map(option => <option key={option}>{option}</option>)}</select>{formErrors.status && <small>{formErrors.status}</small>}</label>
-        <label>Progress<input type="number" min="0" max="100" value={status === "Completed" ? "100" : progress} disabled={status === "Completed"} onChange={event => setProgress(event.target.value)} required />{formErrors.progress && <small>{formErrors.progress}</small>}</label>
+        <div className="quantity-preview">
+          <span>Assigned quantity</span>
+          <b>{editing.assigned_quantity} {editing.unit}</b>
+          <small>Progress and status are calculated by the backend after saving.</small>
+        </div>
+        <label>Completed quantity<input type="number" min="0" max={editing.assigned_quantity} step="1" value={completedQuantity} onChange={event => setCompletedQuantity(event.target.value)} required />{formErrors.completed_quantity && <small>{formErrors.completed_quantity}</small>}</label>
+        <label>Status<select value={statusMode} onChange={event => setStatusMode(event.target.value as "AUTO" | "Blocked")}>
+          <option value="AUTO">Auto from quantity</option>
+          <option value="Blocked">Blocked</option>
+        </select>{formErrors.status && <small>{formErrors.status}</small>}</label>
+        <ProgressMeter value={editing.progress} />
         {actionError && <div className="toast error">{actionError}</div>}
-        <PrimaryButton type="submit" disabled={submitting}>{submitting ? "Updating..." : "Update Progress"}</PrimaryButton>
+        <PrimaryButton type="submit" disabled={submitting}>{submitting ? "Updating..." : "Update Quantity"}</PrimaryButton>
+      </form>
+    </Modal>}
+
+    {editingDeliverable && <Modal title="Update deliverable" onClose={() => !submitting && setEditingDeliverable(null)}>
+      <form className="modal-form" onSubmit={submitDeliverableUpdate}>
+        <label>Deliverable<input value={editingDeliverable.title} readOnly /></label>
+        <label>Client<input value={editingDeliverable.client_name} readOnly /></label>
+        <label>Brief<textarea value={editingDeliverable.brief || "No brief"} readOnly rows={3} /></label>
+        <div className="quantity-preview">
+          <span>Current status</span>
+          <b>{editingDeliverable.status}</b>
+          <small>Changing this item status automatically refreshes the parent assignment completed count, remaining count, progress, and status.</small>
+        </div>
+        <label>Status<select value={deliverableStatus} onChange={event => setDeliverableStatus(event.target.value as WorkStatus)}>
+          <option value="Pending">Pending</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Completed">Completed</option>
+          <option value="Blocked">Blocked</option>
+        </select>{formErrors.status && <small>{formErrors.status}</small>}</label>
+        {actionError && <div className="toast error">{actionError}</div>}
+        <PrimaryButton type="submit" disabled={submitting}>{submitting ? "Updating..." : "Update Deliverable"}</PrimaryButton>
       </form>
     </Modal>}
   </>;

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight, CalendarDays, Clock3, LogIn } from "lucide-react";
 import { api } from "@/lib/api";
-import { AuthUser, AttendanceRecord, Meeting, Paginated } from "@/lib/types";
+import { AuthUser, AttendanceRecord, Meeting } from "@/lib/types";
 import { AttendanceSummary } from "@/features/attendance/types";
 import { Avatar } from "./icons";
 import { useShellUser } from "./shell";
@@ -26,11 +26,8 @@ const displayTime = (value: string | null | undefined) => value ? new Date(`2026
 export function EmployeeDashboard() {
   const user = useShellUser();
   const [dashboard, setDashboard] = useState<EmployeeDashboardData | null>(null);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [meetingsLoading, setMeetingsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [meetingsError, setMeetingsError] = useState("");
 
   useEffect(() => {
     setLoading(true);
@@ -42,24 +39,13 @@ export function EmployeeDashboard() {
         setError(err instanceof Error ? err.message : "Could not load dashboard.");
       })
       .finally(() => setLoading(false));
-
-    setMeetingsLoading(true);
-    setMeetingsError("");
-    api<Paginated<Meeting>>("/meetings/")
-      .then(data => setMeetings(data.results))
-      .catch(err => {
-        setMeetings([]);
-        setMeetingsError(err instanceof Error ? err.message : "Could not load meetings.");
-      })
-      .finally(() => setMeetingsLoading(false));
-
   }, []);
 
   const employee = dashboard?.profile || user?.employee || null;
   const name = employee?.name || user?.first_name || user?.email || user?.username || "User";
   const todayRecord = dashboard?.attendance?.today || null;
   const monthly = dashboard?.attendance?.monthly;
-  const displayMeetings = dashboard?.upcoming_meetings?.length ? dashboard.upcoming_meetings : meetings;
+  const displayMeetings = dashboard?.upcoming_meetings || [];
 
   return <>
     <PageHeader eyebrow="MY WORKSPACE" title={`Hello, ${name}.`} subtitle="Everything you need, without the noise." />
@@ -75,10 +61,9 @@ export function EmployeeDashboard() {
     <div className="dashboard-attendance-link employee"><div><span>TODAY'S ATTENDANCE</span><b>{todayRecord ? `${todayRecord.attendance_status} - ${todayRecord.working_hours} hours` : "No attendance recorded today"}</b><small>{monthly ? `${monthly.attendance_percentage}% attendance this month` : "Monthly attendance unavailable"}</small></div><Link href="/employee/attendance">View attendance <ArrowRight size={17}/></Link></div>
     <div className="dashboard-grid">
       <Section title="Your day" kicker="UPCOMING / SCHEDULE" action={<Link href="/employee/meetings">Full calendar</Link>}>
-        {meetingsLoading && <EmptyState title="Loading meetings" text="Fetching the latest schedule." />}
-        {meetingsError && <EmptyState title="Could not load meetings" text={meetingsError} />}
-        {!meetingsLoading && !meetingsError && !displayMeetings.length && <EmptyState title="No meetings scheduled" text="There are no meetings to show yet." />}
-        {!meetingsLoading && !meetingsError && Boolean(displayMeetings.length) && <div className="day-list">{displayMeetings.map((m, i) => <div key={m.id}><div className="day-date"><b>{new Date(m.date).getDate()}</b><span>{new Date(m.date).toLocaleDateString("en-US", { month: "short" })}</span></div><div className="day-line"><i className={i === 0 ? "active" : ""} /></div><div><b>{m.title}</b><span><CalendarDays size={14} /> {m.time.slice(0,5)} - {m.location || "Location not assigned"}</span></div><Badge>{m.department || "Audience not assigned"}</Badge></div>)}</div>}
+        {loading && !dashboard && <EmptyState title="Loading meetings" text="Fetching the latest schedule." />}
+        {!loading && !error && !displayMeetings.length && <EmptyState title="No meetings scheduled" text="There are no meetings to show yet." />}
+        {!loading && Boolean(displayMeetings.length) && <div className="day-list">{displayMeetings.map((m, i) => <div key={m.id}><div className="day-date"><b>{new Date(m.date).getDate()}</b><span>{new Date(m.date).toLocaleDateString("en-US", { month: "short" })}</span></div><div className="day-line"><i className={i === 0 ? "active" : ""} /></div><div><b>{m.title}</b><span><CalendarDays size={14} /> {m.time.slice(0,5)} - {m.location || "Location not assigned"}</span></div><Badge>{m.department || "Audience not assigned"}</Badge></div>)}</div>}
       </Section>
     </div>
   </>;

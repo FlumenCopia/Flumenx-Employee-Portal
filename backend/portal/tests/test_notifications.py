@@ -5,7 +5,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from portal.models import Client, Employee, LeaveRequest, Meeting, Notification, UserRole, WorkAssignment
+from portal.models import Client, Employee, LeaveRequest, Meeting, Notification, UserRole, WorkAssignment, WorkDeliverable
 from portal.services.notifications import create_notifications, create_notifications_for_roles
 
 
@@ -705,7 +705,9 @@ class WorkNotificationTests(TestCase):
             "assigned_date": self.today.isoformat(),
             "due_date": (self.today + timedelta(days=5)).isoformat(),
             "status": "Pending",
-            "progress": 0,
+            "assigned_quantity": 10,
+            "completed_quantity": 0,
+            "unit": "tasks",
         }
         data.update(overrides)
         return data
@@ -720,7 +722,9 @@ class WorkNotificationTests(TestCase):
             "assigned_date": self.today,
             "due_date": self.today + timedelta(days=5),
             "status": "Pending",
-            "progress": 0,
+            "assigned_quantity": 10,
+            "completed_quantity": 0,
+            "unit": "tasks",
             "assigned_by": self.admin,
         }
         values.update(overrides)
@@ -760,7 +764,7 @@ class WorkNotificationTests(TestCase):
         self.authenticate(self.employee_user)
         response = self.client.patch(
             f"/api/work-assignments/{assignment.id}/",
-            {"status": "Completed", "progress": 100},
+            {"completed_quantity": 10},
             format="json",
         )
 
@@ -780,3 +784,42 @@ class WorkNotificationTests(TestCase):
         self.assertFalse(WorkAssignment.objects.filter(id=assignment.id).exists())
         self.assertCountEqual(self.notification_usernames(), ["work-employee@example.com"])
         self.assertTrue(Notification.objects.filter(category="work_deleted").exists())
+
+    def test_final_deliverable_completion_notifies_assigned_by_and_active_hr_once(self):
+        assignment = self.create_assignment(assigned_quantity=1, completed_quantity=0, unit="items")
+        first = WorkDeliverable.objects.create(
+            assignment=assignment,
+            client=self.client_record,
+            title="Onam Poster",
+            brief="Festival creative",
+            work_type="poster",
+            due_date=self.today + timedelta(days=1),
+            status="Completed",
+        )
+        second = WorkDeliverable.objects.create(
+            assignment=assignment,
+            client=self.client_record,
+            title="Offer Poster",
+            brief="Offer creative",
+            work_type="poster",
+            due_date=self.today + timedelta(days=2),
+        )
+        Notification.objects.all().delete()
+
+        self.authenticate(self.employee_user)
+        response = self.client.patch(f"/api/work-deliverables/{second.id}/", {"status": "Completed"}, format="json")
+        notification_count = Notification.objects.count()
+        repeat = self.client.patch(f"/api/work-deliverables/{second.id}/", {"status": "Completed"}, format="json")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(repeat.status_code, 200, repeat.data)
+        self.assertEqual(Notification.objects.count(), notification_count)
+        self.assertCountEqual(self.notification_usernames(), ["work-admin@example.com", "work-hr@example.com"])
+        self.assertFalse(Notification.objects.filter(user=self.employee_user).exists())
+        self.assertTrue(Notification.objects.filter(category="work_completed").exists())
+        first.refresh_from_db()
+        second.refresh_from_db()
+        assignment.refresh_from_db()
+        self.assertEqual(first.status, "Completed")
+        self.assertEqual(second.status, "Completed")
+        self.assertEqual(assignment.status, "Completed")

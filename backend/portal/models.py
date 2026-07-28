@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 from datetime import datetime, timedelta
 
 DEPARTMENT_CHOICES = [
@@ -47,6 +48,10 @@ class Employee(models.Model):
 
     class Meta:
         ordering = ["name"]
+        indexes = [
+            models.Index(fields=["status", "name"], name="employee_status_name_idx"),
+            models.Index(fields=["department", "status"], name="employee_dept_status_idx"),
+        ]
 
     def clean(self):
         super().clean()
@@ -118,16 +123,36 @@ class WorkAssignment(models.Model):
     due_date = models.DateField()
     status = models.CharField(max_length=20, choices=STATUSES, default="Pending")
     progress = models.PositiveSmallIntegerField(default=0)
+    assigned_quantity = models.PositiveIntegerField(default=100)
+    completed_quantity = models.PositiveIntegerField(default=0)
+    unit = models.CharField(max_length=30, default="%")
+    completed_at = models.DateTimeField(null=True, blank=True)
     assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="assigned_work")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["due_date", "employee__name", "title"]
+        indexes = [
+            models.Index(fields=["due_date", "status"], name="work_due_status_idx"),
+            models.Index(fields=["status", "priority"], name="work_status_priority_idx"),
+        ]
         constraints = [
             models.CheckConstraint(
                 check=models.Q(progress__gte=0, progress__lte=100),
                 name="work_progress_between_0_and_100",
+            ),
+            models.CheckConstraint(
+                check=models.Q(assigned_quantity__gt=0),
+                name="work_assigned_quantity_positive",
+            ),
+            models.CheckConstraint(
+                check=models.Q(completed_quantity__gte=0),
+                name="work_completed_quantity_not_negative",
+            ),
+            models.CheckConstraint(
+                check=models.Q(completed_quantity__lte=models.F("assigned_quantity")),
+                name="work_completed_quantity_lte_assigned",
             ),
             models.CheckConstraint(
                 check=models.Q(due_date__gte=models.F("assigned_date")),
@@ -135,26 +160,153 @@ class WorkAssignment(models.Model):
             ),
         ]
 
+    @property
+    def remaining_quantity(self):
+        return max(0, self.assigned_quantity - self.completed_quantity)
+
+    def has_deliverables(self):
+        return bool(self.pk) and self.deliverables.exists()
+
+    def derived_progress(self):
+        if not self.assigned_quantity:
+            return 0
+        return round((self.completed_quantity / self.assigned_quantity) * 100)
+
+    def derived_status(self):
+        if self.status == "Blocked" and self.completed_quantity < self.assigned_quantity:
+            return "Blocked"
+        if self.completed_quantity == 0:
+            return "Pending"
+        if self.completed_quantity >= self.assigned_quantity:
+            return "Completed"
+        return "In Progress"
+
+    def sync_quantity_state(self):
+        self.progress = self.derived_progress()
+        next_status = self.derived_status()
+        was_completed = self.status == "Completed"
+        self.status = next_status
+        if next_status == "Completed" and not self.completed_at:
+            self.completed_at = timezone.now()
+        elif next_status != "Completed" and (self.completed_at or was_completed):
+            self.completed_at = None
+
+    def sync_from_deliverables(self, save=False):
+        if not self.pk:
+            return
+        rows = list(self.deliverables.all())
+        if not rows:
+            return
+        assigned = len(rows)
+        completed = sum(1 for row in rows if row.status == "Completed")
+        statuses = {row.status for row in rows}
+        self.assigned_quantity = assigned
+        self.completed_quantity = completed
+        self.unit = "items"
+        self.progress = round((completed / assigned) * 100)
+        if completed == assigned:
+            self.status = "Completed"
+            if not self.completed_at:
+                self.completed_at = timezone.now()
+        else:
+            if self.completed_at:
+                self.completed_at = None
+            if "Blocked" in statuses:
+                self.status = "Blocked"
+            elif "In Progress" in statuses or "Completed" in statuses:
+                self.status = "In Progress"
+            else:
+                self.status = "Pending"
+        if save:
+            self.save(update_fields=["assigned_quantity", "completed_quantity", "unit", "progress", "status", "completed_at", "updated_at"])
+
     def clean(self):
         super().clean()
         self.title = self.title.strip()
+        self.unit = self.unit.strip()
         if not self.title:
             raise ValidationError({"title": "Work title is required."})
+        if not self.unit:
+            raise ValidationError({"unit": "Unit is required."})
         if self.due_date and self.assigned_date and self.due_date < self.assigned_date:
             raise ValidationError({"due_date": "Due date cannot be before assigned date."})
-        if self.progress < 0 or self.progress > 100:
-            raise ValidationError({"progress": "Progress must be between 0 and 100."})
-        if self.status == "Completed" and self.progress != 100:
-            raise ValidationError({"progress": "Completed work must have 100 progress."})
-        if self.status != "Completed" and self.progress == 100:
-            raise ValidationError({"progress": "Only completed work can have 100 progress."})
+        if self.assigned_quantity <= 0:
+            raise ValidationError({"assigned_quantity": "Assigned quantity must be greater than 0."})
+        if self.completed_quantity < 0:
+            raise ValidationError({"completed_quantity": "Completed quantity cannot be negative."})
+        if self.completed_quantity > self.assigned_quantity:
+            raise ValidationError({"completed_quantity": "Completed quantity cannot exceed assigned quantity."})
+        if self.has_deliverables():
+            self.sync_from_deliverables()
+        else:
+            self.sync_quantity_state()
 
     def save(self, *args, **kwargs):
         self.title = self.title.strip()
+        self.unit = self.unit.strip()
+        self.clean()
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.title} Â· {self.employee}"
+
+
+class WorkDeliverable(models.Model):
+    STATUSES = WorkAssignment.STATUSES
+
+    assignment = models.ForeignKey(WorkAssignment, on_delete=models.CASCADE, related_name="deliverables")
+    client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name="work_deliverables")
+    title = models.CharField(max_length=180)
+    brief = models.TextField(blank=True)
+    work_type = models.CharField(max_length=80)
+    due_date = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUSES, default="Pending")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_date", "client__name", "title"]
+        indexes = [
+            models.Index(fields=["assignment", "status"], name="deliver_assignment_status_idx"),
+            models.Index(fields=["client", "due_date"], name="deliver_client_due_idx"),
+            models.Index(fields=["status", "due_date"], name="deliver_status_due_idx"),
+        ]
+
+    @property
+    def is_overdue(self):
+        return self.status != "Completed" and self.due_date < timezone.localdate()
+
+    def clean(self):
+        super().clean()
+        self.title = self.title.strip()
+        self.work_type = self.work_type.strip()
+        if not self.title:
+            raise ValidationError({"title": "Deliverable title is required."})
+        if not self.work_type:
+            raise ValidationError({"work_type": "Work type is required."})
+        if self.assignment_id and self.due_date and self.assignment.assigned_date and self.due_date < self.assignment.assigned_date:
+            raise ValidationError({"due_date": "Deliverable due date cannot be before assignment date."})
+        if self.status == "Completed" and not self.completed_at:
+            self.completed_at = timezone.now()
+        elif self.status != "Completed" and self.completed_at:
+            self.completed_at = None
+
+    def save(self, *args, **kwargs):
+        self.title = self.title.strip()
+        self.work_type = self.work_type.strip()
+        self.clean()
+        super().save(*args, **kwargs)
+        self.assignment.sync_from_deliverables(save=True)
+
+    def delete(self, *args, **kwargs):
+        assignment = self.assignment
+        result = super().delete(*args, **kwargs)
+        assignment.sync_from_deliverables(save=True)
+        return result
+
+    def __str__(self):
+        return f"{self.title} Ã‚Â· {self.assignment}"
 
 
 class LeaveRequest(models.Model):
@@ -171,6 +323,9 @@ class LeaveRequest(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "created_at"], name="leave_status_created_idx"),
+        ]
 
 class SalarySlip(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="salary_slips")
@@ -196,6 +351,10 @@ class Meeting(models.Model):
 
     class Meta:
         ordering = ["date", "time"]
+        indexes = [
+            models.Index(fields=["date", "time"], name="meeting_date_time_idx"),
+            models.Index(fields=["department", "date", "time"], name="meeting_dept_date_time_idx"),
+        ]
 
 class Announcement(models.Model):
     PRIORITIES = [("Normal", "Normal"), ("Important", "Important"), ("Urgent", "Urgent")]
@@ -267,6 +426,10 @@ class AttendanceRecord(models.Model):
 
     class Meta:
         ordering = ["-attendance_date", "employee__name"]
+        indexes = [
+            models.Index(fields=["attendance_date"], name="attendance_date_idx"),
+            models.Index(fields=["attendance_status"], name="attendance_status_idx"),
+        ]
         constraints = [models.UniqueConstraint(fields=["employee", "attendance_date"], name="unique_employee_attendance_date")]
 
     @staticmethod
@@ -347,6 +510,9 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "is_read", "created_at"], name="notif_user_read_created_idx"),
+        ]
 
 class AuditLog(models.Model):
     actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)

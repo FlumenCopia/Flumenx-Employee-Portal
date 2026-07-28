@@ -22,9 +22,10 @@ class LeaveViewSet(viewsets.ModelViewSet):
     serializer_class = LeaveSerializer
 
     def get_queryset(self):
+        qs = LeaveRequest.objects.select_related("employee", "employee__user")
         if portal_role(self.request.user) in ("ADMIN", "HR"):
-            return LeaveRequest.objects.select_related("employee")
-        return LeaveRequest.objects.filter(employee__user=self.request.user)
+            return qs
+        return qs.filter(employee__user=self.request.user)
 
     def perform_create(self, serializer):
         if portal_role(self.request.user) in ("ADMIN", "HR") and self.request.data.get("employee"):

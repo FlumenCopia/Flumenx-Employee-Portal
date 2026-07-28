@@ -47,34 +47,54 @@ function NotificationBell({ user }: { user: AuthUser | null }) {
   const [readingId, setReadingId] = useState<number | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const requestRef = useRef(0);
-  const abortRef = useRef<AbortController | null>(null);
+  const listRequestRef = useRef(0);
+  const countRequestRef = useRef(0);
+  const listAbortRef = useRef<AbortController | null>(null);
+  const countAbortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(false);
+  const hasLoadedListRef = useRef(false);
+
+  const loadUnreadCount = useCallback(async () => {
+    if (!user) return;
+    countAbortRef.current?.abort();
+    const controller = new AbortController();
+    const requestId = countRequestRef.current + 1;
+    countRequestRef.current = requestId;
+    countAbortRef.current = controller;
+    try {
+      const unread = await api<{ count: number }>("/notifications/unread-count/", { signal: controller.signal });
+      if (countRequestRef.current !== requestId || controller.signal.aborted) return;
+      if (!mountedRef.current) return;
+      setCount(unread.count);
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      if (mountedRef.current) setError(err instanceof Error ? err.message : "Could not load notifications.");
+    }
+  }, [user]);
 
   const loadNotifications = useCallback(async () => {
     if (!user) return;
-    abortRef.current?.abort();
+    listAbortRef.current?.abort();
     const controller = new AbortController();
-    const requestId = requestRef.current + 1;
-    requestRef.current = requestId;
-    abortRef.current = controller;
+    const requestId = listRequestRef.current + 1;
+    listRequestRef.current = requestId;
+    listAbortRef.current = controller;
     setLoading(true);
     setError("");
     try {
-      const [list, unread] = await Promise.all([
-        api<Paginated<PortalNotification>>("/notifications/", { signal: controller.signal }),
-        api<{ count: number }>("/notifications/unread-count/", { signal: controller.signal }),
-      ]);
-      if (requestRef.current !== requestId || controller.signal.aborted) return;
+      const list = await api<Paginated<PortalNotification>>("/notifications/", { signal: controller.signal });
+      if (listRequestRef.current !== requestId || controller.signal.aborted) return;
+      if (!mountedRef.current) return;
       setItems(list.results);
-      setCount(unread.count);
+      hasLoadedListRef.current = true;
+      loadUnreadCount();
     } catch (err) {
       if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Could not load notifications.");
     } finally {
-      if (requestRef.current === requestId && !controller.signal.aborted) setLoading(false);
+      if (listRequestRef.current === requestId && !controller.signal.aborted) setLoading(false);
     }
-  }, [user]);
+  }, [loadUnreadCount, user]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -82,14 +102,22 @@ function NotificationBell({ user }: { user: AuthUser | null }) {
   }, []);
 
   useEffect(() => {
+    setItems([]);
+    setCount(0);
+    hasLoadedListRef.current = false;
     if (!user) return;
-    loadNotifications();
-    const timer = window.setInterval(loadNotifications, 60000);
+    loadUnreadCount();
+    const timer = window.setInterval(loadUnreadCount, 60000);
     return () => {
       window.clearInterval(timer);
-      abortRef.current?.abort();
+      listAbortRef.current?.abort();
+      countAbortRef.current?.abort();
     };
-  }, [loadNotifications, user]);
+  }, [loadUnreadCount, user]);
+
+  useEffect(() => {
+    if (open && user && !hasLoadedListRef.current) loadNotifications();
+  }, [loadNotifications, open, user]);
 
   useEffect(() => {
     if (!open) return;

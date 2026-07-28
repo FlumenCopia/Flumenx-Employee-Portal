@@ -1,9 +1,10 @@
 from django.utils.timezone import localdate
+from django.db.models import Count, Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from portal.models import Announcement, AttendanceRecord, Employee, LeaveRequest, Meeting, SalarySlip
+from portal.models import Announcement, AttendanceRecord, Client, Employee, LeaveRequest, Meeting, SalarySlip, WorkAssignment
 from portal.permissions import portal_role
 from portal.serializers import AnnouncementSerializer, AttendanceRecordSerializer, EmployeeSerializer, LeaveSerializer, MeetingSerializer, SalarySlipSerializer
 from .helpers import attendance_summary
@@ -14,11 +15,12 @@ def employee_attendance_dashboard(employee, today):
         employee=employee, attendance_date__year=today.year, attendance_date__month=today.month
     )
     today_record = month_records.filter(attendance_date=today).first()
+    monthly = attendance_summary(month_records)
     return {
         "today": AttendanceRecordSerializer(today_record).data if today_record else None,
-        "monthly": attendance_summary(month_records),
-        "late_count": month_records.filter(is_late=True).count(),
-        "early_exit_count": month_records.filter(is_early_exit=True).count(),
+        "monthly": monthly,
+        "late_count": monthly["late"],
+        "early_exit_count": monthly["early_exits"],
     }
 
 
@@ -33,13 +35,23 @@ def dashboard(request):
     }
     if role in ("ADMIN", "HR", "ACCOUNTANT"):
         today_records = AttendanceRecord.objects.filter(attendance_date=today)
+        employees = Employee.objects.aggregate(
+            total=Count("id"),
+            active=Count("id", filter=Q(status="Active")),
+        )
+        work = WorkAssignment.objects.aggregate(
+            pending=Count("id", filter=Q(status="Pending")),
+            overdue=Count("id", filter=Q(due_date__lt=today) & ~Q(status="Completed")),
+        )
         base.update({
-            "total_employees": Employee.objects.count(),
-            "active_employees": Employee.objects.filter(status="Active").count(),
+            "total_employees": employees["total"],
+            "active_employees": employees["active"],
             "pending_leaves": LeaveRequest.objects.filter(status="Pending").count(),
+            "pending_work": work["pending"],
+            "overdue_work": work["overdue"],
+            "active_clients": Client.objects.count(),
             "salary_slips": SalarySlip.objects.count(),
-            "recent_leaves": LeaveSerializer(LeaveRequest.objects.all()[:5], many=True).data,
-            "attendance": attendance_summary(today_records, Employee.objects.filter(status="Active").count()),
+            "attendance": attendance_summary(today_records, employees["active"]),
         })
     else:
         employee = getattr(request.user, "employee", None)

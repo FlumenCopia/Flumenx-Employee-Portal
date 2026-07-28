@@ -1,11 +1,12 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from .views import AnnouncementViewSet, AttendanceCorrectionViewSet, AttendancePolicyViewSet, AttendanceRecordViewSet, AuditLogViewSet, ClientViewSet, EmployeeViewSet, LeaveViewSet, LoginView, MeetingViewSet, NotificationViewSet, SalarySlipViewSet, WorkAssignmentViewSet, WorkEmployeeOptionsView, csrf, dashboard, logout, me, refresh, register
+from .views import AnnouncementViewSet, AttendanceCorrectionViewSet, AttendancePolicyViewSet, AttendanceRecordViewSet, AuditLogViewSet, ClientViewSet, EmployeeViewSet, LeaveViewSet, LoginView, MeetingViewSet, NotificationViewSet, SalarySlipViewSet, WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView, csrf, dashboard, logout, me, refresh, register
 
 router = DefaultRouter()
 router.register("employees", EmployeeViewSet, basename="employee")
 router.register("clients", ClientViewSet, basename="client")
 router.register("work-assignments", WorkAssignmentViewSet, basename="work-assignment")
+router.register("work-deliverables", WorkDeliverableViewSet, basename="work-deliverable")
 router.register("leaves", LeaveViewSet, basename="leave")
 router.register("salary-slips", SalarySlipViewSet, basename="salary-slip")
 router.register("meetings", MeetingViewSet, basename="meeting")

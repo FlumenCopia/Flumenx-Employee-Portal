@@ -76,7 +76,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrHR]
 
     def get_queryset(self):
-        qs = Employee.objects.all()
+        qs = Employee.objects.select_related("user", "user__portal_profile", "team_lead")
         search = self.request.query_params.get("search")
         department = self.request.query_params.get("department")
         if search:
