@@ -268,7 +268,7 @@ class WorkManagementAPITests(TestCase):
 
         self.assertEqual(valid.status_code, 200, valid.data)
         self.own_work.refresh_from_db()
-        self.assertEqual(self.own_work.status, "In Progress")
+        self.assertEqual(self.own_work.status, "Ongoing")
         self.assertEqual(self.own_work.progress, 60)
         self.assertEqual(self.own_work.completed_quantity, 60)
         self.assertEqual(self.own_work.remaining_quantity, 40)
@@ -538,3 +538,46 @@ class WorkManagementAPITests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.ids_from_list(response), [own.id])
+
+    def test_employee_work_quantity_update_auto_syncs_status_and_progress(self):
+        assignment = self.create_assignment(self.employees["EMPLOYEE"], assigned_quantity=10, completed_quantity=0)
+
+        self.as_role("EMPLOYEE")
+
+        resp = self.client_api.get(f"/api/work-assignments/{assignment.id}/")
+        self.assertEqual(resp.data["progress"], 0)
+        self.assertEqual(resp.data["status"], "Pending")
+
+        patch_resp = self.client_api.patch(
+            f"/api/work-assignments/{assignment.id}/",
+            {"completed_quantity": 4},
+            format="json",
+        )
+        self.assertEqual(patch_resp.status_code, 200)
+        self.assertEqual(patch_resp.data["progress"], 40)
+        self.assertEqual(patch_resp.data["status"], "In Progress")
+
+        patch_resp2 = self.client_api.patch(
+            f"/api/work-assignments/{assignment.id}/",
+            {"completed_quantity": 5},
+            format="json",
+        )
+        self.assertEqual(patch_resp2.status_code, 200)
+        self.assertEqual(patch_resp2.data["progress"], 50)
+        self.assertEqual(patch_resp2.data["status"], "Ongoing")
+
+        patch_resp3 = self.client_api.patch(
+            f"/api/work-assignments/{assignment.id}/",
+            {"completed_quantity": 10},
+            format="json",
+        )
+        self.assertEqual(patch_resp3.status_code, 200)
+        self.assertEqual(patch_resp3.data["progress"], 100)
+        self.assertEqual(patch_resp3.data["status"], "Completed")
+
+        over_resp = self.client_api.patch(
+            f"/api/work-assignments/{assignment.id}/",
+            {"completed_quantity": 11},
+            format="json",
+        )
+        self.assertEqual(over_resp.status_code, 400)

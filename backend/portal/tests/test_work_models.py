@@ -126,28 +126,42 @@ class WorkManagementModelTests(TestCase):
         with self.assertRaises(ValidationError):
             assignment.full_clean()
 
-    def test_progress_status_and_completion_are_derived_from_quantities(self):
-        assignment = self.assignment(assigned_quantity=10, completed_quantity=4)
+    def test_progress_and_status_auto_sync_mapping(self):
+        # 0% -> Pending
+        assignment = self.assignment(assigned_quantity=10, completed_quantity=0)
         assignment.full_clean()
         assignment.save()
+        self.assertEqual(assignment.progress, 0)
+        self.assertEqual(assignment.status, "Pending")
 
+        # 1% to 49% -> In Progress
+        assignment.completed_quantity = 4
+        assignment.save()
         self.assertEqual(assignment.progress, 40)
         self.assertEqual(assignment.status, "In Progress")
-        self.assertIsNone(assignment.completed_at)
 
-        assignment.completed_quantity = 10
-        before = timezone.now()
+        # 50% to 99% -> Ongoing (threshold 50%)
+        assignment.completed_quantity = 5
         assignment.save()
-        self.assertEqual(assignment.progress, 100)
-        self.assertEqual(assignment.status, "Completed")
-        self.assertIsNotNone(assignment.completed_at)
-        self.assertGreaterEqual(assignment.completed_at, before)
+        self.assertEqual(assignment.progress, 50)
+        self.assertEqual(assignment.status, "Ongoing")
 
+        # 50% to 99% -> Ongoing (90%)
         assignment.completed_quantity = 9
         assignment.save()
         self.assertEqual(assignment.progress, 90)
-        self.assertEqual(assignment.status, "In Progress")
-        self.assertIsNone(assignment.completed_at)
+        self.assertEqual(assignment.status, "Ongoing")
+
+        # 100% -> Completed
+        assignment.completed_quantity = 10
+        assignment.save()
+        self.assertEqual(assignment.progress, 100)
+        self.assertEqual(assignment.status, "Completed")
+
+    def test_over_completion_rejection(self):
+        assignment = self.assignment(assigned_quantity=10, completed_quantity=11)
+        with self.assertRaises(ValidationError):
+            assignment.full_clean()
 
     def test_blocked_is_manual_exception_until_fully_completed(self):
         assignment = self.assignment(status="Blocked", completed_quantity=3)

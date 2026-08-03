@@ -110,6 +110,7 @@ class WorkAssignment(models.Model):
     STATUSES = [
         ("Pending", "Pending"),
         ("In Progress", "In Progress"),
+        ("Ongoing", "Ongoing"),
         ("Blocked", "Blocked"),
         ("Completed", "Completed"),
     ]
@@ -175,10 +176,13 @@ class WorkAssignment(models.Model):
     def derived_status(self):
         if self.status == "Blocked" and self.completed_quantity < self.assigned_quantity:
             return "Blocked"
-        if self.completed_quantity == 0:
+        if not self.assigned_quantity or self.assigned_quantity <= 0 or self.completed_quantity <= 0:
             return "Pending"
         if self.completed_quantity >= self.assigned_quantity:
             return "Completed"
+        pct = (self.completed_quantity / self.assigned_quantity) * 100
+        if pct >= 50:
+            return "Ongoing"
         return "In Progress"
 
     def sync_quantity_state(self):

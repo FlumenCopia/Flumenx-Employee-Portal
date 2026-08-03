@@ -14,7 +14,7 @@ type EmployeeWorkFilters = {
 const EMPTY_SUMMARY: WorkSummary = { total: 0, pending: 0, in_progress: 0, blocked: 0, completed: 0, overdue: 0 };
 const EMPTY_FILTERS: EmployeeWorkFilters = { status: "", priority: "", due_date: "", assigned_date: "", is_overdue: "" };
 const PRIORITIES: WorkPriority[] = ["Low", "Normal", "High", "Urgent"];
-const STATUSES: WorkStatus[] = ["Pending", "In Progress", "Blocked", "Completed"];
+const STATUSES: WorkStatus[] = ["Pending", "In Progress", "Ongoing", "Blocked", "Completed"];
 
 function queryFromFilters(filters: EmployeeWorkFilters) {
   const params = new URLSearchParams();
@@ -152,20 +152,34 @@ export function EmployeeWorkPage() {
     setCollapsedDeliverables(current => ({ ...current, [id]: !current[id] }));
   }
 
-  function clientValidationError() {
-    if (!editing) return "";
-    const nextCompleted = Number(completedQuantity);
-    if (!Number.isFinite(nextCompleted) || nextCompleted < 0) return "Completed quantity cannot be negative.";
-    if (nextCompleted > editing.assigned_quantity) return "Completed quantity cannot exceed assigned quantity.";
-    return "";
-  }
+  const parsedVal = Number(completedQuantity);
+  const assignedVal = editing ? editing.assigned_quantity : 0;
+  const isOverCompleted = editing && !isNaN(parsedVal) && assignedVal > 0 && parsedVal > assignedVal;
+  const isNegative = !isNaN(parsedVal) && parsedVal < 0;
+
+  const calculatedPct = editing && !isNaN(parsedVal) && assignedVal > 0
+    ? Math.max(0, Math.min(100, Math.round((parsedVal / assignedVal) * 100)))
+    : 0;
+
+  const calculatedStatus: WorkStatus =
+    calculatedPct <= 0
+      ? "Pending"
+      : calculatedPct >= 100
+      ? "Completed"
+      : calculatedPct >= 50
+      ? "Ongoing"
+      : "In Progress";
 
   async function submitUpdate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editing || submitting) return;
-    const validation = clientValidationError();
-    if (validation) {
-      setActionError(validation);
+    const val = Number(completedQuantity);
+    if (isNaN(val) || val < 0) {
+      setActionError("Completed quantity cannot be negative.");
+      return;
+    }
+    if (val > editing.assigned_quantity) {
+      setActionError(`Completed quantity cannot exceed assigned quantity (${editing.assigned_quantity}).`);
       return;
     }
     setSubmitting(true);
@@ -175,8 +189,7 @@ export function EmployeeWorkPage() {
       await api<WorkAssignment>(`/work-assignments/${editing.id}/`, {
         method: "PATCH",
         body: JSON.stringify({
-          completed_quantity: Number(completedQuantity),
-          ...(statusMode === "Blocked" ? { status: "Blocked" } : {}),
+          completed_quantity: val,
         }),
       });
       setEditing(null);
@@ -315,16 +328,52 @@ export function EmployeeWorkPage() {
         <div className="quantity-preview">
           <span>Assigned quantity</span>
           <b>{editing.assigned_quantity} {editing.unit}</b>
-          <small>Progress and status are calculated by the backend after saving.</small>
+          <small>Progress and status automatically synchronize from completed quantity.</small>
         </div>
-        <label>Completed quantity<input type="number" min="0" max={editing.assigned_quantity} step="1" value={completedQuantity} onChange={event => setCompletedQuantity(event.target.value)} required />{formErrors.completed_quantity && <small>{formErrors.completed_quantity}</small>}</label>
-        <label>Status<select value={statusMode} onChange={event => setStatusMode(event.target.value as "AUTO" | "Blocked")}>
-          <option value="AUTO">Auto from quantity</option>
-          <option value="Blocked">Blocked</option>
-        </select>{formErrors.status && <small>{formErrors.status}</small>}</label>
-        <ProgressMeter value={editing.progress} />
+        <label>
+          Completed quantity
+          <input type="number" min="0" max={editing.assigned_quantity} step="1" value={completedQuantity} onChange={event => setCompletedQuantity(event.target.value)} required />
+          {formErrors.completed_quantity && <small>{formErrors.completed_quantity}</small>}
+          {isOverCompleted && <small style={{ color: "var(--danger, #ff6b6b)" }}>Completed quantity cannot exceed assigned quantity ({editing.assigned_quantity}).</small>}
+          {isNegative && <small style={{ color: "var(--danger, #ff6b6b)" }}>Completed quantity cannot be negative.</small>}
+        </label>
+        <div style={{ margin: "14px 0" }}>
+          <label style={{ fontSize: "9px", color: "#979792", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: "8px" }}>
+            Status (Auto-calculated from quantity)
+          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
+            {[
+              { key: "Pending", label: "PENDING" },
+              { key: "In Progress", label: "IN_PROGRESS" },
+              { key: "Ongoing", label: "ONGOING" },
+              { key: "Completed", label: "COMPLETED" },
+            ].map(option => {
+              const active = calculatedStatus === option.key;
+              return (
+                <div
+                  key={option.key}
+                  style={{
+                    padding: "8px 4px",
+                    textAlign: "center",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    borderRadius: "4px",
+                    border: active ? "1px solid var(--neon, #4DFFA0)" : "1px solid #303030",
+                    background: active ? "rgba(77,255,160,0.12)" : "#111",
+                    color: active ? "var(--neon, #4DFFA0)" : "#666",
+                    letterSpacing: ".05em",
+                    userSelect: "none",
+                  }}
+                >
+                  {option.label}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <ProgressMeter value={calculatedPct} />
         {actionError && <div className="toast error">{actionError}</div>}
-        <PrimaryButton type="submit" disabled={submitting}>{submitting ? "Updating..." : "Update Quantity"}</PrimaryButton>
+        <PrimaryButton type="submit" disabled={submitting || Boolean(isOverCompleted) || Boolean(isNegative)}>{submitting ? "Updating..." : "Update Quantity"}</PrimaryButton>
       </form>
     </Modal>}
 

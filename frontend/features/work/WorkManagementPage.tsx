@@ -22,7 +22,7 @@ type WorkFilters = {
 
 const EMPTY_SUMMARY: WorkSummary = { total: 0, pending: 0, in_progress: 0, blocked: 0, completed: 0, overdue: 0 };
 const PRIORITIES: WorkPriority[] = ["Low", "Normal", "High", "Urgent"];
-const STATUSES: WorkStatus[] = ["Pending", "In Progress", "Blocked", "Completed"];
+const STATUSES: WorkStatus[] = ["Pending", "In Progress", "Ongoing", "Blocked", "Completed"];
 const EMPTY_FILTERS: WorkFilters = { employee: "", client: "", status: "", priority: "", due_date: "", assigned_date: "", is_overdue: "" };
 
 function today() {
