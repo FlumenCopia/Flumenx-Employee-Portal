@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from rest_framework import status, viewsets
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -31,7 +31,10 @@ class LeaveViewSet(viewsets.ModelViewSet):
         if portal_role(self.request.user) in ("ADMIN", "HR") and self.request.data.get("employee"):
             leave = serializer.save(employee_id=self.request.data["employee"])
         else:
-            leave = serializer.save(employee=self.request.user.employee)
+            employee = getattr(self.request.user, "employee", None)
+            if not employee:
+                raise serializers.ValidationError({"detail": "Employee profile is required."})
+            leave = serializer.save(employee=employee)
         create_notifications(
             active_users_with_roles(("ADMIN", "HR")),
             "Leave request submitted",

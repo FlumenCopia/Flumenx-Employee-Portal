@@ -85,6 +85,8 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         if role not in ("EMPLOYEE", "BDE", "ACCOUNTANT"):
             return Response({"detail": "Only employee workspace users can mark attendance."}, status=403)
         employee = getattr(request.user, "employee", None)
+        if not employee:
+            return Response({"detail": "Employee profile is required."}, status=400)
         record = AttendanceRecord.objects.filter(employee=employee, attendance_date=localdate()).first()
         if not record or not record.check_in_time:
             return Response({"detail": "Check-in is required before checkout."}, status=400)
