@@ -72,12 +72,12 @@ database_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
 
 DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
 if database_url and dj_database_url:
+    cleaned_url = database_url.replace("postgresql://postgresql://", "postgresql://").replace("postgres://postgres://", "postgres://")
     DATABASES = {
-        "default": dj_database_url.config(
-            default=database_url,
+        "default": dj_database_url.parse(
+            cleaned_url,
             conn_max_age=60,
             conn_health_checks=True,
-            ssl_require=True,
         )
     }
 elif DB_ENGINE == "mysql" or os.getenv("MYSQL_DATABASE"):
