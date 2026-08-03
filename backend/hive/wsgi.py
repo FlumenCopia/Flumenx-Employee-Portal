@@ -6,4 +6,4 @@ application = get_wsgi_application()
 app = application
 application = get_wsgi_application()
 
-app = application
+app = application 
