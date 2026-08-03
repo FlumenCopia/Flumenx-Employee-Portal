@@ -71,15 +71,30 @@ except ImportError:
 database_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
 
 DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
-if database_url and dj_database_url:
+if database_url:
     cleaned_url = database_url.replace("postgresql://postgresql://", "postgresql://").replace("postgres://postgres://", "postgres://")
-    DATABASES = {
-        "default": dj_database_url.parse(
-            cleaned_url,
-            conn_max_age=60,
-            conn_health_checks=True,
-        )
-    }
+    if dj_database_url:
+        DATABASES = {
+            "default": dj_database_url.parse(
+                cleaned_url,
+                conn_max_age=60,
+                conn_health_checks=True,
+            )
+        }
+    else:
+        from urllib.parse import urlparse
+        url = urlparse(cleaned_url)
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": url.path.lstrip("/"),
+                "USER": url.username or "",
+                "PASSWORD": url.password or "",
+                "HOST": url.hostname or "localhost",
+                "PORT": str(url.port or 5432),
+                "CONN_MAX_AGE": 60,
+            }
+        }
 elif DB_ENGINE == "mysql" or os.getenv("MYSQL_DATABASE"):
     DATABASES = {
         "default": {
