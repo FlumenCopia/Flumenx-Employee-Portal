@@ -10,6 +10,10 @@ import { Modal } from "@/features/common/Modal";
 
 export function LeavesPage({ employee = false }: { employee?: boolean }) {
   const [items, setItems] = useState<Leave[]>([]);
+  const [page, setPage] = useState(1);
+  const [count, setCount] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitPending, setSubmitPending] = useState(false);
@@ -21,13 +25,25 @@ export function LeavesPage({ employee = false }: { employee?: boolean }) {
   const loadLeaves = () => {
     setLoading(true);
     setError("");
-    api<Paginated<Leave>>("/leaves/")
-      .then(data=>setItems(data.results))
-      .catch(err=>{ setItems([]); setError(err instanceof Error ? err.message : "Could not load leave requests."); })
-      .finally(()=>setLoading(false));
+    const query = page > 1 ? `?page=${page}` : "";
+    api<Paginated<Leave>>(`/leaves/${query}`)
+      .then(data => {
+        setItems(data.results);
+        setCount(data.count);
+        setHasNext(Boolean(data.next));
+        setHasPrevious(Boolean(data.previous));
+      })
+      .catch(err => {
+        setItems([]);
+        setCount(0);
+        setHasNext(false);
+        setHasPrevious(false);
+        setError(err instanceof Error ? err.message : "Could not load leave requests.");
+      })
+      .finally(() => setLoading(false));
   };
 
-  useEffect(()=>{loadLeaves()},[]);
+  useEffect(() => { loadLeaves(); }, [page]);
 
   async function decide(id: number, status: "Approved" | "Rejected") {
     if (decisionPendingId !== null) return;
@@ -83,6 +99,31 @@ export function LeavesPage({ employee = false }: { employee?: boolean }) {
       {loading && <EmptyState title="Loading leave requests" text="Fetching the latest leave records." />}
       {error && <EmptyState title="Could not load leave requests" text={error} />}
       {!loading && !error && !items.length && <EmptyState title="No leave requests" text={employee ? "You have not submitted any leave requests yet." : "There are no leave requests to review."} />}
+      {!loading && !error && count > 0 && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderTop: "1px solid var(--line)" }}>
+          <span className="record-count" style={{ padding: 0 }}>
+            Page {page} of {Math.ceil(count / 20) || 1} ({count} total)
+          </span>
+          <div className="header-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={!hasPrevious || loading}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={!hasNext || loading}
+              onClick={() => setPage(p => p + 1)}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </Section>
     {modal && <Modal title="Request time off" onClose={() => setModal(false)}><form onSubmit={requestLeave} className="modal-form"><label>Leave type<select name="leave_type"><option>Annual</option><option>Sick</option><option>Personal</option><option>Unpaid</option></select></label><div className="two-col"><label>From<input name="start_date" type="date" required /></label><label>To<input name="end_date" type="date" required /></label></div><label>Reason<textarea name="reason" placeholder="A short note for your manager" required /></label><PrimaryButton type="submit" disabled={submitPending}>{submitPending ? "Submitting..." : "Submit request"}</PrimaryButton></form></Modal>}
   </>;

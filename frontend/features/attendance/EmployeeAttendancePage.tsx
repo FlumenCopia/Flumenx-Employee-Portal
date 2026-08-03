@@ -39,28 +39,21 @@ export function EmployeeAttendancePage() {
   const refreshAggregates = useCallback(async () => {
     const requestId = ++aggregateRequestRef.current;
     setRefreshError("");
-    const [summaryResult, monthlyResult] = await Promise.allSettled([
-      api<AttendanceSummary>(`/attendance/summary/?month=${currentMonth}`),
-      api<MonthlyStatistics>(`/attendance/monthly-statistics/?month=${currentMonth}`),
-    ]);
-    if (requestId !== aggregateRequestRef.current) return;
-
-    if (summaryResult.status === "fulfilled") {
-      setSummary(summaryResult.value);
-      setSummaryError("");
-    } else {
-      setSummaryError(summaryResult.reason instanceof Error ? summaryResult.reason.message : "Could not refresh attendance summary.");
-    }
-
-    if (monthlyResult.status === "fulfilled") {
-      setMonthly(monthlyResult.value);
-      setMonthlyError("");
-    } else {
-      setMonthlyError(monthlyResult.reason instanceof Error ? monthlyResult.reason.message : "Could not refresh monthly statistics.");
-    }
-
-    if (summaryResult.status === "rejected" || monthlyResult.status === "rejected") {
-      setRefreshError("Office entry was recorded, but some attendance totals could not refresh.");
+    setSummaryError("");
+    setMonthlyError("");
+    try {
+      const monthlyResult = await api<MonthlyStatistics>(`/attendance/monthly-statistics/?month=${currentMonth}`);
+      if (requestId !== aggregateRequestRef.current) return;
+      setMonthly(monthlyResult);
+      if (monthlyResult.summary) {
+        setSummary(monthlyResult.summary);
+      }
+    } catch (err) {
+      if (requestId !== aggregateRequestRef.current) return;
+      const errorMsg = err instanceof Error ? err.message : "Could not refresh monthly statistics.";
+      setMonthlyError(errorMsg);
+      setSummaryError(errorMsg);
+      setRefreshError("Office entry was recorded, but attendance totals could not refresh.");
     }
   }, [currentMonth]);
 

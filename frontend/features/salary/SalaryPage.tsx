@@ -8,11 +8,33 @@ import { Avatar } from "@/components/icons";
 import { EmptyState, PageHeader, PrimaryButton, Section } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
 
+const SALARY_SLIPS_ENABLED = false;
+
 const monthName = (m: number) => new Date(2024, m - 1).toLocaleDateString("en-US", { month: "long" });
 
 export function SalaryPage({ employee = false }: { employee?: boolean }) {
+  if (!SALARY_SLIPS_ENABLED) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="PAYROLL / DOCUMENTS"
+          title={employee ? "Your payslips." : "Salary slips."}
+          subtitle="Salary slips are temporarily disabled."
+        />
+        <EmptyState
+          title="Feature unavailable"
+          text="Salary slip access and document downloads are temporarily disabled while private storage is being configured. Please check back later."
+        />
+      </>
+    );
+  }
+
   const [data,setData]=useState<SalarySlip[]>([]);
   const [employeeOptions, setEmployeeOptions] = useState<Employee[]>([]);
+  const [page, setPage] = useState(1);
+  const [count, setCount] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
   const [loading, setLoading] = useState(true);
   const [employeeLoading, setEmployeeLoading] = useState(false);
   const [error, setError] = useState("");
@@ -22,23 +44,38 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
   const loadSlips = () => {
     setLoading(true);
     setError("");
-    api<Paginated<SalarySlip>>("/salary-slips/")
-      .then(result=>setData(result.results))
-      .catch(err=>{ setData([]); setError(err instanceof Error ? err.message : "Could not load salary slips."); })
-      .finally(()=>setLoading(false));
+    const query = page > 1 ? `?page=${page}` : "";
+    api<Paginated<SalarySlip>>(`/salary-slips/${query}`)
+      .then(result => {
+        setData(result.results);
+        setCount(result.count);
+        setHasNext(Boolean(result.next));
+        setHasPrevious(Boolean(result.previous));
+      })
+      .catch(err => {
+        setData([]);
+        setCount(0);
+        setHasNext(false);
+        setHasPrevious(false);
+        setError(err instanceof Error ? err.message : "Could not load salary slips.");
+      })
+      .finally(() => setLoading(false));
   };
 
-  useEffect(()=>{
+  useEffect(() => {
     loadSlips();
+  }, [page]);
+
+  useEffect(() => {
     if (!employee) {
       setEmployeeLoading(true);
       setEmployeeError("");
       api<Paginated<Employee>>("/employees/")
-        .then(result=>setEmployeeOptions(result.results))
-        .catch(err=>{ setEmployeeOptions([]); setEmployeeError(err instanceof Error ? err.message : "Could not load employees."); })
-        .finally(()=>setEmployeeLoading(false));
+        .then(result => setEmployeeOptions(result.results))
+        .catch(err => { setEmployeeOptions([]); setEmployeeError(err instanceof Error ? err.message : "Could not load employees."); })
+        .finally(() => setEmployeeLoading(false));
     }
-  },[employee]);
+  }, [employee]);
 
   async function uploadSlip(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -57,6 +94,31 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
       {loading && <EmptyState title="Loading salary slips" text="Fetching salary documents." />}
       {error && <EmptyState title="Could not load salary slips" text={error} />}
       {!loading && !error && !data.length && <EmptyState title="No salary slips available" text="There are no salary slips to show yet." />}
+      {!loading && !error && count > 0 && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderTop: "1px solid var(--line)" }}>
+          <span className="record-count" style={{ padding: 0 }}>
+            Page {page} of {Math.ceil(count / 20) || 1} ({count} total)
+          </span>
+          <div className="header-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={!hasPrevious || loading}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={!hasNext || loading}
+              onClick={() => setPage(p => p + 1)}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </Section>
     {modal && <Modal title="Upload salary slip" onClose={() => setModal(false)}><form className="modal-form" onSubmit={uploadSlip}><label>Employee<select name="employee" disabled={employeeLoading || Boolean(employeeError)}>{employeeOptions.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}</select>{employeeError && <small>{employeeError}</small>}</label><div className="two-col"><label>Month<select name="month">{Array.from({length:12},(_,i)=><option key={i} value={i+1}>{monthName(i+1)}</option>)}</select></label><label>Year<input name="year" type="number" required /></label></div><div className="two-col"><label>Gross salary<input name="gross_salary" type="number" step=".01" required /></label><label>Net salary<input name="net_salary" type="number" step=".01" required /></label></div><label className="file-drop"><FileUp /><b>Choose PDF payslip</b><span>Maximum file size 10 MB</span><input name="file" type="file" accept=".pdf" /></label><PrimaryButton type="submit">Upload document</PrimaryButton></form></Modal>}
   </>;

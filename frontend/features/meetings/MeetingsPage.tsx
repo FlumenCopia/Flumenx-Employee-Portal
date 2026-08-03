@@ -19,6 +19,10 @@ const MEETING_DEPARTMENTS: Department[] = [
 
 export function MeetingsPage({ employee = false }: { employee?: boolean }) {
   const [items, setItems] = useState<Meeting[]>([]);
+  const [page, setPage] = useState(1);
+  const [count, setCount] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitPending, setSubmitPending] = useState(false);
@@ -30,13 +34,25 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
   const loadMeetings = () => {
     setLoading(true);
     setError("");
-    api<Paginated<Meeting>>("/meetings/")
-      .then(data=>setItems(data.results))
-      .catch(err=>{ setItems([]); setError(err instanceof Error ? err.message : "Could not load meetings."); })
-      .finally(()=>setLoading(false));
+    const query = page > 1 ? `?page=${page}` : "";
+    api<Paginated<Meeting>>(`/meetings/${query}`)
+      .then(data => {
+        setItems(data.results);
+        setCount(data.count);
+        setHasNext(Boolean(data.next));
+        setHasPrevious(Boolean(data.previous));
+      })
+      .catch(err => {
+        setItems([]);
+        setCount(0);
+        setHasNext(false);
+        setHasPrevious(false);
+        setError(err instanceof Error ? err.message : "Could not load meetings.");
+      })
+      .finally(() => setLoading(false));
   };
 
-  useEffect(()=>{loadMeetings()},[]);
+  useEffect(() => { loadMeetings(); }, [page]);
 
   async function createMeeting(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -67,7 +83,7 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
     setActionError("");
     try {
       await api(`/meetings/${id}/`, { method: "DELETE" });
-      setItems(current => current.filter(x=>x.id!==id));
+      loadMeetings();
       setMessage("Meeting deleted.");
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Could not delete meeting.");
@@ -84,6 +100,31 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
     {loading && <EmptyState title="Loading meetings" text="Fetching the latest schedule." />}
     {error && <EmptyState title="Could not load meetings" text={error} />}
     {!loading && !error && !items.length && <EmptyState title="No meetings scheduled" text="There are no meetings to show yet." />}
+    {!loading && !error && count > 0 && (
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", marginTop: "16px", border: "1px solid var(--border)", borderRadius: "var(--r)", background: "var(--surface)" }}>
+        <span className="record-count" style={{ padding: 0 }}>
+          Page {page} of {Math.ceil(count / 20) || 1} ({count} total)
+        </span>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={!hasPrevious || loading}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={!hasNext || loading}
+            onClick={() => setPage(p => p + 1)}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    )}
     {modal && <Modal title="Schedule a meeting" onClose={() => setModal(false)}><form className="modal-form" onSubmit={createMeeting}><label>Meeting title<input name="title" required placeholder="What are we aligning on?" /></label><div className="two-col"><label>Date<input name="date" type="date" required /></label><label>Time<input name="time" type="time" required /></label></div><label>Audience<select name="department"><option>All Employees</option>{MEETING_DEPARTMENTS.map(x=><option key={x}>{x}</option>)}</select></label><label>Location<input name="location" required placeholder="Room or link" /></label><label>Description<textarea name="description" /></label><PrimaryButton type="submit" disabled={submitPending}>{submitPending ? "Creating..." : "Create meeting"}</PrimaryButton></form></Modal>}
   </>;
 }

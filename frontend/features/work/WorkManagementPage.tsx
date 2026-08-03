@@ -112,6 +112,10 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [employees, setEmployees] = useState<WorkEmployeeOption[]>([]);
   const [filters, setFilters] = useState<WorkFilters>(EMPTY_FILTERS);
+  const [page, setPage] = useState(1);
+  const [count, setCount] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
   const [loading, setLoading] = useState(true);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -138,7 +142,12 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
   const selectedEmployee = useMemo(() => employees.find(employee => String(employee.id) === form.employee), [employees, form.employee]);
   const isDeliverableWorkflow = selectedEmployee?.department === "Design" || selectedEmployee?.department === "Video Editing" || form.deliverables.length > 0;
 
-  const loadWork = useCallback(async (nextFilters = filters) => {
+  const updateFilters = (nextFilters: WorkFilters) => {
+    setFilters(nextFilters);
+    setPage(1);
+  };
+
+  const loadWork = useCallback(async (nextFilters = filters, nextPage = page) => {
     workAbortRef.current?.abort();
     const controller = new AbortController();
     workAbortRef.current = controller;
@@ -147,24 +156,31 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
     setLoading(true);
     setError("");
     try {
-      const query = queryFromFilters(nextFilters);
+      const listQuery = queryFromFilters({ ...nextFilters, ...(nextPage > 1 ? { page: String(nextPage) } : {}) });
+      const summaryQuery = queryFromFilters(nextFilters);
       const [list, nextSummary] = await Promise.all([
-        api<Paginated<WorkAssignment>>(`/work-assignments/${query}`, { signal: controller.signal }),
-        api<WorkSummary>(`/work-assignments/summary/${query}`, { signal: controller.signal }),
+        api<Paginated<WorkAssignment>>(`/work-assignments/${listQuery}`, { signal: controller.signal }),
+        api<WorkSummary>(`/work-assignments/summary/${summaryQuery}`, { signal: controller.signal }),
       ]);
       if (requestRef.current !== requestId || controller.signal.aborted) return;
       setItems(list.results);
+      setCount(list.count);
+      setHasNext(Boolean(list.next));
+      setHasPrevious(Boolean(list.previous));
       setSummary(nextSummary);
     } catch (err) {
       if (!controller.signal.aborted) {
         setItems([]);
+        setCount(0);
+        setHasNext(false);
+        setHasPrevious(false);
         setSummary(EMPTY_SUMMARY);
         setError(apiError(err, "Could not load work assignments."));
       }
     } finally {
       if (requestRef.current === requestId && !controller.signal.aborted) setLoading(false);
     }
-  }, [filters]);
+  }, [filters, page]);
 
   const loadOptions = useCallback(async () => {
     optionsAbortRef.current?.abort();
@@ -202,6 +218,7 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
 
   function updateFilter(key: keyof WorkFilters, value: string) {
     setFilters(current => ({ ...current, [key]: value }));
+    setPage(1);
   }
 
   function openCreate() {
@@ -466,7 +483,7 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
         <option value="true">Overdue</option>
         <option value="false">Not overdue</option>
       </select>
-      <button type="button" className="secondary-button" onClick={() => setFilters(EMPTY_FILTERS)}>Reset</button>
+      <button type="button" className="secondary-button" onClick={() => { setFilters(EMPTY_FILTERS); setPage(1); }}>Reset</button>
       <button type="button" className="secondary-button" onClick={() => loadWork(filters)} disabled={loading}><RotateCw size={15} /> Refresh</button>
     </div>
 
@@ -496,6 +513,31 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       {loading && <EmptyState title="Loading work" text="Fetching work assignments and summary." />}
       {error && <EmptyState title="Could not load work" text={error} />}
       {!loading && !error && !items.length && <EmptyState title="No work found" text="Try clearing filters or assign new work." />}
+      {!loading && !error && count > 0 && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderTop: "1px solid var(--line)" }}>
+          <span className="record-count" style={{ padding: 0 }}>
+            Page {page} of {Math.ceil(count / 20) || 1} ({count} total)
+          </span>
+          <div className="header-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={!hasPrevious || loading}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={!hasNext || loading}
+              onClick={() => setPage(p => p + 1)}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
 
     {modalOpen && <Modal title={editing ? "Edit work assignment" : "Assign work"} onClose={() => !submitting && setModalOpen(false)}>

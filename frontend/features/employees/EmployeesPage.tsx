@@ -40,32 +40,49 @@ export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole
   const [items, setItems] = useState<Employee[]>([]);
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("All");
+  const [page, setPage] = useState(1);
+  const [count, setCount] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const loadEmployees = () => {
     setLoading(true);
     setError("");
-    api<Paginated<Employee>>("/employees/")
-      .then(data => setItems(data.results))
+    const params = new URLSearchParams();
+    if (page > 1) params.set("page", String(page));
+    if (search.trim()) params.set("search", search.trim());
+    if (department !== "All") params.set("department", department);
+    const queryString = params.toString() ? `?${params.toString()}` : "";
+
+    api<Paginated<Employee>>(`/employees/${queryString}`)
+      .then(data => {
+        setItems(data.results);
+        setCount(data.count);
+        setHasNext(Boolean(data.next));
+        setHasPrevious(Boolean(data.previous));
+      })
       .catch(err => {
         setItems([]);
+        setCount(0);
+        setHasNext(false);
+        setHasPrevious(false);
         setError(err instanceof Error ? err.message : "Could not load employees.");
       })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadEmployees(); }, []);
+  useEffect(() => { loadEmployees(); }, [page, search, department]);
 
   async function removeEmployee(id: number) {
     try {
       await api(`/employees/${id}/`, { method: "DELETE" });
-      setItems(items.filter(x => x.id !== id));
+      loadEmployees();
     } catch {}
   }
 
-
-  const shown = useMemo(() => items.filter(e => (department === "All" || e.department === department) && `${e.name} ${e.email} ${e.employee_code}`.toLowerCase().includes(search.toLowerCase())), [items, search, department]);
+  const shown = items;
 
 return <>
   <PageHeader
@@ -89,13 +106,13 @@ return <>
       <input
         placeholder="Search name, email or ID..."
         value={search}
-        onChange={e => setSearch(e.target.value)}
+        onChange={e => { setSearch(e.target.value); setPage(1); }}
       />
     </div>
 
     <select
       value={department}
-      onChange={e => setDepartment(e.target.value)}
+      onChange={e => { setDepartment(e.target.value); setPage(1); }}
     >
       <option>All</option>
 
@@ -107,7 +124,7 @@ return <>
     </select>
 
     <div className="record-count">
-      {shown.length} PEOPLE
+      {count} PEOPLE
     </div>
   </div>
 
@@ -161,7 +178,7 @@ return <>
             </Badge>
 
             <div className="row-actions">
-              <Link href={`${employeeBasePath}/${e.id}`}>
+              <Link href={`${employeeBasePath}/${e.id}/edit`}>
                 <Pencil size={16} />
               </Link>
 
@@ -192,6 +209,32 @@ return <>
         title="No people found"
         text="Try a different search or department."
       />
+    )}
+
+    {!loading && !error && count > 0 && (
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderTop: "1px solid var(--line)" }}>
+        <span className="record-count" style={{ padding: 0 }}>
+          Page {page} of {Math.ceil(count / 20) || 1} ({count} total)
+        </span>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={!hasPrevious || loading}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={!hasNext || loading}
+            onClick={() => setPage(p => p + 1)}
+          >
+            Next
+          </button>
+        </div>
+      </div>
     )}
   </div>
 </>;
