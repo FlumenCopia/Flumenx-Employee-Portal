@@ -1,7 +1,8 @@
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.middleware.csrf import CsrfViewMiddleware
-from django.middleware.csrf import get_token
+from django.middleware.csrf import CsrfViewMiddleware, get_token
+from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.translation import gettext_lazy as _
 from rest_framework import exceptions, serializers, status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -97,6 +98,8 @@ class LoginView(TokenObtainPairView):
 @api_view(["GET"])
 @authentication_classes([])
 @permission_classes([AllowAny])
+@ensure_csrf_cookie
+@never_cache
 def csrf(request):
     return Response({"csrfToken": get_token(request)})
 

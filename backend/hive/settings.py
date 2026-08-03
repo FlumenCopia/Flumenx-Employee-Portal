@@ -108,10 +108,12 @@ if csrf_origins_env:
     CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_origins_env.split(",") if origin.strip()]
 else:
     CSRF_TRUSTED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
-CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
+raw_csrf_samesite = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
+CSRF_COOKIE_SAMESITE = "None" if raw_csrf_samesite.lower() == "none" else raw_csrf_samesite.capitalize()
 CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", "False").lower() == "true"
 JWT_COOKIE_SECURE = os.getenv("JWT_COOKIE_SECURE", "False").lower() == "true"
-JWT_COOKIE_SAMESITE = os.getenv("JWT_COOKIE_SAMESITE", "Lax")
+raw_jwt_samesite = os.getenv("JWT_COOKIE_SAMESITE", "Lax")
+JWT_COOKIE_SAMESITE = "None" if raw_jwt_samesite.lower() == "none" else raw_jwt_samesite.capitalize()
 JWT_ACCESS_COOKIE_NAME = os.getenv("JWT_ACCESS_COOKIE_NAME", "flumenx_access")
 JWT_REFRESH_COOKIE_NAME = os.getenv("JWT_REFRESH_COOKIE_NAME", "flumenx_refresh")
 REST_FRAMEWORK = {

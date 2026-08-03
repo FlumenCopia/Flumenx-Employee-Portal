@@ -15,7 +15,7 @@ class AppFixesTests(TestCase):
         self.accounts = {}
         for index, role in enumerate(("ADMIN", "HR", "ACCOUNTANT", "BDO", "EMPLOYEE"), start=1):
             email = f"{role.lower()}@fixes.local"
-            user = User.objects.create_user(email, password="FixPassword@123", is_superuser=role == "ADMIN")
+            user = User.objects.create_user(username=email, email=email, password="FixPassword@123", is_superuser=role == "ADMIN")
             UserRole.objects.create(user=user, role=role)
             if role != "ADMIN":
                 Employee.objects.create(
@@ -38,6 +38,27 @@ class AppFixesTests(TestCase):
             "confirm_password": "StrongPass@123",
         }, format="json")
         self.assertEqual(response.status_code, 403)
+
+    def test_csrf_token_endpoint_and_login_validation(self):
+        client = APIClient(enforce_csrf_checks=True)
+        csrf_res = client.get("/api/auth/csrf/")
+        self.assertEqual(csrf_res.status_code, 200)
+        self.assertIn("csrfToken", csrf_res.data)
+        self.assertIn("csrftoken", client.cookies)
+
+        cookie_token = client.cookies["csrftoken"].value
+        json_token = csrf_res.data["csrfToken"]
+        self.assertTrue(cookie_token)
+        self.assertTrue(json_token)
+
+        login_res = client.post(
+            "/api/auth/login/",
+            {"email": "admin@fixes.local", "password": "FixPassword@123"},
+            format="json",
+            HTTP_X_CSRFTOKEN=json_token,
+        )
+        self.assertEqual(login_res.status_code, 200)
+        self.assertIn("user", login_res.data)
 
     def test_user_without_employee_profile_returns_validation_error(self):
         user_no_emp = User.objects.create_user("noemp@flumenx.local", password="Password@123")
