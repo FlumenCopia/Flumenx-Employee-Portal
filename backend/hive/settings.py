@@ -19,7 +19,7 @@ allowed_hosts_env = os.getenv("DJANGO_ALLOWED_HOSTS")
 if allowed_hosts_env:
     ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(",") if host.strip()]
 else:
-    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver", ".vercel.app"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",

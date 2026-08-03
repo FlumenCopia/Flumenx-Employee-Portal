@@ -86,7 +86,7 @@ function redirectToLoginAfterRefreshFailure() {
 async function refreshAuth() {
   if (!refreshPromise) {
     refreshPromise = (async () => {
-      await ensureCsrf(true);
+      await ensureCsrf();
       const refreshed = await fetch(`${API_URL}/auth/refresh/`, {
         method: "POST",
         credentials: "include",
