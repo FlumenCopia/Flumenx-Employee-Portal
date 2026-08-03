@@ -12,7 +12,21 @@ function browserCompatibleApiUrl(url: string) {
   return apiUrl.toString().replace(/\/$/, "");
 }
 
-const API_URL = browserCompatibleApiUrl(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api");
+function resolveApiUrl() {
+  if (typeof window !== "undefined") {
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (envUrl && (envUrl.includes("127.0.0.1") || envUrl.includes("localhost"))) {
+      return browserCompatibleApiUrl(envUrl);
+    }
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return browserCompatibleApiUrl(envUrl || "http://127.0.0.1:8000/api");
+    }
+    return "/api";
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+}
+
+const API_URL = resolveApiUrl();
 let refreshPromise: Promise<boolean> | null = null;
 let cachedCsrfToken = "";
 
