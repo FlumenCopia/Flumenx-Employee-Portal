@@ -59,8 +59,24 @@ TEMPLATES = [{
 }]
 WSGI_APPLICATION = "hive.wsgi.application"
 
+try:
+    import dj_database_url
+except ImportError:
+    dj_database_url = None
+
+database_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+
 DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
-if DB_ENGINE == "mysql" or os.getenv("MYSQL_DATABASE"):
+if database_url and dj_database_url:
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=database_url,
+            conn_max_age=60,
+            conn_health_checks=True,
+            ssl_require=True,
+        )
+    }
+elif DB_ENGINE == "mysql" or os.getenv("MYSQL_DATABASE"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.mysql",
