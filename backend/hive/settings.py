@@ -17,9 +17,13 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "hive-demo-secret-key-change-in-prod
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
 allowed_hosts_env = os.getenv("DJANGO_ALLOWED_HOSTS")
 if allowed_hosts_env:
-    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(",") if host.strip()]
+    ALLOWED_HOSTS = list({host.strip() for host in allowed_hosts_env.split(",") if host.strip()} | {"localhost", "127.0.0.1", "testserver", ".vercel.app"})
 else:
     ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver", ".vercel.app"]
+
+APPEND_SLASH = False
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 INSTALLED_APPS = [
     "django.contrib.admin",

@@ -1,4 +1,4 @@
-from django.urls import include, path
+from django.urls import include, path, re_path
 from rest_framework.routers import DefaultRouter
 from .views import AnnouncementViewSet, AttendanceCorrectionViewSet, AttendancePolicyViewSet, AttendanceRecordViewSet, AuditLogViewSet, ClientViewSet, EmployeeViewSet, LeaveViewSet, LoginView, MeetingViewSet, NotificationViewSet, SalarySlipViewSet, WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView, csrf, dashboard, logout, me, refresh, register
 
@@ -18,13 +18,13 @@ router.register("notifications", NotificationViewSet, basename="notification")
 router.register("audit-logs", AuditLogViewSet, basename="audit-log")
 
 urlpatterns = [
-    path("auth/login/", LoginView.as_view(), name="login"),
-    path("auth/register/", register, name="register"),
-    path("auth/logout/", logout, name="logout"),
-    path("auth/refresh/", refresh, name="refresh"),
-    path("auth/csrf/", csrf, name="csrf"),
-    path("auth/me/", me, name="me"),
-    path("dashboard/", dashboard, name="dashboard"),
-    path("work-employee-options/", WorkEmployeeOptionsView.as_view(), name="work-employee-options"),
+    re_path(r"^auth/login/?$", LoginView.as_view(), name="login"),
+    re_path(r"^auth/register/?$", register, name="register"),
+    re_path(r"^auth/logout/?$", logout, name="logout"),
+    re_path(r"^auth/refresh/?$", refresh, name="refresh"),
+    re_path(r"^auth/csrf/?$", csrf, name="csrf"),
+    re_path(r"^auth/me/?$", me, name="me"),
+    re_path(r"^dashboard/?$", dashboard, name="dashboard"),
+    re_path(r"^work-employee-options/?$", WorkEmployeeOptionsView.as_view(), name="work-employee-options"),
     path("", include(router.urls)),
 ]
