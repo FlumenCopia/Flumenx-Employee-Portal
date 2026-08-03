@@ -2,7 +2,12 @@ from django.urls import include, path, re_path
 from rest_framework.routers import DefaultRouter
 from .views import AnnouncementViewSet, AttendanceCorrectionViewSet, AttendancePolicyViewSet, AttendanceRecordViewSet, AuditLogViewSet, ClientViewSet, EmployeeViewSet, LeaveViewSet, LoginView, MeetingViewSet, NotificationViewSet, SalarySlipViewSet, WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView, csrf, dashboard, logout, me, refresh, register
 
-router = DefaultRouter()
+class OptionalSlashRouter(DefaultRouter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.trailing_slash = r"/?$"
+
+router = OptionalSlashRouter()
 router.register("employees", EmployeeViewSet, basename="employee")
 router.register("clients", ClientViewSet, basename="client")
 router.register("work-assignments", WorkAssignmentViewSet, basename="work-assignment")
