@@ -8,3 +8,4 @@ from .serializer_modules.meetings import MeetingSerializer
 from .serializer_modules.notifications import NotificationSerializer
 from .serializer_modules.salary import SalarySlipSerializer
 from .serializer_modules.work import ClientSerializer, WorkAssignmentSerializer, WorkDeliverableSerializer
+ 
