@@ -15,7 +15,11 @@ if env_file.exists():
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "hive-demo-secret-key-change-in-production")
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
+allowed_hosts_env = os.getenv("DJANGO_ALLOWED_HOSTS")
+if allowed_hosts_env:
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(",") if host.strip()]
+else:
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -91,9 +95,19 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CORS_ALLOWED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+cors_origins_env = os.getenv("CORS_ALLOWED_ORIGINS")
+if cors_origins_env:
+    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    CORS_ALLOWED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
 CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+csrf_origins_env = os.getenv("CSRF_TRUSTED_ORIGINS")
+if csrf_origins_env:
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_origins_env.split(",") if origin.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
 CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", "False").lower() == "true"
 JWT_COOKIE_SECURE = os.getenv("JWT_COOKIE_SECURE", "False").lower() == "true"
