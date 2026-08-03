@@ -108,15 +108,46 @@ export async function logout() {
   }
 }
 
+export function normalizeApiPath(path: string): string {
+  if (!path) return "/";
+  const queryIndex = path.indexOf("?");
+  const hashIndex = path.indexOf("#");
+
+  let splitIndex = path.length;
+  if (queryIndex !== -1 && hashIndex !== -1) {
+    splitIndex = Math.min(queryIndex, hashIndex);
+  } else if (queryIndex !== -1) {
+    splitIndex = queryIndex;
+  } else if (hashIndex !== -1) {
+    splitIndex = hashIndex;
+  }
+
+  let pathname = path.slice(0, splitIndex);
+  const suffix = path.slice(splitIndex);
+
+  if (!pathname.startsWith("/")) {
+    pathname = "/" + pathname;
+  }
+
+  pathname = pathname.replace(/\/+/g, "/");
+
+  if (!pathname.endsWith("/")) {
+    pathname = pathname + "/";
+  }
+
+  return `${pathname}${suffix}`;
+}
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const normalizedPath = normalizeApiPath(path);
   const request = async () => {
     if (isUnsafe(options.method)) await ensureCsrf();
     const headers: HeadersInit = { ...(!(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}), ...options.headers };
     if (isUnsafe(options.method)) (headers as Record<string, string>)["X-CSRFToken"] = csrfToken();
-    return fetch(`${API_URL}${path}`, { ...options, credentials: "include", headers });
+    return fetch(`${API_URL}${normalizedPath}`, { ...options, credentials: "include", headers });
   };
   let response = await request();
-  if (response.status === 401 && path !== "/auth/refresh/" && path !== "/auth/login/" && path !== "/auth/csrf/") {
+  if (response.status === 401 && normalizedPath !== "/auth/refresh/" && normalizedPath !== "/auth/login/" && normalizedPath !== "/auth/csrf/") {
     const refreshed = await refreshAuth();
     if (refreshed) {
       response = await request();
@@ -139,12 +170,13 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 }
 
 export async function apiBlob(path: string, options: RequestInit = {}) {
+  const normalizedPath = normalizeApiPath(path);
   const headers: HeadersInit = { ...options.headers };
-  let response = await fetch(`${API_URL}${path}`, { ...options, credentials: "include", headers });
-  if (response.status === 401 && path !== "/auth/refresh/" && path !== "/auth/login/" && path !== "/auth/csrf/") {
+  let response = await fetch(`${API_URL}${normalizedPath}`, { ...options, credentials: "include", headers });
+  if (response.status === 401 && normalizedPath !== "/auth/refresh/" && normalizedPath !== "/auth/login/" && normalizedPath !== "/auth/csrf/") {
     const refreshed = await refreshAuth();
     if (refreshed) {
-      response = await fetch(`${API_URL}${path}`, { ...options, credentials: "include", headers });
+      response = await fetch(`${API_URL}${normalizedPath}`, { ...options, credentials: "include", headers });
     } else {
       redirectToLoginAfterRefreshFailure();
     }
