@@ -11,7 +11,7 @@ from .employees import EmployeeSerializer
 class ProfileSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     portal_role = serializers.SerializerMethodField()
-    employee = EmployeeSerializer(read_only=True)
+    employee = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -26,6 +26,15 @@ class ProfileSerializer(serializers.ModelSerializer):
         if profile:
             return profile.role
         return "ADMIN" if obj.is_superuser else "EMPLOYEE"
+
+    def get_employee(self, obj):
+        try:
+            employee = getattr(obj, "employee", None)
+            if employee:
+                return EmployeeSerializer(employee, context=self.context).data
+        except Exception:
+            pass
+        return None
 
 
 class RegisterSerializer(serializers.Serializer):
