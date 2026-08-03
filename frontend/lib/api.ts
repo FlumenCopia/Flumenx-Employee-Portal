@@ -116,7 +116,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     return fetch(`${API_URL}${path}`, { ...options, credentials: "include", headers });
   };
   let response = await request();
-  if (response.status === 401 && path !== "/auth/refresh/" && path !== "/auth/login/") {
+  if (response.status === 401 && path !== "/auth/refresh/" && path !== "/auth/login/" && path !== "/auth/csrf/") {
     const refreshed = await refreshAuth();
     if (refreshed) {
       response = await request();
@@ -141,7 +141,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 export async function apiBlob(path: string, options: RequestInit = {}) {
   const headers: HeadersInit = { ...options.headers };
   let response = await fetch(`${API_URL}${path}`, { ...options, credentials: "include", headers });
-  if (response.status === 401) {
+  if (response.status === 401 && path !== "/auth/refresh/" && path !== "/auth/login/" && path !== "/auth/csrf/") {
     const refreshed = await refreshAuth();
     if (refreshed) {
       response = await fetch(`${API_URL}${path}`, { ...options, credentials: "include", headers });
