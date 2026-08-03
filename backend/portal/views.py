@@ -20,11 +20,13 @@ from .view_modules.audit_logs import AuditLogViewSet
 from .view_modules.corrections import AttendanceCorrectionViewSet
 from .view_modules.dashboard import dashboard
 from .view_modules.employees import EmployeeViewSet
+from .view_modules.kpi import EmployeeKPIDetailView, KPIDashboardView, KPIExportCSVView, KPIRatingView, MyKPIDetailView
 from .view_modules.leaves import LeaveViewSet
 from .view_modules.meetings import MeetingViewSet
 from .view_modules.notifications import NotificationViewSet
 from .view_modules.salary import SalarySlipViewSet
 from .view_modules.work import ClientViewSet, WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView
+
 
 
 class FlumenxTokenSerializer(TokenObtainPairSerializer):

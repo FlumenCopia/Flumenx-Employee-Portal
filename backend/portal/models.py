@@ -23,6 +23,7 @@ class UserRole(models.Model):
         ("BDE", "BDE"),
         ("TEAM_LEAD", "Team Lead"),
         ("EMPLOYEE", "Employee"),
+        ("OPERATIONS_HEAD", "Operations Head"),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="portal_profile")
     role = models.CharField(max_length=20, choices=ROLES)
@@ -471,7 +472,13 @@ class AttendanceRecord(models.Model):
 
     @staticmethod
     def minutes(value):
+        if not value:
+            return 0
+        if isinstance(value, str):
+            parts = [int(p) for p in value.split(":")[:2]]
+            return parts[0] * 60 + parts[1]
         return value.hour * 60 + value.minute
+
 
     def calculate(self):
         if self.attendance_status in ("Absent", "Leave") and not self.check_in_time:
@@ -561,3 +568,32 @@ class AuditLog(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class EmployeeKPIRating(models.Model):
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="kpi_ratings")
+    month = models.PositiveSmallIntegerField()
+    year = models.PositiveSmallIntegerField()
+    rating = models.DecimalField(max_digits=3, decimal_places=2, default=5.0)
+    notes = models.TextField(blank=True)
+    rated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-year", "-month"]
+        constraints = [
+            models.UniqueConstraint(fields=["employee", "month", "year"], name="unique_employee_kpi_rating_month")
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.rating is not None and (float(self.rating) < 1.0 or float(self.rating) > 5.0):
+            raise ValidationError({"rating": "Rating must be between 1.0 and 5.0."})
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.employee.name} · {self.year}-{self.month:02d} · Rating: {self.rating}"

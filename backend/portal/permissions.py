@@ -80,3 +80,34 @@ class IsAdminOrReadOnly(BasePermission):
         if not request.user.is_authenticated:
             return False
         return request.method in SAFE_METHODS or portal_role(request.user) == "ADMIN"
+
+
+def is_operations_head(user):
+    if not user or not user.is_authenticated:
+        return False
+    role = portal_role(user)
+    if role == "OPERATIONS_HEAD":
+        return True
+    emp = getattr(user, "employee", None)
+    if emp and emp.department == "Operations" and ("Head" in emp.designation or role in ("ADMIN", "HR", "TEAM_LEAD")):
+        return True
+    return False
+
+
+def can_manage_kpis(user):
+    if not user or not user.is_authenticated:
+        return False
+    role = portal_role(user)
+    if role in ("ADMIN", "HR") or user.is_superuser:
+        return True
+    return is_operations_head(user)
+
+
+class CanViewKPIDashboard(BasePermission):
+    def has_permission(self, request, view):
+        return can_manage_kpis(request.user)
+
+
+class CanManageKPIRating(BasePermission):
+    def has_permission(self, request, view):
+        return can_manage_kpis(request.user)

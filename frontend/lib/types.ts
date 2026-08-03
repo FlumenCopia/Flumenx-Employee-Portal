@@ -1,4 +1,4 @@
-export type PortalRole = "ADMIN" | "HR" | "ACCOUNTANT" | "BDE" | "TEAM_LEAD" | "EMPLOYEE";
+export type PortalRole = "ADMIN" | "HR" | "ACCOUNTANT" | "BDE" | "TEAM_LEAD" | "EMPLOYEE" | "OPERATIONS_HEAD";
 export type WorkspaceRole = "admin" | "employee" | "hr" | "accountant" | "bdo" | "team-lead";
 export type Role = WorkspaceRole;
 export type Department = "Web Development" | "Video Editing" | "Design" | "Digital Marketing" | "Accountant" | "HR" | "Operations";
@@ -63,4 +63,95 @@ export type WorkSummary = {
 };
 export type WorkEmployeeOption = {
   id: number; display_name: string; department: Department;
+};
+
+export type KPIGrade = "Outstanding" | "Excellent" | "Good" | "Needs Improvement" | "Critical";
+
+export type KPIScoreComponent = {
+  score: number;
+  max_score: number;
+  percentage?: number;
+  assigned_quantity?: number;
+  completed_quantity?: number;
+  total_assignments?: number;
+  total_days?: number;
+  present_days?: number;
+  half_days?: number;
+  absent_days?: number;
+  leave_days?: number;
+  total_due?: number;
+  on_time_count?: number;
+  approved_leaves?: number;
+  rejected_leaves?: number;
+  pending_leaves?: number;
+  unapproved_absences?: number;
+  quality_rating?: number;
+  notes?: string;
+  rated_by?: string;
+};
+
+export type KPIHistoryItem = {
+  month: number;
+  year: number;
+  period: string;
+  final_score: number;
+  grade: KPIGrade;
+  quality_rating: number;
+  work_completion_pct: number;
+  attendance_pct: number;
+};
+
+export type KPIEmployeeData = {
+  employee_id: number;
+  employee_code: string;
+  employee_name: string;
+  department: Department;
+  designation: string;
+  month: number;
+  year: number;
+  final_score: number;
+  grade: KPIGrade;
+  components: {
+    work_completion: KPIScoreComponent;
+    attendance: KPIScoreComponent;
+    on_time_delivery: KPIScoreComponent;
+    leave_discipline: KPIScoreComponent;
+    work_quality: KPIScoreComponent;
+    consistency: KPIScoreComponent;
+  };
+  history?: KPIHistoryItem[];
+};
+
+export type KPIDashboardData = {
+  selected_month: number;
+  selected_year: number;
+  total_employees: number;
+  average_kpi: number;
+  top_performer: {
+    id: number;
+    name: string;
+    department: Department;
+    score: number;
+    grade: KPIGrade;
+  } | null;
+  critical_performers_count: number;
+  critical_performers: {
+    id: number;
+    name: string;
+    department: Department;
+    score: number;
+    grade: KPIGrade;
+  }[];
+  department_averages: {
+    department: Department;
+    average_score: number;
+    employee_count: number;
+  }[];
+  monthly_trend: {
+    month: number;
+    year: number;
+    period: string;
+    average_score: number;
+  }[];
+  employees: KPIEmployeeData[];
 };

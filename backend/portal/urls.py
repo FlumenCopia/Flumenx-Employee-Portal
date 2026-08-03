@@ -1,6 +1,12 @@
 from django.urls import include, path, re_path
 from rest_framework.routers import DefaultRouter
-from .views import AnnouncementViewSet, AttendanceCorrectionViewSet, AttendancePolicyViewSet, AttendanceRecordViewSet, AuditLogViewSet, ClientViewSet, EmployeeViewSet, LeaveViewSet, LoginView, MeetingViewSet, NotificationViewSet, SalarySlipViewSet, WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView, csrf, dashboard, logout, me, refresh, register
+from .views import (
+    AnnouncementViewSet, AttendanceCorrectionViewSet, AttendancePolicyViewSet, AttendanceRecordViewSet,
+    AuditLogViewSet, ClientViewSet, EmployeeViewSet, EmployeeKPIDetailView, KPIDashboardView, KPIExportCSVView,
+    KPIRatingView, LeaveViewSet, LoginView, MeetingViewSet, MyKPIDetailView, NotificationViewSet,
+    SalarySlipViewSet, WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView,
+    csrf, dashboard, logout, me, refresh, register
+)
 
 class OptionalSlashRouter(DefaultRouter):
     def __init__(self, *args, **kwargs):
@@ -31,5 +37,10 @@ urlpatterns = [
     re_path(r"^auth/me/?$", me, name="me"),
     re_path(r"^dashboard/?$", dashboard, name="dashboard"),
     re_path(r"^work-employee-options/?$", WorkEmployeeOptionsView.as_view(), name="work-employee-options"),
+    re_path(r"^kpi/dashboard/?$", KPIDashboardView.as_view(), name="kpi-dashboard"),
+    re_path(r"^kpi/my-kpi/?$", MyKPIDetailView.as_view(), name="kpi-my-detail"),
+    re_path(r"^kpi/employee/(?P<employee_id>\d+)/?$", EmployeeKPIDetailView.as_view(), name="kpi-employee-detail"),
+    re_path(r"^kpi/rating/?$", KPIRatingView.as_view(), name="kpi-rating"),
+    re_path(r"^kpi/export-csv/?$", KPIExportCSVView.as_view(), name="kpi-export-csv"),
     path("", include(router.urls)),
 ]

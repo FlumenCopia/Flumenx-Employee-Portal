@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BriefcaseBusiness, CalendarCheck, CalendarDays, Clock3, LayoutDashboard, UserRound, Users } from "lucide-react";
+import { BriefcaseBusiness, CalendarCheck, CalendarDays, Clock3, LayoutDashboard, TrendingUp, UserRound, Users } from "lucide-react";
 import type { PortalRole, WorkspaceRole } from "@/lib/types";
 
 export type NavigationItem = readonly [label: string, href: string, Icon: LucideIcon];
@@ -8,6 +8,7 @@ const adminNav = [
   ["Overview", "/admin/dashboard", LayoutDashboard], ["Employees", "/admin/employees", Users],
   ["Attendance", "/admin/attendance", CalendarCheck],
   ["Work", "/admin/work", BriefcaseBusiness],
+  ["KPI Performance", "/admin/kpi", TrendingUp],
   ["Leave requests", "/admin/leaves", CalendarDays],
   ["Meetings", "/admin/meetings", UserRound],
 ] as const satisfies readonly NavigationItem[];
@@ -16,6 +17,7 @@ const employeeNav = [
   ["Overview", "/employee/dashboard", LayoutDashboard], ["My profile", "/employee/profile", UserRound],
   ["My attendance", "/employee/attendance", Clock3],
   ["My Work", "/employee/work", BriefcaseBusiness],
+  ["My KPI", "/employee/kpi", TrendingUp],
   ["My leave", "/employee/leaves", CalendarDays],
   ["Meetings", "/employee/meetings", Users],
 ] as const satisfies readonly NavigationItem[];
@@ -24,6 +26,7 @@ const hrNav = [
   ["Overview", "/hr/dashboard", LayoutDashboard], ["Employees", "/hr/employees", Users],
   ["Attendance", "/hr/attendance", CalendarCheck], ["Leave requests", "/hr/leaves", CalendarDays],
   ["Work", "/hr/work", BriefcaseBusiness],
+  ["KPI Performance", "/hr/kpi", TrendingUp],
   ["Meetings", "/hr/meetings", UserRound],
 ] as const satisfies readonly NavigationItem[];
 
@@ -42,6 +45,7 @@ const bdoNav = [
 const teamLeadNav = [
   ["Overview", "/team-lead/dashboard", LayoutDashboard],
   ["Work", "/team-lead/work", BriefcaseBusiness],
+  ["KPI Performance", "/admin/kpi", TrendingUp],
 ] as const satisfies readonly NavigationItem[];
 
 export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[]> = {
@@ -60,6 +64,7 @@ export const portalRoleRoutes: Record<PortalRole, WorkspaceRole> = {
   BDE: "bdo",
   TEAM_LEAD: "team-lead",
   EMPLOYEE: "employee",
+  OPERATIONS_HEAD: "admin",
 };
 
 export const expectedPortalRole: Record<WorkspaceRole, PortalRole> = {
@@ -70,6 +75,7 @@ export const expectedPortalRole: Record<WorkspaceRole, PortalRole> = {
   "team-lead": "TEAM_LEAD",
   employee: "EMPLOYEE",
 };
+
 
 export const workspaceLabels: Record<WorkspaceRole, string> = {
   admin: "Administrator",
