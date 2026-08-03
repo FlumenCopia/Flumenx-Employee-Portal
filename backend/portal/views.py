@@ -53,16 +53,20 @@ class FlumenxTokenSerializer(TokenObtainPairSerializer):
 def set_token_cookies(response, access, refresh=None):
     access_lifetime = int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds())
     refresh_lifetime = int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
+    secure = settings.JWT_COOKIE_SECURE
+    samesite = settings.JWT_COOKIE_SAMESITE
+    if samesite and samesite.lower() == "none":
+        secure = True
     response.set_cookie(
         settings.JWT_ACCESS_COOKIE_NAME, str(access), max_age=access_lifetime,
-        httponly=True, secure=settings.JWT_COOKIE_SECURE,
-        samesite=settings.JWT_COOKIE_SAMESITE, path="/api/",
+        httponly=True, secure=secure,
+        samesite=samesite, path="/api/",
     )
     if refresh is not None:
         response.set_cookie(
             settings.JWT_REFRESH_COOKIE_NAME, str(refresh), max_age=refresh_lifetime,
-            httponly=True, secure=settings.JWT_COOKIE_SECURE,
-            samesite=settings.JWT_COOKIE_SAMESITE, path="/api/auth/",
+            httponly=True, secure=secure,
+            samesite=samesite, path="/api/auth/",
         )
 
 
