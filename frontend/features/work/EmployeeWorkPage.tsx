@@ -72,7 +72,7 @@ export function EmployeeWorkPage() {
   const [editingDeliverable, setEditingDeliverable] = useState<WorkDeliverable | null>(null);
   const [statusMode, setStatusMode] = useState<"AUTO" | "Blocked">("AUTO");
   const [deliverableStatus, setDeliverableStatus] = useState<WorkStatus>("Pending");
-  const [completedQuantity, setCompletedQuantity] = useState("0");
+  const [selectedStatus, setSelectedStatus] = useState<WorkStatus>("Pending");
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [collapsedDeliverables, setCollapsedDeliverables] = useState<Record<number, boolean>>({});
@@ -134,7 +134,7 @@ export function EmployeeWorkPage() {
   function openUpdate(item: WorkAssignment) {
     setEditing(item);
     setEditingDeliverable(null);
-    setCompletedQuantity(String(item.completed_quantity));
+    setSelectedStatus(item.status === "Blocked" ? "In Progress" : item.status);
     setFormErrors({});
     setActionError("");
   }
@@ -151,36 +151,19 @@ export function EmployeeWorkPage() {
     setCollapsedDeliverables(current => ({ ...current, [id]: !current[id] }));
   }
 
-  const parsedVal = Number(completedQuantity);
-  const assignedVal = editing ? editing.assigned_quantity : 0;
-  const isOverCompleted = editing && !isNaN(parsedVal) && assignedVal > 0 && parsedVal > assignedVal;
-  const isNegative = !isNaN(parsedVal) && parsedVal < 0;
+  const statusProgressMap: Record<string, number> = {
+    "Pending": 0,
+    "In Progress": 25,
+    "Ongoing": 75,
+    "Completed": 100,
+    "Blocked": 0,
+  };
 
-  const calculatedPct = editing && !isNaN(parsedVal) && assignedVal > 0
-    ? Math.max(0, Math.min(100, Math.round((parsedVal / assignedVal) * 100)))
-    : 0;
-
-  const calculatedStatus: WorkStatus =
-    calculatedPct <= 0
-      ? "Pending"
-      : calculatedPct >= 100
-      ? "Completed"
-      : calculatedPct >= 50
-      ? "Ongoing"
-      : "In Progress";
+  const liveProgress = statusProgressMap[selectedStatus] ?? 0;
 
   async function submitUpdate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editing || submitting) return;
-    const val = Number(completedQuantity);
-    if (isNaN(val) || val < 0) {
-      setActionError("Completed quantity cannot be negative.");
-      return;
-    }
-    if (val > editing.assigned_quantity) {
-      setActionError(`Completed quantity cannot exceed assigned quantity (${editing.assigned_quantity}).`);
-      return;
-    }
     setSubmitting(true);
     setActionError("");
     setFormErrors({});
@@ -188,15 +171,15 @@ export function EmployeeWorkPage() {
       await api<WorkAssignment>(`/work-assignments/${editing.id}/`, {
         method: "PATCH",
         body: JSON.stringify({
-          completed_quantity: val,
+          status: selectedStatus,
         }),
       });
       setEditing(null);
-      setMessage("Work quantity updated.");
+      setMessage("Work status updated.");
       await loadWork(filters);
     } catch (err) {
       setFormErrors(fieldErrors(err));
-      setActionError(apiError(err, "Could not update work quantity."));
+      setActionError(apiError(err, "Could not update work status."));
     } finally {
       setSubmitting(false);
     }
@@ -321,86 +304,35 @@ export function EmployeeWorkPage() {
       {!loading && !error && !items.length && <EmptyState title="No work assigned" text="There are no assignments to show for these filters." />}
     </div>
 
-    {editing && <Modal title="Update work progress" onClose={() => !submitting && setEditing(null)}>
+    {editing && <Modal title="Update work status" onClose={() => !submitting && setEditing(null)}>
       <form className="modal-form" onSubmit={submitUpdate}>
         <label>Work title<input value={editing.title} readOnly /></label>
 
         <div className="quantity-preview" style={{ background: "#141414", border: "1px solid #282828", padding: "14px 16px", borderRadius: "6px", marginBottom: "14px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-            <span style={{ fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: ".08em" }}>Target Goal</span>
-            <b style={{ fontSize: "13px", color: "#eee" }}>{editing.assigned_quantity} {editing.unit}</b>
-          </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: "11px", color: "var(--neon, #4DFFA0)", fontWeight: 600 }}>
-              Completed {completedQuantity || 0} of {editing.assigned_quantity} {editing.unit}
-            </span>
-            <b style={{ fontSize: "14px", color: "var(--neon, #4DFFA0)" }}>{calculatedPct}%</b>
+            <span style={{ fontSize: "10px", color: "#888", textTransform: "uppercase", letterSpacing: ".08em" }}>Target Quantity</span>
+            <b style={{ fontSize: "13px", color: "#eee" }}>{editing.assigned_quantity} {editing.unit}</b>
           </div>
         </div>
 
         <label>
-          Completed quantity
-          <input type="number" min="0" max={editing.assigned_quantity} step="1" value={completedQuantity} onChange={event => setCompletedQuantity(event.target.value)} required />
-          {formErrors.completed_quantity && <small>{formErrors.completed_quantity}</small>}
-          {isOverCompleted && <small style={{ color: "var(--danger, #ff6b6b)" }}>Completed quantity cannot exceed assigned quantity ({editing.assigned_quantity}).</small>}
-          {isNegative && <small style={{ color: "var(--danger, #ff6b6b)" }}>Completed quantity cannot be negative.</small>}
+          Work Status
+          <select
+            value={selectedStatus}
+            onChange={event => setSelectedStatus(event.target.value as WorkStatus)}
+            required
+          >
+            <option value="Pending">Pending (0%)</option>
+            <option value="In Progress">In Progress (25%)</option>
+            <option value="Ongoing">Ongoing (75%)</option>
+            <option value="Completed">Completed (100%)</option>
+          </select>
+          {formErrors.status && <small>{formErrors.status}</small>}
         </label>
 
-        <div className="status-tracker-wrap" style={{ margin: "18px 0" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-            <span style={{ fontSize: "10px", color: "#858580", textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 600 }}>
-              Stage Progress Tracker
-            </span>
-            <span style={{ fontSize: "10px", color: "var(--neon, #4DFFA0)", fontWeight: 700, textTransform: "uppercase" }}>
-              {calculatedStatus}
-            </span>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "6px" }}>
-            {[
-              { key: "Pending", label: "Pending", range: "0%" },
-              { key: "In Progress", label: "In Progress", range: "1–49%" },
-              { key: "Ongoing", label: "Ongoing", range: "50–99%" },
-              { key: "Completed", label: "Completed", range: "100%" },
-            ].map(stage => {
-              const active = calculatedStatus === stage.key;
-              const isPast =
-                (calculatedStatus === "In Progress" && stage.key === "Pending") ||
-                (calculatedStatus === "Ongoing" && (stage.key === "Pending" || stage.key === "In Progress")) ||
-                (calculatedStatus === "Completed" && stage.key !== "Completed");
-
-              return (
-                <div
-                  key={stage.key}
-                  style={{
-                    padding: "10px 4px",
-                    textAlign: "center",
-                    borderRadius: "6px",
-                    border: active
-                      ? "1px solid var(--neon, #4DFFA0)"
-                      : isPast
-                      ? "1px solid #34513c"
-                      : "1px solid #282828",
-                    background: active
-                      ? "rgba(77,255,160,0.14)"
-                      : isPast
-                      ? "rgba(77,255,160,0.05)"
-                      : "#101010",
-                    color: active ? "var(--neon, #4DFFA0)" : isPast ? "#84bfa0" : "#555",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <div style={{ fontSize: "10px", fontWeight: active ? 700 : 600 }}>{stage.label}</div>
-                  <div style={{ fontSize: "8px", marginTop: "3px", opacity: 0.7 }}>{stage.range}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <ProgressMeter value={calculatedPct} />
+        <ProgressMeter value={liveProgress} />
         {actionError && <div className="toast error">{actionError}</div>}
-        <PrimaryButton type="submit" disabled={submitting || Boolean(isOverCompleted) || Boolean(isNegative)}>{submitting ? "Updating..." : "Update Quantity"}</PrimaryButton>
+        <PrimaryButton type="submit" disabled={submitting}>{submitting ? "Updating..." : "Update Status"}</PrimaryButton>
       </form>
     </Modal>}
 

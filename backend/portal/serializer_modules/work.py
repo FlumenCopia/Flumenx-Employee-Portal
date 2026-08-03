@@ -90,13 +90,13 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
         if self.instance and role == "EMPLOYEE":
             if self.instance.has_deliverables():
                 raise PermissionDenied("Employees update deliverable items instead of parent assignments.")
-            allowed = {"status", "completed_quantity"}
+            allowed = {"status"}
             protected = set(getattr(self, "initial_data", {}) or {}) - allowed
             if protected:
-                raise PermissionDenied("Employees can update only completed quantity and blocked status.")
+                raise PermissionDenied("Employees can update only work status.")
             requested_status = attrs.get("status")
-            if requested_status and requested_status != "Blocked":
-                raise PermissionDenied("Employees can manually set only Blocked status. Update completed quantity to change progress.")
+            if requested_status and requested_status not in ("Pending", "In Progress", "Ongoing", "Completed", "Blocked"):
+                raise serializers.ValidationError({"status": "Invalid status value."})
 
         if self.instance and "completed_quantity" in attrs and "status" not in attrs and self.instance.status == "Blocked":
             attrs["status"] = "Pending"

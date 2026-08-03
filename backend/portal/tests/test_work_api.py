@@ -262,16 +262,16 @@ class WorkManagementAPITests(TestCase):
 
         valid = self.client_api.patch(
             f"/api/work-assignments/{self.own_work.id}/",
-            {"completed_quantity": 60},
+            {"status": "Ongoing"},
             format="json",
         )
 
         self.assertEqual(valid.status_code, 200, valid.data)
         self.own_work.refresh_from_db()
         self.assertEqual(self.own_work.status, "Ongoing")
-        self.assertEqual(self.own_work.progress, 60)
-        self.assertEqual(self.own_work.completed_quantity, 60)
-        self.assertEqual(self.own_work.remaining_quantity, 40)
+        self.assertEqual(self.own_work.progress, 75)
+        self.assertEqual(self.own_work.completed_quantity, 75)
+        self.assertEqual(self.own_work.remaining_quantity, 25)
         self.assertEqual(self.own_work.assigned_by, self.users["ADMIN"])
 
         blocked = self.client_api.patch(
@@ -325,21 +325,21 @@ class WorkManagementAPITests(TestCase):
         self.assertEqual(invalid_completed_quantity.status_code, 400)
         self.assertEqual(invalid_assigned_quantity.status_code, 400)
 
-    def test_employee_quantity_update_preserves_model_validation(self):
+    def test_employee_status_update_permissions_and_validation(self):
         self.as_role("EMPLOYEE")
-        invalid_completed_quantity = self.client_api.patch(
+        protected_field_update = self.client_api.patch(
             f"/api/work-assignments/{self.own_work.id}/",
             {"completed_quantity": 101},
             format="json",
         )
-        manual_completed_status = self.client_api.patch(
+        invalid_status = self.client_api.patch(
             f"/api/work-assignments/{self.own_work.id}/",
-            {"status": "Completed"},
+            {"status": "InvalidStatus"},
             format="json",
         )
 
-        self.assertEqual(invalid_completed_quantity.status_code, 400)
-        self.assertEqual(manual_completed_status.status_code, 403)
+        self.assertEqual(protected_field_update.status_code, 403)
+        self.assertEqual(invalid_status.status_code, 400)
 
     def test_response_includes_quantity_fields_and_progress_is_read_only(self):
         self.as_role("ADMIN")
@@ -539,8 +539,8 @@ class WorkManagementAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.ids_from_list(response), [own.id])
 
-    def test_employee_work_quantity_update_auto_syncs_status_and_progress(self):
-        assignment = self.create_assignment(self.employees["EMPLOYEE"], assigned_quantity=10, completed_quantity=0)
+    def test_employee_work_status_update_auto_syncs_progress(self):
+        assignment = self.create_assignment(self.employees["EMPLOYEE"], assigned_quantity=100, status="Pending")
 
         self.as_role("EMPLOYEE")
 
@@ -548,36 +548,42 @@ class WorkManagementAPITests(TestCase):
         self.assertEqual(resp.data["progress"], 0)
         self.assertEqual(resp.data["status"], "Pending")
 
+        # In Progress -> 25%
         patch_resp = self.client_api.patch(
             f"/api/work-assignments/{assignment.id}/",
-            {"completed_quantity": 4},
+            {"status": "In Progress"},
             format="json",
         )
         self.assertEqual(patch_resp.status_code, 200)
-        self.assertEqual(patch_resp.data["progress"], 40)
+        self.assertEqual(patch_resp.data["progress"], 25)
         self.assertEqual(patch_resp.data["status"], "In Progress")
 
+        # Ongoing -> 75%
         patch_resp2 = self.client_api.patch(
             f"/api/work-assignments/{assignment.id}/",
-            {"completed_quantity": 5},
+            {"status": "Ongoing"},
             format="json",
         )
         self.assertEqual(patch_resp2.status_code, 200)
-        self.assertEqual(patch_resp2.data["progress"], 50)
+        self.assertEqual(patch_resp2.data["progress"], 75)
         self.assertEqual(patch_resp2.data["status"], "Ongoing")
 
+        # Completed -> 100%
         patch_resp3 = self.client_api.patch(
             f"/api/work-assignments/{assignment.id}/",
-            {"completed_quantity": 10},
+            {"status": "Completed"},
             format="json",
         )
         self.assertEqual(patch_resp3.status_code, 200)
         self.assertEqual(patch_resp3.data["progress"], 100)
         self.assertEqual(patch_resp3.data["status"], "Completed")
 
-        over_resp = self.client_api.patch(
+        # Employee status update does not require completed_quantity field
+        patch_resp4 = self.client_api.patch(
             f"/api/work-assignments/{assignment.id}/",
-            {"completed_quantity": 11},
+            {"status": "Pending"},
             format="json",
         )
-        self.assertEqual(over_resp.status_code, 400)
+        self.assertEqual(patch_resp4.status_code, 200)
+        self.assertEqual(patch_resp4.data["progress"], 0)
+        self.assertEqual(patch_resp4.data["status"], "Pending")

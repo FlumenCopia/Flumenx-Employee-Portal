@@ -127,36 +127,30 @@ class WorkManagementModelTests(TestCase):
             assignment.full_clean()
 
     def test_progress_and_status_auto_sync_mapping(self):
-        # 0% -> Pending
-        assignment = self.assignment(assigned_quantity=10, completed_quantity=0)
+        # Pending -> 0%
+        assignment = self.assignment(assigned_quantity=100, status="Pending")
         assignment.full_clean()
         assignment.save()
         self.assertEqual(assignment.progress, 0)
-        self.assertEqual(assignment.status, "Pending")
+        self.assertEqual(assignment.completed_quantity, 0)
 
-        # 1% to 49% -> In Progress
-        assignment.completed_quantity = 4
+        # In Progress -> 25%
+        assignment.status = "In Progress"
         assignment.save()
-        self.assertEqual(assignment.progress, 40)
-        self.assertEqual(assignment.status, "In Progress")
+        self.assertEqual(assignment.progress, 25)
+        self.assertEqual(assignment.completed_quantity, 25)
 
-        # 50% to 99% -> Ongoing (threshold 50%)
-        assignment.completed_quantity = 5
+        # Ongoing -> 75%
+        assignment.status = "Ongoing"
         assignment.save()
-        self.assertEqual(assignment.progress, 50)
-        self.assertEqual(assignment.status, "Ongoing")
+        self.assertEqual(assignment.progress, 75)
+        self.assertEqual(assignment.completed_quantity, 75)
 
-        # 50% to 99% -> Ongoing (90%)
-        assignment.completed_quantity = 9
-        assignment.save()
-        self.assertEqual(assignment.progress, 90)
-        self.assertEqual(assignment.status, "Ongoing")
-
-        # 100% -> Completed
-        assignment.completed_quantity = 10
+        # Completed -> 100%
+        assignment.status = "Completed"
         assignment.save()
         self.assertEqual(assignment.progress, 100)
-        self.assertEqual(assignment.status, "Completed")
+        self.assertEqual(assignment.completed_quantity, 100)
 
     def test_over_completion_rejection(self):
         assignment = self.assignment(assigned_quantity=10, completed_quantity=11)

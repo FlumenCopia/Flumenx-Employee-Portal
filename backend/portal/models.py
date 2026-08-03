@@ -186,14 +186,47 @@ class WorkAssignment(models.Model):
         return "In Progress"
 
     def sync_quantity_state(self):
-        self.progress = self.derived_progress()
-        next_status = self.derived_status()
         was_completed = self.status == "Completed"
-        self.status = next_status
-        if next_status == "Completed" and not self.completed_at:
-            self.completed_at = timezone.now()
-        elif next_status != "Completed" and (self.completed_at or was_completed):
+
+        if self.completed_quantity > 0 and self.status == "Pending":
+            self.status = self.derived_status()
+
+        if self.assigned_quantity and self.assigned_quantity > 0 and self.completed_quantity >= self.assigned_quantity and self.status != "Pending":
+            self.status = "Completed"
+
+        if self.status == "Pending":
+            self.progress = 0
+            self.completed_quantity = 0
             self.completed_at = None
+        elif self.status == "In Progress":
+            self.progress = 25
+            if self.assigned_quantity:
+                self.completed_quantity = max(0, round(0.25 * self.assigned_quantity))
+            self.completed_at = None
+        elif self.status == "Ongoing":
+            self.progress = 75
+            if self.assigned_quantity:
+                self.completed_quantity = max(0, round(0.75 * self.assigned_quantity))
+            self.completed_at = None
+        elif self.status == "Completed":
+            self.progress = 100
+            if self.assigned_quantity:
+                self.completed_quantity = self.assigned_quantity
+            if not self.completed_at:
+                self.completed_at = timezone.now()
+        elif self.status == "Blocked":
+            if self.completed_quantity >= self.assigned_quantity and self.assigned_quantity > 0:
+                self.status = "Completed"
+                self.progress = 100
+                if not self.completed_at:
+                    self.completed_at = timezone.now()
+            else:
+                if not self.assigned_quantity:
+                    self.progress = 0
+                else:
+                    self.progress = max(0, min(100, round((self.completed_quantity / self.assigned_quantity) * 100)))
+                if (self.completed_at or was_completed):
+                    self.completed_at = None
 
     def sync_from_deliverables(self, save=False):
         if not self.pk:
