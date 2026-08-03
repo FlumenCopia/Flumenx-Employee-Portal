@@ -14,6 +14,7 @@ function browserCompatibleApiUrl(url: string) {
 
 const API_URL = browserCompatibleApiUrl(process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api");
 let refreshPromise: Promise<boolean> | null = null;
+let cachedCsrfToken = "";
 
 export class ApiError extends Error {
   fields: Record<string, string>;
@@ -27,19 +28,38 @@ export class ApiError extends Error {
   }
 }
 
-function csrfToken() {
+function getCookieCsrfToken() {
   if (typeof document === "undefined") return "";
   return document.cookie.split("; ").find(row => row.startsWith("csrftoken="))?.split("=")[1] || "";
+}
+
+export function csrfToken() {
+  return cachedCsrfToken || getCookieCsrfToken();
 }
 
 function isUnsafe(method?: string) {
   return !["GET", "HEAD", "OPTIONS", "TRACE"].includes((method || "GET").toUpperCase());
 }
 
-export async function ensureCsrf() {
-  if (!csrfToken()) {
-    await fetch(`${API_URL}/auth/csrf/`, { credentials: "include" });
+export async function ensureCsrf(forceRefresh = false) {
+  if (!forceRefresh && csrfToken()) {
+    return csrfToken();
   }
+  try {
+    const response = await fetch(`${API_URL}/auth/csrf/`, { credentials: "include" });
+    if (response.ok) {
+      const data = await response.json().catch(() => ({}));
+      if (data && typeof data.csrfToken === "string" && data.csrfToken) {
+        cachedCsrfToken = data.csrfToken;
+      }
+    }
+  } catch {
+    // Fallback to cookie if fetch fails
+  }
+  if (!cachedCsrfToken) {
+    cachedCsrfToken = getCookieCsrfToken();
+  }
+  return cachedCsrfToken;
 }
 
 function redirectToLoginAfterRefreshFailure() {
@@ -52,7 +72,7 @@ function redirectToLoginAfterRefreshFailure() {
 async function refreshAuth() {
   if (!refreshPromise) {
     refreshPromise = (async () => {
-      await ensureCsrf();
+      await ensureCsrf(true);
       const refreshed = await fetch(`${API_URL}/auth/refresh/`, {
         method: "POST",
         credentials: "include",
