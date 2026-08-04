@@ -1,3 +1,4 @@
+import logging
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
@@ -11,6 +12,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import OutstandingToken, BlacklistedToken
+
+logger = logging.getLogger(__name__)
+
 
 
 class PasswordResetRequestView(APIView):
@@ -59,11 +63,17 @@ class PasswordResetRequestView(APIView):
                 recipient_list=[user.email],
                 fail_silently=False,
             )
-        except Exception:
+        except Exception as exc:
+            logger.error(
+                "Password reset email delivery failed: [%s] %s",
+                exc.__class__.__name__,
+                str(exc),
+            )
             return Response(
                 {"error": "Could not send password reset email. Please try again later or contact your admin."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
 
         return generic_response
 
