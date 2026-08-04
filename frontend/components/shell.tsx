@@ -338,7 +338,8 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
   const nav = workspaceNavigation[workspaceRole];
   const name = user?.first_name || workspaceFallbackNames[workspaceRole];
   const roleLabel = workspaceLabels[workspaceRole];
-  if (!ready) return <div className="route-loader"><span>H</span><p>Opening your workspace</p></div>;
+  if (!ready) return <div className="route-loader"><span>F</span><p>Opening your workspace</p></div>;
+
   return (
     <ShellUserContext.Provider value={user}>
     <div className="app-shell">

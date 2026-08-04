@@ -53,7 +53,12 @@
   --r-sm:7px;
   --r-full:999px;
 }
+@keyframes loadingBar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
 html,body{background:var(--bg);font-family:var(--font-body),system-ui,sans-serif;font-size:14px;line-height:1.5}
+
 body{background:radial-gradient(circle at 72% -20%,rgba(77,255,160,.08),transparent 34%),var(--bg)}
 ::selection{background:var(--neon);color:var(--bg)}
 ::-webkit-scrollbar{width:4px;height:4px}
@@ -265,4 +270,3 @@ body{background:radial-gradient(circle at 72% -20%,rgba(77,255,160,.08),transpar
   .employee-work-list{overflow:auto}
   .employee-work-list article{min-width:680px}
 }
-

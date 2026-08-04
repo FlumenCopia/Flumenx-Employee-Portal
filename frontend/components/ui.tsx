@@ -17,5 +17,5 @@ export function PrimaryButton({ children, type = "button", onClick, disabled }: 
   return <button type={type} className="primary-button" onClick={onClick} disabled={disabled}>{children}<ArrowUpRight size={17} /></button>;
 }
 export function EmptyState({ title, text }: { title: string; text: string }) {
-  return <div className="empty-state"><span>H</span><h3>{title}</h3><p>{text}</p></div>;
+  return <div className="empty-state"><span>F</span><h3>{title}</h3><p>{text}</p></div>;
 }
