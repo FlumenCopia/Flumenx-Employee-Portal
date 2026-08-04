@@ -1,12 +1,18 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BriefcaseBusiness, Globe, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { BriefcaseBusiness, Globe, LayoutDashboard, ListFilter, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
-import type { Client, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkPriority, WorkStatus, WorkSummary } from "@/lib/types";
+import type { Client, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary } from "@/lib/types";
+
 import { Badge, EmptyState, PageHeader, PrimaryButton, StatCard } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
+import { useShellUser } from "@/components/shell";
 import { ShareLinkModal } from "./ShareLinkModal";
+import { CommandCenterView } from "./CommandCenterView";
+
+
 
 
 type ManagementWorkspace = "admin" | "hr" | "bdo" | "team-lead";
@@ -14,6 +20,7 @@ type WorkFormState = {
   employee: string; client: string; title: string; description: string; priority: WorkPriority;
   assigned_date: string; due_date: string; assigned_quantity: string; completed_quantity: string;
   unit: string; statusMode: "AUTO" | "Blocked"; deliverables: DeliverableFormState[];
+  work_type?: string; reviewer?: string;
 };
 type DeliverableFormState = {
   id?: number; client: string; title: string; brief: string; work_type: string; due_date: string; status: WorkStatus;
@@ -40,13 +47,16 @@ function defaultForm(): WorkFormState {
     priority: "Normal",
     assigned_date: today(),
     due_date: today(),
-    assigned_quantity: "1",
+    assigned_quantity: "4",
     completed_quantity: "0",
     unit: "tasks",
     statusMode: "AUTO",
     deliverables: [],
+    work_type: "design",
+    reviewer: "",
   };
 }
+
 
 function formFromAssignment(item: WorkAssignment): WorkFormState {
   return {
@@ -61,7 +71,9 @@ function formFromAssignment(item: WorkAssignment): WorkFormState {
     completed_quantity: String(item.completed_quantity),
     unit: item.unit,
     statusMode: item.status === "Blocked" ? "Blocked" : "AUTO",
+    reviewer: String(item.reviewer || item.reviewer_name || ""),
     deliverables: item.deliverables.map(deliverable => ({
+
       id: deliverable.id,
       client: String(deliverable.client),
       title: deliverable.title,
@@ -113,8 +125,10 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
   const [items, setItems] = useState<WorkAssignment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [employees, setEmployees] = useState<WorkEmployeeOption[]>([]);
+  const [reviewers, setReviewers] = useState<WorkReviewerOption[]>([]);
   const [filters, setFilters] = useState<WorkFilters>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
+
   const [count, setCount] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
@@ -194,14 +208,17 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
     setOptionsLoading(true);
     setOptionsError("");
     try {
-      const [clientData, employeeData] = await Promise.all([
+      const [clientData, employeeData, reviewerData] = await Promise.all([
         api<Paginated<Client>>("/clients/", { signal: controller.signal }),
         api<WorkEmployeeOption[]>("/work-employee-options/", { signal: controller.signal }),
+        api<WorkReviewerOption[]>("/work-reviewer-options/", { signal: controller.signal }),
       ]);
       if (controller.signal.aborted) return;
       setClients(clientData.results);
       setEmployees(employeeData);
+      setReviewers(reviewerData);
     } catch (err) {
+
       if (!controller.signal.aborted) setOptionsError(apiError(err, "Could not load form options."));
     } finally {
       if (!controller.signal.aborted) setOptionsLoading(false);
@@ -278,14 +295,16 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
   }
 
   function saveDeliverableDraft() {
-    if (!deliverableDraft.client || !deliverableDraft.title.trim() || !deliverableDraft.work_type.trim() || !deliverableDraft.due_date) {
-      setActionError("Each deliverable needs a client, title, work type, and due date.");
+    const effectiveClient = deliverableDraft.client || form.client;
+    if (!effectiveClient || !deliverableDraft.title.trim() || !deliverableDraft.work_type.trim() || !deliverableDraft.due_date) {
+      setActionError("Each deliverable needs a title, work type, and due date.");
       return;
     }
     setActionError("");
     setForm(current => {
       const next = {
         ...deliverableDraft,
+        client: effectiveClient,
         title: deliverableDraft.title.trim(),
         work_type: deliverableDraft.work_type.trim(),
       };
@@ -299,6 +318,7 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
     });
     closeDeliverablePanel();
   }
+
 
   function removeDeliverable(index: number) {
     setForm(current => ({
@@ -357,28 +377,24 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       setSubmitting(false);
       return;
     }
-    if (isDeliverableWorkflow) {
-      if (form.deliverables.length === 0) {
-        setActionError("Add at least one deliverable item.");
-        setSubmitting(false);
-        return;
-      }
-      const invalidDeliverable = form.deliverables.find(deliverable => !deliverable.client || !deliverable.title.trim() || !deliverable.work_type.trim() || !deliverable.due_date);
-      if (invalidDeliverable) {
-        setActionError("Each deliverable needs a client, title, work type, and due date.");
-        setSubmitting(false);
-        return;
-      }
-    }
-    const effectiveAssigned = isDeliverableWorkflow ? Math.max(1, form.deliverables.length) : assignedQuantity;
-    const effectiveCompleted = isDeliverableWorkflow ? form.deliverables.filter(deliverable => deliverable.status === "Completed").length : completedQuantity;
-    const effectiveClient = isDeliverableWorkflow ? form.client || form.deliverables[0]?.client || "" : form.client;
+    const effectiveClient = form.client || (clients.length > 0 ? String(clients[0].id) : "");
     if (!effectiveClient) {
-      setFormErrors({ client: "Client is required." });
-      setActionError("Client is required.");
+      setFormErrors({ client: "Counts toward / Client is required." });
+      setActionError("Counts toward / Client is required.");
       setSubmitting(false);
       return;
     }
+    const deliverablesToSync: DeliverableFormState[] = form.deliverables.length > 0
+      ? form.deliverables
+      : [{
+          client: effectiveClient,
+          title: form.title.trim(),
+          brief: form.description || "",
+          work_type: form.work_type || "design",
+          due_date: form.due_date,
+          status: "Pending" as WorkStatus,
+        }];
+
     const payload = {
       employee: Number(form.employee),
       client: Number(effectiveClient),
@@ -387,17 +403,20 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       priority: form.priority,
       assigned_date: form.assigned_date,
       due_date: form.due_date,
-      assigned_quantity: effectiveAssigned,
-      completed_quantity: effectiveCompleted,
-      unit: isDeliverableWorkflow ? "items" : form.unit.trim(),
-      ...(form.statusMode === "Blocked" ? { status: "Blocked" as WorkStatus } : editing ? { status: "Pending" as WorkStatus } : {}),
+      assigned_quantity: assignedQuantity,
+      completed_quantity: completedQuantity,
+      unit: "tasks",
+      reviewer: form.reviewer ? (isNaN(Number(form.reviewer)) ? form.reviewer : Number(form.reviewer)) : null,
+
+      ...(form.statusMode === "Blocked" ? { status: "Blocked" as WorkStatus } : editing ? {} : { status: "Pending" as WorkStatus }),
     };
+
     try {
       const saved = await api<WorkAssignment>(editing ? `/work-assignments/${editing.id}/` : "/work-assignments/", {
         method: editing ? "PATCH" : "POST",
         body: JSON.stringify(payload),
       });
-      await syncDeliverables(saved.id, form.deliverables);
+      await syncDeliverables(saved.id, deliverablesToSync);
       setModalOpen(false);
       setEditing(null);
       setForm(defaultForm());
@@ -410,6 +429,7 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       setSubmitting(false);
     }
   }
+
 
   async function addClient() {
     if (!canAddClient || clientPending || !clientName.trim()) return;
@@ -442,13 +462,74 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
     }
   }
 
+  const searchParams = useSearchParams();
+  const viewParam = searchParams.get("view");
+  const initialTab =
+    viewParam === "kanban"
+      ? "kanban"
+      : viewParam === "timeline"
+      ? "timeline"
+      : viewParam === "deliverables"
+      ? "deliverables"
+      : viewParam === "approvals"
+      ? "approvals"
+      : viewParam === "team"
+      ? "team"
+      : viewParam === "kpis"
+      ? "kpis"
+      : viewParam === "budget"
+      ? "budget"
+      : "overview";
+
+  const [activeViewMode, setActiveViewMode] = useState<"COMMAND_CENTER" | "LIST">("COMMAND_CENTER");
+
+
+  const handleStatusChange = async (id: number, status: WorkStatus) => {
+    try {
+      await api<WorkAssignment>(`/work-assignments/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      await loadWork(filters);
+    } catch (err) {
+      setActionError(apiError(err, "Could not update status."));
+    }
+  };
+
+
+  const shellUser = useShellUser();
+
   return <>
     <PageHeader
-      eyebrow="WORK / MANAGEMENT"
-      title="Work board."
-      subtitle="Assign client work and track team progress without leaving the portal."
+      eyebrow="WORK / EXECUTION COMMAND CENTER"
+      title="Work board & Command Center."
+      subtitle="Assign client work, track taskboards, timeline phases, and KPI targets in real time."
       action={
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <div className="flex bg-[#0F2218] border border-[rgba(77,255,160,0.14)] rounded-xl p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveViewMode("COMMAND_CENTER")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                activeViewMode === "COMMAND_CENTER"
+                  ? "bg-[#4DFFA0] text-[#020806] shadow-[0_0_10px_rgba(77,255,160,0.3)]"
+                  : "text-[#89ACA0] hover:text-white"
+              }`}
+            >
+              <LayoutDashboard size={14} /> Command Center
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveViewMode("LIST")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                activeViewMode === "LIST"
+                  ? "bg-[#4DFFA0] text-[#020806] shadow-[0_0_10px_rgba(77,255,160,0.3)]"
+                  : "text-[#89ACA0] hover:text-white"
+              }`}
+            >
+              <ListFilter size={14} /> List View
+            </button>
+          </div>
           {clients.length > 0 && (
             <button
               type="button"
@@ -469,10 +550,24 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       }
     />
 
-
     {message && <div className="toast success">{message}</div>}
     {actionError && <div className="toast error">{actionError}</div>}
     {optionsError && <div className="toast error">{optionsError}</div>}
+
+    {activeViewMode === "COMMAND_CENTER" ? (
+      <CommandCenterView
+        assignments={items}
+        clients={clients}
+        userRole={role}
+        currentUser={shellUser ? { id: shellUser.id, name: shellUser.first_name || shellUser.username, username: shellUser.username, role: shellUser.portal_role } : undefined}
+        onStatusChange={handleStatusChange}
+        initialTab={initialTab}
+      />
+    ) : (
+
+
+      <>
+
 
     <div className="stats-grid">
       <StatCard label="Total" value={loading ? "--" : summary.total} note="visible assignments" icon={<BriefcaseBusiness />} />
@@ -564,97 +659,177 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
         </div>
       )}
     </div>
+    </>
+    )}
 
-    {modalOpen && <Modal title={editing ? "Edit work assignment" : "Assign work"} onClose={() => !submitting && setModalOpen(false)}>
-      <form className="modal-form" onSubmit={saveAssignment}>
-        <label>Employee<select value={form.employee} onChange={event => changeEmployee(event.target.value)} required disabled={optionsLoading}>
-          <option value="">Select employee</option>
-          {visibleEmployees.map(employee => <option key={employee.id} value={employee.id}>{employee.display_name} - {employee.department}</option>)}
-        </select>{formErrors.employee && <small>{formErrors.employee}</small>}</label>
-        <label>{isDeliverableWorkflow ? "Assignment client (optional)" : "Client"}<select value={form.client} onChange={event => setForm(current => ({ ...current, client: event.target.value }))} required={!isDeliverableWorkflow} disabled={optionsLoading}>
-          <option value="">{isDeliverableWorkflow ? "Use deliverable client" : "Select client"}</option>
-          {clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
-        </select>{formErrors.client && <small>{formErrors.client}</small>}</label>
-        {canAddClient && <div className="quick-client">
-          <label>Quick add client<input value={clientName} onChange={event => setClientName(event.target.value)} placeholder="Client name" /></label>
-          <button type="button" onClick={addClient} disabled={clientPending || !clientName.trim()}><Plus size={15} /> Add</button>
-          {clientError && <small>{clientError}</small>}
-        </div>}
-        <label>Work title<input value={form.title} onChange={event => setForm(current => ({ ...current, title: event.target.value }))} required />{formErrors.title && <small>{formErrors.title}</small>}</label>
-        <label>Description<textarea value={form.description} onChange={event => setForm(current => ({ ...current, description: event.target.value }))} rows={4} />{formErrors.description && <small>{formErrors.description}</small>}</label>
-        <div className="two-col">
-          <label>Priority<select value={form.priority} onChange={event => setForm(current => ({ ...current, priority: event.target.value as WorkPriority }))}>{PRIORITIES.map(priority => <option key={priority}>{priority}</option>)}</select>{formErrors.priority && <small>{formErrors.priority}</small>}</label>
-          <label>Status<select value={form.statusMode} onChange={event => setForm(current => ({ ...current, statusMode: event.target.value as WorkFormState["statusMode"] }))}>
-            <option value="AUTO">Auto from quantity</option>
-            <option value="Blocked">Blocked</option>
-          </select>{formErrors.status && <small>{formErrors.status}</small>}</label>
+    {modalOpen && <Modal title={editing ? "Edit Task" : "New Task"} onClose={() => !submitting && setModalOpen(false)}>
+      <form className="modal-form" onSubmit={saveAssignment} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+        {/* TASK TITLE */}
+
+        <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+          TASK TITLE
+          <input
+            type="text"
+            value={form.title}
+            onChange={event => setForm(current => ({ ...current, title: event.target.value }))}
+            placeholder="e.g. Countdown creative series (12 posters)"
+            required
+            className="fi"
+          />
+          {formErrors.title && <small style={{ color: "#EF4444" }}>{formErrors.title}</small>}
+        </label>
+
+        {/* DESCRIPTION / BRIEF */}
+        <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+          DESCRIPTION / BRIEF
+          <textarea
+            value={form.description}
+            onChange={event => setForm(current => ({ ...current, description: event.target.value }))}
+            placeholder="What exactly needs to be produced, and any constraints"
+            rows={3}
+            className="fi"
+          />
+          {formErrors.description && <small style={{ color: "#EF4444" }}>{formErrors.description}</small>}
+        </label>
+
+        {/* TYPE & PRIORITY */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+            TYPE
+            <select
+              value={form.work_type || "design"}
+              onChange={event => setForm(current => ({ ...current, work_type: event.target.value }))}
+              className="fs"
+            >
+              <option value="design">Design</option>
+              <option value="video">Video</option>
+              <option value="ads">Ads</option>
+              <option value="it">IT / Web</option>
+              <option value="content">Content</option>
+              <option value="ops">Ops</option>
+              <option value="client">Client</option>
+            </select>
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+            PRIORITY
+            <select
+              value={form.priority}
+              onChange={event => setForm(current => ({ ...current, priority: event.target.value as WorkPriority }))}
+              className="fs"
+            >
+              <option value="Urgent">P0 Critical</option>
+              <option value="High">P1 High</option>
+              <option value="Normal">P2 Normal</option>
+              <option value="Low">P2 Low</option>
+            </select>
+          </label>
         </div>
-        <div className="two-col">
-          <label>Assigned date<input type="date" value={form.assigned_date} onChange={event => setForm(current => ({ ...current, assigned_date: event.target.value }))} required />{formErrors.assigned_date && <small>{formErrors.assigned_date}</small>}</label>
-          <label>Due date<input type="date" value={form.due_date} onChange={event => setForm(current => ({ ...current, due_date: event.target.value }))} required />{formErrors.due_date && <small>{formErrors.due_date}</small>}</label>
+
+        {/* ASSIGN TO & REVIEWER */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+            ASSIGN TO
+            <select
+              value={form.employee}
+              onChange={event => changeEmployee(event.target.value)}
+              required
+              disabled={optionsLoading}
+              className="fs"
+            >
+              <option value="">Select employee</option>
+              {visibleEmployees.map(employee => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.display_name} — {employee.department}
+                </option>
+              ))}
+            </select>
+            {formErrors.employee && <small style={{ color: "#EF4444" }}>{formErrors.employee}</small>}
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+            REVIEWER
+            <select
+              value={form.reviewer || ""}
+              onChange={event => setForm(current => ({ ...current, reviewer: event.target.value }))}
+              className="fs"
+            >
+              <option value="">Select Reviewer (Default: Admin)</option>
+              {reviewers.map(r => (
+                <option key={r.id} value={r.id}>
+                  {r.display_name} ({r.username})
+                </option>
+              ))}
+            </select>
+
+          </label>
         </div>
-        {isDeliverableWorkflow ? <div className="deliverable-editor">
-          <div className="deliverable-editor-head">
-            <div><b>Deliverable items</b><span>Designer and Video Editing work is tracked one item at a time.</span></div>
-            <button type="button" className="secondary-button" onClick={openAddDeliverable}><Plus size={15} /> Add Deliverable</button>
-          </div>
-          {form.deliverables.length === 0 && !deliverablePanelOpen && <div className="deliverable-empty">No deliverables added yet. Add the first item when this assignment needs item-level tracking.</div>}
-          {form.deliverables.length > 0 && <div className="deliverable-compact-list">
-            {form.deliverables.map((deliverable, index) => {
-              const client = clients.find(item => String(item.id) === deliverable.client);
-              return <div className="deliverable-compact-row" key={deliverable.id || index}>
-                <div>
-                  <b>{deliverable.title}</b>
-                  <span>{client?.name || "Selected client"} - {deliverable.work_type} - due {formatDate(deliverable.due_date)}</span>
-                  {deliverable.brief && <small>{deliverable.brief}</small>}
-                </div>
-                <Badge tone={deliverable.status}>{deliverable.status}</Badge>
-                <div className="row-actions">
-                  <button type="button" onClick={() => openEditDeliverable(index)} aria-label={`Edit ${deliverable.title}`}><Pencil size={15} /></button>
-                  <button type="button" onClick={() => removeDeliverable(index)} aria-label={`Delete ${deliverable.title}`}><Trash2 size={15} /></button>
-                </div>
-              </div>;
-            })}
-          </div>}
-          {deliverablePanelOpen && <div className="deliverable-inline-panel">
-            <div className="deliverable-panel-head">
-              <b>{deliverableEditingIndex === null ? "Add deliverable" : "Edit deliverable"}</b>
-              <button type="button" onClick={closeDeliverablePanel}>Cancel</button>
-            </div>
-            <div className="deliverable-form-row">
-              <label>Client<select value={deliverableDraft.client || form.client} onChange={event => setDeliverableDraft(current => ({ ...current, client: event.target.value }))} required>
-                <option value="">Assignment client</option>
-                {clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
-              </select></label>
-              <label>Work title<input value={deliverableDraft.title} onChange={event => setDeliverableDraft(current => ({ ...current, title: event.target.value }))} required /></label>
-              <label>Work type<input value={deliverableDraft.work_type} onChange={event => setDeliverableDraft(current => ({ ...current, work_type: event.target.value }))} placeholder="poster, video..." required /></label>
-              <label>Due date<input type="date" value={deliverableDraft.due_date} onChange={event => setDeliverableDraft(current => ({ ...current, due_date: event.target.value }))} required /></label>
-              <label>Status<select value={deliverableDraft.status} onChange={event => setDeliverableDraft(current => ({ ...current, status: event.target.value as WorkStatus }))}>
-                {STATUSES.map(status => <option key={status}>{status}</option>)}
-              </select></label>
-              <label className="deliverable-brief">Brief<textarea value={deliverableDraft.brief} onChange={event => setDeliverableDraft(current => ({ ...current, brief: event.target.value }))} rows={2} /></label>
-            </div>
-            <div className="deliverable-panel-actions">
-              <button type="button" className="secondary-button" onClick={closeDeliverablePanel}>Cancel</button>
-              <button type="button" className="secondary-button" onClick={saveDeliverableDraft}>{deliverableEditingIndex === null ? "Save Deliverable" : "Save Changes"}</button>
-            </div>
-          </div>}
-        </div> : <>
-          <div className="two-col">
-            <label>Assigned quantity<input type="number" min="1" step="1" value={form.assigned_quantity} onChange={event => setForm(current => ({ ...current, assigned_quantity: event.target.value }))} required />{formErrors.assigned_quantity && <small>{formErrors.assigned_quantity}</small>}</label>
-            <label>Completed quantity<input type="number" min="0" step="1" value={form.completed_quantity} onChange={event => setForm(current => ({ ...current, completed_quantity: event.target.value }))} required />{formErrors.completed_quantity && <small>{formErrors.completed_quantity}</small>}</label>
-          </div>
-          <label>Unit<input value={form.unit} onChange={event => setForm(current => ({ ...current, unit: event.target.value }))} placeholder="tasks, designs, videos..." required />{formErrors.unit && <small>{formErrors.unit}</small>}</label>
-        </>}
-        {editing && <div className="quantity-preview">
-          <span>Derived by backend</span>
-          <b>{editing.progress}% - {editing.status}</b>
-          <small>{editing.remaining_quantity} {editing.unit} remaining after the latest saved update.</small>
-        </div>}
+
+        {/* DUE DATE, EST. HOURS & COUNTS TOWARD */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+            DUE DATE
+            <input
+              type="date"
+              value={form.due_date}
+              onChange={event => setForm(current => ({ ...current, due_date: event.target.value }))}
+              required
+              className="fi"
+            />
+            {formErrors.due_date && <small style={{ color: "#EF4444" }}>{formErrors.due_date}</small>}
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+            EST. HOURS
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={form.assigned_quantity || 4}
+              onChange={event => setForm(current => ({ ...current, assigned_quantity: event.target.value }))}
+              placeholder="4"
+              className="fi"
+            />
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+            COUNTS TOWARD
+            <select
+              value={form.client || (clients.length > 0 ? String(clients[0].id) : "")}
+              onChange={event => setForm(current => ({ ...current, client: event.target.value }))}
+              required
+              disabled={optionsLoading}
+              className="fs"
+            >
+              {clients.map(client => (
+                <option key={client.id} value={client.id}>{client.name}</option>
+              ))}
+            </select>
+            {formErrors.client && <small style={{ color: "#EF4444" }}>{formErrors.client}</small>}
+          </label>
+        </div>
+
         {actionError && <div className="toast error">{actionError}</div>}
-        <PrimaryButton type="submit" disabled={submitting}>{submitting ? "Saving..." : editing ? "Save changes" : "Assign work"}</PrimaryButton>
+
+        {/* ACTIONS */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setModalOpen(false)}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+          <PrimaryButton type="submit" disabled={submitting}>
+            {submitting ? "Saving..." : editing ? "Save Changes" : "Create Task"}
+          </PrimaryButton>
+        </div>
+
       </form>
     </Modal>}
+
+
 
     {selectedShareClient && (
       <ShareLinkModal

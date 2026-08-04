@@ -43,7 +43,7 @@ export type Client = {
   id: number; name: string; created_at: string; updated_at: string;
 };
 export type WorkPriority = "Low" | "Normal" | "High" | "Urgent";
-export type WorkStatus = "Pending" | "In Progress" | "Ongoing" | "Blocked" | "Completed";
+export type WorkStatus = "Pending" | "In Progress" | "Ongoing" | "Blocked" | "In Review" | "Changes Requested" | "Rejected" | "Approved" | "Completed";
 export type WorkDeliverable = {
   id: number; assignment: number; assignment_title: string; employee_name: string;
   client: number; client_name: string; title: string; brief: string; work_type: string;
@@ -51,19 +51,26 @@ export type WorkDeliverable = {
   created_at: string; updated_at: string;
 };
 export type WorkAssignment = {
-  id: number; employee: number; employee_name: string; client: number; client_name: string;
+  id: number; employee: number; employee_name: string; employee_department?: string; client: number; client_name: string;
   title: string; description: string; priority: WorkPriority; assigned_date: string; due_date: string;
   status: WorkStatus; progress: number; assigned_quantity: number; completed_quantity: number;
   remaining_quantity: number; unit: string; completed_at: string | null;
   assigned_by: number | null; assigned_by_name: string;
+  reviewer?: number | null; reviewer_name?: string;
+  reviewer_details?: { id: number | null; name: string; username: string } | null;
   is_overdue: boolean; deliverables: WorkDeliverable[]; created_at: string; updated_at: string;
 };
+
 export type WorkSummary = {
   total: number; pending: number; in_progress: number; blocked: number; completed: number; overdue: number;
 };
 export type WorkEmployeeOption = {
   id: number; display_name: string; department: Department;
 };
+export type WorkReviewerOption = {
+  id: number; display_name: string; username: string;
+};
+
 
 export type KPIGrade = "Outstanding" | "Excellent" | "Good" | "Needs Improvement" | "Critical";
 

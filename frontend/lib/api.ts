@@ -102,13 +102,26 @@ async function refreshAuth() {
 
 export async function logout() {
   try {
-    await api("/auth/logout/", { method: "POST" });
+    const csrf = getCookieCsrfToken() || cachedCsrfToken;
+    await fetch(`${API_URL}/auth/logout/`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "X-CSRFToken": csrf } : {}),
+      },
+    });
   } catch {
     // Continue cleanup even if server is unreachable
   } finally {
     clearCachedAuthUser();
+    if (typeof window !== "undefined") {
+      sessionStorage.clear();
+      localStorage.removeItem("flumenx_auth_user");
+    }
   }
 }
+
 
 
 

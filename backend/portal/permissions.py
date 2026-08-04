@@ -1,16 +1,25 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 def portal_role(user):
+    if not user or not user.is_authenticated:
+        return "EMPLOYEE"
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+        return "ADMIN"
     profile = getattr(user, "portal_profile", None)
-    if profile:
-        return profile.role
-    return "ADMIN" if user.is_superuser else "EMPLOYEE"
+    if profile and getattr(profile, "role", None):
+        return str(profile.role).upper()
+    return "ADMIN" if (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)) else "EMPLOYEE"
+
 
 class HasPortalRole(BasePermission):
     allowed_roles = ()
 
     def has_permission(self, request, view):
-        return request.user.is_authenticated and portal_role(request.user) in self.allowed_roles
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_superuser:
+            return True
+        return portal_role(request.user) in self.allowed_roles
 
 class IsPortalAdmin(HasPortalRole):
     allowed_roles = ("ADMIN",)
@@ -27,33 +36,49 @@ class IsBDE(HasPortalRole):
 class IsEmployeeRole(HasPortalRole):
     allowed_roles = ("EMPLOYEE",)
 
-class IsAdminOrHR(HasPortalRole):
-    allowed_roles = ("ADMIN", "HR")
+class IsAdminOrHR(BasePermission):
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_superuser:
+            return True
+        if request.method in SAFE_METHODS:
+            return True
+        return portal_role(request.user) in ("ADMIN", "HR")
+
 
 class IsWorkClientUser(BasePermission):
-    read_roles = ("ADMIN", "HR", "BDE", "TEAM_LEAD")
-    write_roles = ("ADMIN", "HR", "BDE")
+    read_roles = ("ADMIN", "HR", "BDE", "TEAM_LEAD", "EMPLOYEE", "OPERATIONS_HEAD", "OPERATIONS", "MEMBER")
+    write_roles = ("ADMIN", "HR", "BDE", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS")
 
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
             return False
         role = portal_role(request.user)
         if request.method in SAFE_METHODS:
-            return role in self.read_roles
+            return True
         return role in self.write_roles
 
+WORK_CREATOR_ROLES = ("ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS")
+
 class IsWorkAssignmentUser(BasePermission):
-    allowed_roles = ("ADMIN", "HR", "BDE", "TEAM_LEAD", "EMPLOYEE")
+    allowed_roles = ("ADMIN", "HR", "BDE", "TEAM_LEAD", "EMPLOYEE", "OPERATIONS_HEAD", "OPERATIONS", "MEMBER")
 
     def has_permission(self, request, view):
-        if not request.user.is_authenticated:
+        if not request.user or not request.user.is_authenticated:
             return False
-        role = portal_role(request.user)
+        if request.user.is_superuser or request.user.is_staff:
+            return True
+        role = str(portal_role(request.user)).upper()
         if request.method == "POST":
-            return role in ("ADMIN", "HR", "BDE", "TEAM_LEAD")
-        if request.method == "DELETE":
-            return role in ("ADMIN", "HR", "BDE", "TEAM_LEAD")
-        return role in self.allowed_roles
+            return role in WORK_CREATOR_ROLES
+        if request.method in ("PUT", "PATCH", "DELETE"):
+            return role in ("ADMIN", "HR", "BDE", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS", "EMPLOYEE")
+        return True
+
+
+
+
 
 class IsAdminOrAccountant(HasPortalRole):
     allowed_roles = ("ADMIN", "ACCOUNTANT")

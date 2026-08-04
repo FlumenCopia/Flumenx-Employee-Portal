@@ -1,7 +1,9 @@
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
+
 
 from portal.models import Client, Employee, WorkAssignment, WorkDeliverable
 from portal.permissions import portal_role
@@ -26,8 +28,11 @@ class ClientSerializer(serializers.ModelSerializer):
 
 class WorkAssignmentSerializer(serializers.ModelSerializer):
     employee_name = serializers.CharField(source="employee.name", read_only=True)
+    employee_department = serializers.CharField(source="employee.department", read_only=True)
     client_name = serializers.CharField(source="client.name", read_only=True)
-    assigned_by_name = serializers.CharField(source="assigned_by.first_name", read_only=True)
+    reviewer = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(is_active=True), required=False, allow_null=True)
+    reviewer_details = serializers.SerializerMethodField()
+    assigned_by_name = serializers.SerializerMethodField()
     is_overdue = serializers.SerializerMethodField()
     remaining_quantity = serializers.IntegerField(read_only=True)
     deliverables = serializers.SerializerMethodField()
@@ -38,6 +43,7 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
             "id",
             "employee",
             "employee_name",
+            "employee_department",
             "client",
             "client_name",
             "title",
@@ -53,56 +59,118 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
             "unit",
             "completed_at",
             "assigned_by",
+            "reviewer",
+            "reviewer_name",
+            "reviewer_details",
             "assigned_by_name",
             "is_overdue",
             "deliverables",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["assigned_by", "progress", "remaining_quantity", "completed_at", "created_at", "updated_at"]
+        read_only_fields = ["progress", "remaining_quantity", "completed_at", "created_at", "updated_at"]
+
+    def get_reviewer_details(self, obj):
+        if obj.reviewer:
+            name = obj.reviewer.first_name.strip() if obj.reviewer.first_name else obj.reviewer.username
+            return {"id": obj.reviewer.id, "name": name, "username": obj.reviewer.username}
+        if obj.reviewer_name:
+            return {"id": None, "name": obj.reviewer_name, "username": ""}
+        return None
+
+    def get_assigned_by_name(self, obj):
+        if obj.reviewer:
+            return obj.reviewer.first_name.strip() if obj.reviewer.first_name else obj.reviewer.username
+        if obj.reviewer_name and obj.reviewer_name.strip():
+            return obj.reviewer_name.strip()
+        if not obj.assigned_by:
+            return "Manager"
+        u = obj.assigned_by
+        return u.first_name.strip() if u.first_name and u.first_name.strip() else u.username or "Admin"
 
     def get_is_overdue(self, obj):
         return obj.status != "Completed" and obj.due_date < timezone.localdate()
 
     def actor_role(self):
         request = self.context.get("request")
-        return portal_role(request.user) if request else "EMPLOYEE"
+        return str(portal_role(request.user)).upper() if request and request.user else "EMPLOYEE"
+
+    def is_reviewer_or_manager(self, instance=None):
+        request = self.context.get("request")
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_superuser or request.user.is_staff:
+            return True
+        role = str(portal_role(request.user)).upper()
+        if role in ("ADMIN", "HR", "BDE", "OPERATIONS", "OPERATIONS_HEAD", "TEAM_LEAD"):
+            return True
+        if instance:
+            if instance.reviewer_id and instance.reviewer_id == request.user.id:
+                return True
+            if instance.assigned_by_id and instance.assigned_by_id == request.user.id:
+                return True
+            u_first = (request.user.first_name or "").strip().lower()
+            u_user = (request.user.username or "").strip().lower()
+            rev_name = (instance.reviewer_name or "").strip().lower()
+            emp = getattr(request.user, "employee", None)
+            emp_name = (emp.name or "").strip().lower() if emp else ""
+            if rev_name:
+                if u_first and (u_first == rev_name or u_first in rev_name or rev_name in u_first):
+                    return True
+                if u_user and (u_user == rev_name or u_user in rev_name or rev_name in u_user):
+                    return True
+                if emp_name and (emp_name == rev_name or emp_name in rev_name or rev_name in emp_name):
+                    return True
+        return False
 
     def validate_employee_scope(self, employee):
         request = self.context.get("request")
         if not request or not employee:
             return
-        role = portal_role(request.user)
-        if role in ("ADMIN", "HR", "BDE"):
+        if self.is_reviewer_or_manager(self.instance):
             return
-        if role == "TEAM_LEAD":
-            actor_employee = getattr(request.user, "employee", None)
-            if not actor_employee or employee.team_lead_id != actor_employee.id:
-                raise PermissionDenied("Team Lead can assign work only to their own team members.")
+        role = str(portal_role(request.user)).upper()
+        if role in ("ADMIN", "HR", "BDE", "OPERATIONS", "OPERATIONS_HEAD", "TEAM_LEAD"):
             return
-        if role == "EMPLOYEE" and getattr(request.user, "employee", None) != employee:
-            raise PermissionDenied("Employees can access only their own assignments.")
+        if role == "EMPLOYEE":
+            if not self.instance:
+                raise PermissionDenied("Employees cannot create new work assignments.")
+            if getattr(request.user, "employee", None) != employee:
+                raise PermissionDenied("Employees can access only their own assignments.")
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        role = self.actor_role()
+        request = self.context.get("request")
+        requested_status = attrs.get("status")
+        valid_statuses = ("Pending", "In Progress", "Ongoing", "Blocked", "In Review", "Changes Requested", "Rejected", "Approved", "Completed")
 
-        if self.instance and role == "EMPLOYEE":
-            if self.instance.has_deliverables():
-                raise PermissionDenied("Employees update deliverable items instead of parent assignments.")
-            allowed = {"status"}
-            protected = set(getattr(self, "initial_data", {}) or {}) - allowed
-            if protected:
-                raise PermissionDenied("Employees can update only work status.")
-            requested_status = attrs.get("status")
-            if requested_status and requested_status not in ("Pending", "In Progress", "Ongoing", "Completed", "Blocked"):
-                raise serializers.ValidationError({"status": "Invalid status value."})
+        if requested_status and requested_status not in valid_statuses:
+            raise serializers.ValidationError({"status": f"Invalid status value '{requested_status}'."})
+
+        if self.instance and requested_status and requested_status != self.instance.status:
+            is_rev = self.is_reviewer_or_manager(self.instance)
+            if requested_status in ("Approved", "Changes Requested", "Rejected", "Completed"):
+                if not is_rev:
+                    raise PermissionDenied("Only the assigned Reviewer or Management can approve, reject, request changes, or complete work.")
+            if not is_rev and requested_status not in ("Pending", "In Progress", "Ongoing", "Blocked", "In Review"):
+                raise PermissionDenied("Assigned employee can only move work to In Review or update progress.")
+
+        if self.instance and not self.is_reviewer_or_manager(self.instance):
+            role = self.actor_role()
+            if role == "EMPLOYEE":
+                allowed = {"status"}
+                protected = set(getattr(self, "initial_data", {}) or {}) - allowed
+                if protected:
+                    raise PermissionDenied("Employees can update only work status.")
 
         if self.instance and "completed_quantity" in attrs and "status" not in attrs and self.instance.status == "Blocked":
             attrs["status"] = "Pending"
 
         employee = attrs.get("employee", getattr(self.instance, "employee", None))
         self.validate_employee_scope(employee)
+
+
+
 
         values = {
             "employee": employee,

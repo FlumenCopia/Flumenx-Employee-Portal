@@ -26,7 +26,8 @@ from .view_modules.meetings import MeetingViewSet
 from .view_modules.notifications import NotificationViewSet
 from .view_modules.salary import SalarySlipViewSet
 from .view_modules.share_links import PublicWorkProgressView, ShareLinkListCreateView, ShareLinkRegenerateView, ShareLinkRevokeView
-from .view_modules.work import ClientViewSet, WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView
+from .view_modules.work import ClientViewSet, WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView, WorkReviewerOptionsView
+
 
 
 
@@ -154,18 +155,19 @@ def register(request):
 
 
 @api_view(["POST"])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def logout(request):
-    enforce_csrf(request)
     response = Response(status=204)
     raw_refresh = request.COOKIES.get(settings.JWT_REFRESH_COOKIE_NAME)
     if raw_refresh:
         try:
             RefreshToken(raw_refresh).blacklist()
-        except TokenError:
+        except Exception:
             pass
     clear_token_cookies(response)
     return response
+
 
 
 

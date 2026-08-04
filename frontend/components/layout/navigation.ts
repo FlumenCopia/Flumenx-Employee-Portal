@@ -1,50 +1,68 @@
 import type { LucideIcon } from "lucide-react";
-import { BriefcaseBusiness, CalendarCheck, CalendarDays, Clock3, LayoutDashboard, TrendingUp, UserRound, Users } from "lucide-react";
+import { BriefcaseBusiness, CalendarCheck, CalendarDays, Clock3, Kanban, Layers, LayoutDashboard, Sparkles, TrendingUp, UserRound, Users } from "lucide-react";
 import type { PortalRole, WorkspaceRole } from "@/lib/types";
 
 export type NavigationItem = readonly [label: string, href: string, Icon: LucideIcon];
 
 const adminNav = [
-  ["Overview", "/admin/dashboard", LayoutDashboard], ["Employees", "/admin/employees", Users],
-  ["Attendance", "/admin/attendance", CalendarCheck],
-  ["Work", "/admin/work", BriefcaseBusiness],
+  ["Overview", "/admin/dashboard", LayoutDashboard],
+  ["Command Center", "/admin/work?view=command-center", Sparkles],
+  ["Task Board", "/admin/work?view=kanban", Kanban],
+  ["Timeline & Phases", "/admin/work?view=timeline", Layers],
   ["KPI Performance", "/admin/kpi", TrendingUp],
+  ["Employees", "/admin/employees", Users],
+  ["Attendance", "/admin/attendance", CalendarCheck],
   ["Leave requests", "/admin/leaves", CalendarDays],
   ["Meetings", "/admin/meetings", UserRound],
 ] as const satisfies readonly NavigationItem[];
 
 const employeeNav = [
-  ["Overview", "/employee/dashboard", LayoutDashboard], ["My profile", "/employee/profile", UserRound],
-  ["My attendance", "/employee/attendance", Clock3],
-  ["My Work", "/employee/work", BriefcaseBusiness],
+  ["Overview", "/employee/dashboard", LayoutDashboard],
+  ["Command Center", "/employee/work?view=command-center", Sparkles],
+  ["Task Board", "/employee/work?view=kanban", Kanban],
+  ["Timeline & Phases", "/employee/work?view=timeline", Layers],
   ["My KPI", "/employee/kpi", TrendingUp],
+  ["My profile", "/employee/profile", UserRound],
+  ["My attendance", "/employee/attendance", Clock3],
   ["My leave", "/employee/leaves", CalendarDays],
   ["Meetings", "/employee/meetings", Users],
 ] as const satisfies readonly NavigationItem[];
 
 const hrNav = [
-  ["Overview", "/hr/dashboard", LayoutDashboard], ["Employees", "/hr/employees", Users],
-  ["Attendance", "/hr/attendance", CalendarCheck], ["Leave requests", "/hr/leaves", CalendarDays],
-  ["Work", "/hr/work", BriefcaseBusiness],
+  ["Overview", "/hr/dashboard", LayoutDashboard],
+  ["Command Center", "/hr/work?view=command-center", Sparkles],
+  ["Task Board", "/hr/work?view=kanban", Kanban],
+  ["Timeline & Phases", "/hr/work?view=timeline", Layers],
   ["KPI Performance", "/hr/kpi", TrendingUp],
+  ["Employees", "/hr/employees", Users],
+  ["Attendance", "/hr/attendance", CalendarCheck],
+  ["Leave requests", "/hr/leaves", CalendarDays],
   ["Meetings", "/hr/meetings", UserRound],
 ] as const satisfies readonly NavigationItem[];
 
 const accountantNav = [
   ["Overview", "/accountant/dashboard", LayoutDashboard],
+  ["Command Center", "/admin/work?view=command-center", Sparkles],
+  ["Task Board", "/admin/work?view=kanban", Kanban],
   ["Attendance", "/accountant/attendance", CalendarCheck],
 ] as const satisfies readonly NavigationItem[];
 
 const bdoNav = [
-  ["Overview", "/bdo/dashboard", LayoutDashboard], ["My profile", "/bdo/profile", UserRound],
-  ["My attendance", "/bdo/attendance", Clock3], ["My leave", "/bdo/leaves", CalendarDays],
-  ["Work", "/bdo/work", BriefcaseBusiness],
+  ["Overview", "/bdo/dashboard", LayoutDashboard],
+  ["Command Center", "/bdo/work?view=command-center", Sparkles],
+  ["Task Board", "/bdo/work?view=kanban", Kanban],
+  ["Timeline & Phases", "/bdo/work?view=timeline", Layers],
+  ["My profile", "/bdo/profile", UserRound],
+  ["My attendance", "/bdo/attendance", Clock3],
+  ["My leave", "/bdo/leaves", CalendarDays],
   ["Meetings", "/bdo/meetings", Users],
 ] as const satisfies readonly NavigationItem[];
 
 const teamLeadNav = [
   ["Overview", "/team-lead/dashboard", LayoutDashboard],
-  ["Work", "/team-lead/work", BriefcaseBusiness],
+  ["Command Center", "/team-lead/work?view=command-center", Sparkles],
+  ["Task Board", "/team-lead/work?view=kanban", Kanban],
+  ["Timeline & Phases", "/team-lead/work?view=timeline", Layers],
   ["KPI Performance", "/admin/kpi", TrendingUp],
 ] as const satisfies readonly NavigationItem[];
 

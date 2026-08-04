@@ -113,6 +113,10 @@ class WorkAssignment(models.Model):
         ("In Progress", "In Progress"),
         ("Ongoing", "Ongoing"),
         ("Blocked", "Blocked"),
+        ("In Review", "In Review"),
+        ("Changes Requested", "Changes Requested"),
+        ("Rejected", "Rejected"),
+        ("Approved", "Approved"),
         ("Completed", "Completed"),
     ]
 
@@ -130,8 +134,12 @@ class WorkAssignment(models.Model):
     unit = models.CharField(max_length=30, default="%")
     completed_at = models.DateTimeField(null=True, blank=True)
     assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="assigned_work")
+    reviewer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_work_assignments")
+    reviewer_name = models.CharField(max_length=120, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
 
     class Meta:
         ordering = ["due_date", "employee__name", "title"]
@@ -249,7 +257,9 @@ class WorkAssignment(models.Model):
         else:
             if self.completed_at:
                 self.completed_at = None
-            if "Blocked" in statuses:
+            if self.status in ("In Review", "Approved", "Published", "Assigned", "Backlog", "In Progress", "Ongoing", "Blocked", "Pending"):
+                pass
+            elif "Blocked" in statuses:
                 self.status = "Blocked"
             elif "In Progress" in statuses or "Completed" in statuses:
                 self.status = "In Progress"
@@ -257,6 +267,8 @@ class WorkAssignment(models.Model):
                 self.status = "Pending"
         if save:
             self.save(update_fields=["assigned_quantity", "completed_quantity", "unit", "progress", "status", "completed_at", "updated_at"])
+
+
 
     def clean(self):
         super().clean()

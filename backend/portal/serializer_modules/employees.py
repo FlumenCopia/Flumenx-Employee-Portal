@@ -1,6 +1,8 @@
 from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from rest_framework import serializers
+
 
 from portal.models import Employee, UserRole
 from portal.permissions import portal_role
@@ -12,11 +14,14 @@ class EmployeeSerializer(serializers.ModelSerializer):
         ("HR", "HR"),
         ("ACCOUNTANT", "Accountant"),
         ("BDE", "BDE"),
+        ("TEAM_LEAD", "Team Lead"),
         ("EMPLOYEE", "Employee"),
+        ("OPERATIONS_HEAD", "Operations Head"),
     )
-    HR_ASSIGNABLE_ROLES = {"ACCOUNTANT", "BDE", "EMPLOYEE"}
-    ADMIN_ASSIGNABLE_ROLES = {"HR", "ACCOUNTANT", "BDE", "EMPLOYEE"}
+    HR_ASSIGNABLE_ROLES = {"ACCOUNTANT", "BDE", "EMPLOYEE", "TEAM_LEAD"}
+    ADMIN_ASSIGNABLE_ROLES = {"HR", "ACCOUNTANT", "BDE", "EMPLOYEE", "TEAM_LEAD", "OPERATIONS_HEAD"}
     HR_PROTECTED_ROLES = {"ADMIN", "HR"}
+
 
     portal_role = serializers.ChoiceField(choices=PORTAL_ROLE_CHOICES, required=False)
     password = serializers.CharField(write_only=True, required=False, trim_whitespace=False)
@@ -57,11 +62,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
         actor_role = portal_role(request.user)
         target_current_role = self.current_portal_role()
 
-        if target_current_role == "ADMIN":
-            raise serializers.ValidationError({
-                "detail": "Administrator employee records cannot be managed through employee onboarding."
-            })
-
         if actor_role == "HR" and target_current_role in self.HR_PROTECTED_ROLES:
             raise serializers.ValidationError({
                 "detail": "HR cannot modify administrator or HR employee records."
@@ -70,14 +70,9 @@ class EmployeeSerializer(serializers.ModelSerializer):
         if requested_role is None:
             return
 
-        if requested_role == "ADMIN":
-            raise serializers.ValidationError({
-                "portal_role": "Administrator role cannot be assigned through employee onboarding."
-            })
-
         if actor_role == "HR" and requested_role not in self.HR_ASSIGNABLE_ROLES:
             raise serializers.ValidationError({
-                "portal_role": "HR can assign only Accountant, BDE, or Employee roles."
+                "portal_role": "HR can assign only Accountant, BDE, Team Lead, or Employee roles."
             })
 
         if actor_role == "ADMIN" and requested_role not in self.ADMIN_ASSIGNABLE_ROLES:
@@ -100,16 +95,11 @@ class EmployeeSerializer(serializers.ModelSerializer):
         self.validate_portal_role_assignment(requested_role if requested_role else None)
 
         if email:
-            user_qs = User.objects.filter(username__iexact=email) | User.objects.filter(email__iexact=email)
             employee_qs = Employee.objects.filter(email__iexact=email)
             if instance:
-                if instance.user_id:
-                    user_qs = user_qs.exclude(pk=instance.user_id)
                 employee_qs = employee_qs.exclude(pk=instance.pk)
-            if user_qs.exists():
-                raise serializers.ValidationError({"email": "A user with this email already exists."})
             if employee_qs.exists():
-                raise serializers.ValidationError({"email": "An employee with this email already exists."})
+                raise serializers.ValidationError({"email": "An employee record with this email already exists."})
 
         if employee_code:
             code_qs = Employee.objects.filter(employee_code=employee_code)
@@ -126,12 +116,20 @@ class EmployeeSerializer(serializers.ModelSerializer):
         email = validated_data["email"]
         try:
             with transaction.atomic():
-                user = User.objects.create_user(username=email, email=email, first_name=validated_data["name"], password=password)
+                user = User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)).first()
+
+                if not user:
+                    user = User.objects.create_user(username=email, email=email, first_name=validated_data["name"], password=password)
+                else:
+                    user.set_password(password)
+                    user.first_name = validated_data["name"]
+                    user.save()
                 UserRole.objects.update_or_create(user=user, defaults={"role": role})
                 validated_data["user"] = user
                 return super().create(validated_data)
-        except IntegrityError:
-            raise serializers.ValidationError({"detail": "Employee could not be saved because related data is not unique."})
+        except Exception as e:
+            raise serializers.ValidationError({"detail": f"Employee record could not be saved: {str(e)}"})
+
 
     def update(self, instance, validated_data):
         role = validated_data.pop("portal_role", None)

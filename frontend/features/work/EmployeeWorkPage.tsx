@@ -1,11 +1,16 @@
 "use client";
 
 import { Fragment, FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { BriefcaseBusiness, RotateCw, SlidersHorizontal } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { BriefcaseBusiness, LayoutDashboard, ListFilter, RotateCw, SlidersHorizontal } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import type { Paginated, WorkAssignment, WorkDeliverable, WorkPriority, WorkStatus, WorkSummary } from "@/lib/types";
 import { Badge, EmptyState, PageHeader, PrimaryButton, StatCard } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
+import { useShellUser } from "@/components/shell";
+import { CommandCenterView } from "./CommandCenterView";
+
+
 
 type EmployeeWorkFilters = {
   status: string; priority: string; due_date: string; assigned_date: string; is_overdue: string;
@@ -207,17 +212,93 @@ export function EmployeeWorkPage() {
     }
   }
 
+  const searchParams = useSearchParams();
+  const viewParam = searchParams.get("view");
+  const initialTab =
+    viewParam === "kanban"
+      ? "kanban"
+      : viewParam === "timeline"
+      ? "timeline"
+      : viewParam === "deliverables"
+      ? "deliverables"
+      : viewParam === "approvals"
+      ? "approvals"
+      : viewParam === "team"
+      ? "team"
+      : viewParam === "kpis"
+      ? "kpis"
+      : viewParam === "budget"
+      ? "budget"
+      : "overview";
+
+  const [activeViewMode, setActiveViewMode] = useState<"COMMAND_CENTER" | "LIST">("COMMAND_CENTER");
+
+
+  const handleStatusChange = async (id: number, status: WorkStatus) => {
+    try {
+      await api<WorkAssignment>(`/work-assignments/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      await loadWork(filters);
+    } catch (err) {
+      setActionError(apiError(err, "Could not update status."));
+    }
+  };
+
+  const shellUser = useShellUser();
+
   return <>
     <PageHeader
-      eyebrow="WORK / MY ASSIGNMENTS"
-      title="My work."
-      subtitle="Track assigned client work and keep your progress current."
+      eyebrow="WORK / EXECUTION COMMAND CENTER"
+      title="My Work & Command Center."
+      subtitle="Track assigned client work, taskboards, timeline phases, and KPI targets in real time."
+      action={
+        <div className="flex bg-[#0F2218] border border-[rgba(77,255,160,0.14)] rounded-xl p-1 gap-1">
+          <button
+            type="button"
+            onClick={() => setActiveViewMode("COMMAND_CENTER")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              activeViewMode === "COMMAND_CENTER"
+                ? "bg-[#4DFFA0] text-[#020806] shadow-[0_0_10px_rgba(77,255,160,0.3)]"
+                : "text-[#89ACA0] hover:text-white"
+            }`}
+          >
+            <LayoutDashboard size={14} /> Command Center
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveViewMode("LIST")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              activeViewMode === "LIST"
+                ? "bg-[#4DFFA0] text-[#020806] shadow-[0_0_10px_rgba(77,255,160,0.3)]"
+                : "text-[#89ACA0] hover:text-[#E8F5EF]"
+            }`}
+          >
+            <ListFilter size={14} /> List View
+          </button>
+        </div>
+      }
     />
 
     {message && <div className="toast success">{message}</div>}
     {actionError && !editing && <div className="toast error">{actionError}</div>}
 
-    <div className="stats-grid">
+    {activeViewMode === "COMMAND_CENTER" ? (
+      <CommandCenterView
+        assignments={items}
+        clients={[]}
+        userRole="EMPLOYEE"
+        currentUser={shellUser ? { id: shellUser.id, name: shellUser.first_name || shellUser.username, username: shellUser.username, role: shellUser.portal_role } : undefined}
+        onStatusChange={handleStatusChange}
+        initialTab={initialTab}
+      />
+    ) : (
+
+      <>
+      <div className="stats-grid">
+
+
       <StatCard label="Total" value={loading ? "--" : summary.total} note="assigned to you" icon={<BriefcaseBusiness />} />
       <StatCard label="Pending" value={loading ? "--" : summary.pending} note="waiting to begin" icon={<BriefcaseBusiness />} />
       <StatCard label="In Progress" value={loading ? "--" : summary.in_progress} note="currently moving" icon={<BriefcaseBusiness />} accent />
@@ -303,6 +384,9 @@ export function EmployeeWorkPage() {
       {error && <EmptyState title="Could not load your work" text={error} />}
       {!loading && !error && !items.length && <EmptyState title="No work assigned" text="There are no assignments to show for these filters." />}
     </div>
+    </>
+    )}
+
 
     {editing && <Modal title="Update work status" onClose={() => !submitting && setEditing(null)}>
       <form className="modal-form" onSubmit={submitUpdate}>

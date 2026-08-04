@@ -5,9 +5,10 @@ from .views import (
     AuditLogViewSet, ClientViewSet, EmployeeViewSet, EmployeeKPIDetailView, KPIDashboardView, KPIExportCSVView,
     KPIRatingView, LeaveViewSet, LoginView, MeetingViewSet, MyKPIDetailView, NotificationViewSet,
     PublicWorkProgressView, SalarySlipViewSet, ShareLinkListCreateView, ShareLinkRegenerateView, ShareLinkRevokeView,
-    WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView,
+    WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView, WorkReviewerOptionsView,
     csrf, dashboard, logout, me, refresh, register
 )
+
 
 class OptionalSlashRouter(DefaultRouter):
     def __init__(self, *args, **kwargs):
@@ -38,6 +39,8 @@ urlpatterns = [
     re_path(r"^auth/me/?$", me, name="me"),
     re_path(r"^dashboard/?$", dashboard, name="dashboard"),
     re_path(r"^work-employee-options/?$", WorkEmployeeOptionsView.as_view(), name="work-employee-options"),
+    re_path(r"^work-reviewer-options/?$", WorkReviewerOptionsView.as_view(), name="work-reviewer-options"),
+
     re_path(r"^kpi/dashboard/?$", KPIDashboardView.as_view(), name="kpi-dashboard"),
     re_path(r"^kpi/my-kpi/?$", MyKPIDetailView.as_view(), name="kpi-my-detail"),
     re_path(r"^kpi/employee/(?P<employee_id>\d+)/?$", EmployeeKPIDetailView.as_view(), name="kpi-employee-detail"),

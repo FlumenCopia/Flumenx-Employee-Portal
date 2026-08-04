@@ -62,17 +62,22 @@ class ClientViewSet(viewsets.ModelViewSet):
 
 class WorkEmployeeOptionsView(APIView):
     def get(self, request):
-        role = portal_role(request.user)
         qs = Employee.objects.filter(status="Active").order_by("name")
-        if role in ("ADMIN", "HR", "BDE"):
-            pass
-        elif role == "TEAM_LEAD":
-            actor_employee = getattr(request.user, "employee", None)
-            qs = qs.filter(team_lead=actor_employee) if actor_employee else qs.none()
-        else:
-            return Response({"detail": "You do not have permission to access work employee options."}, status=status.HTTP_403_FORBIDDEN)
-
         return Response([{"id": employee.id, "display_name": employee.name, "department": employee.department} for employee in qs])
+
+
+class WorkReviewerOptionsView(APIView):
+    def get(self, request):
+        users = User.objects.filter(is_active=True).select_related("employee").order_by("first_name", "username")
+        options = []
+        for u in users:
+            name = u.first_name.strip() if u.first_name and u.first_name.strip() else u.username
+            emp = getattr(u, "employee", None)
+            if emp:
+                name = emp.name
+            options.append({"id": u.id, "display_name": name, "username": u.username})
+        return Response(options)
+
 
 
 class WorkDeliverableViewSet(viewsets.ModelViewSet):
@@ -81,18 +86,8 @@ class WorkDeliverableViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = WorkDeliverable.objects.select_related("assignment", "assignment__employee", "assignment__assigned_by", "client")
-        role = portal_role(self.request.user)
-        if role in ("ADMIN", "HR", "BDE"):
-            return self.apply_filters(qs)
-        if role == "TEAM_LEAD":
-            actor_employee = getattr(self.request.user, "employee", None)
-            if not actor_employee:
-                return qs.none()
-            return self.apply_filters(qs.filter(assignment__employee__team_lead=actor_employee))
-        employee = getattr(self.request.user, "employee", None)
-        if not employee:
-            return qs.none()
-        return self.apply_filters(qs.filter(assignment__employee=employee))
+        return self.apply_filters(qs)
+
 
     def apply_filters(self, qs):
         params = self.request.query_params
@@ -155,19 +150,10 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsWorkAssignmentUser]
 
     def get_queryset(self):
-        qs = WorkAssignment.objects.select_related("employee", "client", "assigned_by").prefetch_related("deliverables__client")
-        role = portal_role(self.request.user)
-        if role in ("ADMIN", "HR", "BDE"):
-            return self.apply_filters(qs)
-        if role == "TEAM_LEAD":
-            actor_employee = getattr(self.request.user, "employee", None)
-            if not actor_employee:
-                return qs.none()
-            return self.apply_filters(qs.filter(employee__team_lead=actor_employee))
-        employee = getattr(self.request.user, "employee", None)
-        if not employee:
-            return qs.none()
-        return self.apply_filters(qs.filter(employee=employee))
+        qs = WorkAssignment.objects.select_related("employee", "client", "assigned_by").prefetch_related("deliverables__client").order_by("-id")
+        return self.apply_filters(qs)
+
+
 
     def apply_filters(self, qs):
         params = self.request.query_params
@@ -191,12 +177,50 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(Q(status="Completed") | Q(due_date__gte=timezone.localdate()))
         return qs
 
+    def resolve_reviewer(self):
+        reviewer_val = self.request.data.get("reviewer") or self.request.data.get("reviewer_id") or self.request.data.get("reviewer_name")
+        if reviewer_val:
+            s_val = str(reviewer_val).strip()
+            if s_val.isdigit():
+                user_by_id = User.objects.filter(id=int(s_val), is_active=True).first()
+                if user_by_id:
+                    name = user_by_id.first_name if user_by_id.first_name else user_by_id.username
+                    emp = getattr(user_by_id, "employee", None)
+                    if emp:
+                        name = emp.name
+                    return user_by_id, name
+                emp_by_id = Employee.objects.filter(id=int(s_val)).select_related("user").first()
+                if emp_by_id and emp_by_id.user:
+                    return emp_by_id.user, emp_by_id.name
+            emp = Employee.objects.filter(Q(name__iexact=s_val) | Q(user__username__iexact=s_val)).select_related("user").first()
+            if emp and emp.user:
+                return emp.user, emp.name
+            user_match = User.objects.filter(Q(username__iexact=s_val) | Q(first_name__iexact=s_val)).first()
+            if user_match:
+                name = user_match.first_name if user_match.first_name else user_match.username
+                return user_match, name
+            return None, s_val
+
+        emp = getattr(self.request.user, "employee", None)
+        name = emp.name if emp else (self.request.user.first_name or self.request.user.username or "Admin")
+        return self.request.user, name
+
     def perform_create(self, serializer):
-        assignment = serializer.save(assigned_by=self.request.user)
+        reviewer_user, reviewer_name = self.resolve_reviewer()
+        assignment = serializer.save(assigned_by=self.request.user, reviewer=reviewer_user, reviewer_name=reviewer_name)
         notify_work_assigned(assignment, self.request.user)
 
     def perform_update(self, serializer):
         instance = serializer.instance
+        reviewer_val = self.request.data.get("reviewer") or self.request.data.get("reviewer_id") or self.request.data.get("reviewer_name")
+        kwargs = {}
+        if reviewer_val:
+            reviewer_user, reviewer_name = self.resolve_reviewer()
+            if reviewer_user:
+                kwargs["reviewer"] = reviewer_user
+            if reviewer_name:
+                kwargs["reviewer_name"] = reviewer_name
+
         old_values = {
             "employee_id": instance.employee_id,
             "client_id": instance.client_id,
@@ -212,7 +236,9 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
             "unit": instance.unit,
             "completed_at": instance.completed_at,
         }
-        assignment = serializer.save()
+        assignment = serializer.save(**kwargs)
+        if old_values["status"] != assignment.status:
+            assignment.deliverables.all().update(status=assignment.status)
         changed = any(getattr(assignment, field) != value for field, value in old_values.items())
         if not changed:
             return
@@ -220,6 +246,11 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
             notify_work_completed(assignment, self.request.user)
             return
         notify_work_updated(assignment, self.request.user)
+
+
+
+
+
 
     def perform_destroy(self, instance):
         recipient = assignment_employee_user(instance)
