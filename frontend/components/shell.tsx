@@ -224,10 +224,9 @@ function LogoutModal({
 
   return (
     <div
-
       className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={(e) => {
-        if (panelRef.current && !panelRef.current.contains(e.target as Node) && !loading) {
+      onClick={() => {
+        if (!loading) {
           onClose();
         }
       }}
@@ -237,8 +236,10 @@ function LogoutModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="logout-dialog-title"
+        onClick={(e) => e.stopPropagation()}
         className="bg-[#0A1912] border border-[rgba(77,255,160,0.2)] rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)]"
       >
+
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
