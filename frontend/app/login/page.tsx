@@ -19,6 +19,32 @@ export default function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
+
+  const [forgotModalOpen, setForgotModalOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState("");
+  const [forgotError, setForgotError] = useState("");
+
+  async function handleForgotSubmit(e: FormEvent) {
+    e.preventDefault();
+    setForgotError("");
+    setForgotMessage("");
+    setForgotLoading(true);
+    try {
+      const res = await api<{ detail: string }>("/auth/password-reset/", {
+        method: "POST",
+        body: JSON.stringify({ email: forgotEmail.trim() }),
+      });
+      setForgotMessage(res.detail || "If an account with that email exists, password reset instructions have been sent.");
+    } catch (err) {
+      setForgotError(err instanceof Error ? err.message : "Unable to process password reset request.");
+    } finally {
+      setForgotLoading(false);
+    }
+  }
+
+
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
       gsap.timeline({ delay: 0.15 })
@@ -100,7 +126,21 @@ export default function LoginPage() {
             {fieldErrors.username && <span className="form-field-error">{fieldErrors.username}</span>}
           </label>
           <label>
-            Password
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>Password</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotModalOpen(true);
+                  setForgotEmail(email);
+                  setForgotMessage("");
+                  setForgotError("");
+                }}
+                style={{ background: "none", border: "none", color: "var(--neon)", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}
+              >
+                Forgot password?
+              </button>
+            </div>
             <div className="input-wrap">
               <LockKeyhole size={18} />
               <input value={password} onChange={e => setPassword(e.target.value)} type={show ? "text" : "password"} required />
@@ -115,6 +155,60 @@ export default function LoginPage() {
           <div className="demo-note"><span>SECURE ACCESS</span><p>Enter the email and password assigned to your employee account.</p></div>
         </form>
       </div>
+
+      {forgotModalOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0, 0, 0, 0.75)", backdropFilter: "blur(4px)", padding: "16px" }}>
+          <div style={{ width: "100%", maxWidth: "420px", background: "#0F1A15", border: "1px solid rgba(77, 255, 160, 0.2)", borderRadius: "16px", padding: "24px", color: "#F3F4F6", display: "flex", flexDirection: "column", gap: "16px", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <b style={{ fontSize: "16px", letterSpacing: "0.5px" }}>RESET PASSWORD</b>
+              <button type="button" onClick={() => setForgotModalOpen(false)} style={{ background: "none", border: "none", color: "#8EA89D", cursor: "pointer", fontSize: "18px" }}>✕</button>
+            </div>
+            <p style={{ fontSize: "12.5px", color: "#A7C1B5", lineHeight: 1.5 }}>
+              Enter the work email address linked to your account. We will send you a secure link to reset your password.
+            </p>
+            {forgotMessage ? (
+              <div style={{ padding: "12px 14px", background: "rgba(77, 255, 160, 0.1)", border: "1px solid rgba(77, 255, 160, 0.3)", borderRadius: "8px", color: "#4DFFA0", fontSize: "12px", lineHeight: 1.4 }}>
+                {forgotMessage}
+              </div>
+            ) : (
+              <form onSubmit={handleForgotSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.5px" }}>
+                  WORK EMAIL ADDRESS
+                  <div className="input-wrap">
+                    <Mail size={18} />
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      placeholder="name@company.com"
+                      required
+                    />
+                  </div>
+                </label>
+                {forgotError && <div className="form-error">{forgotError}</div>}
+                <div style={{ display: "flex", gap: "10px", marginTop: "6px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setForgotModalOpen(false)}
+                    style={{ flex: 1, padding: "10px", borderRadius: "8px", background: "var(--panel2)", color: "#8EA89D", border: "1px solid var(--border)", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="login-button"
+                    style={{ flex: 1.5, margin: 0, padding: "10px" }}
+                  >
+                    {forgotLoading ? "Sending link..." : "Send Reset Link"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }

@@ -4,10 +4,12 @@ from .views import (
     AnnouncementViewSet, AttendanceCorrectionViewSet, AttendancePolicyViewSet, AttendanceRecordViewSet,
     AuditLogViewSet, ClientViewSet, EmployeeViewSet, EmployeeKPIDetailView, KPIDashboardView, KPIExportCSVView,
     KPIRatingView, LeaveViewSet, LoginView, MeetingViewSet, MyKPIDetailView, NotificationViewSet,
+    PasswordResetConfirmView, PasswordResetRequestView,
     PublicWorkProgressView, SalarySlipViewSet, ShareLinkListCreateView, ShareLinkRegenerateView, ShareLinkRevokeView,
     WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView, WorkReviewerOptionsView,
     csrf, dashboard, logout, me, refresh, register
 )
+
 
 
 class OptionalSlashRouter(DefaultRouter):
@@ -37,6 +39,9 @@ urlpatterns = [
     re_path(r"^auth/refresh/?$", refresh, name="refresh"),
     re_path(r"^auth/csrf/?$", csrf, name="csrf"),
     re_path(r"^auth/me/?$", me, name="me"),
+    re_path(r"^auth/password-reset/?$", PasswordResetRequestView.as_view(), name="password_reset_request"),
+    re_path(r"^auth/password-reset/confirm/?$", PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
+
     re_path(r"^dashboard/?$", dashboard, name="dashboard"),
     re_path(r"^work-employee-options/?$", WorkEmployeeOptionsView.as_view(), name="work-employee-options"),
     re_path(r"^work-reviewer-options/?$", WorkReviewerOptionsView.as_view(), name="work-reviewer-options"),
