@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -196,6 +196,102 @@ function NotificationBell({ user }: { user: AuthUser | null }) {
   );
 }
 
+function LogoutModal({
+  open,
+  onClose,
+  onConfirm,
+  loading,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+}) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !loading) {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, loading, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (panelRef.current && !panelRef.current.contains(e.target as Node) && !loading) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="logout-dialog-title"
+        className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl"
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
+              <LogOut size={20} />
+            </div>
+            <h3 id="logout-dialog-title" className="text-base font-bold text-white">
+              Sign out?
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="text-slate-400 hover:text-white p-1 rounded-lg transition disabled:opacity-50"
+            aria-label="Close dialog"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <p className="text-xs text-slate-300">
+          Are you sure you want to sign out of Flumenx?
+        </p>
+
+        <div className="flex items-center justify-end gap-2.5 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="px-4 py-2 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 active:bg-slate-800 rounded-xl transition disabled:opacity-50 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 active:bg-rose-700 rounded-xl transition shadow-lg shadow-rose-600/20 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+          >
+            {loading ? (
+              <>
+                <RotateCw size={14} className="animate-spin" />
+                Signing out...
+              </>
+            ) : (
+              "Sign Out"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Shell({ children, role = "admin" }: { children: ReactNode; role?: WorkspaceRole }) {
   const workspaceRole = role;
   const cachedUser = getCachedAuthUser();
@@ -203,6 +299,9 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
   const path = usePathname(); const router = useRouter(); const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(Boolean(cachedUserMatchesRole));
   const [user, setUser] = useState<AuthUser | null>(cachedUserMatchesRole ? cachedUser : null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
   useEffect(() => {
     let active = true;
     loadAuthUser(() => api<AuthUser>("/auth/me/"))
@@ -221,6 +320,21 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
       });
     return () => { active = false; };
   }, [workspaceRole, router]);
+
+  const handleConfirmLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      clearCachedAuthUser();
+      setUser(null);
+      await logout();
+    } catch {
+      // Proceed to login even if network call fails
+    } finally {
+      router.replace("/login");
+    }
+  };
+
   const nav = workspaceNavigation[workspaceRole];
   const name = user?.first_name || workspaceFallbackNames[workspaceRole];
   const roleLabel = workspaceLabels[workspaceRole];
@@ -234,7 +348,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
         <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label === "Leave requests" && workspaceRole === "admin" && <em>2</em>}</Link>)}</nav>
         <div className="sidebar-foot">
           <div className="mini-profile"><Avatar name={name} /><div><b>{name}</b><span>{roleLabel}</span></div></div>
-          <button onClick={async () => { clearCachedAuthUser(); setUser(null); setReady(false); await logout(); router.replace("/login"); }}><LogOut size={17} /> Sign out</button>
+          <button type="button" onClick={() => setShowLogoutModal(true)}><LogOut size={17} /> Sign out</button>
         </div>
       </aside>
       {open && <div className="scrim" onClick={() => setOpen(false)} />}
@@ -246,8 +360,16 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
         </header>
         <div className="page">{children}</div>
       </main>
+
+      <LogoutModal
+        open={showLogoutModal}
+        onClose={() => {
+          if (!loggingOut) setShowLogoutModal(false);
+        }}
+        onConfirm={handleConfirmLogout}
+        loading={loggingOut}
+      />
     </div>
     </ShellUserContext.Provider>
   );
 }
-
