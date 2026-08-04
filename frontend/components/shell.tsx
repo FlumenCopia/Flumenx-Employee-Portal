@@ -8,7 +8,8 @@ import { FlumenxMark, Avatar } from "./icons";
 import { api, logout } from "@/lib/api";
 import { clearCachedAuthUser, getCachedAuthUser, loadAuthUser } from "@/lib/auth-cache";
 import type { AuthUser, Paginated, PortalNotification, WorkspaceRole } from "@/lib/types";
-import { expectedPortalRole, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
+import { expectedPortalRole, getFilteredNavigation, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
+
 
 const ShellUserContext = createContext<AuthUser | null>(null);
 
@@ -346,7 +347,8 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
 
 
 
-  const nav = workspaceNavigation[workspaceRole];
+  const nav = getFilteredNavigation(workspaceRole);
+
   const name = user?.first_name || workspaceFallbackNames[workspaceRole];
   const roleLabel = workspaceLabels[workspaceRole];
   if (!ready) return <div className="route-loader"><span>F</span><p>Opening your workspace</p></div>;

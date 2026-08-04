@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { BriefcaseBusiness, Globe, LayoutDashboard, ListFilter, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import type { Client, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary } from "@/lib/types";
+import { SHOW_ADVANCED_WORKBOARD } from "@/lib/types";
+
 
 import { Badge, EmptyState, PageHeader, PrimaryButton, StatCard } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
@@ -501,9 +503,9 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
 
   return <>
     <PageHeader
-      eyebrow="WORK / EXECUTION COMMAND CENTER"
-      title="Work board & Command Center."
-      subtitle="Assign client work, track taskboards, timeline phases, and KPI targets in real time."
+      eyebrow={SHOW_ADVANCED_WORKBOARD ? "WORK / EXECUTION COMMAND CENTER" : "WORK / TASK BOARD"}
+      title={SHOW_ADVANCED_WORKBOARD ? "Work board & Command Center." : "Work Board"}
+      subtitle={SHOW_ADVANCED_WORKBOARD ? "Assign client work, track taskboards, timeline phases, and KPI targets in real time." : "Assign client work, track taskboards, and update deliverable progress in real time."}
       action={
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
           <div className="flex bg-[#0F2218] border border-[rgba(77,255,160,0.14)] rounded-xl p-1 gap-1">
@@ -516,8 +518,9 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
                   : "text-[#89ACA0] hover:text-white"
               }`}
             >
-              <LayoutDashboard size={14} /> Command Center
+              <LayoutDashboard size={14} /> {SHOW_ADVANCED_WORKBOARD ? "Command Center" : "Task Board"}
             </button>
+
             <button
               type="button"
               onClick={() => setActiveViewMode("LIST")}

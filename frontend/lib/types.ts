@@ -1,5 +1,8 @@
+export const SHOW_ADVANCED_WORKBOARD = false;
+
 export type PortalRole = "ADMIN" | "HR" | "ACCOUNTANT" | "BDE" | "TEAM_LEAD" | "EMPLOYEE" | "OPERATIONS_HEAD";
 export type WorkspaceRole = "admin" | "employee" | "hr" | "accountant" | "bdo" | "team-lead";
+
 export type Role = WorkspaceRole;
 export type Department = "Web Development" | "Video Editing" | "Design" | "Digital Marketing" | "Accountant" | "HR" | "Operations";
 export type EmployeeStatus = "Active" | "On Leave" | "Inactive";

@@ -66,6 +66,8 @@ const teamLeadNav = [
   ["KPI Performance", "/admin/kpi", TrendingUp],
 ] as const satisfies readonly NavigationItem[];
 
+import { SHOW_ADVANCED_WORKBOARD } from "@/lib/types";
+
 export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[]> = {
   admin: adminNav,
   employee: employeeNav,
@@ -74,6 +76,15 @@ export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[
   bdo: bdoNav,
   "team-lead": teamLeadNav,
 };
+
+export const getFilteredNavigation = (role: WorkspaceRole): readonly NavigationItem[] => {
+  const items = workspaceNavigation[role];
+  if (!SHOW_ADVANCED_WORKBOARD) {
+    return items.filter(([label]) => label !== "Command Center" && label !== "Timeline & Phases");
+  }
+  return items;
+};
+
 
 export const portalRoleRoutes: Record<PortalRole, WorkspaceRole> = {
   ADMIN: "admin",

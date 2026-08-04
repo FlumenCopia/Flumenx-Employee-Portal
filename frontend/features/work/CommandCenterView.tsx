@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { SHOW_ADVANCED_WORKBOARD } from "@/lib/types";
+
 import {
   AlertTriangle,
   ArrowRight,
@@ -358,52 +360,57 @@ export function CommandCenterView({
     setKpiInputs((prev) => ({ ...prev, [id]: "" }));
   };
 
+  const currentActiveTab = SHOW_ADVANCED_WORKBOARD ? activeTab : "kanban";
+
   return (
     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "16px" }}>
       {/* Top Header Control Navigation Tabs */}
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "8px", padding: "8px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "4px", overflowX: "auto", width: "100%" }}>
-          {[
-            { id: "overview", label: "Command Center", icon: LayoutDashboard },
-            { id: "kanban", label: "Task Board", icon: Kanban },
-            { id: "timeline", label: "Timeline & Phases", icon: Layers },
-            { id: "deliverables", label: "Contract Scope", icon: CheckCircle2 },
-            { id: "approvals", label: "Approvals Queue", icon: Zap },
-            { id: "team", label: "Team Capacity", icon: Users },
-            { id: "kpis", label: "KPI Tracker", icon: Target },
-            { id: "budget", label: "Ad Budget", icon: DollarSign },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id as any)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "6px 12px",
-                  borderRadius: "var(--r-sm)",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  whiteSpace: "nowrap",
-                  background: active ? "var(--neon)" : "var(--panel2)",
-                  color: active ? "var(--bg)" : "var(--muted)",
-                  border: "1px solid " + (active ? "var(--neon)" : "var(--border2)"),
-                }}
-              >
-                <Icon size={14} />
-                {tab.label}
-              </button>
-            );
-          })}
+      {SHOW_ADVANCED_WORKBOARD && (
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "8px", padding: "8px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", overflowX: "auto", width: "100%" }}>
+            {[
+              { id: "overview", label: "Command Center", icon: LayoutDashboard },
+              { id: "kanban", label: "Task Board", icon: Kanban },
+              { id: "timeline", label: "Timeline & Phases", icon: Layers },
+              { id: "deliverables", label: "Contract Scope", icon: CheckCircle2 },
+              { id: "approvals", label: "Approvals Queue", icon: Zap },
+              { id: "team", label: "Team Capacity", icon: Users },
+              { id: "kpis", label: "KPI Tracker", icon: Target },
+              { id: "budget", label: "Ad Budget", icon: DollarSign },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const active = currentActiveTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 12px",
+                    borderRadius: "var(--r-sm)",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    background: active ? "var(--neon)" : "var(--panel2)",
+                    color: active ? "var(--bg)" : "var(--muted)",
+                    border: "1px solid " + (active ? "var(--neon)" : "var(--border2)"),
+                  }}
+                >
+                  <Icon size={14} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 1. COMMAND CENTER OVERVIEW */}
-      {activeTab === "overview" && (
+      {currentActiveTab === "overview" && (
+
         <div className="grid mb">
           {lateTasks.length > 0 && (
             <div style={{ padding: "12px 16px", borderRadius: "var(--r-sm)", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--red)", fontSize: "12px", display: "flex", alignItems: "center", gap: "10px" }}>
@@ -507,7 +514,8 @@ export function CommandCenterView({
       )}
 
       {/* 2. TASK BOARD (Matches screenshot expo-ui-bice.vercel.app/tasks) */}
-      {activeTab === "kanban" && (
+      {currentActiveTab === "kanban" && (
+
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
           {/* Filter Bar Row 1 & 2 */}
           <div className="card" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -529,7 +537,7 @@ export function CommandCenterView({
                 >
                   All Phases
                 </button>
-                {PHASES.map((p) => (
+                {SHOW_ADVANCED_WORKBOARD && PHASES.map((p) => (
                   <button
                     key={p.id}
                     type="button"
@@ -539,6 +547,7 @@ export function CommandCenterView({
                     {p.name}
                   </button>
                 ))}
+
               </div>
             </div>
 
