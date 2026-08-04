@@ -224,7 +224,8 @@ function LogoutModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4"
+
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={(e) => {
         if (panelRef.current && !panelRef.current.contains(e.target as Node) && !loading) {
           onClose();
@@ -236,7 +237,7 @@ function LogoutModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="logout-dialog-title"
-        className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl"
+        className="bg-[#0A1912] border border-[rgba(77,255,160,0.2)] rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)]"
       >
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -258,7 +259,7 @@ function LogoutModal({
           </button>
         </div>
 
-        <p className="text-xs text-slate-300">
+        <p className="text-xs text-[#89ACA0]">
           Are you sure you want to sign out of Flumenx?
         </p>
 
@@ -327,11 +328,18 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     try {
       clearCachedAuthUser();
       setUser(null);
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("flumenx_initial_loaded");
+      }
       await logout();
     } catch {
       // Proceed to login even if network call fails
     } finally {
-      router.replace("/login");
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      } else {
+        router.replace("/login");
+      }
     }
   };
 
@@ -348,7 +356,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
         <div className="workspace"><div className="workspace-icon">FX</div><div><b>FLUMENX HQ</b><span>Core workspace</span></div><ChevronDown size={14} /></div>
         <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label === "Leave requests" && workspaceRole === "admin" && <em>2</em>}</Link>)}</nav>
         <div className="sidebar-foot">
-          <div className="mini-profile"><Avatar name={name} /><div><b>{name}</b><span>{roleLabel}</span></div></div>
+          <div className="mini-profile cursor-pointer hover:bg-[rgba(77,255,160,0.08)] transition-colors rounded-xl p-2 mb-2" onClick={() => setShowLogoutModal(true)} title="Click to sign out"><Avatar name={name} /><div><b>{name}</b><span>{roleLabel}</span></div></div>
           <button type="button" onClick={() => setShowLogoutModal(true)}><LogOut size={17} /> Sign out</button>
         </div>
       </aside>
@@ -357,7 +365,13 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
         <header className="topbar">
           <button className="menu-button" onClick={() => setOpen(true)}><Menu /></button>
           <div className="topbar-word">FLUMENX / <span>{roleLabel.toUpperCase()}</span></div>
-          <div className="top-actions"><NotificationBell user={user} /><div className="top-profile"><Avatar name={name} size={34} /><div><b>{name}</b><span>{roleLabel}</span></div></div></div>
+          <div className="top-actions">
+            <NotificationBell user={user} />
+            <div className="top-profile cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setShowLogoutModal(true)} title="Click to sign out">
+              <Avatar name={name} size={34} />
+              <div><b>{name}</b><span>{roleLabel}</span></div>
+            </div>
+          </div>
         </header>
         <div className="page">{children}</div>
       </main>
@@ -373,4 +387,5 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     </div>
     </ShellUserContext.Provider>
   );
+
 }
