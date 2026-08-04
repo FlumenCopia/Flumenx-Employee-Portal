@@ -125,29 +125,30 @@ export default function LoginPage() {
             </div>
             {fieldErrors.username && <span className="form-field-error">{fieldErrors.username}</span>}
           </label>
-          <label>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span>Password</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setForgotModalOpen(true);
-                  setForgotEmail(email);
-                  setForgotMessage("");
-                  setForgotError("");
-                }}
-                style={{ background: "none", border: "none", color: "var(--neon)", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}
-              >
-                Forgot password?
-              </button>
-            </div>
-            <div className="input-wrap">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.04em", color: "#aaa" }}>Password</span>
+            <button
+              type="button"
+              onClick={() => {
+                setForgotModalOpen(true);
+                setForgotEmail(email);
+                setForgotMessage("");
+                setForgotError("");
+              }}
+              style={{ background: "none", border: "none", color: "#4DFFA0", fontSize: "11px", fontWeight: 600, cursor: "pointer", padding: 0 }}
+            >
+              Forgot password?
+            </button>
+          </div>
+          <label style={{ marginBottom: "16px" }}>
+            <div className="input-wrap" style={{ marginTop: 0 }}>
               <LockKeyhole size={18} />
               <input value={password} onChange={e => setPassword(e.target.value)} type={show ? "text" : "password"} required />
               <button type="button" onClick={() => setShow(!show)}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
             </div>
             {fieldErrors.password && <span className="form-field-error">{fieldErrors.password}</span>}
           </label>
+
           {error && <div className="form-error">{error}</div>}
           <button type="submit" className="login-button" disabled={loading}>
             {loading ? "Signing in..." : "Login to FLUMENX"}<ArrowRight size={18} />
