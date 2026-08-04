@@ -344,7 +344,38 @@ class WorkDeliverable(models.Model):
         return result
 
     def __str__(self):
-        return f"{self.title} Ã‚Â· {self.assignment}"
+        return f"{self.title} · {self.assignment}"
+
+
+class ClientWorkShareLink(models.Model):
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="share_links")
+    assignment = models.ForeignKey(WorkAssignment, on_delete=models.CASCADE, null=True, blank=True, related_name="share_links")
+    public_update = models.TextField(blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    is_revoked = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["token", "is_revoked"], name="sharelink_token_revoked_idx"),
+            models.Index(fields=["client", "is_revoked"], name="sharelink_client_revoked_idx"),
+        ]
+
+    def is_valid(self):
+        if self.is_revoked:
+            return False
+        if self.expires_at and self.expires_at < timezone.now():
+            return False
+        return True
+
+    def __str__(self):
+        scope = f"Assignment #{self.assignment_id}" if self.assignment_id else f"Client {self.client.name}"
+        return f"ShareLink · {scope} · Token: {self.token[:8]}..."
+
 
 
 class LeaveRequest(models.Model):

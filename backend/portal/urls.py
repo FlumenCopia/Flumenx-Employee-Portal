@@ -4,7 +4,8 @@ from .views import (
     AnnouncementViewSet, AttendanceCorrectionViewSet, AttendancePolicyViewSet, AttendanceRecordViewSet,
     AuditLogViewSet, ClientViewSet, EmployeeViewSet, EmployeeKPIDetailView, KPIDashboardView, KPIExportCSVView,
     KPIRatingView, LeaveViewSet, LoginView, MeetingViewSet, MyKPIDetailView, NotificationViewSet,
-    SalarySlipViewSet, WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView,
+    PublicWorkProgressView, SalarySlipViewSet, ShareLinkListCreateView, ShareLinkRegenerateView, ShareLinkRevokeView,
+    WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView,
     csrf, dashboard, logout, me, refresh, register
 )
 
@@ -42,5 +43,9 @@ urlpatterns = [
     re_path(r"^kpi/employee/(?P<employee_id>\d+)/?$", EmployeeKPIDetailView.as_view(), name="kpi-employee-detail"),
     re_path(r"^kpi/rating/?$", KPIRatingView.as_view(), name="kpi-rating"),
     re_path(r"^kpi/export-csv/?$", KPIExportCSVView.as_view(), name="kpi-export-csv"),
+    re_path(r"^work-share-links/?$", ShareLinkListCreateView.as_view(), name="work-share-links-list-create"),
+    re_path(r"^work-share-links/(?P<pk>\d+)/revoke/?$", ShareLinkRevokeView.as_view(), name="work-share-links-revoke"),
+    re_path(r"^work-share-links/(?P<pk>\d+)/regenerate/?$", ShareLinkRegenerateView.as_view(), name="work-share-links-regenerate"),
+    re_path(r"^public/work-progress/(?P<token>[A-Za-z0-9_-]+)/?$", PublicWorkProgressView.as_view(), name="public-work-progress"),
     path("", include(router.urls)),
 ]

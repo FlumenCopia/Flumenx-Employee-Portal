@@ -1,11 +1,13 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BriefcaseBusiness, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
+import { BriefcaseBusiness, Globe, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import type { Client, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkPriority, WorkStatus, WorkSummary } from "@/lib/types";
 import { Badge, EmptyState, PageHeader, PrimaryButton, StatCard } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
+import { ShareLinkModal } from "./ShareLinkModal";
+
 
 type ManagementWorkspace = "admin" | "hr" | "bdo" | "team-lead";
 type WorkFormState = {
@@ -134,9 +136,12 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
   const [clientName, setClientName] = useState("");
   const [clientPending, setClientPending] = useState(false);
   const [clientError, setClientError] = useState("");
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [selectedShareClient, setSelectedShareClient] = useState<{ id: number; name: string } | null>(null);
   const requestRef = useRef(0);
   const workAbortRef = useRef<AbortController | null>(null);
   const optionsAbortRef = useRef<AbortController | null>(null);
+
 
   const visibleEmployees = useMemo(() => [...employees].sort((a, b) => a.display_name.localeCompare(b.display_name)), [employees]);
   const selectedEmployee = useMemo(() => employees.find(employee => String(employee.id) === form.employee), [employees, form.employee]);
@@ -442,8 +447,28 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       eyebrow="WORK / MANAGEMENT"
       title="Work board."
       subtitle="Assign client work and track team progress without leaving the portal."
-      action={<PrimaryButton onClick={openCreate}>Assign work</PrimaryButton>}
+      action={
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          {clients.length > 0 && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                const currentClient = clients.find(c => String(c.id) === filters.client) || clients[0];
+                if (currentClient) {
+                  setSelectedShareClient({ id: currentClient.id, name: currentClient.name });
+                  setShareModalOpen(true);
+                }
+              }}
+            >
+              <Globe size={15} /> Share progress
+            </button>
+          )}
+          <PrimaryButton onClick={openCreate}>Assign work</PrimaryButton>
+        </div>
+      }
     />
+
 
     {message && <div className="toast success">{message}</div>}
     {actionError && <div className="toast error">{actionError}</div>}
@@ -630,5 +655,15 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
         <PrimaryButton type="submit" disabled={submitting}>{submitting ? "Saving..." : editing ? "Save changes" : "Assign work"}</PrimaryButton>
       </form>
     </Modal>}
+
+    {selectedShareClient && (
+      <ShareLinkModal
+        clientId={selectedShareClient.id}
+        clientName={selectedShareClient.name}
+        assignments={items}
+        open={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+      />
+    )}
   </>;
 }

@@ -155,3 +155,51 @@ export type KPIDashboardData = {
   }[];
   employees: KPIEmployeeData[];
 };
+
+export type ShareLink = {
+  id: number;
+  token: string;
+  client_id: number;
+  client_name: string;
+  assignment_id: number | null;
+  assignment_title: string | null;
+  public_update: string;
+  expires_at: string | null;
+  is_revoked: boolean;
+  is_valid: boolean;
+  created_at: string;
+  created_by: string | null;
+};
+
+export type PublicWorkDeliverable = {
+  title: string;
+  work_type: string;
+  status: string;
+  due_date: string;
+  completed_at: string | null;
+};
+
+export type PublicWorkAssignment = {
+  title: string;
+  status: string;
+  priority: string;
+  progress: number;
+  assigned_quantity: number;
+  completed_quantity: number;
+  remaining_quantity: number;
+  unit: string;
+  assigned_date: string;
+  due_date: string;
+  completed_at: string | null;
+  deliverables: PublicWorkDeliverable[];
+};
+
+export type PublicWorkProgress = {
+  client_name: string;
+  public_update: string;
+  scope: "assignment" | "client";
+  overall_progress: number;
+  expires_at: string | null;
+  last_updated: string;
+  assignments: PublicWorkAssignment[];
+};

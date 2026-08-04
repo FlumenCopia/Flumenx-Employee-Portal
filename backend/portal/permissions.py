@@ -98,9 +98,7 @@ def can_manage_kpis(user):
     if not user or not user.is_authenticated:
         return False
     role = portal_role(user)
-    if role in ("ADMIN", "HR") or user.is_superuser:
-        return True
-    return is_operations_head(user)
+    return role in ("ADMIN", "HR") or is_operations_head(user)
 
 
 class CanViewKPIDashboard(BasePermission):
@@ -111,3 +109,13 @@ class CanViewKPIDashboard(BasePermission):
 class CanManageKPIRating(BasePermission):
     def has_permission(self, request, view):
         return can_manage_kpis(request.user)
+
+
+class CanManageShareLinks(BasePermission):
+    allowed_roles = ("ADMIN", "HR", "BDE", "OPERATIONS_HEAD", "TEAM_LEAD")
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        role = portal_role(request.user)
+        return role in self.allowed_roles or is_operations_head(request.user)
