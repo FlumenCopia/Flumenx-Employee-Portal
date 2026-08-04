@@ -46,13 +46,14 @@
   --neon:#4DFFA0;
   --neon-dim:rgba(77,255,160,.08);
   --neon-mid:rgba(77,255,160,.18);
-  --font-display:var(--font-heading),var(--font-body),serif;
+  --font-display:var(--font-body),sans-serif;
   --sidebar:220px;
   --topbar:52px;
   --r:10px;
   --r-sm:7px;
   --r-full:999px;
 }
+
 
 @keyframes loadingBar {
   0% { transform: translateX(-100%); }
