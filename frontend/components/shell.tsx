@@ -325,18 +325,16 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
   const handleConfirmLogout = async () => {
     if (loggingOut) return;
     setLoggingOut(true);
-    console.log("[Auth] User confirmed sign out.");
     try {
       if (typeof window !== "undefined") {
         sessionStorage.removeItem("flumenx_initial_loaded");
       }
       await logout();
-    } catch (err) {
-      console.warn("[Auth] Exception in handleConfirmLogout:", err);
+    } catch {
+      // Proceed to redirect even if network call fails
     } finally {
       clearCachedAuthUser();
       setUser(null);
-      console.log("[Auth] Redirecting to /login...");
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       } else {
@@ -344,6 +342,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
       }
     }
   };
+
 
 
   const nav = workspaceNavigation[workspaceRole];

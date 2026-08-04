@@ -75,8 +75,13 @@ def set_token_cookies(response, access, refresh=None):
 
 
 def clear_token_cookies(response):
-    response.delete_cookie(settings.JWT_ACCESS_COOKIE_NAME, path="/api/", samesite=settings.JWT_COOKIE_SAMESITE)
-    response.delete_cookie(settings.JWT_REFRESH_COOKIE_NAME, path="/api/auth/", samesite=settings.JWT_COOKIE_SAMESITE)
+    samesite = settings.JWT_COOKIE_SAMESITE
+    response.delete_cookie(settings.JWT_ACCESS_COOKIE_NAME, path="/api/", samesite=samesite)
+    response.delete_cookie(settings.JWT_ACCESS_COOKIE_NAME, path="/", samesite=samesite)
+    response.delete_cookie(settings.JWT_REFRESH_COOKIE_NAME, path="/api/auth/", samesite=samesite)
+    response.delete_cookie(settings.JWT_REFRESH_COOKIE_NAME, path="/api/", samesite=samesite)
+    response.delete_cookie(settings.JWT_REFRESH_COOKIE_NAME, path="/", samesite=samesite)
+
 
 
 def enforce_csrf(request):
@@ -149,8 +154,9 @@ def register(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def logout(request):
+    enforce_csrf(request)
     response = Response(status=204)
     raw_refresh = request.COOKIES.get(settings.JWT_REFRESH_COOKIE_NAME)
     if raw_refresh:
@@ -160,6 +166,7 @@ def logout(request):
             pass
     clear_token_cookies(response)
     return response
+
 
 
 @api_view(["GET"])

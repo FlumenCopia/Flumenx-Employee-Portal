@@ -101,17 +101,15 @@ async function refreshAuth() {
 }
 
 export async function logout() {
-  console.log("[Auth] Dispatching POST /auth/logout/...");
   try {
     await api("/auth/logout/", { method: "POST" });
-    console.log("[Auth] POST /auth/logout/ succeeded.");
-  } catch (error) {
-    console.warn("[Auth] POST /auth/logout/ encountered error:", error);
+  } catch {
+    // Continue cleanup even if server is unreachable
   } finally {
     clearCachedAuthUser();
-    console.log("[Auth] Auth cache cleared.");
   }
 }
+
 
 
 export function normalizeApiPath(path: string): string {
