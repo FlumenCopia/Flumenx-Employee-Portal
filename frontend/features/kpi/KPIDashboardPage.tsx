@@ -126,7 +126,8 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
 
   useEffect(() => {
     loadDashboard();
-  }, [selectedMonth, selectedYear, department, grade]);
+  }, [selectedMonth, selectedYear, department, grade, search, minScore, maxScore]);
+
 
   // Click outside to close employee dropdown
   useEffect(() => {
