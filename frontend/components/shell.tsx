@@ -325,6 +325,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
   }, [workspaceRole, router]);
 
   const openLogoutModal = () => {
+    setOpen(false);
     setLoggingOut(false);
     setShowLogoutModal(true);
   };
