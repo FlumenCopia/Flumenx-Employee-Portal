@@ -8,6 +8,8 @@ import { Department, Employee, Paginated, PortalRole } from "@/lib/types";
 import { api, ApiError } from "@/lib/api";
 import { Avatar } from "@/components/icons";
 import { Badge, EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
+import { Modal } from "@/features/common/Modal";
+import { getCachedAuthUser } from "@/lib/auth-cache";
 
 type EmployeeWorkspaceRole = "admin" | "hr";
 
@@ -51,6 +53,20 @@ export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const currentUser = getCachedAuthUser();
+  const isSelf = Boolean(
+    selectedEmployee &&
+      currentUser &&
+      (currentUser.employee?.id === selectedEmployee.id ||
+        (currentUser.email && selectedEmployee.email && currentUser.email.toLowerCase() === selectedEmployee.email.toLowerCase()))
+  );
+
   const loadEmployees = () => {
     setLoading(true);
     setError("");
@@ -79,12 +95,25 @@ export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole
 
   useEffect(() => { loadEmployees(); }, [page, search, department]);
 
-  async function removeEmployee(id: number) {
+  const confirmDelete = async () => {
+    if (!selectedEmployee || isSelf) return;
+    setIsDeleting(true);
+    setDeleteError("");
     try {
-      await api(`/employees/${id}/`, { method: "DELETE" });
+      await api(`/employees/${selectedEmployee.id}/`, { method: "DELETE" });
+      setDeleteModalOpen(false);
+      setSelectedEmployee(null);
       loadEmployees();
-    } catch {}
-  }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setDeleteError(err.message || err.fields?.detail || "Could not delete employee.");
+      } else {
+        setDeleteError("Could not delete employee record.");
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const shown = items;
 
@@ -182,11 +211,28 @@ return <>
             </Badge>
 
             <div className="row-actions">
-              <Link href={`${employeeBasePath}/${e.id}/edit`}>
+              <button
+                type="button"
+                title="Edit employee"
+                onClick={(evt) => {
+                  evt.stopPropagation();
+                  setSelectedEmployee(e);
+                  setEditModalOpen(true);
+                }}
+              >
                 <Pencil size={16} />
-              </Link>
+              </button>
 
-              <button onClick={() => removeEmployee(e.id)}>
+              <button
+                type="button"
+                title="Delete employee"
+                onClick={(evt) => {
+                  evt.stopPropagation();
+                  setSelectedEmployee(e);
+                  setDeleteError("");
+                  setDeleteModalOpen(true);
+                }}
+              >
                 <Trash2 size={16} />
               </button>
             </div>
@@ -241,9 +287,119 @@ return <>
       </div>
     )}
   </div>
+
+  {editModalOpen && selectedEmployee && (
+    <Modal title={`Edit ${selectedEmployee.name}`} onClose={() => { setEditModalOpen(false); setSelectedEmployee(null); }}>
+      <EmployeeForm
+        employee={selectedEmployee}
+        role={role}
+        onSuccess={() => {
+          setEditModalOpen(false);
+          setSelectedEmployee(null);
+          loadEmployees();
+        }}
+        onCancel={() => {
+          setEditModalOpen(false);
+          setSelectedEmployee(null);
+        }}
+      />
+    </Modal>
+  )}
+
+  {deleteModalOpen && selectedEmployee && (
+    <Modal
+      title="Delete Employee Record"
+      onClose={() => {
+        if (!isDeleting) {
+          setDeleteModalOpen(false);
+          setSelectedEmployee(null);
+          setDeleteError("");
+        }
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <p style={{ margin: 0, fontSize: "14px", lineHeight: "1.5" }}>
+          Are you sure you want to delete <strong>{selectedEmployee.name}</strong> ({selectedEmployee.employee_code})?
+        </p>
+        <p style={{ margin: 0, fontSize: "12px", color: "var(--muted, #888)" }}>
+          This will remove their employee directory profile and portal user account.
+        </p>
+
+        {isSelf && (
+          <div
+            className="toast error"
+            style={{
+              background: "rgba(255,107,107,0.15)",
+              border: "1px solid rgba(255,107,107,0.3)",
+              color: "#FF6B6B",
+              padding: "12px 16px",
+              borderRadius: "var(--r-sm, 6px)",
+              fontSize: "12px",
+              fontWeight: 600,
+            }}
+          >
+            ⚠️ You cannot delete your own logged-in employee profile.
+          </div>
+        )}
+
+        {deleteError && (
+          <div
+            className="toast error"
+            style={{
+              background: "rgba(255,107,107,0.15)",
+              border: "1px solid rgba(255,107,107,0.3)",
+              color: "#FF6B6B",
+              padding: "12px 16px",
+              borderRadius: "var(--r-sm, 6px)",
+              fontSize: "12px",
+              fontWeight: 600,
+            }}
+          >
+            ⚠️ {deleteError}
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "12px" }}>
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={isDeleting}
+            onClick={() => {
+              setDeleteModalOpen(false);
+              setSelectedEmployee(null);
+              setDeleteError("");
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="primary-button"
+            style={{ background: "#FF6B6B", borderColor: "#FF6B6B", color: "#FFFFFF" }}
+            disabled={isDeleting || isSelf}
+            onClick={confirmDelete}
+          >
+            {isDeleting ? "Deleting..." : "Confirm Delete"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )}
 </>;
 }
-export function EmployeeForm({ employee, employeeId, role = "admin" }: { employee?: Employee; employeeId?: number; role?: EmployeeWorkspaceRole }) {
+export function EmployeeForm({
+  employee,
+  employeeId,
+  role = "admin",
+  onSuccess,
+  onCancel,
+}: {
+  employee?: Employee;
+  employeeId?: number;
+  role?: EmployeeWorkspaceRole;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}) {
   const router = useRouter();
   const employeeBasePath = `/${role}/employees`;
   const [saved, setSaved] = useState(false);
@@ -285,8 +441,12 @@ export function EmployeeForm({ employee, employeeId, role = "admin" }: { employe
         body: JSON.stringify(body),
       });
       setSaved(true);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      setTimeout(() => router.push(employeeBasePath), 500);
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setTimeout(() => router.push(employeeBasePath), 500);
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         setFieldErrors(err.fields);
@@ -295,7 +455,9 @@ export function EmployeeForm({ employee, employeeId, role = "admin" }: { employe
       } else {
         setError("Employee record could not be saved.");
       }
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (!onSuccess) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     }
   }
 
@@ -381,7 +543,13 @@ export function EmployeeForm({ employee, employeeId, role = "admin" }: { employe
         )}
       </div>
       <div className="form-actions">
-        <Link href={employeeBasePath}>Cancel</Link>
+        {onCancel ? (
+          <button type="button" className="secondary-button" onClick={onCancel}>
+            Cancel
+          </button>
+        ) : (
+          <Link href={employeeBasePath}>Cancel</Link>
+        )}
         <PrimaryButton type="submit">{currentEmployee ? "Save changes" : "Create employee"}</PrimaryButton>
       </div>
     </form>
