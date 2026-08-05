@@ -102,25 +102,13 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
         if request.user.is_superuser or request.user.is_staff:
             return True
         role = str(portal_role(request.user)).upper()
-        if role in ("ADMIN", "HR", "BDE", "OPERATIONS", "OPERATIONS_HEAD", "TEAM_LEAD"):
+        if role in WORK_CREATOR_ROLES:
             return True
         if instance:
             if instance.reviewer_id and instance.reviewer_id == request.user.id:
                 return True
             if instance.assigned_by_id and instance.assigned_by_id == request.user.id:
                 return True
-            u_first = (request.user.first_name or "").strip().lower()
-            u_user = (request.user.username or "").strip().lower()
-            rev_name = (instance.reviewer_name or "").strip().lower()
-            emp = getattr(request.user, "employee", None)
-            emp_name = (emp.name or "").strip().lower() if emp else ""
-            if rev_name:
-                if u_first and (u_first == rev_name or u_first in rev_name or rev_name in u_first):
-                    return True
-                if u_user and (u_user == rev_name or u_user in rev_name or rev_name in u_user):
-                    return True
-                if emp_name and (emp_name == rev_name or emp_name in rev_name or rev_name in emp_name):
-                    return True
         return False
 
     def validate_employee_scope(self, employee):
@@ -142,18 +130,20 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
         attrs = super().validate(attrs)
         request = self.context.get("request")
         requested_status = attrs.get("status")
-        valid_statuses = ("Pending", "In Progress", "Ongoing", "Blocked", "In Review", "Changes Requested", "Rejected", "Approved", "Completed")
+        valid_statuses = ("Pending", "In Progress", "Ongoing", "Blocked", "In Review", "Changes Requested", "Rejected", "Approved", "Completed", "Published")
 
         if requested_status and requested_status not in valid_statuses:
             raise serializers.ValidationError({"status": f"Invalid status value '{requested_status}'."})
 
         if self.instance and requested_status and requested_status != self.instance.status:
             is_rev = self.is_reviewer_or_manager(self.instance)
-            if requested_status in ("Approved", "Changes Requested", "Rejected", "Completed"):
-                if not is_rev:
-                    raise PermissionDenied("Only the assigned Reviewer or Management can approve, reject, request changes, or complete work.")
-            if not is_rev and requested_status not in ("Pending", "In Progress", "Ongoing", "Blocked", "In Review"):
-                raise PermissionDenied("Assigned employee can only move work to In Review or update progress.")
+            if not is_rev:
+                if requested_status in ("Approved", "Changes Requested", "Rejected", "Completed", "Published"):
+                    raise PermissionDenied("Only the assigned Reviewer or Management can approve, reject, request changes, complete, or publish work.")
+                if requested_status not in ("Pending", "In Progress", "Ongoing", "Blocked", "In Review"):
+                    raise PermissionDenied("Assigned employee can only move work to In Review or update progress.")
+                if requested_status == "In Review" and self.instance.status in ("Approved", "Completed", "Published", "Rejected"):
+                    raise PermissionDenied(f"Assigned employee cannot submit work for review when current status is '{self.instance.status}'.")
 
         if self.instance and not self.is_reviewer_or_manager(self.instance):
             role = self.actor_role()

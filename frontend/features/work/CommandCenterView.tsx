@@ -29,7 +29,6 @@ import type { WorkAssignment, Client, WorkPriority, WorkStatus, PortalRole } fro
 import { Modal } from "@/features/common/Modal";
 
 export interface TaskItem {
-
   id: string;
   code: string;
   title: string;
@@ -39,11 +38,13 @@ export interface TaskItem {
   assignee: string;
   assigneeName: string;
   reviewer: string;
+  reviewerId?: number | null;
   due: string;
   hours: number;
   deliverable?: string | null;
   status: "backlog" | "assigned" | "progress" | "review" | "approved" | "published";
   priority: "p0" | "p1" | "p2";
+  rawStatus?: WorkStatus;
 }
 
 export interface MemberItem {
@@ -102,6 +103,19 @@ export const STATUSES: Array<{ id: TaskItem["status"]; name: string; color: stri
   { id: "published", name: "Published", color: "#4DFFA0" },
 ];
 
+export const ALL_WORK_STATUSES: Array<{ id: WorkStatus; name: string; isReviewerOnly: boolean }> = [
+  { id: "Pending", name: "Pending", isReviewerOnly: false },
+  { id: "Ongoing", name: "Ongoing", isReviewerOnly: false },
+  { id: "In Progress", name: "In Progress", isReviewerOnly: false },
+  { id: "Blocked", name: "Blocked", isReviewerOnly: false },
+  { id: "In Review", name: "In Review", isReviewerOnly: false },
+  { id: "Changes Requested", name: "Changes Requested", isReviewerOnly: true },
+  { id: "Rejected", name: "Rejected", isReviewerOnly: true },
+  { id: "Approved", name: "Approved", isReviewerOnly: true },
+  { id: "Completed", name: "Completed", isReviewerOnly: true },
+  { id: "Published", name: "Published", isReviewerOnly: true },
+];
+
 export const TASK_TYPES: Record<string, { id: string; name: string; color: string }> = {
   design: { id: "design", name: "Design", color: "#F59E0B" },
   video: { id: "video", name: "Video", color: "#F472B6" },
@@ -112,18 +126,11 @@ export const TASK_TYPES: Record<string, { id: string; name: string; color: strin
   client: { id: "client", name: "Client", color: "#89ACA0" },
 };
 
-
-
 const DEFAULT_MEMBERS: MemberItem[] = [];
-
 const DEFAULT_DELIVERABLES: DeliverableItem[] = [];
-
 const DEFAULT_KPIS: DualKPI[] = [];
-
 const DEFAULT_BUDGET: BudgetItem[] = [];
-
 const DEFAULT_SEED_TASKS: TaskItem[] = [];
-
 
 export function CommandCenterView({
   assignments,
@@ -131,13 +138,15 @@ export function CommandCenterView({
   userRole = "ADMIN",
   currentUser,
   onStatusChange,
+  onDeleteWork,
   initialTab = "overview",
 }: {
   assignments: WorkAssignment[];
   clients: Client[];
   userRole?: PortalRole | string;
   currentUser?: { id?: number; name?: string; username?: string; role?: string };
-  onStatusChange?: (id: number, status: WorkStatus) => void;
+  onStatusChange?: (id: number, status: WorkStatus) => Promise<void> | void;
+  onDeleteWork?: (id: number) => Promise<boolean>;
   initialTab?: "overview" | "kanban" | "timeline" | "deliverables" | "approvals" | "team" | "kpis" | "budget";
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -166,48 +175,38 @@ export function CommandCenterView({
 
   const canManageAll = ["ADMIN", "HR", "OPERATIONS_HEAD", "OPERATIONS", "TEAM_LEAD"].includes((userRole || "").toUpperCase());
 
-  const canUserChangeTaskStatus = (task: TaskItem | null): boolean => {
+  const isReviewerOrManager = (task: TaskItem | null): boolean => {
     if (!task) return false;
     const roleUpper = (userRole || currentUser?.role || "").toUpperCase();
-    const isManagement = ["ADMIN", "HR", "OPERATIONS_HEAD", "OPERATIONS", "TEAM_LEAD"].includes(roleUpper);
-    if (isManagement) return true;
-
-    if (currentUser) {
-      const uName = (currentUser.name || "").toLowerCase().trim();
-      const uUsername = (currentUser.username || "").toLowerCase().trim();
-      const currentUserId = String(currentUser.id || "").trim();
-
-      const rev = (task.reviewer || "").toLowerCase().trim();
-      const isReviewer = Boolean(
-        rev && (
-          (uName && (rev === uName || uName.includes(rev) || rev.includes(uName))) ||
-          (uUsername && (rev === uUsername || uUsername.includes(rev) || rev.includes(uUsername)))
-        )
-      );
-
-      const assigneeName = (task.assigneeName || "").toLowerCase().trim();
-      const assigneeId = String(task.assignee || "").trim();
-      const isAssignee = Boolean(
-        (uName && assigneeName && (uName === assigneeName || assigneeName.includes(uName))) ||
-        (currentUserId && assigneeId && currentUserId === assigneeId)
-      );
-
-      if (isReviewer) return true;
-      if (isAssignee && !isReviewer) return false;
+    if (["ADMIN", "HR", "OPERATIONS_HEAD", "OPERATIONS", "TEAM_LEAD"].includes(roleUpper)) {
+      return true;
     }
+    if (currentUser?.id && task.reviewerId && Number(task.reviewerId) === Number(currentUser.id)) {
+      return true;
+    }
+    return false;
+  };
 
-    return true;
+  const canDeleteSelectedTask = useMemo(() => {
+    return isReviewerOrManager(selectedTask);
+  }, [userRole, currentUser, selectedTask]);
+
+  const canEditSelectedTask = useMemo(() => {
+    return isReviewerOrManager(selectedTask);
+  }, [userRole, currentUser, selectedTask]);
+
+  const canUserChangeTaskStatus = (task: TaskItem | null): boolean => {
+    if (!task) return false;
+    if (isReviewerOrManager(task)) return true;
+    if (currentUser?.id && String(task.assignee) === String(currentUser.id)) {
+      return true;
+    }
+    return false;
   };
 
   const canMoveSelectedTaskStatus = useMemo(() => {
     return canUserChangeTaskStatus(selectedTask);
   }, [userRole, selectedTask, currentUser]);
-
-
-
-
-
-
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -222,7 +221,11 @@ export function CommandCenterView({
           "In Progress": "progress",
           "In Review": "review",
           Blocked: "review",
+          "Changes Requested": "progress",
+          Rejected: "backlog",
+          Approved: "approved",
           Completed: "published",
+          Published: "published",
         };
         const priorityMap: Record<string, TaskItem["priority"]> = {
           Low: "p2",
@@ -250,8 +253,6 @@ export function CommandCenterView({
           else if (wt.includes("ops")) detectedType = "ops";
         }
 
-
-
         return {
           id: String(a.id),
           code: `EXP-${String(a.id).padStart(3, "0")}`,
@@ -261,19 +262,28 @@ export function CommandCenterView({
           phase: "ph1",
           assignee: String(a.employee),
           assigneeName: a.employee_name,
-          reviewer: a.assigned_by_name || "Manager",
+          reviewer: a.assigned_by_name || a.reviewer_name || "Manager",
+          reviewerId: a.reviewer,
           due: a.due_date,
           hours: 8,
           status: statusMap[a.status] || "progress",
           priority: priorityMap[a.priority] || "p1",
+          rawStatus: a.status,
         };
-
       });
       setTasks(converted);
     } else {
       setTasks([]);
     }
   }, [assignments]);
+
+
+
+
+
+
+
+
 
   const dynamicMembers = useMemo(() => {
     if (!assignments || assignments.length === 0) return [];
@@ -338,19 +348,49 @@ export function CommandCenterView({
 
   }, [tasks, searchQuery, selectedPhaseFilter, selectedTypeFilter, selectedMemberFilter, selectedPriorityFilter, statusPillFilter, sortOrder]);
 
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusError, setStatusError] = useState("");
+
+  const handleWorkStatusChange = async (id: string, newStatus: WorkStatus) => {
+    if (!onStatusChange || isNaN(Number(id)) || isUpdatingStatus) return;
+    setIsUpdatingStatus(true);
+    setStatusError("");
+    const statusMap: Record<WorkStatus, TaskItem["status"]> = {
+      Pending: "backlog",
+      Ongoing: "assigned",
+      "In Progress": "progress",
+      "In Review": "review",
+      Blocked: "review",
+      "Changes Requested": "progress",
+      Rejected: "backlog",
+      Approved: "approved",
+      Completed: "published",
+      Published: "published",
+    };
+    try {
+      await onStatusChange(Number(id), newStatus);
+      const kanbanStatus = statusMap[newStatus] || "progress";
+      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, rawStatus: newStatus, status: kanbanStatus } : t)));
+      if (selectedTask && selectedTask.id === id) {
+        setSelectedTask(null);
+      }
+    } catch (err: any) {
+      setStatusError(err?.message || "Could not update status.");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   const moveTask = (id: string, newStatus: TaskItem["status"]) => {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
-    const portalStatusMap: Record<TaskItem["status"], WorkStatus> = {
+    const reverseMap: Record<TaskItem["status"], WorkStatus> = {
       backlog: "Pending",
       assigned: "Ongoing",
       progress: "In Progress",
-      review: "Blocked",
-      approved: "Completed",
-      published: "Completed",
+      review: "In Review",
+      approved: "Approved",
+      published: "Published",
     };
-    if (onStatusChange && !isNaN(Number(id))) {
-      onStatusChange(Number(id), portalStatusMap[newStatus]);
-    }
+    handleWorkStatusChange(id, reverseMap[newStatus]);
   };
 
   const updateKpi = (id: string) => {
@@ -685,13 +725,15 @@ export function CommandCenterView({
                             <div style={{ marginTop: "8px", paddingTop: "6px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                               <span style={{ fontSize: "10.5px", color: "#89ACA0", fontWeight: 600 }}>Status:</span>
                               <select
-                                value={t.status}
-                                disabled={!canUserChangeTaskStatus(t)}
+                                value={t.rawStatus || "Pending"}
+                                disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
                                 onClick={(e) => e.stopPropagation()}
-                                onChange={(e) => {
+                                onChange={async (e) => {
                                   e.stopPropagation();
-                                  if (!canUserChangeTaskStatus(t)) return;
-                                  moveTask(t.id, e.target.value as any);
+                                  const newWorkStatus = e.target.value as WorkStatus;
+                                  e.target.blur();
+                                  if (!canUserChangeTaskStatus(t) || isUpdatingStatus) return;
+                                  await handleWorkStatusChange(t.id, newWorkStatus);
                                 }}
                                 className="fs"
                                 style={{
@@ -704,14 +746,19 @@ export function CommandCenterView({
                                   fontWeight: 600,
                                   cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
                                   opacity: canUserChangeTaskStatus(t) ? 1 : 0.6,
-                                  pointerEvents: canUserChangeTaskStatus(t) ? "auto" : "none",
                                 }}
+                                title={!canUserChangeTaskStatus(t) ? "Status change restricted" : "Change status"}
                               >
-                                {STATUSES.map((s) => (
-                                  <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
+                                {ALL_WORK_STATUSES.map((st) => {
+                                  const isReviewerOnly = st.isReviewerOnly;
+                                  const isAllowed = canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
+                                  return (
+                                    <option key={st.id} value={st.id} disabled={!isAllowed}>
+                                      {st.name}
+                                    </option>
+                                  );
+                                })}
                               </select>
-
                             </div>
                           </div>
 
@@ -996,58 +1043,69 @@ export function CommandCenterView({
                   </span>
                 )}
               </div>
+
+              {statusError && (
+                <div style={{ background: "rgba(239, 68, 68, 0.15)", color: "#F87171", border: "1px solid rgba(239, 68, 68, 0.3)", padding: "8px 12px", borderRadius: "6px", fontSize: "12px", marginBottom: "10px" }}>
+                  {statusError}
+                </div>
+              )}
+
               <div style={{ display: "flex", gap: "8px", overflowX: "auto", flexWrap: "wrap" }}>
-                {STATUSES.map((st) => {
-                  const isActive = selectedTask.status === st.id;
+                {ALL_WORK_STATUSES.map((st) => {
+                  const isCurrent = selectedTask.rawStatus === st.id;
+                  const isReviewerOnly = st.isReviewerOnly;
+                  const isAllowed = canMoveSelectedTaskStatus && (!isReviewerOnly || isReviewerOrManager(selectedTask));
                   return (
                     <button
                       key={st.id}
                       type="button"
-                      disabled={!canMoveSelectedTaskStatus}
-                      onClick={() => {
-                        if (!canMoveSelectedTaskStatus) return;
-                        moveTask(selectedTask.id, st.id);
-                        setSelectedTask({ ...selectedTask, status: st.id });
+                      disabled={!isAllowed || isUpdatingStatus}
+                      onClick={async () => {
+                        if (!isAllowed || isUpdatingStatus) return;
+                        await handleWorkStatusChange(selectedTask.id, st.id);
                       }}
                       style={{
                         padding: "7px 18px",
                         borderRadius: "999px",
                         fontSize: "12px",
                         fontWeight: 700,
-                        background: isActive ? "#00E676" : "rgba(20, 35, 28, 0.6)",
-                        color: isActive ? "#051A10" : "#8EA89D",
-                        border: isActive ? "none" : "1px solid rgba(77, 255, 160, 0.12)",
-                        cursor: canMoveSelectedTaskStatus ? "pointer" : "not-allowed",
-                        opacity: canMoveSelectedTaskStatus ? 1 : 0.6,
-                        pointerEvents: canMoveSelectedTaskStatus ? "auto" : "none",
+                        background: isCurrent ? "#00E676" : "rgba(20, 35, 28, 0.6)",
+                        color: isCurrent ? "#051A10" : "#8EA89D",
+                        border: isCurrent ? "none" : "1px solid rgba(77, 255, 160, 0.12)",
+                        cursor: isAllowed ? "pointer" : "not-allowed",
+                        opacity: isAllowed ? 1 : 0.4,
                         transition: "all 0.15s ease",
                       }}
-                      title={!canMoveSelectedTaskStatus ? `Only designated Reviewer (${selectedTask.reviewer}) or Admin/HR can change status` : `Move to ${st.name}`}
+                      title={!isAllowed ? `Requires Reviewer (${selectedTask.reviewer}) or Admin/HR permission` : `Move to ${st.name}`}
                     >
-                      {st.name}
+                      {st.name} {isCurrent ? "✓" : ""}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-
-
-
             {/* FOOTER ACTIONS */}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "16px" }}>
-              <button
-                type="button"
-                style={{ background: "rgba(185, 28, 28, 0.3)", color: "#F87171", border: "1px solid rgba(239, 68, 68, 0.25)", padding: "8px 20px", borderRadius: "8px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}
-                onClick={() => {
-                  if (confirm("Delete this task?")) {
-                    setTasks((prev) => prev.filter((t) => t.id !== selectedTask.id));
-                    setSelectedTask(null);
-                  }
-                }}
-              >
-                Delete
-              </button>
+              {canDeleteSelectedTask && (
+                <button
+                  type="button"
+                  style={{ background: "rgba(185, 28, 28, 0.3)", color: "#F87171", border: "1px solid rgba(239, 68, 68, 0.25)", padding: "8px 20px", borderRadius: "8px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}
+                  onClick={async () => {
+                    if (confirm("Delete this task?")) {
+                      if (onDeleteWork) {
+                        const ok = await onDeleteWork(Number(selectedTask.id));
+                        if (ok) {
+                          setTasks((prev) => prev.filter((t) => t.id !== selectedTask.id));
+                          setSelectedTask(null);
+                        }
+                      }
+                    }
+                  }}
+                >
+                  Delete
+                </button>
+              )}
               <button
                 type="button"
                 style={{ background: "rgba(30, 41, 59, 0.8)", color: "#E2E8F0", border: "1px solid rgba(255, 255, 255, 0.1)", padding: "8px 20px", borderRadius: "8px", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
@@ -1055,13 +1113,15 @@ export function CommandCenterView({
               >
                 Close
               </button>
-              <button
-                type="button"
-                style={{ background: "#00E676", color: "#051A10", border: "none", padding: "8px 22px", borderRadius: "8px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}
-                onClick={() => setSelectedTask(null)}
-              >
-                Edit
-              </button>
+              {canEditSelectedTask && (
+                <button
+                  type="button"
+                  style={{ background: "#00E676", color: "#051A10", border: "none", padding: "8px 22px", borderRadius: "8px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}
+                  onClick={() => setSelectedTask(null)}
+                >
+                  Edit
+                </button>
+              )}
             </div>
 
           </div>

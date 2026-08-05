@@ -236,13 +236,16 @@ export function EmployeeWorkPage() {
 
   const handleStatusChange = async (id: number, status: WorkStatus) => {
     try {
-      await api<WorkAssignment>(`/work-assignments/${id}/`, {
+      const updated = await api<WorkAssignment>(`/work-assignments/${id}/`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
+      setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
       await loadWork(filters);
     } catch (err) {
-      setActionError(apiError(err, "Could not update status."));
+      const msg = apiError(err, "Could not update status.");
+      setActionError(msg);
+      throw new Error(msg);
     }
   };
 

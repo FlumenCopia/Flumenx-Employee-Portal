@@ -119,6 +119,7 @@ class WorkAssignment(models.Model):
         ("Rejected", "Rejected"),
         ("Approved", "Approved"),
         ("Completed", "Completed"),
+        ("Published", "Published"),
     ]
 
     employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="work_assignments")
@@ -196,6 +197,19 @@ class WorkAssignment(models.Model):
         return "In Progress"
 
     def sync_quantity_state(self):
+        review_statuses = ("In Review", "Changes Requested", "Rejected", "Approved", "Published")
+        if self.status in review_statuses:
+            if self.status in ("Approved", "Published", "Completed"):
+                self.progress = 100
+                if self.assigned_quantity:
+                    self.completed_quantity = self.assigned_quantity
+                if not self.completed_at:
+                    self.completed_at = timezone.now()
+            elif self.status in ("In Review", "Changes Requested", "Rejected"):
+                if self.assigned_quantity and self.assigned_quantity > 0:
+                    self.progress = max(0, min(100, round((self.completed_quantity / self.assigned_quantity) * 100)))
+            return
+
         was_completed = self.status == "Completed"
 
         if self.completed_quantity > 0 and self.status == "Pending":

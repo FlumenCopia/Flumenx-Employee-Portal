@@ -83,10 +83,31 @@ class IsWorkAssignmentUser(BasePermission):
         role = str(portal_role(request.user)).upper()
         if request.method == "POST":
             return role in WORK_CREATOR_ROLES
+        return True
+
+    def has_object_permission(self, request, view, obj):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_superuser or request.user.is_staff:
+            return True
+        role = str(portal_role(request.user)).upper()
+
         if request.method == "DELETE":
-            return role in WORK_CREATOR_ROLES
+            if role in WORK_CREATOR_ROLES:
+                return True
+            if obj.reviewer_id and obj.reviewer_id == request.user.id:
+                return True
+            return False
+
         if request.method in ("PUT", "PATCH"):
-            return role in ("ADMIN", "HR", "BDE", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS", "EMPLOYEE")
+            if role in WORK_CREATOR_ROLES:
+                return True
+            if obj.reviewer_id and obj.reviewer_id == request.user.id:
+                return True
+            if obj.employee and obj.employee.user_id == request.user.id:
+                return True
+            return False
+
         return True
 
 

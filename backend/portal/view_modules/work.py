@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
-from django.db.models import Count, Q
+from django.db import IntegrityError
+from django.db.models import Count, Q, ProtectedError
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -251,6 +252,18 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
 
 
 
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.check_object_permissions(request, instance)
+        try:
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except (ProtectedError, IntegrityError):
+            return Response(
+                {"detail": "Cannot delete work assignment because related items exist."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     def perform_destroy(self, instance):
         recipient = assignment_employee_user(instance)

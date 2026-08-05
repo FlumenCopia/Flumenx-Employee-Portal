@@ -169,3 +169,133 @@ class WorkReviewerWorkflowTests(TestCase):
             format="json",
         )
         self.assertEqual(res.status_code, 403)
+
+    def test_approved_to_published_succeeds_and_persists(self):
+        assignment = WorkAssignment.objects.create(
+            employee=self.assigned_emp,
+            client=self.client_obj,
+            title="Design Banner",
+            assigned_date=date.today(),
+            due_date=date.today(),
+            status="In Review",
+            assigned_by=self.admin,
+            reviewer=self.reviewer_user,
+            reviewer_name="Reviewer User",
+        )
+
+        self.client_api.force_authenticate(user=self.reviewer_user)
+        # 1. In Review -> Approved
+        res_app = self.client_api.patch(
+            f"/api/work-assignments/{assignment.id}/",
+            {"status": "Approved"},
+            format="json",
+        )
+        self.assertEqual(res_app.status_code, 200)
+        self.assertEqual(res_app.data["status"], "Approved")
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.status, "Approved")
+
+        # 2. Approved -> Published
+        res_pub = self.client_api.patch(
+            f"/api/work-assignments/{assignment.id}/",
+            {"status": "Published"},
+            format="json",
+        )
+        self.assertEqual(res_pub.status_code, 200)
+        self.assertEqual(res_pub.data["status"], "Published")
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.status, "Published")
+
+    def test_reviewer_can_reject_and_request_changes(self):
+        assignment = WorkAssignment.objects.create(
+            employee=self.assigned_emp,
+            client=self.client_obj,
+            title="Video Reel",
+            assigned_date=date.today(),
+            due_date=date.today(),
+            status="In Review",
+            assigned_by=self.admin,
+            reviewer=self.reviewer_user,
+        )
+
+        self.client_api.force_authenticate(user=self.reviewer_user)
+        res_changes = self.client_api.patch(
+            f"/api/work-assignments/{assignment.id}/",
+            {"status": "Changes Requested"},
+            format="json",
+        )
+        self.assertEqual(res_changes.status_code, 200)
+        self.assertEqual(res_changes.data["status"], "Changes Requested")
+
+        res_rej = self.client_api.patch(
+            f"/api/work-assignments/{assignment.id}/",
+            {"status": "Rejected"},
+            format="json",
+        )
+        self.assertEqual(res_rej.status_code, 200)
+        self.assertEqual(res_rej.data["status"], "Rejected")
+
+    def test_assigned_employee_cannot_delete_or_edit_protected_fields(self):
+        assignment = WorkAssignment.objects.create(
+            employee=self.assigned_emp,
+            client=self.client_obj,
+            title="Initial Title",
+            assigned_date=date.today(),
+            due_date=date.today(),
+            status="In Progress",
+            assigned_by=self.admin,
+            reviewer=self.reviewer_user,
+        )
+
+        self.client_api.force_authenticate(user=self.assigned_user)
+        # Cannot edit title
+        patch_res = self.client_api.patch(
+            f"/api/work-assignments/{assignment.id}/",
+            {"title": "Modified Title"},
+            format="json",
+        )
+        self.assertEqual(patch_res.status_code, 403)
+
+        # Cannot delete
+        del_res = self.client_api.delete(f"/api/work-assignments/{assignment.id}/")
+        self.assertEqual(del_res.status_code, 403)
+
+    def test_invalid_status_returns_400(self):
+        assignment = WorkAssignment.objects.create(
+            employee=self.assigned_emp,
+            client=self.client_obj,
+            title="Task Title",
+            assigned_date=date.today(),
+            due_date=date.today(),
+            status="In Progress",
+            assigned_by=self.admin,
+            reviewer=self.reviewer_user,
+        )
+
+        self.client_api.force_authenticate(user=self.admin)
+        res = self.client_api.patch(
+            f"/api/work-assignments/{assignment.id}/",
+            {"status": "NonExistentStatus"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)
+
+    def test_employee_cannot_move_approved_completed_published_or_rejected_to_in_review(self):
+        for terminal_status in ("Approved", "Completed", "Published", "Rejected"):
+            assignment = WorkAssignment.objects.create(
+                employee=self.assigned_emp,
+                client=self.client_obj,
+                title=f"Task in {terminal_status}",
+                assigned_date=date.today(),
+                due_date=date.today(),
+                status=terminal_status,
+                assigned_by=self.admin,
+                reviewer=self.reviewer_user,
+            )
+            self.client_api.force_authenticate(user=self.assigned_user)
+            res = self.client_api.patch(
+                f"/api/work-assignments/{assignment.id}/",
+                {"status": "In Review"},
+                format="json",
+            )
+            self.assertEqual(res.status_code, 403, f"Assigned employee should be blocked from moving '{terminal_status}' to 'In Review'.")

@@ -490,13 +490,28 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
 
   const handleStatusChange = async (id: number, status: WorkStatus) => {
     try {
-      await api<WorkAssignment>(`/work-assignments/${id}/`, {
+      const updated = await api<WorkAssignment>(`/work-assignments/${id}/`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
+      setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
       await loadWork(filters);
     } catch (err) {
-      setActionError(apiError(err, "Could not update status."));
+      const msg = apiError(err, "Could not update status.");
+      setActionError(msg);
+      throw new Error(msg);
+    }
+  };
+
+  const handleDeleteWork = async (id: number): Promise<boolean> => {
+    try {
+      await api(`/work-assignments/${id}/`, { method: "DELETE" });
+      setMessage("Work assignment deleted.");
+      await loadWork(filters);
+      return true;
+    } catch (err) {
+      setActionError(apiError(err, "Could not delete assignment."));
+      return false;
     }
   };
 
@@ -566,6 +581,7 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
         userRole={role}
         currentUser={shellUser ? { id: shellUser.id, name: shellUser.first_name || shellUser.username, username: shellUser.username, role: shellUser.portal_role } : undefined}
         onStatusChange={handleStatusChange}
+        onDeleteWork={handleDeleteWork}
         initialTab={initialTab}
       />
     ) : (

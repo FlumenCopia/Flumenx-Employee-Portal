@@ -291,11 +291,12 @@ class AppFixesTests(TestCase):
         }, format="json")
         self.assertEqual(failed_login.status_code, 401)
 
-    def test_reviewer_does_not_gain_delete_permission(self):
+    def test_reviewer_workflow_and_delete_permissions(self):
         from portal.models import Client, WorkAssignment
         client_obj = Client.objects.create(name="Reviewer Client Corp")
         assignee_emp = self.accounts["EMPLOYEE"].employee
         reviewer_user = self.accounts["BDO"]
+        unrelated_user = self.accounts["ACCOUNTANT"]
 
         # Assignment created with BDO user as reviewer
         assignment = WorkAssignment.objects.create(
@@ -311,9 +312,36 @@ class AppFixesTests(TestCase):
             unit="video",
             reviewer=reviewer_user,
             reviewer_name="BDO User",
+            status="In Review",
         )
 
-        # Reviewer attempts to delete assignment -> HTTP 403 Forbidden
+        # 1. Assigned employee attempts to move to "Approved" or "Published" -> HTTP 400 / 403
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for('EMPLOYEE')}")
+        emp_app_res = self.client.patch(f"/api/work-assignments/{assignment.id}/", {"status": "Approved"}, format="json")
+        self.assertIn(emp_app_res.status_code, (400, 403))
+        emp_pub_res = self.client.patch(f"/api/work-assignments/{assignment.id}/", {"status": "Published"}, format="json")
+        self.assertIn(emp_pub_res.status_code, (400, 403))
+
+        # 2. Assigned employee attempts to delete assignment -> HTTP 403 Forbidden
+        emp_del_res = self.client.delete(f"/api/work-assignments/{assignment.id}/")
+        self.assertEqual(emp_del_res.status_code, 403)
+
+        # 3. Unrelated user attempts to delete assignment -> HTTP 403 Forbidden
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for('ACCOUNTANT')}")
+        unrel_del_res = self.client.delete(f"/api/work-assignments/{assignment.id}/")
+        self.assertEqual(unrel_del_res.status_code, 403)
+
+        # 4. Assigned reviewer moves status: In Review -> Approved -> Published (200 OK)
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for('BDO')}")
+        rev_app_res = self.client.patch(f"/api/work-assignments/{assignment.id}/", {"status": "Approved"}, format="json")
+        self.assertEqual(rev_app_res.status_code, 200)
+        self.assertEqual(rev_app_res.data["status"], "Approved")
+
+        rev_pub_res = self.client.patch(f"/api/work-assignments/{assignment.id}/", {"status": "Published"}, format="json")
+        self.assertEqual(rev_pub_res.status_code, 200)
+        self.assertEqual(rev_pub_res.data["status"], "Published")
+
+        # 5. Assigned reviewer deletes own reviewed assignment -> HTTP 204 No Content
         del_res = self.client.delete(f"/api/work-assignments/{assignment.id}/")
-        self.assertEqual(del_res.status_code, 403)
+        self.assertEqual(del_res.status_code, 204)
+        self.assertFalse(WorkAssignment.objects.filter(id=assignment.id).exists())
