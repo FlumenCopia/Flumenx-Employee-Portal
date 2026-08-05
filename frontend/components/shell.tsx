@@ -225,7 +225,7 @@ function LogoutModal({
 
   return (
     <div
-      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+      className="logout-backdrop"
       onClick={() => {
         if (!loading) {
           onClose();
@@ -238,39 +238,38 @@ function LogoutModal({
         aria-modal="true"
         aria-labelledby="logout-dialog-title"
         onClick={(e) => e.stopPropagation()}
-        className="bg-[#0A1912] border border-[rgba(77,255,160,0.2)] rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)]"
+        className="logout-dialog"
       >
-
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
+        <div className="logout-dialog-head">
+          <div className="logout-dialog-title">
+            <div className="logout-dialog-icon">
               <LogOut size={20} />
             </div>
-            <h3 id="logout-dialog-title" className="text-base font-bold text-white">
-              Sign out?
+            <h3 id="logout-dialog-title">
+              Confirm Sign Out
             </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="text-slate-400 hover:text-white p-1 rounded-lg transition disabled:opacity-50"
+            className="logout-dialog-close"
             aria-label="Close dialog"
           >
             <X size={16} />
           </button>
         </div>
 
-        <p className="text-xs text-[#89ACA0]">
-          Are you sure you want to sign out of Flumenx?
+        <p className="logout-dialog-copy">
+          Are you sure you want to sign out of the Flumenx Employee Portal? You will need to log back in to access your workspace.
         </p>
 
-        <div className="flex items-center justify-end gap-2.5 pt-2">
+        <div className="logout-dialog-actions">
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 active:bg-slate-800 rounded-xl transition disabled:opacity-50 cursor-pointer"
+            className="logout-cancel"
           >
             Cancel
           </button>
@@ -278,11 +277,11 @@ function LogoutModal({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 active:bg-rose-700 rounded-xl transition shadow-lg shadow-rose-600/20 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+            className="logout-confirm"
           >
             {loading ? (
               <>
-                <RotateCw size={14} className="animate-spin" />
+                <RotateCw size={14} className="logout-spin" />
                 Signing out...
               </>
             ) : (
