@@ -120,7 +120,7 @@ class WorkAssignment(models.Model):
         ("Completed", "Completed"),
     ]
 
-    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="work_assignments")
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="work_assignments")
     client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name="work_assignments")
     title = models.CharField(max_length=180)
     description = models.TextField(blank=True)
@@ -393,7 +393,7 @@ class ClientWorkShareLink(models.Model):
 class LeaveRequest(models.Model):
     TYPES = [("Annual", "Annual"), ("Sick", "Sick"), ("Personal", "Personal"), ("Unpaid", "Unpaid")]
     STATUSES = [("Pending", "Pending"), ("Approved", "Approved"), ("Rejected", "Rejected")]
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="leaves")
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="leaves")
     leave_type = models.CharField(max_length=30, choices=TYPES)
     start_date = models.DateField()
     end_date = models.DateField()
@@ -409,7 +409,7 @@ class LeaveRequest(models.Model):
         ]
 
 class SalarySlip(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="salary_slips")
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="salary_slips")
     month = models.PositiveSmallIntegerField()
     year = models.PositiveSmallIntegerField()
     file = models.FileField(upload_to="salary_slips/", blank=True)
@@ -485,7 +485,7 @@ class AttendanceRecord(models.Model):
     CHECK_IN_STATUSES = [("On Time", "On Time"), ("Grace Period", "Grace Period"), ("Late", "Late")]
     SOURCES = [("Manual", "Manual"), ("QR", "QR"), ("QR + Location", "QR + Location"), ("Admin", "Admin")]
 
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="attendance_records")
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="attendance_records")
     attendance_date = models.DateField()
     check_in_time = models.TimeField(null=True, blank=True)
     check_out_time = models.TimeField(null=True, blank=True)
@@ -573,7 +573,7 @@ class AttendanceRecord(models.Model):
 
 class AttendanceCorrection(models.Model):
     STATUSES = [("Pending", "Pending"), ("Approved", "Approved"), ("Rejected", "Rejected")]
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="attendance_corrections")
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="attendance_corrections")
     attendance_record = models.ForeignKey(AttendanceRecord, on_delete=models.CASCADE, related_name="corrections")
     requested_check_in = models.TimeField(null=True, blank=True)
     requested_check_out = models.TimeField(null=True, blank=True)
@@ -588,7 +588,7 @@ class AttendanceCorrection(models.Model):
         ordering = ["-created_at"]
 
 class Notification(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="notifications")
     title = models.CharField(max_length=160)
     message = models.TextField()
     category = models.CharField(max_length=40, default="General")
@@ -614,7 +614,7 @@ class AuditLog(models.Model):
 
 
 class EmployeeKPIRating(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="kpi_ratings")
+    employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="kpi_ratings")
     month = models.PositiveSmallIntegerField()
     year = models.PositiveSmallIntegerField()
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=5.0)

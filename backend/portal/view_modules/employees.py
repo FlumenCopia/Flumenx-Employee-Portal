@@ -1,9 +1,10 @@
 from django.contrib.auth.models import User
-from django.db.models import ProtectedError, Q
+from django.db import transaction
+from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 
-from portal.models import Employee
+from portal.models import AttendanceCorrection, Employee, EmployeeKPIRating, WorkAssignment
 from portal.permissions import IsAdminOrHR, portal_role
 from portal.serializers import EmployeeSerializer
 from portal.services.notifications import create_notifications
@@ -120,15 +121,24 @@ class EmployeeViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.user_id and instance.user_id == request.user.id:
+        user = instance.user
+
+        if user and user.id == request.user.id:
             return Response(
                 {"detail": "You cannot delete your own employee account."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        try:
-            return super().destroy(request, *args, **kwargs)
-        except ProtectedError:
-            return Response(
-                {"detail": "Cannot delete employee with existing active assignments or related records."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+
+        with transaction.atomic():
+            WorkAssignment.objects.filter(employee=instance).update(employee=None)
+            if user:
+                WorkAssignment.objects.filter(reviewer=user).update(reviewer=None)
+                WorkAssignment.objects.filter(assigned_by=user).update(assigned_by=None)
+                AttendanceCorrection.objects.filter(reviewed_by=user).update(reviewed_by=None)
+                EmployeeKPIRating.objects.filter(rated_by=user).update(rated_by=None)
+
+            instance.delete()
+            if user:
+                user.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)

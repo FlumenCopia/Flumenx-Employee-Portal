@@ -7,18 +7,19 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Award,
+  BarChart3,
   Building2,
   Calendar,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   Clock,
-  Download,
   FileSpreadsheet,
   Filter,
   Minus,
   RefreshCw,
   Search,
+  Sparkles,
   Star,
   TrendingUp,
   UserCheck,
@@ -47,24 +48,24 @@ const GRADES: KPIGrade[] = [
   "Critical",
 ];
 
-function getGradeBadgeClass(grade: KPIGrade) {
+function getGradeBadgeClass(grade?: KPIGrade) {
   switch (grade) {
     case "Outstanding":
-      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 shadow-sm shadow-emerald-500/10";
     case "Excellent":
-      return "bg-blue-500/15 text-blue-400 border-blue-500/30";
+      return "bg-blue-500/15 text-blue-400 border-blue-500/30 shadow-sm shadow-blue-500/10";
     case "Good":
-      return "bg-cyan-500/15 text-cyan-400 border-cyan-500/30";
+      return "bg-cyan-500/15 text-cyan-400 border-cyan-500/30 shadow-sm shadow-cyan-500/10";
     case "Needs Improvement":
-      return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+      return "bg-amber-500/15 text-amber-400 border-amber-500/30 shadow-sm shadow-amber-500/10";
     case "Critical":
-      return "bg-rose-500/15 text-rose-400 border-rose-500/30";
+      return "bg-rose-500/15 text-rose-400 border-rose-500/30 shadow-sm shadow-rose-500/10";
     default:
       return "bg-slate-500/15 text-slate-400 border-slate-500/30";
   }
 }
 
-function getGradeColor(grade: KPIGrade) {
+function getGradeColor(grade?: KPIGrade) {
   switch (grade) {
     case "Outstanding":
       return "#10b981";
@@ -128,7 +129,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
     loadDashboard();
   }, [selectedMonth, selectedYear, department, grade, search, minScore, maxScore]);
 
-
   // Click outside to close employee dropdown
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -139,11 +139,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    loadDashboard();
-  };
 
   const handleCSVExport = async () => {
     setExporting(true);
@@ -173,6 +168,24 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
     }
   };
 
+  const resetFilters = () => {
+    setDepartment("");
+    setGrade("");
+    setSearch("");
+    setMinScore("");
+    setMaxScore("");
+    setSelectedEmployeeId(null);
+    setEmployeeSearchQuery("");
+  };
+
+  const hasActiveFilters =
+    Boolean(department) ||
+    Boolean(grade) ||
+    Boolean(search) ||
+    Boolean(minScore) ||
+    Boolean(maxScore) ||
+    selectedEmployeeId !== null;
+
   const selectedEmployeeData = selectedEmployeeId
     ? data?.employees.find((e) => e.employee_id === selectedEmployeeId)
     : null;
@@ -195,64 +208,103 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
     (e) => e.grade === "Critical" || e.grade === "Needs Improvement" || e.final_score < 75
   ).length;
 
+  // Calculate company component averages when no employee is selected
+  const companyComponentAverages = (() => {
+    if (!data || data.employees.length === 0) return null;
+    const count = data.employees.length;
+    let work = 0, att = 0, onTime = 0, leave = 0, quality = 0, consistency = 0;
+    for (const emp of data.employees) {
+      work += emp.components.work_completion.score;
+      att += emp.components.attendance.score;
+      onTime += emp.components.on_time_delivery.score;
+      leave += emp.components.leave_discipline.score;
+      quality += emp.components.work_quality.score;
+      consistency += emp.components.consistency.score;
+    }
+    return {
+      work_completion: Number((work / count).toFixed(1)),
+      attendance: Number((att / count).toFixed(1)),
+      on_time_delivery: Number((onTime / count).toFixed(1)),
+      leave_discipline: Number((leave / count).toFixed(1)),
+      work_quality: Number((quality / count).toFixed(1)),
+      consistency: Number((consistency / count).toFixed(1)),
+    };
+  })();
+
+  const activeComponents = selectedEmployeeData
+    ? {
+        work_completion: selectedEmployeeData.components.work_completion.score,
+        attendance: selectedEmployeeData.components.attendance.score,
+        on_time_delivery: selectedEmployeeData.components.on_time_delivery.score,
+        leave_discipline: selectedEmployeeData.components.leave_discipline.score,
+        work_quality: selectedEmployeeData.components.work_quality.score,
+        consistency: selectedEmployeeData.components.consistency.score,
+      }
+    : companyComponentAverages;
+
+  const inputControlClasses =
+    "w-full text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition appearance-none";
+
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800/80 pb-5">
+    <div className="w-full max-w-7xl mx-auto space-y-6 text-slate-100">
+      {/* 1. Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-md">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <div className="p-2 bg-indigo-500/10 border border-indigo-500/30 rounded-xl text-indigo-400">
-              <TrendingUp size={22} />
+          <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 shadow-md shadow-emerald-500/10">
+              <TrendingUp size={24} />
             </div>
             KPI Performance Dashboard
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
             Monthly employee evaluation, component score tracking, and performance analytics.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl transition"
+            >
+              <X size={14} className="text-emerald-400" />
+              Reset Filters
+            </button>
+          )}
+
           <button
             onClick={handleCSVExport}
             disabled={exporting}
-            className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 rounded-xl transition shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-emerald-950 bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 rounded-xl transition shadow-lg shadow-emerald-500/20 disabled:opacity-50"
           >
-            <FileSpreadsheet size={15} />
+            <FileSpreadsheet size={16} />
             {exporting ? "Exporting..." : "Export CSV"}
           </button>
 
           <button
             onClick={loadDashboard}
             disabled={loading}
-            className="p-2 text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl transition"
+            className="p-2.5 text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl transition"
             title="Refresh Data"
           >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            <RefreshCw size={16} className={loading ? "animate-spin text-emerald-400" : ""} />
           </button>
         </div>
       </div>
 
-      {/* Filter Toolbar */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
-        <div className="flex items-center justify-between text-xs font-semibold text-slate-300 border-b border-slate-800/60 pb-2.5">
+      {/* 2. Full-Width Filter Panel */}
+      <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4 backdrop-blur-md">
+        <div className="flex items-center justify-between text-xs font-semibold text-slate-300 border-b border-slate-800/80 pb-3">
           <div className="flex items-center gap-2">
-            <Filter size={14} className="text-indigo-400" />
+            <Filter size={15} className="text-emerald-400" />
             <span>Filter Performance Records</span>
           </div>
-          {(department || grade || search || minScore || maxScore || selectedEmployeeId) && (
+          {hasActiveFilters && (
             <button
-              onClick={() => {
-                setDepartment("");
-                setGrade("");
-                setSearch("");
-                setMinScore("");
-                setMaxScore("");
-                setSelectedEmployeeId(null);
-                setEmployeeSearchQuery("");
-              }}
-              className="text-xs text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1 font-normal"
+              onClick={resetFilters}
+              className="text-xs text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1 font-normal"
             >
-              <X size={13} /> Reset Filters
+              <X size={13} /> Clear Filters
             </button>
           )}
         </div>
@@ -264,13 +316,13 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 transition"
+              className={inputControlClasses}
             >
               {[
                 "January", "February", "March", "April", "May", "June",
                 "July", "August", "September", "October", "November", "December"
               ].map((m, i) => (
-                <option key={m} value={i + 1}>{m}</option>
+                <option key={m} value={i + 1} className="bg-slate-950 text-slate-200">{m}</option>
               ))}
             </select>
           </div>
@@ -281,10 +333,10 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 transition"
+              className={inputControlClasses}
             >
               {[2024, 2025, 2026, 2027].map((y) => (
-                <option key={y} value={y}>{y}</option>
+                <option key={y} value={y} className="bg-slate-950 text-slate-200">{y}</option>
               ))}
             </select>
           </div>
@@ -295,11 +347,11 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 transition"
+              className={inputControlClasses}
             >
-              <option value="">All Departments</option>
+              <option value="" className="bg-slate-950 text-slate-200">All Departments</option>
               {DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>{d}</option>
+                <option key={d} value={d} className="bg-slate-950 text-slate-200">{d}</option>
               ))}
             </select>
           </div>
@@ -310,11 +362,11 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             <select
               value={grade}
               onChange={(e) => setGrade(e.target.value)}
-              className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 transition"
+              className={inputControlClasses}
             >
-              <option value="">All Grades</option>
+              <option value="" className="bg-slate-950 text-slate-200">All Grades</option>
               {GRADES.map((g) => (
-                <option key={g} value={g}>{g}</option>
+                <option key={g} value={g} className="bg-slate-950 text-slate-200">{g}</option>
               ))}
             </select>
           </div>
@@ -325,9 +377,9 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             <button
               type="button"
               onClick={() => setEmployeeSearchOpen((open) => !open)}
-              className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 flex items-center justify-between focus:outline-none focus:border-indigo-500 transition truncate"
+              className={`${inputControlClasses} flex items-center justify-between text-left truncate`}
             >
-              <span className="truncate">
+              <span className="truncate text-slate-200">
                 {selectedEmployeeData ? selectedEmployeeData.employee_name : "All Employees"}
               </span>
               <ChevronDown size={14} className="text-slate-400 shrink-0 ml-1" />
@@ -341,7 +393,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                     placeholder="Search name, code, dept..."
                     value={employeeSearchQuery}
                     onChange={(e) => setEmployeeSearchQuery(e.target.value)}
-                    className="w-full text-xs bg-slate-900 border border-slate-800 rounded-lg pl-7 pr-3 py-1.5 text-slate-200 focus:outline-none focus:border-indigo-500"
+                    className="w-full text-xs bg-slate-900 border border-slate-800 rounded-lg pl-7 pr-3 py-1.5 text-slate-200 focus:outline-none focus:border-emerald-500"
                     autoFocus
                   />
                   <Search size={12} className="absolute left-2.5 top-2.5 text-slate-500" />
@@ -356,7 +408,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                     }}
                     className={`w-full text-left px-2.5 py-1.5 rounded-lg transition ${
                       selectedEmployeeId === null
-                        ? "bg-indigo-600/20 text-indigo-400 font-semibold"
+                        ? "bg-emerald-500/20 text-emerald-400 font-semibold"
                         : "text-slate-300 hover:bg-slate-900"
                     }`}
                   >
@@ -373,7 +425,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                       }}
                       className={`w-full text-left px-2.5 py-1.5 rounded-lg transition flex items-center justify-between ${
                         selectedEmployeeId === emp.employee_id
-                          ? "bg-indigo-600/20 text-indigo-400 font-semibold"
+                          ? "bg-emerald-500/20 text-emerald-400 font-semibold"
                           : "text-slate-300 hover:bg-slate-900"
                       }`}
                     >
@@ -381,7 +433,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                         <span className="font-medium text-white">{emp.employee_name}</span>
                         <span className="text-[10px] text-slate-400 ml-1.5">({emp.department})</span>
                       </div>
-                      <span className="text-[11px] font-mono text-slate-400 ml-2">{emp.final_score}</span>
+                      <span className="text-[11px] font-mono text-emerald-400 ml-2 font-bold">{emp.final_score}</span>
                     </button>
                   ))}
 
@@ -393,7 +445,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             )}
           </div>
 
-          {/* Score Range & Submit */}
+          {/* Min / Max Score */}
           <div>
             <label className="block text-[11px] text-slate-400 mb-1 font-medium">Min / Max Score</label>
             <div className="flex items-center gap-1.5">
@@ -404,7 +456,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                 max="100"
                 value={minScore}
                 onChange={(e) => setMinScore(e.target.value)}
-                className="w-1/2 text-xs bg-slate-950 border border-slate-800 rounded-xl px-2 py-2 text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-1/2 text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-2.5 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
               />
               <input
                 type="number"
@@ -413,7 +465,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                 max="100"
                 value={maxScore}
                 onChange={(e) => setMaxScore(e.target.value)}
-                className="w-1/2 text-xs bg-slate-950 border border-slate-800 rounded-xl px-2 py-2 text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="w-1/2 text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-2.5 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>
@@ -427,16 +479,79 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
         </div>
       )}
 
-      {/* Employee Spotlight Card (Triggers when a specific employee is selected) */}
-      {selectedEmployeeData && (
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-6 shadow-2xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-bold text-lg">
+      {/* 3. Summary Metric Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Evaluated */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 relative overflow-hidden shadow-lg hover:border-slate-700 transition">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Evaluated</p>
+              <h3 className="text-2xl font-extrabold text-white mt-1.5 font-mono">{data?.total_employees ?? 0}</h3>
+            </div>
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
+              <Users size={20} />
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">
+            Active employee records evaluated in <span className="text-white font-medium">{selectedMonth}/{selectedYear}</span>
+          </p>
+        </div>
+
+        {/* Average KPI Score */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 relative overflow-hidden shadow-lg hover:border-slate-700 transition">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Average KPI Score</p>
+              <h3 className="text-2xl font-extrabold text-white mt-1.5 font-mono">
+                {data?.average_kpi ?? 0} <span className="text-xs font-normal text-slate-500">/ 100</span>
+              </h3>
+            </div>
+            <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl">
+              <TrendingUp size={20} />
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">Company-wide performance average score</p>
+        </div>
+
+        {/* Outstanding / Excellent */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 relative overflow-hidden shadow-lg hover:border-slate-700 transition">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Outstanding Performers</p>
+              <h3 className="text-2xl font-extrabold text-emerald-400 mt-1.5 font-mono">{outstandingCount}</h3>
+            </div>
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl">
+              <Award size={20} />
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">High performers (Score &ge; 85)</p>
+        </div>
+
+        {/* Critical / Attention Required */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 relative overflow-hidden shadow-lg hover:border-slate-700 transition">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Attention Required</p>
+              <h3 className="text-2xl font-extrabold text-rose-400 mt-1.5 font-mono">{criticalCount}</h3>
+            </div>
+            <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
+              <AlertTriangle size={20} />
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">Needs review (Score &lt; 75)</p>
+        </div>
+      </div>
+
+      {/* 4. Selected Employee Spotlight Card */}
+      {selectedEmployeeData ? (
+        <div className="bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900 border border-emerald-500/30 rounded-2xl p-6 shadow-2xl space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-extrabold text-xl shadow-lg shadow-emerald-500/10">
                 {selectedEmployeeData.employee_name.charAt(0)}
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <h2 className="text-xl font-bold text-white">{selectedEmployeeData.employee_name}</h2>
                   <span className="text-xs text-slate-400 font-mono">({selectedEmployeeData.employee_code})</span>
                 </div>
@@ -446,16 +561,16 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-5">
               <div className="text-right">
                 <span className="text-[11px] text-slate-400 block font-medium">Evaluation Period</span>
                 <span className="text-sm font-semibold text-white font-mono">
                   {selectedMonth}/{selectedYear}
                 </span>
               </div>
-              <div className="text-right pl-4 border-l border-slate-800">
+              <div className="text-right pl-5 border-l border-slate-800">
                 <span className="text-[11px] text-slate-400 block font-medium">Overall Score</span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-2xl font-extrabold text-white font-mono">{selectedEmployeeData.final_score}</span>
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${getGradeBadgeClass(
@@ -468,139 +583,203 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
               </div>
               <Link
                 href={`${basePath}/kpi/${selectedEmployeeData.employee_id}`}
-                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition flex items-center gap-1.5"
+                className="px-4 py-2.5 text-xs font-semibold text-emerald-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
               >
                 View Full Details <ChevronRight size={14} />
               </Link>
             </div>
           </div>
-
-          {/* Component Breakdown Pills */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl">
-              <span className="text-[10px] text-slate-400 block">Work Completion</span>
-              <span className="text-sm font-bold text-white font-mono">
-                {selectedEmployeeData.components.work_completion.score} <span className="text-[10px] text-slate-500 font-normal">/ 40</span>
-              </span>
-            </div>
-            <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl">
-              <span className="text-[10px] text-slate-400 block">Attendance</span>
-              <span className="text-sm font-bold text-emerald-400 font-mono">
-                {selectedEmployeeData.components.attendance.score} <span className="text-[10px] text-slate-500 font-normal">/ 20</span>
-              </span>
-            </div>
-            <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl">
-              <span className="text-[10px] text-slate-400 block">On-Time Delivery</span>
-              <span className="text-sm font-bold text-blue-400 font-mono">
-                {selectedEmployeeData.components.on_time_delivery.score} <span className="text-[10px] text-slate-500 font-normal">/ 15</span>
-              </span>
-            </div>
-            <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl">
-              <span className="text-[10px] text-slate-400 block">Leave Discipline</span>
-              <span className="text-sm font-bold text-white font-mono">
-                {selectedEmployeeData.components.leave_discipline.score} <span className="text-[10px] text-slate-500 font-normal">/ 10</span>
-              </span>
-            </div>
-            <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl">
-              <span className="text-[10px] text-slate-400 block">Work Quality</span>
-              <span className="text-sm font-bold text-amber-400 font-mono">
-                {selectedEmployeeData.components.work_quality.score} <span className="text-[10px] text-slate-500 font-normal">({selectedEmployeeData.components.work_quality.quality_rating}★)</span>
-              </span>
-            </div>
-            <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl">
-              <span className="text-[10px] text-slate-400 block">Consistency</span>
-              <span className="text-sm font-bold text-cyan-400 font-mono">
-                {selectedEmployeeData.components.consistency.score} <span className="text-[10px] text-slate-500 font-normal">/ 5</span>
-              </span>
-            </div>
+        </div>
+      ) : (
+        <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 flex items-center justify-between text-xs text-slate-400">
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} className="text-emerald-400" />
+            <span>Select an employee from the dropdown or performance table to highlight their spotlight metrics.</span>
           </div>
+          <span className="text-[11px] text-slate-500 font-mono">Company Overview Mode</span>
         </div>
       )}
 
-      {/* Metric Cards Overview Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Evaluated */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 relative overflow-hidden shadow-lg">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Evaluated</p>
-              <h3 className="text-2xl font-bold text-white mt-1.5">{data?.total_employees ?? 0}</h3>
-            </div>
-            <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl">
-              <Users size={20} />
-            </div>
-          </div>
-          <div className="mt-3 text-[11px] text-slate-400 flex items-center gap-1">
-            <span className="text-slate-300 font-medium">{data?.total_employees ?? 0} active records</span> in {selectedMonth}/{selectedYear}
-          </div>
+      {/* 5. Component Score Breakdown Cards Grid */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <Star size={16} className="text-emerald-400" />
+            {selectedEmployeeData ? `${selectedEmployeeData.employee_name}'s Component Score Breakdown` : "Company Average KPI Component Breakdown"}
+          </h3>
+          <span className="text-[11px] text-slate-400 font-mono">6 Evaluation Factors</span>
         </div>
 
-        {/* Average KPI Score */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 relative overflow-hidden shadow-lg">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Average KPI Score</p>
-              <h3 className="text-2xl font-bold text-white mt-1.5">
-                {data?.average_kpi ?? 0} <span className="text-xs font-normal text-slate-500">/ 100</span>
-              </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {/* Work Completion */}
+          <div className="bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-2xl space-y-2 shadow-lg">
+            <span className="text-[11px] font-medium text-slate-400 block truncate">Work Completion</span>
+            <div className="flex items-baseline justify-between">
+              <span className="text-lg font-extrabold text-white font-mono">
+                {activeComponents?.work_completion ?? 0}
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">/ 40 pts</span>
             </div>
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
-              <TrendingUp size={20} />
+            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+              <div
+                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, (((activeComponents?.work_completion ?? 0) / 40) * 100))}%` }}
+              />
             </div>
           </div>
-          <div className="mt-3 text-[11px] text-slate-400">Company average across department</div>
-        </div>
 
-        {/* Outstanding / Excellent */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 relative overflow-hidden shadow-lg">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Outstanding Performers</p>
-              <h3 className="text-2xl font-bold text-emerald-400 mt-1.5">{outstandingCount}</h3>
+          {/* Attendance */}
+          <div className="bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-2xl space-y-2 shadow-lg">
+            <span className="text-[11px] font-medium text-slate-400 block truncate">Attendance</span>
+            <div className="flex items-baseline justify-between">
+              <span className="text-lg font-extrabold text-emerald-400 font-mono">
+                {activeComponents?.attendance ?? 0}
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">/ 20 pts</span>
             </div>
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl">
-              <Award size={20} />
+            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+              <div
+                className="bg-emerald-400 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, (((activeComponents?.attendance ?? 0) / 20) * 100))}%` }}
+              />
             </div>
           </div>
-          <div className="mt-3 text-[11px] text-slate-400">Score &ge; 85 (Outstanding / Excellent)</div>
-        </div>
 
-        {/* Critical / Needs Improvement */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 relative overflow-hidden shadow-lg">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Critical / Attention Required</p>
-              <h3 className="text-2xl font-bold text-rose-400 mt-1.5">{criticalCount}</h3>
+          {/* On-Time Delivery */}
+          <div className="bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-2xl space-y-2 shadow-lg">
+            <span className="text-[11px] font-medium text-slate-400 block truncate">On-Time Delivery</span>
+            <div className="flex items-baseline justify-between">
+              <span className="text-lg font-extrabold text-blue-400 font-mono">
+                {activeComponents?.on_time_delivery ?? 0}
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">/ 15 pts</span>
             </div>
-            <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
-              <AlertTriangle size={20} />
+            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+              <div
+                className="bg-blue-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, (((activeComponents?.on_time_delivery ?? 0) / 15) * 100))}%` }}
+              />
             </div>
           </div>
-          <div className="mt-3 text-[11px] text-slate-400">Score &lt; 75 needing HR review</div>
+
+          {/* Leave Discipline */}
+          <div className="bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-2xl space-y-2 shadow-lg">
+            <span className="text-[11px] font-medium text-slate-400 block truncate">Leave Discipline</span>
+            <div className="flex items-baseline justify-between">
+              <span className="text-lg font-extrabold text-amber-400 font-mono">
+                {activeComponents?.leave_discipline ?? 0}
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">/ 10 pts</span>
+            </div>
+            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+              <div
+                className="bg-amber-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, (((activeComponents?.leave_discipline ?? 0) / 10) * 100))}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Work Quality */}
+          <div className="bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-2xl space-y-2 shadow-lg">
+            <span className="text-[11px] font-medium text-slate-400 block truncate">Work Quality</span>
+            <div className="flex items-baseline justify-between">
+              <span className="text-lg font-extrabold text-purple-400 font-mono">
+                {activeComponents?.work_quality ?? 0}
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">/ 10 pts</span>
+            </div>
+            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+              <div
+                className="bg-purple-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, (((activeComponents?.work_quality ?? 0) / 10) * 100))}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Consistency */}
+          <div className="bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-2xl space-y-2 shadow-lg">
+            <span className="text-[11px] font-medium text-slate-400 block truncate">Consistency</span>
+            <div className="flex items-baseline justify-between">
+              <span className="text-lg font-extrabold text-cyan-400 font-mono">
+                {activeComponents?.consistency ?? 0}
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">/ 5 pts</span>
+            </div>
+            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+              <div
+                className="bg-cyan-400 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, (((activeComponents?.consistency ?? 0) / 5) * 100))}%` }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Visual Analytics Grid: Line Chart for 6-Month Trend & Department Breakdown */}
+      {/* 6. Two-Column Analytics Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 6-Month Monthly Trend Line Chart */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        {/* Department Average KPI Comparison */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-4 shadow-xl backdrop-blur-md">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <TrendingUp size={16} className="text-indigo-400" />
+              <Building2 size={16} className="text-emerald-400" />
+              Department KPI Performance Comparison
+            </h3>
+            <span className="text-[11px] text-slate-400 font-mono">Avg Score / 100</span>
+          </div>
+
+          {data?.department_averages && data.department_averages.length > 0 ? (
+            <div className="space-y-4">
+              {data.department_averages.map((dept) => (
+                <div key={dept.department} className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-medium text-slate-300">
+                    <span className="truncate">
+                      {dept.department} <span className="text-[10px] text-slate-500">({dept.employee_count} emp)</span>
+                    </span>
+                    <span className="font-bold font-mono text-white">{dept.average_score}</span>
+                  </div>
+                  <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800/80 p-0.5">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        dept.average_score >= 85
+                          ? "bg-emerald-500"
+                          : dept.average_score >= 75
+                          ? "bg-blue-500"
+                          : dept.average_score >= 60
+                          ? "bg-amber-500"
+                          : "bg-rose-500"
+                      }`}
+                      style={{ width: `${Math.min(100, Math.max(0, dept.average_score))}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-44 flex flex-col items-center justify-center text-xs text-slate-500 space-y-2">
+              <BarChart3 size={24} className="text-slate-600" />
+              <span>No department comparison data available.</span>
+            </div>
+          )}
+        </div>
+
+        {/* 6-Month Monthly KPI Trend Line Chart */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-4 shadow-xl backdrop-blur-md">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <TrendingUp size={16} className="text-emerald-400" />
               Monthly Performance Trend (Past 6 Months)
             </h3>
-            <span className="text-[11px] text-slate-400 font-mono">Company Avg Score</span>
+            <span className="text-[11px] text-slate-400 font-mono">Company Avg</span>
           </div>
 
           {data?.monthly_trend && data.monthly_trend.length > 0 ? (
             <div className="space-y-4">
-              {/* SVG Line Chart */}
               <div className="h-44 w-full pt-4 pb-2 relative">
                 <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120">
                   <defs>
                     <linearGradient id="kpiTrendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#6366f1" stopOpacity="0.4" />
-                      <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
+                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.4" />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
 
@@ -613,7 +792,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                   {(() => {
                     const points = data.monthly_trend.map((item, idx) => {
                       const x = (idx / (data.monthly_trend.length - 1)) * 480 + 10;
-                      // map 0..100 to 110..10
                       const y = 110 - (item.average_score / 100) * 100;
                       return { x, y, score: item.average_score, period: item.period, isCurrent: item.month === selectedMonth };
                     });
@@ -624,18 +802,17 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                     return (
                       <>
                         <path d={areaD} fill="url(#kpiTrendGrad)" />
-                        <path d={pathD} fill="none" stroke="#6366f1" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d={pathD} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                         {points.map((pt, i) => (
                           <g key={i} className="group cursor-pointer">
                             <circle
                               cx={pt.x}
                               cy={pt.y}
                               r={pt.isCurrent ? "6" : "4"}
-                              fill={pt.isCurrent ? "#10b981" : "#818cf8"}
-                              stroke="#0f172a"
+                              fill={pt.isCurrent ? "#10b981" : "#34d399"}
+                              stroke="#020617"
                               strokeWidth="2"
                             />
-                            {/* Score Tag above node */}
                             <text
                               x={pt.x}
                               y={pt.y - 10}
@@ -655,7 +832,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
               </div>
 
               {/* Month Labels */}
-              <div className="flex justify-between border-t border-slate-800 pt-2 text-[11px] text-slate-400">
+              <div className="flex justify-between border-t border-slate-800/80 pt-2 text-[11px] text-slate-400">
                 {data.monthly_trend.map((item) => (
                   <span
                     key={item.period}
@@ -667,106 +844,81 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
               </div>
             </div>
           ) : (
-            <div className="h-40 flex items-center justify-center text-xs text-slate-500">
-              No historical trend data available.
-            </div>
-          )}
-        </div>
-
-        {/* Department Averages Bar Analytics */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Building2 size={16} className="text-indigo-400" />
-              Department KPI Performance Comparison
-            </h3>
-            <span className="text-[11px] text-slate-400 font-mono">Avg Score / 100</span>
-          </div>
-
-          {data?.department_averages && data.department_averages.length > 0 ? (
-            <div className="space-y-3.5">
-              {data.department_averages.map((dept) => (
-                <div key={dept.department} className="space-y-1">
-                  <div className="flex justify-between text-xs font-medium text-slate-300">
-                    <span className="truncate">{dept.department} <span className="text-[10px] text-slate-500">({dept.employee_count} emp)</span></span>
-                    <span className="font-bold font-mono text-white">{dept.average_score}</span>
-                  </div>
-                  <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800 p-0.5">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        dept.average_score >= 85
-                          ? "bg-emerald-500"
-                          : dept.average_score >= 75
-                          ? "bg-blue-500"
-                          : dept.average_score >= 60
-                          ? "bg-amber-500"
-                          : "bg-rose-500"
-                      }`}
-                      style={{ width: `${Math.min(100, Math.max(0, dept.average_score))}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="h-40 flex items-center justify-center text-xs text-slate-500">
-              No department comparison data available.
+            <div className="h-44 flex flex-col items-center justify-center text-xs text-slate-500 space-y-2">
+              <TrendingUp size={24} className="text-slate-600" />
+              <span>No historical trend data available.</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Compact Employee KPI Table */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-        <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* 7. Employee Performance Table */}
+      <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md space-y-0">
+        <div className="p-5 border-b border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <UserCheck size={16} className="text-indigo-400" />
+              <UserCheck size={16} className="text-emerald-400" />
               Employee Performance Records ({data?.employees.length ?? 0})
             </h3>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Simplified overview for fast comparison. Click View Details for full metric breakdown.
+              Click View Details for full metric breakdown and evaluation options.
             </p>
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Search in table..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full text-xs bg-slate-950 border border-slate-800/80 rounded-xl pl-8 pr-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
+            />
+            <Search size={14} className="absolute left-2.5 top-2.5 text-slate-500" />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 font-semibold tracking-wider uppercase text-[10px]">
+            <thead className="bg-slate-950 text-slate-400 border-b border-slate-800/80 font-semibold tracking-wider uppercase text-[10px]">
               <tr>
-                <th className="py-3 px-4">Employee</th>
-                <th className="py-3 px-4">Department</th>
-                <th className="py-3 px-4">KPI Score</th>
-                <th className="py-3 px-4">Grade</th>
-                <th className="py-3 px-4">Monthly Trend</th>
-                <th className="py-3 px-4 text-right">Action</th>
+                <th className="py-3.5 px-4">Employee</th>
+                <th className="py-3.5 px-4">Department</th>
+                <th className="py-3.5 px-4">KPI Score</th>
+                <th className="py-3.5 px-4">Grade</th>
+                <th className="py-3.5 px-4">Performance Trend</th>
+                <th className="py-3.5 px-4 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {loading && !data && (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500">
-                    Loading performance records...
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <RefreshCw size={20} className="animate-spin text-emerald-400" />
+                      <span>Loading performance records...</span>
+                    </div>
                   </td>
                 </tr>
               )}
               {!loading && data && data.employees.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500">
-                    No employee records match the selected filters.
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Users size={24} className="text-slate-600" />
+                      <span>No employee records match the selected filters.</span>
+                    </div>
                   </td>
                 </tr>
               )}
               {data?.employees.map((emp) => {
-                // Compute trend indicator (Up, Down, or Stable) based on score
                 const trendType =
                   emp.final_score >= 85 ? "up" : emp.final_score < 75 ? "down" : "stable";
 
                 return (
                   <tr key={emp.employee_id} className="hover:bg-slate-800/40 transition">
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-slate-300 text-xs">
+                        <div className="w-9 h-9 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center font-extrabold text-emerald-400 text-xs">
                           {emp.employee_name.charAt(0)}
                         </div>
                         <div>
@@ -777,12 +929,12 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 px-4 font-medium text-slate-300">{emp.department}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-4 font-medium text-slate-300">{emp.department}</td>
+                    <td className="py-3.5 px-4">
                       <span className="font-mono font-extrabold text-sm text-white">{emp.final_score}</span>
                       <span className="text-[10px] text-slate-500 font-normal"> / 100</span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-4">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getGradeBadgeClass(
                           emp.grade
@@ -791,7 +943,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                         {emp.grade}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-4">
                       {trendType === "up" && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
                           <ArrowUpRight size={14} /> High
@@ -808,10 +960,10 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3.5 px-4 text-right">
                       <Link
                         href={`${basePath}/kpi/${emp.employee_id}`}
-                        className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold text-xs hover:underline"
+                        className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-semibold text-xs hover:underline"
                       >
                         View Details <ChevronRight size={13} />
                       </Link>

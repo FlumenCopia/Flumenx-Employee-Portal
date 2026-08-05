@@ -5,7 +5,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from portal.models import AttendanceCorrection, AttendancePolicy, AttendanceRecord, Employee, UserRole
+from portal.models import AttendanceCorrection, AttendancePolicy, AttendanceRecord, Client, Employee, LeaveRequest, UserRole, WorkAssignment
 
 
 class RoleAccessTests(TestCase):
@@ -27,6 +27,80 @@ class RoleAccessTests(TestCase):
 
     def token_for(self, role):
         return str(RefreshToken.for_user(self.accounts[role]).access_token)
+
+    def get_as(self, role, url):
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for(role)}")
+        return self.client.get(url)
+
+    def post_as(self, role, url, data):
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for(role)}")
+        return self.client.post(url, data, format="json")
+
+    def put_as(self, role, url, data):
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for(role)}")
+        return self.client.put(url, data, format="json")
+
+    def delete_as(self, role, url):
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for(role)}")
+        return self.client.delete(url)
+
+    def employee_payload(self, code="ROLE-100", email="new.employee@roles.local"):
+        return {
+            "employee_code": code,
+            "name": "New Employee",
+            "email": email,
+            "phone": "9998887776",
+            "department": "Design",
+            "portal_role": "EMPLOYEE",
+            "designation": "UI Designer",
+            "joining_date": date.today().isoformat(),
+            "status": "Active",
+            "location": "HQ",
+            "password": "TempPassword123!",
+        }
+
+    def test_employee_deletion_detaches_records_and_preserves_history(self):
+        emp_user = User.objects.create_user("target.employee@roles.local", password="Password123")
+        UserRole.objects.create(user=emp_user, role="EMPLOYEE")
+        emp = Employee.objects.create(
+            user=emp_user, employee_code="DEL-001", name="Target Employee", email="target.employee@roles.local",
+            phone="9111111111", department="Design", designation="Designer", joining_date=date.today(),
+        )
+
+        client_obj = Client.objects.create(name="Test Client")
+        work = WorkAssignment.objects.create(
+            employee=emp, client=client_obj, title="Task for Target", assigned_date=date.today(),
+            due_date=date.today(), reviewer=emp_user,
+        )
+        leave = LeaveRequest.objects.create(
+            employee=emp, leave_type="Annual", start_date=date.today(), end_date=date.today(), reason="Vacation",
+        )
+        att = AttendanceRecord.objects.create(
+            employee=emp, attendance_date=date.today(), check_in_time=time(9, 30),
+        )
+
+        response = self.delete_as("ADMIN", f"/api/employees/{emp.id}/")
+        self.assertEqual(response.status_code, 204)
+
+        self.assertFalse(Employee.objects.filter(pk=emp.pk).exists())
+        self.assertFalse(User.objects.filter(pk=emp_user.pk).exists())
+
+        work.refresh_from_db()
+        self.assertIsNone(work.employee)
+        self.assertIsNone(work.reviewer)
+
+        leave.refresh_from_db()
+        self.assertIsNone(leave.employee)
+
+        att.refresh_from_db()
+        self.assertIsNone(att.employee)
+
+    def test_employee_self_deletion_is_blocked(self):
+        hr_emp = self.accounts["HR"].employee
+        response = self.delete_as("HR", f"/api/employees/{hr_emp.id}/")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["detail"], "You cannot delete your own employee account.")
+
 
     def get_as(self, role, path):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for(role)}")
