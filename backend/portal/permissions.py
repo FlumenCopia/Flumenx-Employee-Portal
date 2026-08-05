@@ -83,7 +83,9 @@ class IsWorkAssignmentUser(BasePermission):
         role = str(portal_role(request.user)).upper()
         if request.method == "POST":
             return role in WORK_CREATOR_ROLES
-        if request.method in ("PUT", "PATCH", "DELETE"):
+        if request.method == "DELETE":
+            return role in WORK_CREATOR_ROLES
+        if request.method in ("PUT", "PATCH"):
             return role in ("ADMIN", "HR", "BDE", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS", "EMPLOYEE")
         return True
 

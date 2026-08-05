@@ -102,6 +102,9 @@ class EmployeeSerializer(serializers.ModelSerializer):
             if employee_qs.exists():
                 raise serializers.ValidationError({"email": "An employee record with this email already exists."})
 
+            if not instance and User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)).exists():
+                raise serializers.ValidationError({"email": "A user account with this email address already exists."})
+
         if employee_code:
             code_qs = Employee.objects.filter(employee_code=employee_code)
             if instance:
@@ -114,7 +117,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         role = validated_data.pop("portal_role", "EMPLOYEE")
         password = validated_data.pop("password")
-        email = validated_data["email"]
+        email = validated_data["email"].strip().lower()
         try:
             with transaction.atomic():
                 user = User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)).first()
@@ -122,12 +125,12 @@ class EmployeeSerializer(serializers.ModelSerializer):
                 if not user:
                     user = User.objects.create_user(username=email, email=email, first_name=validated_data["name"], password=password)
                 else:
-                    user.set_password(password)
-                    user.first_name = validated_data["name"]
-                    user.save()
+                    raise serializers.ValidationError({"email": "A user account with this email address already exists."})
                 UserRole.objects.update_or_create(user=user, defaults={"role": role})
                 validated_data["user"] = user
                 return super().create(validated_data)
+        except serializers.ValidationError:
+            raise
         except Exception as e:
             raise serializers.ValidationError({"detail": f"Employee record could not be saved: {str(e)}"})
 

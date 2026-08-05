@@ -158,10 +158,10 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
         if self.instance and not self.is_reviewer_or_manager(self.instance):
             role = self.actor_role()
             if role == "EMPLOYEE":
-                allowed = {"status"}
+                allowed = {"status", "completed_quantity"}
                 protected = set(getattr(self, "initial_data", {}) or {}) - allowed
                 if protected:
-                    raise PermissionDenied("Employees can update only work status.")
+                    raise PermissionDenied("Employees can update only work status and progress.")
 
         if self.instance and "completed_quantity" in attrs and "status" not in attrs and self.instance.status == "Blocked":
             attrs["status"] = "Pending"

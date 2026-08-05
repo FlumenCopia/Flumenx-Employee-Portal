@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db.models import Q
 from django.middleware.csrf import CsrfViewMiddleware, get_token
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -42,10 +43,10 @@ class FlumenxTokenSerializer(TokenObtainPairSerializer):
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
 
     def validate(self, attrs):
-        email = attrs.get("email", "").strip()
+        email = attrs.get("email", "").strip().lower()
         password = attrs.get("password")
         invalid_credentials = _("No active account found with the given credentials")
-        matches = list(User.objects.filter(email__iexact=email))
+        matches = list(User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)))
         if len(matches) != 1:
             raise InvalidToken(invalid_credentials)
         self.user = matches[0]

@@ -122,6 +122,8 @@ function ProgressMeter({ value }: { value: number }) {
 }
 
 export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
+  const currentShellUser = useShellUser();
+  const canManageAll = ["ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS"].includes((currentShellUser?.portal_role || "").toUpperCase()) || ["admin", "hr", "bdo", "team-lead"].includes(role);
   const canAddClient = role !== "team-lead";
   const [summary, setSummary] = useState<WorkSummary>(EMPTY_SUMMARY);
   const [items, setItems] = useState<WorkAssignment[]>([]);
@@ -627,10 +629,12 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
           <span>{formatDate(item.assigned_date)}</span>
           <span>{formatDate(item.due_date)} {item.is_overdue && <em>Overdue</em>}</span>
           <span>{item.assigned_by_name || "Portal"}</span>
-          <div className="row-actions">
-            <button type="button" onClick={() => openEdit(item)} aria-label={`Edit ${item.title}`}><Pencil size={16} /></button>
-            <button type="button" disabled={deletingId !== null} onClick={() => deleteAssignment(item)} aria-label={`Delete ${item.title}`}><Trash2 size={16} /></button>
-          </div>
+          {canManageAll && (
+            <div className="row-actions">
+              <button type="button" onClick={() => openEdit(item)} aria-label={`Edit ${item.title}`}><Pencil size={16} /></button>
+              <button type="button" disabled={deletingId !== null} onClick={() => deleteAssignment(item)} aria-label={`Delete ${item.title}`}><Trash2 size={16} /></button>
+            </div>
+          )}
         </div>)}
       </div>
       {loading && <EmptyState title="Loading work" text="Fetching work assignments and summary." />}

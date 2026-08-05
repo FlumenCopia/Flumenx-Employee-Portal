@@ -127,11 +127,9 @@ class PasswordResetConfirmView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            validate_password(new_password, user=user)
-        except ValidationError as err:
+        if len(new_password) < 8:
             return Response(
-                {"new_password": list(err.messages)},
+                {"new_password": ["Password must be at least 8 characters long."]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

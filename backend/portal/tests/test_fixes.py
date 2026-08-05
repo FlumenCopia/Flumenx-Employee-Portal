@@ -116,3 +116,204 @@ class AppFixesTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for('ACCOUNTANT')}")
         acct_dl = self.client.get(f"/api/salary-slips/{slip.id}/download/")
         self.assertEqual(acct_dl.status_code, 200)
+
+    def test_employee_temporary_password_login(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for('ADMIN')}")
+        emp_email = "newemp@flumenx.local"
+        temp_pass = "TempPass#2026"
+        create_res = self.client.post("/api/employees/", {
+            "employee_code": "FLX-999",
+            "name": "New Temp Employee",
+            "email": emp_email,
+            "phone": "9876543210",
+            "department": "Web Development",
+            "designation": "Developer",
+            "joining_date": "2026-08-05",
+            "status": "Active",
+            "portal_role": "EMPLOYEE",
+            "password": temp_pass,
+        }, format="json")
+        self.assertEqual(create_res.status_code, 201)
+
+        # Clear admin auth header
+        self.client.credentials()
+        login_res = self.client.post("/api/auth/login/", {
+            "email": emp_email,
+            "password": temp_pass,
+        }, format="json")
+        self.assertEqual(login_res.status_code, 200)
+        self.assertIn("user", login_res.data)
+        self.assertIn("flumenx_access", login_res.cookies)
+        self.assertEqual(login_res.data["user"]["email"], emp_email)
+
+    def test_work_assignment_assignee_and_management_permissions(self):
+        from portal.models import Client, WorkAssignment
+        client_obj = Client.objects.create(name="Test Client Corp")
+        assignee_emp = self.accounts["EMPLOYEE"].employee
+        admin_user = self.accounts["ADMIN"]
+
+        # Admin creates assignment
+        assignment = WorkAssignment.objects.create(
+            employee=assignee_emp,
+            client=client_obj,
+            title="Design Homepage Banner",
+            description="Create responsive banners",
+            priority="Normal",
+            assigned_date=date.today(),
+            due_date=date.today(),
+            assigned_quantity=10,
+            completed_quantity=0,
+            unit="items",
+            assigned_by=admin_user,
+        )
+
+        # Assignee attempts to edit restricted assignment fields (title) -> 403 / PermissionDenied
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for('EMPLOYEE')}")
+        patch_res = self.client.patch(f"/api/work-assignments/{assignment.id}/", {
+            "title": "Maliciously Renamed Title",
+        }, format="json")
+        self.assertEqual(patch_res.status_code, 403)
+
+        # Assignee attempts to delete assignment -> 403 / PermissionDenied
+        del_res = self.client.delete(f"/api/work-assignments/{assignment.id}/")
+        self.assertEqual(del_res.status_code, 403)
+
+        # Assignee updates progress/status -> 200 OK
+        prog_res = self.client.patch(f"/api/work-assignments/{assignment.id}/", {
+            "completed_quantity": 5,
+            "status": "In Progress",
+        }, format="json")
+        self.assertEqual(prog_res.status_code, 200)
+
+        # Management (Admin) can edit and delete
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for('ADMIN')}")
+        mgmt_edit = self.client.patch(f"/api/work-assignments/{assignment.id}/", {
+            "title": "Admin Updated Title",
+        }, format="json")
+        self.assertEqual(mgmt_edit.status_code, 200)
+
+        mgmt_del = self.client.delete(f"/api/work-assignments/{assignment.id}/")
+        self.assertEqual(mgmt_del.status_code, 204)
+
+    def test_password_reset_minimum_8_character_rule(self):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+
+        target_user = self.accounts["EMPLOYEE"]
+        uid = urlsafe_base64_encode(force_bytes(target_user.pk))
+        token = default_token_generator.make_token(target_user)
+
+        # 1. 7-character password -> rejected (HTTP 400)
+        res_7 = self.client.post("/api/auth/password-reset/confirm/", {
+            "uid": uid, "token": token, "new_password": "1234567"
+        }, format="json")
+        self.assertEqual(res_7.status_code, 400)
+        self.assertIn("new_password", res_7.data)
+
+        # 2. Numeric-only 8-character password -> accepted (HTTP 200)
+        res_num = self.client.post("/api/auth/password-reset/confirm/", {
+            "uid": uid, "token": token, "new_password": "12345678"
+        }, format="json")
+        self.assertEqual(res_num.status_code, 200)
+
+        # 3. Old password no longer works
+        self.client.credentials()
+        old_login = self.client.post("/api/auth/login/", {
+            "email": target_user.email, "password": "FixPassword@123"
+        }, format="json")
+        self.assertEqual(old_login.status_code, 401)
+
+        # 4. New password works
+        new_login = self.client.post("/api/auth/login/", {
+            "email": target_user.email, "password": "12345678"
+        }, format="json")
+        self.assertEqual(new_login.status_code, 200)
+
+        # 5. Token is single-use: reusing same token returns HTTP 400
+        res_reuse = self.client.post("/api/auth/password-reset/confirm/", {
+            "uid": uid, "token": token, "new_password": "password123"
+        }, format="json")
+        self.assertEqual(res_reuse.status_code, 400)
+
+        # 6. Common 8+ character password ('password123') accepted with fresh token
+        target_user.refresh_from_db()
+        token2 = default_token_generator.make_token(target_user)
+        res_common = self.client.post("/api/auth/password-reset/confirm/", {
+            "uid": uid, "token": token2, "new_password": "password123"
+        }, format="json")
+        self.assertEqual(res_common.status_code, 200)
+
+        # 7. Username-like 8+ character password ('employee@fixes.local') accepted with fresh token
+        target_user.refresh_from_db()
+        token3 = default_token_generator.make_token(target_user)
+        res_userlike = self.client.post("/api/auth/password-reset/confirm/", {
+            "uid": uid, "token": token3, "new_password": "employee@fixes.local"
+        }, format="json")
+        self.assertEqual(res_userlike.status_code, 200)
+
+    def test_duplicate_existing_user_email_rejection_and_no_password_overwrite(self):
+        # 1. Existing user with email 'admin@fixes.local' and password 'FixPassword@123'
+        admin_user = self.accounts["ADMIN"]
+        original_pass = "FixPassword@123"
+
+        # 2. Attempt to create an employee with the SAME email 'admin@fixes.local'
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for('ADMIN')}")
+        dup_res = self.client.post("/api/employees/", {
+            "employee_code": "FLX-888",
+            "name": "Imposter Employee",
+            "email": "  ADMIN@fixes.local  ", # Case and whitespace variations
+            "phone": "9876543211",
+            "department": "Web Development",
+            "designation": "Developer",
+            "joining_date": "2026-08-05",
+            "status": "Active",
+            "portal_role": "EMPLOYEE",
+            "password": "OverwritingPass#123",
+        }, format="json")
+
+        # 3. Must be rejected with HTTP 400 validation error
+        self.assertEqual(dup_res.status_code, 400)
+        self.assertIn("email", dup_res.data)
+
+        # 4. Verify existing admin user's password was NOT overwritten and original login still works
+        self.client.credentials()
+        admin_login = self.client.post("/api/auth/login/", {
+            "email": "admin@fixes.local",
+            "password": original_pass,
+        }, format="json")
+        self.assertEqual(admin_login.status_code, 200)
+
+        # 5. Overwriting password attempt fails login
+        failed_login = self.client.post("/api/auth/login/", {
+            "email": "admin@fixes.local",
+            "password": "OverwritingPass#123",
+        }, format="json")
+        self.assertEqual(failed_login.status_code, 401)
+
+    def test_reviewer_does_not_gain_delete_permission(self):
+        from portal.models import Client, WorkAssignment
+        client_obj = Client.objects.create(name="Reviewer Client Corp")
+        assignee_emp = self.accounts["EMPLOYEE"].employee
+        reviewer_user = self.accounts["BDO"]
+
+        # Assignment created with BDO user as reviewer
+        assignment = WorkAssignment.objects.create(
+            employee=assignee_emp,
+            client=client_obj,
+            title="Video Banner Review",
+            description="Review assigned video",
+            priority="High",
+            assigned_date=date.today(),
+            due_date=date.today(),
+            assigned_quantity=1,
+            completed_quantity=0,
+            unit="video",
+            reviewer=reviewer_user,
+            reviewer_name="BDO User",
+        )
+
+        # Reviewer attempts to delete assignment -> HTTP 403 Forbidden
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for('BDO')}")
+        del_res = self.client.delete(f"/api/work-assignments/{assignment.id}/")
+        self.assertEqual(del_res.status_code, 403)
