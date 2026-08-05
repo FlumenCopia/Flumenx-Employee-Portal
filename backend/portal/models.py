@@ -419,7 +419,19 @@ class SalarySlip(models.Model):
 
     class Meta:
         ordering = ["-year", "-month"]
-        constraints = [models.UniqueConstraint(fields=["employee", "month", "year"], name="unique_employee_salary_month")]
+
+    def clean(self):
+        super().clean()
+        if self.employee_id and self.month and self.year:
+            qs = SalarySlip.objects.filter(employee_id=self.employee_id, month=self.month, year=self.year)
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise ValidationError({"month": "Salary slip already exists for this employee, month, and year."})
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
 
 class Meeting(models.Model):
     title = models.CharField(max_length=160)
@@ -511,7 +523,15 @@ class AttendanceRecord(models.Model):
             models.Index(fields=["attendance_date"], name="attendance_date_idx"),
             models.Index(fields=["attendance_status"], name="attendance_status_idx"),
         ]
-        constraints = [models.UniqueConstraint(fields=["employee", "attendance_date"], name="unique_employee_attendance_date")]
+
+    def clean(self):
+        super().clean()
+        if self.employee_id and self.attendance_date:
+            qs = AttendanceRecord.objects.filter(employee_id=self.employee_id, attendance_date=self.attendance_date)
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise ValidationError({"attendance_date": "Attendance record already exists for this employee and date."})
 
     @staticmethod
     def minutes(value):
@@ -568,6 +588,7 @@ class AttendanceRecord(models.Model):
                 self.attendance_status = "Present"
 
     def save(self, *args, **kwargs):
+        self.clean()
         self.calculate()
         super().save(*args, **kwargs)
 
@@ -625,12 +646,15 @@ class EmployeeKPIRating(models.Model):
 
     class Meta:
         ordering = ["-year", "-month"]
-        constraints = [
-            models.UniqueConstraint(fields=["employee", "month", "year"], name="unique_employee_kpi_rating_month")
-        ]
 
     def clean(self):
         super().clean()
+        if self.employee_id and self.month and self.year:
+            qs = EmployeeKPIRating.objects.filter(employee_id=self.employee_id, month=self.month, year=self.year)
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise ValidationError({"month": "KPI rating already exists for this employee, month, and year."})
         if self.rating is not None and (float(self.rating) < 1.0 or float(self.rating) > 5.0):
             raise ValidationError({"rating": "Rating must be between 1.0 and 5.0."})
 

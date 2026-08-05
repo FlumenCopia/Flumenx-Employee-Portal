@@ -102,15 +102,7 @@ async function refreshAuth() {
 
 export async function logout() {
   try {
-    const csrf = getCookieCsrfToken() || cachedCsrfToken;
-    await fetch(`${API_URL}/auth/logout/`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...(csrf ? { "X-CSRFToken": csrf } : {}),
-      },
-    });
+    await api("/auth/logout/", { method: "POST" });
   } catch {
     // Continue cleanup even if server is unreachable
   } finally {

@@ -324,6 +324,11 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     return () => { active = false; };
   }, [workspaceRole, router]);
 
+  const openLogoutModal = () => {
+    setLoggingOut(false);
+    setShowLogoutModal(true);
+  };
+
   const handleConfirmLogout = async () => {
     if (loggingOut) return;
     setLoggingOut(true);
@@ -337,6 +342,8 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     } finally {
       clearCachedAuthUser();
       setUser(null);
+      setLoggingOut(false);
+      setShowLogoutModal(false);
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       } else {
@@ -361,8 +368,8 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
         <div className="workspace"><div className="workspace-icon">FX</div><div><b>FLUMENX HQ</b><span>Core workspace</span></div><ChevronDown size={14} /></div>
         <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label === "Leave requests" && workspaceRole === "admin" && <em>2</em>}</Link>)}</nav>
         <div className="sidebar-foot">
-          <div className="mini-profile cursor-pointer hover:bg-[rgba(77,255,160,0.08)] transition-colors rounded-xl p-2 mb-2" onClick={() => setShowLogoutModal(true)} title="Click to sign out"><Avatar name={name} /><div><b>{name}</b><span>{roleLabel}</span></div></div>
-          <button type="button" onClick={() => setShowLogoutModal(true)} disabled={loggingOut}><LogOut size={17} /> {loggingOut ? "Signing out..." : "Sign out"}</button>
+          <div className="mini-profile cursor-pointer hover:bg-[rgba(77,255,160,0.08)] transition-colors rounded-xl p-2 mb-2" onClick={openLogoutModal} title="Click to sign out"><Avatar name={name} /><div><b>{name}</b><span>{roleLabel}</span></div></div>
+          <button type="button" onClick={openLogoutModal} disabled={loggingOut}><LogOut size={17} /> {loggingOut ? "Signing out..." : "Sign out"}</button>
         </div>
       </aside>
       {open && <div className="scrim" onClick={() => setOpen(false)} />}
@@ -372,7 +379,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
           <div className="topbar-word">FLUMENX / <span>{roleLabel.toUpperCase()}</span></div>
           <div className="top-actions">
             <NotificationBell user={user} />
-            <div className="top-profile cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setShowLogoutModal(true)} title="Click to sign out">
+            <div className="top-profile cursor-pointer hover:opacity-80 transition-opacity" onClick={openLogoutModal} title="Click to sign out">
               <Avatar name={name} size={34} />
               <div><b>{name}</b><span>{roleLabel}</span></div>
             </div>
