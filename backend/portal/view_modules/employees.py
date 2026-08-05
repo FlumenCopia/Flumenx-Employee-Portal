@@ -1,13 +1,30 @@
+import logging
+
 from django.contrib.auth.models import User
-from django.db import transaction
-from django.db.models import Q
+from django.db import IntegrityError, transaction
+from django.db.models import ProtectedError, Q
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 
-from portal.models import AttendanceCorrection, Employee, EmployeeKPIRating, WorkAssignment
+from portal.models import (
+    Announcement,
+    AttendanceCorrection,
+    AttendanceRecord,
+    AuditLog,
+    ClientWorkShareLink,
+    Employee,
+    EmployeeKPIRating,
+    LeaveRequest,
+    Meeting,
+    Notification,
+    SalarySlip,
+    WorkAssignment,
+)
 from portal.permissions import IsAdminOrHR, portal_role
 from portal.serializers import EmployeeSerializer
 from portal.services.notifications import create_notifications
+
+logger = logging.getLogger(__name__)
 
 
 EMPLOYEE_NOTIFICATION_FIELDS = {
@@ -129,16 +146,41 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        with transaction.atomic():
-            WorkAssignment.objects.filter(employee=instance).update(employee=None)
-            if user:
-                WorkAssignment.objects.filter(reviewer=user).update(reviewer=None)
-                WorkAssignment.objects.filter(assigned_by=user).update(assigned_by=None)
-                AttendanceCorrection.objects.filter(reviewed_by=user).update(reviewed_by=None)
-                EmployeeKPIRating.objects.filter(rated_by=user).update(rated_by=None)
+        try:
+            with transaction.atomic():
+                Employee.objects.filter(team_lead=instance).update(team_lead=None)
+                WorkAssignment.objects.filter(employee=instance).update(employee=None)
+                LeaveRequest.objects.filter(employee=instance).update(employee=None)
+                SalarySlip.objects.filter(employee=instance).update(employee=None)
+                AttendanceRecord.objects.filter(employee=instance).update(employee=None)
+                AttendanceCorrection.objects.filter(employee=instance).update(employee=None)
+                EmployeeKPIRating.objects.filter(employee=instance).update(employee=None)
 
-            instance.delete()
-            if user:
-                user.delete()
+                if user:
+                    WorkAssignment.objects.filter(reviewer=user).update(reviewer=None)
+                    WorkAssignment.objects.filter(assigned_by=user).update(assigned_by=None)
+                    AttendanceCorrection.objects.filter(reviewed_by=user).update(reviewed_by=None)
+                    EmployeeKPIRating.objects.filter(rated_by=user).update(rated_by=None)
+                    ClientWorkShareLink.objects.filter(created_by=user).update(created_by=None)
+                    Meeting.objects.filter(created_by=user).update(created_by=None)
+                    Announcement.objects.filter(created_by=user).update(created_by=None)
+                    Notification.objects.filter(user=user).update(user=None)
+                    AuditLog.objects.filter(actor=user).update(actor=None)
 
-        return Response(status=status.HTTP_204_NO_CONTENT)
+                instance.delete()
+                if user:
+                    user.delete()
+
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except (ProtectedError, IntegrityError) as exc:
+            logger.error("Database constraint preventing employee deletion [ID %s]: %s", instance.id, str(exc))
+            return Response(
+                {"detail": "Cannot delete employee because related system records are protected."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as exc:
+            logger.error("Unexpected error deleting employee [ID %s]: %s", instance.id, str(exc))
+            return Response(
+                {"detail": "Could not delete employee record."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )

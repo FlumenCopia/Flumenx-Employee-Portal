@@ -95,9 +95,52 @@ class RoleAccessTests(TestCase):
         att.refresh_from_db()
         self.assertIsNone(att.employee)
 
+    def test_employee_deletion_with_no_related_records(self):
+        emp_user = User.objects.create_user("standalone.employee@roles.local", password="Password123")
+        UserRole.objects.create(user=emp_user, role="EMPLOYEE")
+        emp = Employee.objects.create(
+            user=emp_user, employee_code="DEL-002", name="Standalone Employee", email="standalone.employee@roles.local",
+            phone="9222222222", department="Web Development", designation="Developer", joining_date=date.today(),
+        )
+
+        response = self.delete_as("ADMIN", f"/api/employees/{emp.id}/")
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Employee.objects.filter(pk=emp.pk).exists())
+        self.assertFalse(User.objects.filter(pk=emp_user.pk).exists())
+
+    def test_employee_deletion_with_full_history_and_preserved_work_access(self):
+        emp_user = User.objects.create_user("full.history@roles.local", password="Password123")
+        UserRole.objects.create(user=emp_user, role="EMPLOYEE")
+        emp = Employee.objects.create(
+            user=emp_user, employee_code="DEL-003", name="Full History Employee", email="full.history@roles.local",
+            phone="9333333333", department="Operations", designation="Operations Specialist", joining_date=date.today(),
+        )
+
+        client_obj = Client.objects.create(name="Full History Client")
+        work = WorkAssignment.objects.create(
+            employee=emp, client=client_obj, title="Preserved Client Work", assigned_date=date.today(),
+            due_date=date.today(), reviewer=emp_user, assigned_by=emp_user,
+        )
+
+        response = self.delete_as("ADMIN", f"/api/employees/{emp.id}/")
+        self.assertNotEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 204)
+
+        work.refresh_from_db()
+        self.assertIsNone(work.employee)
+        self.assertIsNone(work.reviewer)
+        self.assertIsNone(work.assigned_by)
+        self.assertEqual(work.title, "Preserved Client Work")
+
+        # Verify preserved work record remains accessible via work API
+        get_work_res = self.get_as("ADMIN", f"/api/work-assignments/{work.id}/")
+        self.assertEqual(get_work_res.status_code, 200)
+        self.assertEqual(get_work_res.data["title"], "Preserved Client Work")
+
     def test_employee_self_deletion_is_blocked(self):
         hr_emp = self.accounts["HR"].employee
         response = self.delete_as("HR", f"/api/employees/{hr_emp.id}/")
+        self.assertNotEqual(response.status_code, 500)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["detail"], "You cannot delete your own employee account.")
 
