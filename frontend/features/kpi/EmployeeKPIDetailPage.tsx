@@ -21,6 +21,7 @@ import {
   TrendingDown,
   TrendingUp,
   User,
+  UserCheck,
   Zap,
   X,
 } from "lucide-react";
@@ -181,9 +182,11 @@ export function EmployeeKPIDetailPage({
   const circumference = 2 * Math.PI * radius;
   const gaugeOffset = circumference - (Math.min(100, Math.max(0, data.final_score)) / 100) * circumference;
 
+  const reportingManager = comp.work_quality.rated_by || "HR / Team Management";
+
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 text-slate-100">
-      {/* 1. Header Navigation & Control Bar */}
+    <div className="w-full max-w-7xl mx-auto space-y-6 text-slate-100 font-sans">
+      {/* 1. Large Employee Header & Control Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-md">
         <div className="flex items-center gap-4">
           {!isSelf && (
@@ -196,19 +199,26 @@ export function EmployeeKPIDetailPage({
             </Link>
           )}
 
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-extrabold text-lg shadow-lg shadow-emerald-500/10">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-extrabold text-xl shadow-lg shadow-emerald-500/10">
               {data.employee_name.charAt(0)}
             </div>
             <div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-xl font-extrabold text-white tracking-tight">{data.employee_name}</h1>
-                <span className="text-xs text-slate-400 font-mono bg-slate-950 border border-slate-800 px-2 py-0.5 rounded-lg">
+                <span className="text-xs text-slate-400 font-mono bg-slate-950 border border-slate-800 px-2.5 py-0.5 rounded-lg">
                   {data.employee_code}
                 </span>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${getGradeBadgeClass(data.grade)}`}>
+                  {data.grade}
+                </span>
               </div>
-              <p className="text-xs text-slate-400 mt-1">
-                {data.department} · <span className="text-slate-300 font-medium">{data.designation}</span>
+              <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-3 flex-wrap">
+                <span>{data.department}</span>
+                <span>·</span>
+                <span className="text-slate-300 font-medium">{data.designation}</span>
+                <span>·</span>
+                <span className="text-slate-400">Manager: <strong className="text-slate-200">{reportingManager}</strong></span>
               </p>
             </div>
           </div>
@@ -221,7 +231,7 @@ export function EmployeeKPIDetailPage({
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="text-xs bg-transparent border-0 text-slate-200 focus:outline-none pr-1 font-medium"
+              className="text-xs bg-transparent border-0 text-slate-200 focus:outline-none pr-1 font-medium cursor-pointer"
             >
               {[
                 "January", "February", "March", "April", "May", "June",
@@ -233,7 +243,7 @@ export function EmployeeKPIDetailPage({
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="text-xs bg-transparent border-0 text-slate-200 focus:outline-none pr-1 font-medium"
+              className="text-xs bg-transparent border-0 text-slate-200 focus:outline-none pr-1 font-medium cursor-pointer"
             >
               {[2024, 2025, 2026, 2027].map((y) => (
                 <option key={y} value={y} className="bg-slate-950 text-slate-200">{y}</option>
@@ -291,7 +301,7 @@ export function EmployeeKPIDetailPage({
             </div>
 
             <div className="mt-4 space-y-1">
-              <span className="text-[11px] text-slate-400 block font-medium">Evaluation Grade</span>
+              <span className="text-[11px] text-slate-400 block font-medium">Overall Performance Grade</span>
               <span
                 className={`inline-flex items-center px-3 py-0.5 rounded-full text-xs font-bold border ${getGradeBadgeClass(
                   data.grade
@@ -305,7 +315,7 @@ export function EmployeeKPIDetailPage({
           {/* Quick Metrics Widget Cards (Right 2 Columns) */}
           <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             {/* Work Completion Widget */}
-            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2">
+            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2 hover:border-slate-700 transition">
               <div className="flex justify-between items-center text-slate-400">
                 <span className="text-[11px] font-medium truncate">Work Comp.</span>
                 <CheckCircle2 size={15} className="text-emerald-400" />
@@ -318,7 +328,7 @@ export function EmployeeKPIDetailPage({
             </div>
 
             {/* Attendance Widget */}
-            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2">
+            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2 hover:border-slate-700 transition">
               <div className="flex justify-between items-center text-slate-400">
                 <span className="text-[11px] font-medium truncate">Attendance</span>
                 <CalendarCheck size={15} className="text-emerald-400" />
@@ -331,7 +341,7 @@ export function EmployeeKPIDetailPage({
             </div>
 
             {/* On-Time Delivery Widget */}
-            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2">
+            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2 hover:border-slate-700 transition">
               <div className="flex justify-between items-center text-slate-400">
                 <span className="text-[11px] font-medium truncate">On-Time</span>
                 <Clock size={15} className="text-blue-400" />
@@ -344,7 +354,7 @@ export function EmployeeKPIDetailPage({
             </div>
 
             {/* Leave Discipline Widget */}
-            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2">
+            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2 hover:border-slate-700 transition">
               <div className="flex justify-between items-center text-slate-400">
                 <span className="text-[11px] font-medium truncate">Leave Disc.</span>
                 <FileText size={15} className="text-amber-400" />

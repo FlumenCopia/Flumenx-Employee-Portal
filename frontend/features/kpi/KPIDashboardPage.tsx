@@ -12,19 +12,27 @@ import {
   Calendar,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Clock,
   FileSpreadsheet,
   Filter,
+  Layers,
   Minus,
+  PieChart,
   RefreshCw,
   Search,
+  ShieldAlert,
   Sparkles,
   Star,
+  Target,
+  Trophy,
+  TrendingDown,
   TrendingUp,
   UserCheck,
   UserRound,
   Users,
+  Zap,
   X,
 } from "lucide-react";
 import { api, apiBlob } from "@/lib/api";
@@ -75,6 +83,11 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
   const [minScore, setMinScore] = useState("");
   const [maxScore, setMaxScore] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
+
+  // Table Sorting & Pagination State
+  const [sortBy, setSortBy] = useState<"score_desc" | "score_asc" | "name" | "dept">("score_desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
 
   const [data, setData] = useState<KPIDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -159,6 +172,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
     setMaxScore("");
     setSelectedEmployeeId(null);
     setEmployeeSearchQuery("");
+    setCurrentPage(1);
   };
 
   const hasActiveFilters =
@@ -181,6 +195,20 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
       emp.employee_code.toLowerCase().includes(q) ||
       emp.department.toLowerCase().includes(q)
     );
+  });
+
+  // Calculate highest & lowest performers
+  const sortedByScore = [...(data?.employees || [])].sort((a, b) => b.final_score - a.final_score);
+  const highestPerformer = sortedByScore.length > 0 ? sortedByScore[0] : null;
+  const lowestPerformer = sortedByScore.length > 0 ? sortedByScore[sortedByScore.length - 1] : null;
+  const topPerformersList = sortedByScore.slice(0, 4);
+  const lowestPerformersList = [...sortedByScore].reverse().slice(0, 4);
+
+  // Grade Distribution Counts
+  const gradeDistribution = GRADES.map((g) => {
+    const count = (data?.employees || []).filter((e) => e.grade === g).length;
+    const pct = data?.total_employees ? Number(((count / data.total_employees) * 100).toFixed(1)) : 0;
+    return { grade: g, count, pct };
   });
 
   const outstandingCount = (data?.employees || []).filter(
@@ -224,12 +252,24 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
       }
     : companyComponentAverages;
 
+  // Process Employees Table with Sorting & Pagination
+  const processedEmployees = [...(data?.employees || [])].sort((a, b) => {
+    if (sortBy === "score_desc") return b.final_score - a.final_score;
+    if (sortBy === "score_asc") return a.final_score - b.final_score;
+    if (sortBy === "name") return a.employee_name.localeCompare(b.employee_name);
+    if (sortBy === "dept") return a.department.localeCompare(b.department);
+    return 0;
+  });
+
+  const totalPages = Math.ceil(processedEmployees.length / pageSize) || 1;
+  const paginatedEmployees = processedEmployees.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   const inputControlClasses =
-    "w-full text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition appearance-none";
+    "w-full text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition appearance-none cursor-pointer";
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 text-slate-100">
-      {/* 1. Header Section */}
+    <div className="w-full max-w-7xl mx-auto space-y-6 text-slate-100 font-sans">
+      {/* 1. Large Modern Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-md">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-3">
@@ -239,7 +279,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             KPI Performance Dashboard
           </h1>
           <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-            Monthly employee evaluation, component score tracking, and performance analytics.
+            Enterprise employee evaluation, component score tracking, department analytics, and grade distribution.
           </p>
         </div>
 
@@ -274,7 +314,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
         </div>
       </div>
 
-      {/* 2. Full-Width Filter Panel */}
+      {/* 2. Premium Filter Toolbar Panel */}
       <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4 backdrop-blur-md">
         <div className="flex items-center justify-between text-xs font-semibold text-slate-300 border-b border-slate-800/80 pb-3">
           <div className="flex items-center gap-2">
@@ -297,7 +337,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             <label className="block text-[11px] text-slate-400 mb-1 font-medium">Month</label>
             <select
               value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              onChange={(e) => { setSelectedMonth(Number(e.target.value)); setCurrentPage(1); }}
               className={inputControlClasses}
             >
               {[
@@ -314,7 +354,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             <label className="block text-[11px] text-slate-400 mb-1 font-medium">Year</label>
             <select
               value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              onChange={(e) => { setSelectedYear(Number(e.target.value)); setCurrentPage(1); }}
               className={inputControlClasses}
             >
               {[2024, 2025, 2026, 2027].map((y) => (
@@ -328,7 +368,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             <label className="block text-[11px] text-slate-400 mb-1 font-medium">Department</label>
             <select
               value={department}
-              onChange={(e) => setDepartment(e.target.value)}
+              onChange={(e) => { setDepartment(e.target.value); setCurrentPage(1); }}
               className={inputControlClasses}
             >
               <option value="" className="bg-slate-950 text-slate-200">All Departments</option>
@@ -343,7 +383,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             <label className="block text-[11px] text-slate-400 mb-1 font-medium">Grade</label>
             <select
               value={grade}
-              onChange={(e) => setGrade(e.target.value)}
+              onChange={(e) => { setGrade(e.target.value); setCurrentPage(1); }}
               className={inputControlClasses}
             >
               <option value="" className="bg-slate-950 text-slate-200">All Grades</option>
@@ -387,6 +427,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                     onClick={() => {
                       setSelectedEmployeeId(null);
                       setEmployeeSearchOpen(false);
+                      setCurrentPage(1);
                     }}
                     className={`w-full text-left px-2.5 py-1.5 rounded-lg transition ${
                       selectedEmployeeId === null
@@ -404,6 +445,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                       onClick={() => {
                         setSelectedEmployeeId(emp.employee_id);
                         setEmployeeSearchOpen(false);
+                        setCurrentPage(1);
                       }}
                       className={`w-full text-left px-2.5 py-1.5 rounded-lg transition flex items-center justify-between ${
                         selectedEmployeeId === emp.employee_id
@@ -437,7 +479,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                 min="0"
                 max="100"
                 value={minScore}
-                onChange={(e) => setMinScore(e.target.value)}
+                onChange={(e) => { setMinScore(e.target.value); setCurrentPage(1); }}
                 className="w-1/2 text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-2.5 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
               />
               <input
@@ -446,7 +488,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                 min="0"
                 max="100"
                 value={maxScore}
-                onChange={(e) => setMaxScore(e.target.value)}
+                onChange={(e) => { setMaxScore(e.target.value); setCurrentPage(1); }}
                 className="w-1/2 text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-2.5 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
               />
             </div>
@@ -461,70 +503,104 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
         </div>
       )}
 
-      {/* 3. Summary Metric Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 3. Summary Section Widget Cards Grid (6 Metric Cards) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         {/* Total Evaluated */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 relative overflow-hidden shadow-lg hover:border-slate-700 transition">
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-4 relative overflow-hidden shadow-lg hover:border-slate-700 transition hover:-translate-y-0.5">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Evaluated</p>
-              <h3 className="text-2xl font-extrabold text-white mt-1.5 font-mono">{data?.total_employees ?? 0}</h3>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total Evaluated</p>
+              <h3 className="text-xl font-extrabold text-white mt-1 font-mono">{data?.total_employees ?? 0}</h3>
             </div>
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
-              <Users size={20} />
+            <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
+              <Users size={18} />
             </div>
           </div>
-          <p className="mt-3 text-[11px] text-slate-400">
-            Active employee records evaluated in <span className="text-white font-medium">{selectedMonth}/{selectedYear}</span>
-          </p>
+          <p className="mt-2 text-[10px] text-slate-400">Active records in {selectedMonth}/{selectedYear}</p>
         </div>
 
         {/* Average KPI Score */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 relative overflow-hidden shadow-lg hover:border-slate-700 transition">
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-4 relative overflow-hidden shadow-lg hover:border-slate-700 transition hover:-translate-y-0.5">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Average KPI Score</p>
-              <h3 className="text-2xl font-extrabold text-white mt-1.5 font-mono">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Average KPI</p>
+              <h3 className="text-xl font-extrabold text-white mt-1 font-mono">
                 {data?.average_kpi ?? 0} <span className="text-xs font-normal text-slate-500">/ 100</span>
               </h3>
             </div>
-            <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl">
-              <TrendingUp size={20} />
+            <div className="p-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl">
+              <TrendingUp size={18} />
             </div>
           </div>
-          <p className="mt-3 text-[11px] text-slate-400">Company-wide performance average score</p>
+          <p className="mt-2 text-[10px] text-slate-400">Company-wide avg score</p>
         </div>
 
-        {/* Outstanding / Excellent */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 relative overflow-hidden shadow-lg hover:border-slate-700 transition">
+        {/* Outstanding Performers */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-4 relative overflow-hidden shadow-lg hover:border-slate-700 transition hover:-translate-y-0.5">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Outstanding Performers</p>
-              <h3 className="text-2xl font-extrabold text-emerald-400 mt-1.5 font-mono">{outstandingCount}</h3>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Outstanding</p>
+              <h3 className="text-xl font-extrabold text-emerald-400 mt-1 font-mono">{outstandingCount}</h3>
             </div>
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl">
-              <Award size={20} />
+            <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
+              <Award size={18} />
             </div>
           </div>
-          <p className="mt-3 text-[11px] text-slate-400">High performers (Score &ge; 85)</p>
+          <p className="mt-2 text-[10px] text-slate-400">High performers (&ge; 85)</p>
         </div>
 
-        {/* Critical / Attention Required */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 relative overflow-hidden shadow-lg hover:border-slate-700 transition">
+        {/* Needs Improvement */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-4 relative overflow-hidden shadow-lg hover:border-slate-700 transition hover:-translate-y-0.5">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Attention Required</p>
-              <h3 className="text-2xl font-extrabold text-rose-400 mt-1.5 font-mono">{criticalCount}</h3>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Needs Review</p>
+              <h3 className="text-xl font-extrabold text-rose-400 mt-1 font-mono">{criticalCount}</h3>
             </div>
-            <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
-              <AlertTriangle size={20} />
+            <div className="p-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
+              <AlertTriangle size={18} />
             </div>
           </div>
-          <p className="mt-3 text-[11px] text-slate-400">Needs review (Score &lt; 75)</p>
+          <p className="mt-2 text-[10px] text-slate-400">Attention needed (&lt; 75)</p>
+        </div>
+
+        {/* Highest Score */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-4 relative overflow-hidden shadow-lg hover:border-slate-700 transition hover:-translate-y-0.5">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Highest Score</p>
+              <h3 className="text-xl font-extrabold text-emerald-400 mt-1 font-mono">
+                {highestPerformer ? highestPerformer.final_score : 0}
+              </h3>
+            </div>
+            <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl">
+              <Trophy size={18} />
+            </div>
+          </div>
+          <p className="mt-2 text-[10px] text-slate-300 truncate">
+            {highestPerformer ? highestPerformer.employee_name : "N/A"}
+          </p>
+        </div>
+
+        {/* Lowest Score */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-4 relative overflow-hidden shadow-lg hover:border-slate-700 transition hover:-translate-y-0.5">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Lowest Score</p>
+              <h3 className="text-xl font-extrabold text-rose-400 mt-1 font-mono">
+                {lowestPerformer ? lowestPerformer.final_score : 0}
+              </h3>
+            </div>
+            <div className="p-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
+              <TrendingDown size={18} />
+            </div>
+          </div>
+          <p className="mt-2 text-[10px] text-slate-300 truncate">
+            {lowestPerformer ? lowestPerformer.employee_name : "N/A"}
+          </p>
         </div>
       </div>
 
-      {/* 4. Selected Employee Spotlight Card */}
+      {/* 4. Selected Employee Spotlight Banner */}
       {selectedEmployeeData ? (
         <div className="bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900 border border-emerald-500/30 rounded-2xl p-6 shadow-2xl space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
@@ -582,129 +658,14 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
         </div>
       )}
 
-      {/* 5. Component Score Breakdown Cards Grid */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Star size={16} className="text-emerald-400" />
-            {selectedEmployeeData ? `${selectedEmployeeData.employee_name}'s Component Score Breakdown` : "Company Average KPI Component Breakdown"}
-          </h3>
-          <span className="text-[11px] text-slate-400 font-mono">6 Evaluation Factors</span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {/* Work Completion */}
-          <div className="bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-2xl space-y-2 shadow-lg">
-            <span className="text-[11px] font-medium text-slate-400 block truncate">Work Completion</span>
-            <div className="flex items-baseline justify-between">
-              <span className="text-lg font-extrabold text-white font-mono">
-                {activeComponents?.work_completion ?? 0}
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">/ 40 pts</span>
-            </div>
-            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-              <div
-                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, (((activeComponents?.work_completion ?? 0) / 40) * 100))}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Attendance */}
-          <div className="bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-2xl space-y-2 shadow-lg">
-            <span className="text-[11px] font-medium text-slate-400 block truncate">Attendance</span>
-            <div className="flex items-baseline justify-between">
-              <span className="text-lg font-extrabold text-emerald-400 font-mono">
-                {activeComponents?.attendance ?? 0}
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">/ 20 pts</span>
-            </div>
-            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-              <div
-                className="bg-emerald-400 h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, (((activeComponents?.attendance ?? 0) / 20) * 100))}%` }}
-              />
-            </div>
-          </div>
-
-          {/* On-Time Delivery */}
-          <div className="bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-2xl space-y-2 shadow-lg">
-            <span className="text-[11px] font-medium text-slate-400 block truncate">On-Time Delivery</span>
-            <div className="flex items-baseline justify-between">
-              <span className="text-lg font-extrabold text-blue-400 font-mono">
-                {activeComponents?.on_time_delivery ?? 0}
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">/ 15 pts</span>
-            </div>
-            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-              <div
-                className="bg-blue-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, (((activeComponents?.on_time_delivery ?? 0) / 15) * 100))}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Leave Discipline */}
-          <div className="bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-2xl space-y-2 shadow-lg">
-            <span className="text-[11px] font-medium text-slate-400 block truncate">Leave Discipline</span>
-            <div className="flex items-baseline justify-between">
-              <span className="text-lg font-extrabold text-amber-400 font-mono">
-                {activeComponents?.leave_discipline ?? 0}
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">/ 10 pts</span>
-            </div>
-            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-              <div
-                className="bg-amber-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, (((activeComponents?.leave_discipline ?? 0) / 10) * 100))}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Work Quality */}
-          <div className="bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-2xl space-y-2 shadow-lg">
-            <span className="text-[11px] font-medium text-slate-400 block truncate">Work Quality</span>
-            <div className="flex items-baseline justify-between">
-              <span className="text-lg font-extrabold text-purple-400 font-mono">
-                {activeComponents?.work_quality ?? 0}
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">/ 10 pts</span>
-            </div>
-            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-              <div
-                className="bg-purple-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, (((activeComponents?.work_quality ?? 0) / 10) * 100))}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Consistency */}
-          <div className="bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-2xl space-y-2 shadow-lg">
-            <span className="text-[11px] font-medium text-slate-400 block truncate">Consistency</span>
-            <div className="flex items-baseline justify-between">
-              <span className="text-lg font-extrabold text-cyan-400 font-mono">
-                {activeComponents?.consistency ?? 0}
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">/ 5 pts</span>
-            </div>
-            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-              <div
-                className="bg-cyan-400 h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, (((activeComponents?.consistency ?? 0) / 5) * 100))}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 6. Two-Column Analytics Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* 5. Analytics Grid (Grade Distribution, Department Comparison, Monthly Trend, Top/Bottom Performers) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Department Average KPI Comparison */}
         <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-4 shadow-xl backdrop-blur-md">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Building2 size={16} className="text-emerald-400" />
-              Department KPI Performance Comparison
+              Department KPI Comparison
             </h3>
             <span className="text-[11px] text-slate-400 font-mono">Avg Score / 100</span>
           </div>
@@ -749,7 +710,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <TrendingUp size={16} className="text-emerald-400" />
-              Monthly Performance Trend (Past 6 Months)
+              Monthly Performance Trend
             </h3>
             <span className="text-[11px] text-slate-400 font-mono">Company Avg</span>
           </div>
@@ -765,12 +726,10 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                     </linearGradient>
                   </defs>
 
-                  {/* Grid Lines */}
                   {[20, 50, 80, 110].map((yVal, idx) => (
                     <line key={idx} x1="0" y1={yVal} x2="500" y2={yVal} stroke="#1e293b" strokeDasharray="3 3" strokeWidth="1" />
                   ))}
 
-                  {/* Construct Line Path */}
                   {(() => {
                     const points = data.monthly_trend.map((item, idx) => {
                       const x = (idx / (data.monthly_trend.length - 1)) * 480 + 10;
@@ -813,7 +772,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                 </svg>
               </div>
 
-              {/* Month Labels */}
               <div className="flex justify-between border-t border-slate-800/80 pt-2 text-[11px] text-slate-400">
                 {data.monthly_trend.map((item) => (
                   <span
@@ -832,42 +790,93 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             </div>
           )}
         </div>
+
+        {/* Grade Distribution Card */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-4 shadow-xl backdrop-blur-md">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <PieChart size={16} className="text-emerald-400" />
+              Grade Distribution
+            </h3>
+            <span className="text-[11px] text-slate-400 font-mono">5 Grade Tiers</span>
+          </div>
+
+          <div className="space-y-3 pt-1">
+            {gradeDistribution.map((item) => (
+              <div key={item.grade} className="space-y-1">
+                <div className="flex justify-between text-xs font-medium text-slate-300">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border ${getGradeBadgeClass(
+                        item.grade as KPIGrade
+                      )}`}
+                    >
+                      {item.grade}
+                    </span>
+                  </span>
+                  <span className="font-mono font-bold text-white">
+                    {item.count} <span className="text-[10px] text-slate-500 font-normal">({item.pct}%)</span>
+                  </span>
+                </div>
+                <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800/80 p-0.5">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.max(0, item.pct))}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* 7. Employee Performance Table */}
+      {/* 6. Enterprise Performance Table Section */}
       <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md space-y-0">
         <div className="p-5 border-b border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <UserCheck size={16} className="text-emerald-400" />
-              Employee Performance Records ({data?.employees.length ?? 0})
+              Employee Performance Directory ({processedEmployees.length})
             </h3>
             <p className="text-[11px] text-slate-400 mt-0.5">
               Click View Details for full metric breakdown and evaluation options.
             </p>
           </div>
 
-          <div className="relative w-full sm:w-64">
-            <input
-              type="text"
-              placeholder="Search in table..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full text-xs bg-slate-950 border border-slate-800/80 rounded-xl pl-8 pr-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
-            />
-            <Search size={14} className="absolute left-2.5 top-2.5 text-slate-500" />
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="relative w-full sm:w-56">
+              <input
+                type="text"
+                placeholder="Search table..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                className="w-full text-xs bg-slate-950 border border-slate-800/80 rounded-xl pl-8 pr-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
+              />
+              <Search size={14} className="absolute left-2.5 top-2.5 text-slate-500" />
+            </div>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer"
+            >
+              <option value="score_desc">Sort: Highest Score</option>
+              <option value="score_asc">Sort: Lowest Score</option>
+              <option value="name">Sort: Name (A-Z)</option>
+              <option value="dept">Sort: Department</option>
+            </select>
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950 text-slate-400 border-b border-slate-800/80 font-semibold tracking-wider uppercase text-[10px]">
+            <thead className="bg-slate-950 text-slate-400 border-b border-slate-800/80 font-semibold tracking-wider uppercase text-[10px] sticky top-0 z-10">
               <tr>
                 <th className="py-3.5 px-4">Employee</th>
                 <th className="py-3.5 px-4">Department</th>
                 <th className="py-3.5 px-4">KPI Score</th>
                 <th className="py-3.5 px-4">Grade</th>
-                <th className="py-3.5 px-4">Performance Trend</th>
+                <th className="py-3.5 px-4">Performance Status</th>
                 <th className="py-3.5 px-4 text-right">Action</th>
               </tr>
             </thead>
@@ -882,17 +891,17 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                   </td>
                 </tr>
               )}
-              {!loading && data && data.employees.length === 0 && (
+              {!loading && data && paginatedEmployees.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users size={24} className="text-slate-600" />
-                      <span>No employee records match the selected filters.</span>
+                      <span>No employee records match the selected criteria.</span>
                     </div>
                   </td>
                 </tr>
               )}
-              {data?.employees.map((emp) => {
+              {paginatedEmployees.map((emp) => {
                 const trendType =
                   emp.final_score >= 85 ? "up" : emp.final_score < 75 ? "down" : "stable";
 
@@ -900,7 +909,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                   <tr key={emp.employee_id} className="hover:bg-slate-800/40 transition">
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center font-extrabold text-emerald-400 text-xs">
+                        <div className="w-9 h-9 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center font-extrabold text-emerald-400 text-xs shadow-inner">
                           {emp.employee_name.charAt(0)}
                         </div>
                         <div>
@@ -956,6 +965,37 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             </tbody>
           </table>
         </div>
+
+        {/* Table Pagination Bar */}
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <span>
+              Showing <span className="text-white font-semibold">{((currentPage - 1) * pageSize) + 1}</span> to{" "}
+              <span className="text-white font-semibold">{Math.min(currentPage * pageSize, processedEmployees.length)}</span> of{" "}
+              <span className="text-white font-semibold">{processedEmployees.length}</span> employees
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="p-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 hover:text-white disabled:opacity-40 transition"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="font-mono text-slate-200">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="p-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 hover:text-white disabled:opacity-40 transition"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
