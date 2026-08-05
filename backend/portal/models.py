@@ -23,6 +23,7 @@ class UserRole(models.Model):
         ("BDE", "BDE"),
         ("TEAM_LEAD", "Team Lead"),
         ("EMPLOYEE", "Employee"),
+        ("OPERATIONS", "Operations"),
         ("OPERATIONS_HEAD", "Operations Head"),
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="portal_profile")

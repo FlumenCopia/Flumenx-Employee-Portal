@@ -5,6 +5,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from portal.models import Employee, UserRole
+from portal.permissions import portal_role
 from .employees import EmployeeSerializer
 
 
@@ -22,10 +23,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         return portal_role.lower()
 
     def get_portal_role(self, obj):
-        profile = getattr(obj, "portal_profile", None)
-        if profile:
-            return profile.role
-        return "ADMIN" if obj.is_superuser else "EMPLOYEE"
+        return portal_role(obj)
 
     def get_employee(self, obj):
         try:

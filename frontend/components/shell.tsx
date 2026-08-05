@@ -8,7 +8,7 @@ import { FlumenxMark, Avatar } from "./icons";
 import { api, logout } from "@/lib/api";
 import { clearCachedAuthUser, getCachedAuthUser, loadAuthUser } from "@/lib/auth-cache";
 import type { AuthUser, Paginated, PortalNotification, WorkspaceRole } from "@/lib/types";
-import { expectedPortalRole, getFilteredNavigation, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
+import { expectedPortalRoles, getFilteredNavigation, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
 
 
 const ShellUserContext = createContext<AuthUser | null>(null);
@@ -297,7 +297,7 @@ function LogoutModal({
 export function Shell({ children, role = "admin" }: { children: ReactNode; role?: WorkspaceRole }) {
   const workspaceRole = role;
   const cachedUser = getCachedAuthUser();
-  const cachedUserMatchesRole = cachedUser?.portal_role === expectedPortalRole[workspaceRole];
+  const cachedUserMatchesRole = Boolean(cachedUser && expectedPortalRoles[workspaceRole].includes(cachedUser.portal_role));
   const path = usePathname(); const router = useRouter(); const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(Boolean(cachedUserMatchesRole));
   const [user, setUser] = useState<AuthUser | null>(cachedUserMatchesRole ? cachedUser : null);
@@ -310,7 +310,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
       .then(current => {
         if (!active) return;
         const destination = portalRoleRoutes[current.portal_role];
-        if (current.portal_role !== expectedPortalRole[workspaceRole]) {
+        if (!expectedPortalRoles[workspaceRole].includes(current.portal_role)) {
           router.replace(destination ? `/${destination}/dashboard` : "/login");
           return;
         }

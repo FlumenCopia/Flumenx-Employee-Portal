@@ -16,10 +16,11 @@ class EmployeeSerializer(serializers.ModelSerializer):
         ("BDE", "BDE"),
         ("TEAM_LEAD", "Team Lead"),
         ("EMPLOYEE", "Employee"),
+        ("OPERATIONS", "Operations"),
         ("OPERATIONS_HEAD", "Operations Head"),
     )
     HR_ASSIGNABLE_ROLES = {"ACCOUNTANT", "BDE", "EMPLOYEE", "TEAM_LEAD"}
-    ADMIN_ASSIGNABLE_ROLES = {"HR", "ACCOUNTANT", "BDE", "EMPLOYEE", "TEAM_LEAD", "OPERATIONS_HEAD"}
+    ADMIN_ASSIGNABLE_ROLES = {"HR", "ACCOUNTANT", "BDE", "EMPLOYEE", "TEAM_LEAD", "OPERATIONS", "OPERATIONS_HEAD"}
     HR_PROTECTED_ROLES = {"ADMIN", "HR"}
 
 

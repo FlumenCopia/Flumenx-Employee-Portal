@@ -93,7 +93,17 @@ export const portalRoleRoutes: Record<PortalRole, WorkspaceRole> = {
   BDE: "bdo",
   TEAM_LEAD: "team-lead",
   EMPLOYEE: "employee",
+  OPERATIONS: "admin",
   OPERATIONS_HEAD: "admin",
+};
+
+export const expectedPortalRoles: Record<WorkspaceRole, readonly PortalRole[]> = {
+  admin: ["ADMIN", "OPERATIONS", "OPERATIONS_HEAD"],
+  hr: ["HR"],
+  accountant: ["ACCOUNTANT"],
+  bdo: ["BDE"],
+  "team-lead": ["TEAM_LEAD"],
+  employee: ["EMPLOYEE"],
 };
 
 export const expectedPortalRole: Record<WorkspaceRole, PortalRole> = {

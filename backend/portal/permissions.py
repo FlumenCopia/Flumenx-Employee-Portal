@@ -1,5 +1,16 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
+def normalize_portal_role(role):
+    normalized = str(role or "EMPLOYEE").strip().upper().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "ADMINISTRATOR": "ADMIN",
+        "TEAMLEAD": "TEAM_LEAD",
+        "TEAM_LEADER": "TEAM_LEAD",
+        "OPERATIONSHEAD": "OPERATIONS_HEAD",
+        "OPERATION_HEAD": "OPERATIONS_HEAD",
+    }
+    return aliases.get(normalized, normalized)
+
 def portal_role(user):
     if not user or not user.is_authenticated:
         return "EMPLOYEE"
@@ -7,7 +18,7 @@ def portal_role(user):
         return "ADMIN"
     profile = getattr(user, "portal_profile", None)
     if profile and getattr(profile, "role", None):
-        return str(profile.role).upper()
+        return normalize_portal_role(profile.role)
     return "ADMIN" if (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)) else "EMPLOYEE"
 
 

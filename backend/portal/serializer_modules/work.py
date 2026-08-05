@@ -6,7 +6,7 @@ from rest_framework.exceptions import PermissionDenied
 
 
 from portal.models import Client, Employee, WorkAssignment, WorkDeliverable
-from portal.permissions import portal_role
+from portal.permissions import WORK_CREATOR_ROLES, portal_role
 
 
 class ClientSerializer(serializers.ModelSerializer):
@@ -235,7 +235,7 @@ class WorkDeliverableSerializer(serializers.ModelSerializer):
         if not request or not assignment:
             return
         role = portal_role(request.user)
-        if role in ("ADMIN", "HR", "BDE"):
+        if role in WORK_CREATOR_ROLES or role == "BDE":
             return
         if role == "TEAM_LEAD":
             actor_employee = getattr(request.user, "employee", None)

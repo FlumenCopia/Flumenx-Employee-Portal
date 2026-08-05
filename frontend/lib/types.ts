@@ -1,6 +1,6 @@
 export const SHOW_ADVANCED_WORKBOARD = false;
 
-export type PortalRole = "ADMIN" | "HR" | "ACCOUNTANT" | "BDE" | "TEAM_LEAD" | "EMPLOYEE" | "OPERATIONS_HEAD";
+export type PortalRole = "ADMIN" | "HR" | "ACCOUNTANT" | "BDE" | "TEAM_LEAD" | "EMPLOYEE" | "OPERATIONS" | "OPERATIONS_HEAD";
 export type WorkspaceRole = "admin" | "employee" | "hr" | "accountant" | "bdo" | "team-lead";
 
 export type Role = WorkspaceRole;
