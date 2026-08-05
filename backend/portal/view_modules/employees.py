@@ -167,15 +167,38 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                     Notification.objects.filter(user=user).update(user=None)
                     AuditLog.objects.filter(actor=user).update(actor=None)
 
+                    # Delete Django Admin log entries for user
+                    try:
+                        from django.contrib.admin.models import LogEntry
+                        LogEntry.objects.filter(user=user).delete()
+                    except ImportError:
+                        pass
+
+                    # Delete SimpleJWT outstanding and blacklisted tokens for user
+                    try:
+                        from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+                        tokens = OutstandingToken.objects.filter(user=user)
+                        BlacklistedToken.objects.filter(token__in=tokens).delete()
+                        tokens.delete()
+                    except ImportError:
+                        pass
+
                 instance.delete()
                 if user:
                     user.delete()
 
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except (ProtectedError, IntegrityError) as exc:
-            logger.error("Database constraint preventing employee deletion [ID %s]: %s", instance.id, str(exc))
+        except ProtectedError as exc:
+            protected_models = sorted(list({obj.__class__.__name__ for obj in exc.protected_objects}))
+            logger.error("ProtectedError deleting employee [ID %s]: models=%s", instance.id, protected_models)
             return Response(
-                {"detail": "Cannot delete employee because related system records are protected."},
+                {"detail": f"Cannot delete employee because protected records exist in {', '.join(protected_models)}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except IntegrityError as exc:
+            logger.error("IntegrityError deleting employee [ID %s]: %s", instance.id, str(exc))
+            return Response(
+                {"detail": "Cannot delete employee due to database constraint violation."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as exc:

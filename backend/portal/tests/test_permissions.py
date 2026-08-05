@@ -137,6 +137,27 @@ class RoleAccessTests(TestCase):
         self.assertEqual(get_work_res.status_code, 200)
         self.assertEqual(get_work_res.data["title"], "Preserved Client Work")
 
+    def test_employee_deletion_with_jwt_tokens_and_login_prevention(self):
+        emp_user = User.objects.create_user("jwt.employee@roles.local", password="Password123!")
+        UserRole.objects.create(user=emp_user, role="EMPLOYEE")
+        emp = Employee.objects.create(
+            user=emp_user, employee_code="DEL-JWT-1", name="JWT Employee", email="jwt.employee@roles.local",
+            phone="9444444444", department="HR", designation="HR Specialist", joining_date=date.today(),
+        )
+
+        # Generate JWT refresh and access token for the user
+        refresh = RefreshToken.for_user(emp_user)
+        access_token_str = str(refresh.access_token)
+
+        # Try deleting employee
+        response = self.delete_as("ADMIN", f"/api/employees/{emp.id}/")
+        self.assertNotEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 204)
+
+        # Deleted user cannot log in
+        login_res = self.client.post("/api/auth/login/", {"email": "jwt.employee@roles.local", "password": "Password123!"}, format="json")
+        self.assertNotEqual(login_res.status_code, 200)
+
     def test_employee_self_deletion_is_blocked(self):
         hr_emp = self.accounts["HR"].employee
         response = self.delete_as("HR", f"/api/employees/{hr_emp.id}/")
