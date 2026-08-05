@@ -65,23 +65,6 @@ function getGradeBadgeClass(grade?: KPIGrade) {
   }
 }
 
-function getGradeColor(grade?: KPIGrade) {
-  switch (grade) {
-    case "Outstanding":
-      return "#10b981";
-    case "Excellent":
-      return "#3b82f6";
-    case "Good":
-      return "#06b6d4";
-    case "Needs Improvement":
-      return "#f59e0b";
-    case "Critical":
-      return "#f43f5e";
-    default:
-      return "#94a3b8";
-  }
-}
-
 export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string }) {
   const today = new Date();
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
@@ -208,7 +191,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
     (e) => e.grade === "Critical" || e.grade === "Needs Improvement" || e.final_score < 75
   ).length;
 
-  // Calculate company component averages when no employee is selected
   const companyComponentAverages = (() => {
     if (!data || data.employees.length === 0) return null;
     const count = data.employees.length;
