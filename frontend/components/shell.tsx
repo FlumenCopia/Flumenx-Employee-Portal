@@ -306,7 +306,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
 
   useEffect(() => {
     let active = true;
-    loadAuthUser(() => api<AuthUser>("/auth/me/"))
+    loadAuthUser(() => api<AuthUser>("/auth/me/"), true)
       .then(current => {
         if (!active) return;
         const destination = portalRoleRoutes[current.portal_role];
@@ -323,6 +323,40 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     return () => { active = false; };
   }, [workspaceRole, router]);
 
+  useEffect(() => {
+    let active = true;
+    let checkingBfCache = false;
+
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted && !checkingBfCache) {
+        checkingBfCache = true;
+        api<AuthUser>("/auth/me/")
+          .then(current => {
+            if (!active) return;
+            if (!expectedPortalRoles[workspaceRole].includes(current.portal_role)) {
+              clearCachedAuthUser();
+              window.location.replace("/login");
+              return;
+            }
+            setUser(current);
+          })
+          .catch(() => {
+            clearCachedAuthUser();
+            if (active) window.location.replace("/login");
+          })
+          .finally(() => {
+            checkingBfCache = false;
+          });
+      }
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      active = false;
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [workspaceRole]);
+
   const openLogoutModal = () => {
     setOpen(false);
     setLoggingOut(false);
@@ -334,7 +368,8 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     setLoggingOut(true);
     try {
       if (typeof window !== "undefined") {
-        sessionStorage.removeItem("flumenx_initial_loaded");
+        sessionStorage.clear();
+        localStorage.removeItem("flumenx_auth_user");
       }
       await logout();
     } catch {
@@ -345,7 +380,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
       setLoggingOut(false);
       setShowLogoutModal(false);
       if (typeof window !== "undefined") {
-        window.location.href = "/login";
+        window.location.replace("/login");
       } else {
         router.replace("/login");
       }

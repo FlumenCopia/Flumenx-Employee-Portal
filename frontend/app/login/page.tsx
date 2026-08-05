@@ -6,7 +6,7 @@ import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import gsap from "gsap";
 import { FlumenxMark } from "@/components/icons";
 import { api, ApiError } from "@/lib/api";
-import { setCachedAuthUser } from "@/lib/auth-cache";
+import { clearCachedAuthUser, setCachedAuthUser } from "@/lib/auth-cache";
 import type { AuthUser } from "@/lib/types";
 
 export default function LoginPage() {
@@ -60,11 +60,13 @@ export default function LoginPage() {
     setFieldErrors({});
     setLoading(true);
     try {
-      const data = await api<{ user: AuthUser }>("/auth/login/", {
+      clearCachedAuthUser();
+      await api<{ user: AuthUser }>("/auth/login/", {
         method: "POST",
         body: JSON.stringify({ email: email.trim(), password }),
       });
-      setCachedAuthUser(data.user);
+      const meUser = await api<AuthUser>("/auth/me/");
+      setCachedAuthUser(meUser);
       const destinations: Record<string, string> = {
         ADMIN: "/admin/dashboard",
         HR: "/hr/dashboard",
@@ -73,7 +75,7 @@ export default function LoginPage() {
         TEAM_LEAD: "/team-lead/dashboard",
         EMPLOYEE: "/employee/dashboard",
       };
-      router.push(destinations[data.user.portal_role] || "/login");
+      router.push(destinations[meUser.portal_role] || "/login");
     } catch (error) {
       setError(error instanceof Error ? error.message : "Unable to sign in.");
       if (error instanceof ApiError) setFieldErrors(error.fields);

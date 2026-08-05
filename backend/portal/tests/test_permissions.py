@@ -536,3 +536,14 @@ class RoleAccessTests(TestCase):
             "reason": "HR correction",
         }, format="json")
         self.assertEqual(hr_record.status_code, 201)
+
+    def test_admin_creates_multiple_employees_in_one_session(self):
+        for i in range(1, 6):
+            payload = self.employee_payload(code=f"MULT-{i}", email=f"mult{i}@roles.local")
+            res = self.post_as("ADMIN", "/api/employees/", payload)
+            self.assertEqual(res.status_code, 201, f"Employee creation #{i} failed with status {res.status_code}")
+
+    def test_genuine_non_admin_post_remains_403(self):
+        payload = self.employee_payload(code="FORB-01", email="forb01@roles.local")
+        res = self.post_as("EMPLOYEE", "/api/employees/", payload)
+        self.assertEqual(res.status_code, 403)

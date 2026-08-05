@@ -178,4 +178,7 @@ def logout(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def me(request):
-    return Response(ProfileSerializer(request.user).data)
+    response = Response(ProfileSerializer(request.user).data)
+    response["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+    response["Pragma"] = "no-cache"
+    return response
