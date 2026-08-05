@@ -293,7 +293,6 @@ function LogoutModal({
     </div>
   );
 }
-
 export function Shell({ children, role = "admin" }: { children: ReactNode; role?: WorkspaceRole }) {
   const workspaceRole = role;
   const cachedUser = getCachedAuthUser();
@@ -303,6 +302,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
   const [user, setUser] = useState<AuthUser | null>(cachedUserMatchesRole ? cachedUser : null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [revalidatingBfCache, setRevalidatingBfCache] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -330,6 +330,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     const handlePageShow = (e: PageTransitionEvent) => {
       if (e.persisted && !checkingBfCache) {
         checkingBfCache = true;
+        setRevalidatingBfCache(true);
         api<AuthUser>("/auth/me/")
           .then(current => {
             if (!active) return;
@@ -339,6 +340,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
               return;
             }
             setUser(current);
+            setRevalidatingBfCache(false);
           })
           .catch(() => {
             clearCachedAuthUser();
@@ -387,13 +389,11 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     }
   };
 
-
-
   const nav = getFilteredNavigation(workspaceRole);
 
   const name = user?.first_name || workspaceFallbackNames[workspaceRole];
   const roleLabel = workspaceLabels[workspaceRole];
-  if (!ready) return <div className="route-loader"><span>F</span><p>Opening your workspace</p></div>;
+  if (!ready || revalidatingBfCache) return <div className="route-loader"><span>F</span><p>Verifying workspace session</p></div>;
 
   return (
     <ShellUserContext.Provider value={user}>
