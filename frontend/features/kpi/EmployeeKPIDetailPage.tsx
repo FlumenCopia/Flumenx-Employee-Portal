@@ -3,18 +3,25 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowLeft,
   Award,
   BarChart3,
+  Building2,
   Calendar,
   CalendarCheck,
   CheckCircle2,
   Clock,
   FileText,
+  MessageSquare,
   ShieldAlert,
+  Sparkles,
   Star,
+  Target,
+  TrendingDown,
   TrendingUp,
   User,
+  Zap,
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -23,17 +30,34 @@ import type { KPIEmployeeData, KPIGrade } from "@/lib/types";
 function getGradeBadgeClass(grade?: KPIGrade) {
   switch (grade) {
     case "Outstanding":
-      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 shadow-sm shadow-emerald-500/10";
     case "Excellent":
-      return "bg-blue-500/15 text-blue-400 border-blue-500/30";
+      return "bg-blue-500/15 text-blue-400 border-blue-500/30 shadow-sm shadow-blue-500/10";
     case "Good":
-      return "bg-cyan-500/15 text-cyan-400 border-cyan-500/30";
+      return "bg-cyan-500/15 text-cyan-400 border-cyan-500/30 shadow-sm shadow-cyan-500/10";
     case "Needs Improvement":
-      return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+      return "bg-amber-500/15 text-amber-400 border-amber-500/30 shadow-sm shadow-amber-500/10";
     case "Critical":
-      return "bg-rose-500/15 text-rose-400 border-rose-500/30";
+      return "bg-rose-500/15 text-rose-400 border-rose-500/30 shadow-sm shadow-rose-500/10";
     default:
       return "bg-slate-500/15 text-slate-400 border-slate-500/30";
+  }
+}
+
+function getGradeColor(grade?: KPIGrade) {
+  switch (grade) {
+    case "Outstanding":
+      return "#10b981";
+    case "Excellent":
+      return "#3b82f6";
+    case "Good":
+      return "#06b6d4";
+    case "Needs Improvement":
+      return "#f59e0b";
+    case "Critical":
+      return "#f43f5e";
+    default:
+      return "#94a3b8";
   }
 }
 
@@ -114,21 +138,23 @@ export function EmployeeKPIDetailPage({
 
   if (loading && !data) {
     return (
-      <div className="p-8 text-center text-xs text-slate-400">
-        Loading employee performance records...
+      <div className="w-full max-w-7xl mx-auto p-12 text-center text-xs text-slate-400 flex flex-col items-center justify-center space-y-3">
+        <div className="w-10 h-10 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+        <p className="font-mono">Loading enterprise performance analytics...</p>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="space-y-4">
+      <div className="w-full max-w-7xl mx-auto space-y-4 text-slate-100">
         {!isSelf && (
-          <Link href={backPath} className="inline-flex items-center gap-2 text-xs text-slate-400 hover:text-white">
+          <Link href={backPath} className="inline-flex items-center gap-2 text-xs text-slate-400 hover:text-white transition">
             <ArrowLeft size={15} /> Back to KPI Overview
           </Link>
         )}
-        <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-6 rounded-2xl text-xs">
+        <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-6 rounded-2xl text-xs flex items-center gap-3 shadow-xl">
+          <AlertTriangle size={20} />
           {error || "Employee performance detail not available."}
         </div>
       </div>
@@ -136,346 +162,481 @@ export function EmployeeKPIDetailPage({
   }
 
   const comp = data.components;
+  const gradeColor = getGradeColor(data.grade);
 
-  const componentChartData = [
-    { label: "Work Comp", score: comp.work_completion.score, max: 40, color: "#6366f1" },
-    { label: "Attendance", score: comp.attendance.score, max: 20, color: "#10b981" },
-    { label: "On-Time", score: comp.on_time_delivery.score, max: 15, color: "#3b82f6" },
-    { label: "Leave Disc", score: comp.leave_discipline.score, max: 10, color: "#f59e0b" },
-    { label: "Quality", score: comp.work_quality.score, max: 10, color: "#eab308" },
-    { label: "Consistency", score: comp.consistency.score, max: 5, color: "#06b6d4" },
+  const componentList = [
+    { name: "Work Completion", score: comp.work_completion.score, max: 40, pct: comp.work_completion.percentage ?? 0, color: "#10b981", icon: CheckCircle2 },
+    { name: "Attendance", score: comp.attendance.score, max: 20, pct: comp.attendance.percentage ?? 0, color: "#34d399", icon: CalendarCheck },
+    { name: "On-Time Delivery", score: comp.on_time_delivery.score, max: 15, pct: comp.on_time_delivery.percentage ?? 0, color: "#3b82f6", icon: Clock },
+    { name: "Leave Discipline", score: comp.leave_discipline.score, max: 10, pct: comp.leave_discipline.percentage ?? 0, color: "#f59e0b", icon: FileText },
+    { name: "Work Quality", score: comp.work_quality.score, max: 10, pct: (((comp.work_quality.quality_rating || 0) / 5) * 100), color: "#a855f7", icon: Star },
+    { name: "Consistency", score: comp.consistency.score, max: 5, pct: comp.consistency.percentage ?? 0, color: "#06b6d4", icon: TrendingUp },
   ];
 
+  const strengths = componentList.filter((c) => c.pct >= 80);
+  const areasToImprove = componentList.filter((c) => c.pct < 80);
+
+  // SVG Gauge calculations
+  const radius = 54;
+  const circumference = 2 * Math.PI * radius;
+  const gaugeOffset = circumference - (Math.min(100, Math.max(0, data.final_score)) / 100) * circumference;
+
   return (
-    <div className="space-y-6">
-      {/* Header Navigation & Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <div className="w-full max-w-7xl mx-auto space-y-6 text-slate-100">
+      {/* 1. Header Navigation & Control Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-md">
+        <div className="flex items-center gap-4">
           {!isSelf && (
             <Link
               href={backPath}
-              className="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl transition"
+              className="p-2.5 text-slate-400 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl transition shadow-inner"
+              title="Back to KPI Dashboard"
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={18} />
             </Link>
           )}
-          <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
-              <User className="text-indigo-400" size={22} />
-              {data.employee_name}
-            </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {data.employee_code} · {data.department} · {data.designation}
-            </p>
+
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-extrabold text-lg shadow-lg shadow-emerald-500/10">
+              {data.employee_name.charAt(0)}
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-xl font-extrabold text-white tracking-tight">{data.employee_name}</h1>
+                <span className="text-xs text-slate-400 font-mono bg-slate-950 border border-slate-800 px-2 py-0.5 rounded-lg">
+                  {data.employee_code}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                {data.department} · <span className="text-slate-300 font-medium">{data.designation}</span>
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Date Selector */}
-        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1.5 rounded-xl">
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="text-xs bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200"
-          >
-            {[
-              "January", "February", "March", "April", "May", "June",
-              "July", "August", "September", "October", "November", "December"
-            ].map((m, i) => (
-              <option key={m} value={i + 1}>{m}</option>
-            ))}
-          </select>
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="text-xs bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200"
-          >
-            {[2024, 2025, 2026, 2027].map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Main Profile & Score Gauge Banner */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border border-indigo-500/20 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-          {/* Score Gauge Circle */}
-          <div className="flex flex-col items-center justify-center p-5 bg-slate-950/70 border border-slate-800 rounded-2xl text-center shadow-inner">
-            <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider mb-1">Overall KPI Score</span>
-            <div className="text-5xl font-extrabold text-white font-mono tracking-tight my-2">
-              {data.final_score}
-              <span className="text-base font-normal text-slate-500"> / 100</span>
-            </div>
-            <span
-              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border mt-1 ${getGradeBadgeClass(
-                data.grade
-              )}`}
+        <div className="flex items-center gap-3">
+          {/* Month & Year Selectors */}
+          <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 p-1.5 rounded-xl shadow-inner">
+            <Calendar size={14} className="text-emerald-400 ml-2" />
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="text-xs bg-transparent border-0 text-slate-200 focus:outline-none pr-1 font-medium"
             >
-              Grade: {data.grade}
-            </span>
+              {[
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+              ].map((m, i) => (
+                <option key={m} value={i + 1} className="bg-slate-950 text-slate-200">{m}</option>
+              ))}
+            </select>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="text-xs bg-transparent border-0 text-slate-200 focus:outline-none pr-1 font-medium"
+            >
+              {[2024, 2025, 2026, 2027].map((y) => (
+                <option key={y} value={y} className="bg-slate-950 text-slate-200">{y}</option>
+              ))}
+            </select>
           </div>
 
-          {/* Component Quick Breakdown */}
-          <div className="md:col-span-2 space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-xl">
-                <span className="text-[10px] text-slate-400 block font-medium">Work Completion</span>
-                <p className="text-base font-bold text-white font-mono mt-0.5">
-                  {comp.work_completion.score} <span className="text-xs text-slate-500 font-normal">/ 40</span>
-                </p>
-              </div>
-
-              <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-xl">
-                <span className="text-[10px] text-slate-400 block font-medium">Attendance</span>
-                <p className="text-base font-bold text-emerald-400 font-mono mt-0.5">
-                  {comp.attendance.score} <span className="text-xs text-slate-500 font-normal">/ 20</span>
-                </p>
-              </div>
-
-              <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-xl">
-                <span className="text-[10px] text-slate-400 block font-medium">On-Time Delivery</span>
-                <p className="text-base font-bold text-blue-400 font-mono mt-0.5">
-                  {comp.on_time_delivery.score} <span className="text-xs text-slate-500 font-normal">/ 15</span>
-                </p>
-              </div>
-
-              <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-xl">
-                <span className="text-[10px] text-slate-400 block font-medium">Leave Discipline</span>
-                <p className="text-base font-bold text-white font-mono mt-0.5">
-                  {comp.leave_discipline.score} <span className="text-xs text-slate-500 font-normal">/ 10</span>
-                </p>
-              </div>
-
-              <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-xl">
-                <span className="text-[10px] text-slate-400 block font-medium">Work Quality</span>
-                <p className="text-base font-bold text-amber-400 font-mono mt-0.5">
-                  {comp.work_quality.score} <span className="text-xs text-slate-500 font-normal">({comp.work_quality.quality_rating}★)</span>
-                </p>
-              </div>
-
-              <div className="bg-slate-950/50 border border-slate-800 p-3 rounded-xl">
-                <span className="text-[10px] text-slate-400 block font-medium">Consistency</span>
-                <p className="text-base font-bold text-cyan-400 font-mono mt-0.5">
-                  {comp.consistency.score} <span className="text-xs text-slate-500 font-normal">/ 5</span>
-                </p>
-              </div>
-            </div>
-
-            {canUpdateRating && !isSelf && (
-              <div className="flex justify-end pt-1">
-                <button
-                  onClick={() => setShowRatingModal(true)}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition shadow-lg shadow-indigo-600/20"
-                >
-                  <Star size={14} className="fill-amber-400 text-amber-400" />
-                  Update Manager Quality Rating
-                </button>
-              </div>
-            )}
-          </div>
+          {canUpdateRating && !isSelf && (
+            <button
+              onClick={() => setShowRatingModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-emerald-950 bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 rounded-xl transition shadow-lg shadow-emerald-500/20"
+            >
+              <Star size={15} className="fill-emerald-950 text-emerald-950" />
+              Update Rating
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 6 Component Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {/* Work Completion (40) */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-3.5 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-indigo-400" />
-              Work Completion (40)
-            </h3>
-            <span className="text-xs font-bold text-white font-mono">{comp.work_completion.score} / 40</span>
-          </div>
-          <div className="space-y-2 text-xs text-slate-300">
-            <div className="flex justify-between">
-              <span className="text-slate-400">Assigned Quantity:</span>
-              <span className="font-semibold text-white">{comp.work_completion.assigned_quantity}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Completed Quantity:</span>
-              <span className="font-semibold text-emerald-400">{comp.work_completion.completed_quantity}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Completion Percentage:</span>
-              <span className="font-semibold font-mono">{comp.work_completion.percentage}%</span>
-            </div>
-            <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800 mt-2">
-              <div
-                className="bg-indigo-500 h-full transition-all"
-                style={{ width: `${Math.min(100, Math.max(0, comp.work_completion.percentage || 0))}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-slate-500 pt-1">Ratio of completed output vs assigned work volume in evaluation month.</p>
-          </div>
-        </div>
+      {/* 2. Hero Score Gauge & High-Level Metrics Summary */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-900/90 to-slate-900 border border-emerald-500/30 rounded-2xl p-6 shadow-2xl space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+          {/* Circular Score Gauge Container */}
+          <div className="flex flex-col items-center justify-center p-6 bg-slate-950/80 border border-slate-800/80 rounded-2xl text-center shadow-inner relative">
+            <div className="relative w-36 h-36 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                {/* Background Circle */}
+                <circle
+                  cx="60"
+                  cy="60"
+                  r={radius}
+                  stroke="#1e293b"
+                  strokeWidth="10"
+                  fill="transparent"
+                />
+                {/* Score Circle Progress */}
+                <circle
+                  cx="60"
+                  cy="60"
+                  r={radius}
+                  stroke={gradeColor}
+                  strokeWidth="10"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={gaugeOffset}
+                  strokeLinecap="round"
+                  fill="transparent"
+                  className="transition-all duration-1000 ease-out"
+                />
+              </svg>
 
-        {/* Attendance (20) */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-3.5 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <CalendarCheck size={16} className="text-emerald-400" />
-              Attendance (20)
-            </h3>
-            <span className="text-xs font-bold text-white font-mono">{comp.attendance.score} / 20</span>
-          </div>
-          <div className="space-y-2 text-xs text-slate-300">
-            <div className="flex justify-between">
-              <span className="text-slate-400">Present Days:</span>
-              <span className="font-semibold text-emerald-400">{comp.attendance.present_days}</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span className="text-3xl font-extrabold text-white font-mono tracking-tight">{data.final_score}</span>
+                <span className="text-[10px] text-slate-400 font-mono font-medium uppercase tracking-wider">out of 100</span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Half Days:</span>
-              <span className="font-semibold text-amber-400">{comp.attendance.half_days}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Absent Days:</span>
-              <span className="font-semibold text-rose-400">{comp.attendance.absent_days}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Attendance Ratio:</span>
-              <span className="font-semibold font-mono">{comp.attendance.percentage}%</span>
-            </div>
-            <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800 mt-2">
-              <div
-                className="bg-emerald-500 h-full transition-all"
-                style={{ width: `${Math.min(100, Math.max(0, comp.attendance.percentage || 0))}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-slate-500 pt-1">Evaluated based on present days, half days, and expected working days.</p>
-          </div>
-        </div>
 
-        {/* On-Time Delivery (15) */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-3.5 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Clock size={16} className="text-blue-400" />
-              On-Time Delivery (15)
-            </h3>
-            <span className="text-xs font-bold text-white font-mono">{comp.on_time_delivery.score} / 15</span>
-          </div>
-          <div className="space-y-2 text-xs text-slate-300">
-            <div className="flex justify-between">
-              <span className="text-slate-400">Total Due Tasks:</span>
-              <span className="font-semibold text-white">{comp.on_time_delivery.total_due}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">On-Time Completed:</span>
-              <span className="font-semibold text-blue-400">{comp.on_time_delivery.on_time_count}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">On-Time Rate:</span>
-              <span className="font-semibold font-mono">{comp.on_time_delivery.percentage}%</span>
-            </div>
-            <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800 mt-2">
-              <div
-                className="bg-blue-500 h-full transition-all"
-                style={{ width: `${Math.min(100, Math.max(0, comp.on_time_delivery.percentage || 0))}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-slate-500 pt-1">Tasks completed on or before scheduled due date in period.</p>
-          </div>
-        </div>
-
-        {/* Leave Discipline (10) */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-3.5 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <FileText size={16} className="text-amber-400" />
-              Leave Discipline (10)
-            </h3>
-            <span className="text-xs font-bold text-white font-mono">{comp.leave_discipline.score} / 10</span>
-          </div>
-          <div className="space-y-2 text-xs text-slate-300">
-            <div className="flex justify-between">
-              <span className="text-slate-400">Approved Leaves:</span>
-              <span className="font-semibold text-emerald-400">{comp.leave_discipline.approved_leaves}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Rejected Leaves:</span>
-              <span className="font-semibold text-rose-400">{comp.leave_discipline.rejected_leaves}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Unapproved Absences:</span>
-              <span className="font-semibold text-rose-400">{comp.leave_discipline.unapproved_absences}</span>
-            </div>
-            <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800 mt-2">
-              <div
-                className="bg-amber-500 h-full transition-all"
-                style={{ width: `${Math.min(100, Math.max(0, comp.leave_discipline.percentage || 0))}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-slate-500 pt-1">Score deductions applied for unexcused absences and rejected leave requests.</p>
-          </div>
-        </div>
-
-        {/* Work Quality (10) */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-3.5 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Star size={16} className="text-amber-400 fill-amber-400" />
-              Work Quality (10)
-            </h3>
-            <span className="text-xs font-bold text-white font-mono">{comp.work_quality.score} / 10</span>
-          </div>
-          <div className="space-y-2 text-xs text-slate-300">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400">Manager Rating:</span>
-              <span className="font-semibold text-amber-400 font-mono text-sm">
-                {comp.work_quality.quality_rating} / 5.0
+            <div className="mt-4 space-y-1">
+              <span className="text-[11px] text-slate-400 block font-medium">Evaluation Grade</span>
+              <span
+                className={`inline-flex items-center px-3 py-0.5 rounded-full text-xs font-bold border ${getGradeBadgeClass(
+                  data.grade
+                )}`}
+              >
+                {data.grade}
               </span>
             </div>
-            {comp.work_quality.rated_by && (
-              <div className="flex justify-between">
-                <span className="text-slate-400">Reviewed By:</span>
-                <span className="font-semibold text-slate-200">{comp.work_quality.rated_by}</span>
-              </div>
-            )}
-            {comp.work_quality.notes && (
-              <div className="text-[11px] text-slate-300 italic bg-slate-950 p-2 rounded-lg border border-slate-800/80">
-                &quot;{comp.work_quality.notes}&quot;
-              </div>
-            )}
-            <p className="text-[10px] text-slate-500 pt-1">Direct manager rating evaluating execution accuracy and deliverables.</p>
           </div>
-        </div>
 
-        {/* Consistency (5) */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-3.5 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <TrendingUp size={16} className="text-cyan-400" />
-              Consistency (5)
-            </h3>
-            <span className="text-xs font-bold text-white font-mono">{comp.consistency.score} / 5</span>
-          </div>
-          <div className="space-y-2 text-xs text-slate-300">
-            <div className="flex justify-between">
-              <span className="text-slate-400">Stability Index:</span>
-              <span className="font-semibold font-mono">{comp.consistency.percentage}%</span>
+          {/* Quick Metrics Widget Cards (Right 2 Columns) */}
+          <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            {/* Work Completion Widget */}
+            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2">
+              <div className="flex justify-between items-center text-slate-400">
+                <span className="text-[11px] font-medium truncate">Work Comp.</span>
+                <CheckCircle2 size={15} className="text-emerald-400" />
+              </div>
+              <p className="text-xl font-extrabold text-white font-mono">{comp.work_completion.score} <span className="text-xs text-slate-500 font-normal">/ 40</span></p>
+              <div className="flex items-center justify-between text-[10px] text-slate-400">
+                <span>Completion</span>
+                <span className="font-mono font-semibold text-emerald-400">{comp.work_completion.percentage}%</span>
+              </div>
             </div>
-            <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800 mt-2">
-              <div
-                className="bg-cyan-500 h-full transition-all"
-                style={{ width: `${Math.min(100, Math.max(0, comp.consistency.percentage || 0))}%` }}
-              />
+
+            {/* Attendance Widget */}
+            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2">
+              <div className="flex justify-between items-center text-slate-400">
+                <span className="text-[11px] font-medium truncate">Attendance</span>
+                <CalendarCheck size={15} className="text-emerald-400" />
+              </div>
+              <p className="text-xl font-extrabold text-emerald-400 font-mono">{comp.attendance.score} <span className="text-xs text-slate-500 font-normal">/ 20</span></p>
+              <div className="flex items-center justify-between text-[10px] text-slate-400">
+                <span>Presence</span>
+                <span className="font-mono font-semibold text-emerald-400">{comp.attendance.percentage}%</span>
+              </div>
             </div>
-            <p className="text-[10px] text-slate-500 pt-1">Evaluates performance stability across daily attendance and task execution.</p>
+
+            {/* On-Time Delivery Widget */}
+            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2">
+              <div className="flex justify-between items-center text-slate-400">
+                <span className="text-[11px] font-medium truncate">On-Time</span>
+                <Clock size={15} className="text-blue-400" />
+              </div>
+              <p className="text-xl font-extrabold text-blue-400 font-mono">{comp.on_time_delivery.score} <span className="text-xs text-slate-500 font-normal">/ 15</span></p>
+              <div className="flex items-center justify-between text-[10px] text-slate-400">
+                <span>On-Time Rate</span>
+                <span className="font-mono font-semibold text-blue-400">{comp.on_time_delivery.percentage}%</span>
+              </div>
+            </div>
+
+            {/* Leave Discipline Widget */}
+            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2">
+              <div className="flex justify-between items-center text-slate-400">
+                <span className="text-[11px] font-medium truncate">Leave Disc.</span>
+                <FileText size={15} className="text-amber-400" />
+              </div>
+              <p className="text-xl font-extrabold text-amber-400 font-mono">{comp.leave_discipline.score} <span className="text-xs text-slate-500 font-normal">/ 10</span></p>
+              <div className="flex items-center justify-between text-[10px] text-slate-400">
+                <span>Discipline</span>
+                <span className="font-mono font-semibold text-amber-400">{comp.leave_discipline.percentage}%</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Monthly Performance Charts: Trend Line Chart & Component Comparison Bar Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 6-Month Monthly Trend Chart */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <TrendingUp size={16} className="text-indigo-400" />
-              6-Month Performance Trend
+      {/* 3. 6 Component Breakdown Cards Grid */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-white flex items-center gap-2">
+            <Zap size={16} className="text-emerald-400" />
+            Detailed KPI Component Score Breakdown
+          </h2>
+          <span className="text-[11px] text-slate-400 font-mono">Weighted Factor Breakdown</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Work Completion Card */}
+          <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h3 className="text-xs font-bold text-white flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-400" />
+                Work Completion (40)
+              </h3>
+              <span className="text-xs font-extrabold text-white font-mono">{comp.work_completion.score} / 40</span>
+            </div>
+            <div className="space-y-2 text-xs text-slate-300">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Assigned Volume:</span>
+                <span className="font-semibold text-white">{comp.work_completion.assigned_quantity}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Completed Output:</span>
+                <span className="font-semibold text-emerald-400">{comp.work_completion.completed_quantity}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Completion Ratio:</span>
+                <span className="font-semibold font-mono text-emerald-400">{comp.work_completion.percentage}%</span>
+              </div>
+              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80 mt-2">
+                <div
+                  className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, comp.work_completion.percentage || 0))}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Attendance Card */}
+          <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h3 className="text-xs font-bold text-white flex items-center gap-2">
+                <CalendarCheck size={16} className="text-emerald-400" />
+                Attendance (20)
+              </h3>
+              <span className="text-xs font-extrabold text-white font-mono">{comp.attendance.score} / 20</span>
+            </div>
+            <div className="space-y-2 text-xs text-slate-300">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Present Days:</span>
+                <span className="font-semibold text-emerald-400">{comp.attendance.present_days}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Half Days:</span>
+                <span className="font-semibold text-amber-400">{comp.attendance.half_days}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Absent Days:</span>
+                <span className="font-semibold text-rose-400">{comp.attendance.absent_days}</span>
+              </div>
+              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80 mt-2">
+                <div
+                  className="bg-emerald-400 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, comp.attendance.percentage || 0))}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* On-Time Delivery Card */}
+          <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h3 className="text-xs font-bold text-white flex items-center gap-2">
+                <Clock size={16} className="text-blue-400" />
+                On-Time Delivery (15)
+              </h3>
+              <span className="text-xs font-extrabold text-white font-mono">{comp.on_time_delivery.score} / 15</span>
+            </div>
+            <div className="space-y-2 text-xs text-slate-300">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Total Due Tasks:</span>
+                <span className="font-semibold text-white">{comp.on_time_delivery.total_due}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">On-Time Completed:</span>
+                <span className="font-semibold text-blue-400">{comp.on_time_delivery.on_time_count}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">On-Time Rate:</span>
+                <span className="font-semibold font-mono text-blue-400">{comp.on_time_delivery.percentage}%</span>
+              </div>
+              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80 mt-2">
+                <div
+                  className="bg-blue-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, comp.on_time_delivery.percentage || 0))}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Leave Discipline Card */}
+          <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h3 className="text-xs font-bold text-white flex items-center gap-2">
+                <FileText size={16} className="text-amber-400" />
+                Leave Discipline (10)
+              </h3>
+              <span className="text-xs font-extrabold text-white font-mono">{comp.leave_discipline.score} / 10</span>
+            </div>
+            <div className="space-y-2 text-xs text-slate-300">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Approved Leaves:</span>
+                <span className="font-semibold text-emerald-400">{comp.leave_discipline.approved_leaves}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Rejected Requests:</span>
+                <span className="font-semibold text-rose-400">{comp.leave_discipline.rejected_leaves}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Unapproved Absences:</span>
+                <span className="font-semibold text-rose-400">{comp.leave_discipline.unapproved_absences}</span>
+              </div>
+              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80 mt-2">
+                <div
+                  className="bg-amber-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, comp.leave_discipline.percentage || 0))}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Work Quality Card */}
+          <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h3 className="text-xs font-bold text-white flex items-center gap-2">
+                <Star size={16} className="text-purple-400 fill-purple-400" />
+                Work Quality (10)
+              </h3>
+              <span className="text-xs font-extrabold text-white font-mono">{comp.work_quality.score} / 10</span>
+            </div>
+            <div className="space-y-2 text-xs text-slate-300">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">Manager Rating:</span>
+                <span className="font-semibold text-purple-400 font-mono text-sm font-bold">
+                  {comp.work_quality.quality_rating} / 5.0 ★
+                </span>
+              </div>
+              {comp.work_quality.rated_by && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Reviewed By:</span>
+                  <span className="font-semibold text-slate-200">{comp.work_quality.rated_by}</span>
+                </div>
+              )}
+              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80 mt-2">
+                <div
+                  className="bg-purple-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, ((comp.work_quality.quality_rating || 0) / 5) * 100))}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Consistency Card */}
+          <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h3 className="text-xs font-bold text-white flex items-center gap-2">
+                <TrendingUp size={16} className="text-cyan-400" />
+                Consistency (5)
+              </h3>
+              <span className="text-xs font-extrabold text-white font-mono">{comp.consistency.score} / 5</span>
+            </div>
+            <div className="space-y-2 text-xs text-slate-300">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Stability Index:</span>
+                <span className="font-semibold font-mono text-cyan-400">{comp.consistency.percentage}%</span>
+              </div>
+              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80 mt-2">
+                <div
+                  className="bg-cyan-400 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, comp.consistency.percentage || 0))}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Strengths, Focus Areas & Manager Remarks Analytics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Strengths Card */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-bold text-white flex items-center gap-2">
+              <Sparkles size={16} className="text-emerald-400" />
+              Performance Strengths
             </h3>
-            <span className="text-[11px] text-slate-400 font-mono">Monthly Score / 100</span>
+            <span className="text-[10px] text-emerald-400 font-mono">&ge; 80% Efficiency</span>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            {strengths.length > 0 ? (
+              strengths.map((item) => (
+                <div key={item.name} className="flex items-center justify-between bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+                  <span className="font-medium text-slate-200">{item.name}</span>
+                  <span className="font-mono font-bold text-emerald-400">{item.score} / {item.max}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-slate-500 py-4 text-center">No components above 80% threshold in period.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Growth Focus Areas Card */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-bold text-white flex items-center gap-2">
+              <Target size={16} className="text-amber-400" />
+              Growth & Focus Areas
+            </h3>
+            <span className="text-[10px] text-amber-400 font-mono">&lt; 80% Score</span>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            {areasToImprove.length > 0 ? (
+              areasToImprove.map((item) => (
+                <div key={item.name} className="flex items-center justify-between bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+                  <span className="font-medium text-slate-200">{item.name}</span>
+                  <span className="font-mono font-bold text-amber-400">{item.score} / {item.max}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-emerald-400/80 py-4 text-center">All components performing at high efficiency (&ge;80%).</p>
+            )}
+          </div>
+        </div>
+
+        {/* Manager Remarks & Comments Log */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-bold text-white flex items-center gap-2">
+              <MessageSquare size={16} className="text-purple-400" />
+              Manager Remarks
+            </h3>
+            <span className="text-[10px] text-slate-400 font-mono">Review Note</span>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            {comp.work_quality.notes ? (
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 text-slate-300 italic leading-relaxed">
+                &quot;{comp.work_quality.notes}&quot;
+                {comp.work_quality.rated_by && (
+                  <span className="block not-italic text-[10px] text-slate-500 font-medium mt-2 font-mono">
+                    — Reviewed by {comp.work_quality.rated_by}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 py-4 text-center">No manager review comments submitted for this evaluation period.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Monthly Performance Charts Grid: 6-Month Trend & Component Bar Chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 6-Month Monthly Trend Line Chart */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-4 shadow-xl backdrop-blur-md">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <TrendingUp size={16} className="text-emerald-400" />
+              6-Month Performance Trend History
+            </h3>
+            <span className="text-[11px] text-slate-400 font-mono">Score / 100</span>
           </div>
 
           {data.history && data.history.length > 0 ? (
@@ -513,15 +674,15 @@ export function EmployeeKPIDetailPage({
                               cx={pt.x}
                               cy={pt.y}
                               r={pt.isCurrent ? "6" : "4"}
-                              fill={pt.isCurrent ? "#6366f1" : "#10b981"}
-                              stroke="#0f172a"
+                              fill={pt.isCurrent ? "#10b981" : "#34d399"}
+                              stroke="#020617"
                               strokeWidth="2"
                             />
                             <text
                               x={pt.x}
                               y={pt.y - 10}
                               textAnchor="middle"
-                              fill={pt.isCurrent ? "#818cf8" : "#cbd5e1"}
+                              fill={pt.isCurrent ? "#10b981" : "#cbd5e1"}
                               fontSize="10"
                               fontWeight={pt.isCurrent ? "bold" : "normal"}
                             >
@@ -535,11 +696,11 @@ export function EmployeeKPIDetailPage({
                 </svg>
               </div>
 
-              <div className="flex justify-between border-t border-slate-800 pt-2 text-[11px] text-slate-400">
+              <div className="flex justify-between border-t border-slate-800/80 pt-2 text-[11px] text-slate-400">
                 {data.history.map((item) => (
                   <span
                     key={item.period}
-                    className={item.month === selectedMonth ? "text-indigo-400 font-bold" : ""}
+                    className={item.month === selectedMonth ? "text-emerald-400 font-bold" : ""}
                   >
                     {item.period}
                   </span>
@@ -547,32 +708,32 @@ export function EmployeeKPIDetailPage({
               </div>
             </div>
           ) : (
-            <div className="h-40 flex items-center justify-center text-xs text-slate-500">
+            <div className="h-44 flex items-center justify-center text-xs text-slate-500">
               No historical data available for visualization.
             </div>
           )}
         </div>
 
-        {/* Component Breakdown Bar Comparison */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        {/* Component Breakdown Bar Chart */}
+        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-4 shadow-xl backdrop-blur-md">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <BarChart3 size={16} className="text-indigo-400" />
-              Component Score vs Maximum
+              <BarChart3 size={16} className="text-emerald-400" />
+              Component Score vs Maximum Weight
             </h3>
-            <span className="text-[11px] text-slate-400 font-mono">Month: {selectedMonth}/{selectedYear}</span>
+            <span className="text-[11px] text-slate-400 font-mono">{selectedMonth}/{selectedYear}</span>
           </div>
 
-          <div className="space-y-3 pt-1">
-            {componentChartData.map((item) => (
-              <div key={item.label} className="space-y-1">
+          <div className="space-y-3.5 pt-1">
+            {componentList.map((item) => (
+              <div key={item.name} className="space-y-1.5">
                 <div className="flex justify-between text-xs font-medium text-slate-300">
-                  <span>{item.label}</span>
+                  <span>{item.name}</span>
                   <span className="font-mono font-bold text-white">
                     {item.score} <span className="text-[10px] text-slate-500 font-normal">/ {item.max}</span>
                   </span>
                 </div>
-                <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800 p-0.5">
+                <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800/80 p-0.5">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
@@ -589,8 +750,8 @@ export function EmployeeKPIDetailPage({
 
       {/* Manager Rating Modal */}
       {showRatingModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-950 border border-emerald-500/30 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Star className="fill-amber-400 text-amber-400" size={18} />
@@ -604,8 +765,8 @@ export function EmployeeKPIDetailPage({
               </button>
             </div>
 
-            <p className="text-xs text-slate-400">
-              Submit Quality Rating (1.0 to 5.0) for {data.employee_name} for evaluation period {selectedMonth}/{selectedYear}.
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Submit Quality Rating (1.0 to 5.0) for <span className="text-white font-semibold">{data.employee_name}</span> for evaluation period {selectedMonth}/{selectedYear}.
             </p>
 
             {ratingError && (
@@ -617,7 +778,7 @@ export function EmployeeKPIDetailPage({
 
             <form onSubmit={handleRatingSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Quality Rating (1.0 – 5.0)
                 </label>
                 <input
@@ -627,13 +788,13 @@ export function EmployeeKPIDetailPage({
                   max="5.0"
                   value={ratingInput}
                   onChange={(e) => setRatingInput(Number(e.target.value))}
-                  className="w-full text-sm bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-indigo-500"
+                  className="w-full text-sm bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-emerald-500"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Manager Review Notes / Comments
                 </label>
                 <textarea
@@ -641,7 +802,7 @@ export function EmployeeKPIDetailPage({
                   value={notesInput}
                   onChange={(e) => setNotesInput(e.target.value)}
                   placeholder="Optional review feedback..."
-                  className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full text-xs bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -656,7 +817,7 @@ export function EmployeeKPIDetailPage({
                 <button
                   type="submit"
                   disabled={submittingRating}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-semibold text-emerald-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition disabled:opacity-50"
                 >
                   {submittingRating ? "Saving..." : "Save Rating"}
                 </button>
