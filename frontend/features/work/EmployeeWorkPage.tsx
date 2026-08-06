@@ -19,7 +19,7 @@ type EmployeeWorkFilters = {
 const EMPTY_SUMMARY: WorkSummary = { total: 0, pending: 0, in_progress: 0, blocked: 0, completed: 0, overdue: 0 };
 const EMPTY_FILTERS: EmployeeWorkFilters = { status: "", priority: "", due_date: "", assigned_date: "", is_overdue: "" };
 const PRIORITIES: WorkPriority[] = ["Low", "Normal", "High", "Urgent"];
-const STATUSES: WorkStatus[] = ["Pending", "In Progress", "Ongoing", "Blocked", "Completed"];
+const STATUSES: WorkStatus[] = ["Pending", "Ongoing", "In Progress", "Blocked", "In Review", "Approved", "Published"];
 
 function queryFromFilters(filters: EmployeeWorkFilters) {
   const params = new URLSearchParams();
@@ -409,10 +409,16 @@ export function EmployeeWorkPage() {
             onChange={event => setSelectedStatus(event.target.value as WorkStatus)}
             required
           >
+            {!["Pending", "Ongoing", "In Progress", "Blocked", "In Review"].includes(selectedStatus) && (
+              <option value={selectedStatus} disabled>
+                {selectedStatus}
+              </option>
+            )}
             <option value="Pending">Pending (0%)</option>
             <option value="In Progress">In Progress (25%)</option>
             <option value="Ongoing">Ongoing (75%)</option>
-            <option value="Completed">Completed (100%)</option>
+            <option value="Blocked">Blocked</option>
+            <option value="In Review">In Review (Submit for Review)</option>
           </select>
           {formErrors.status && <small>{formErrors.status}</small>}
         </label>

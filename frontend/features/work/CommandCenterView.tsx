@@ -109,10 +109,7 @@ export const ALL_WORK_STATUSES: Array<{ id: WorkStatus; name: string; isReviewer
   { id: "In Progress", name: "In Progress", isReviewerOnly: false },
   { id: "Blocked", name: "Blocked", isReviewerOnly: false },
   { id: "In Review", name: "In Review", isReviewerOnly: false },
-  { id: "Changes Requested", name: "Changes Requested", isReviewerOnly: true },
-  { id: "Rejected", name: "Rejected", isReviewerOnly: true },
   { id: "Approved", name: "Approved", isReviewerOnly: true },
-  { id: "Completed", name: "Completed", isReviewerOnly: true },
   { id: "Published", name: "Published", isReviewerOnly: true },
 ];
 
@@ -749,6 +746,11 @@ export function CommandCenterView({
                                 }}
                                 title={!canUserChangeTaskStatus(t) ? "Status change restricted" : "Change status"}
                               >
+                                {!ALL_WORK_STATUSES.some((st) => st.id === t.rawStatus) && t.rawStatus && (
+                                  <option value={t.rawStatus} disabled>
+                                    {t.rawStatus}
+                                  </option>
+                                )}
                                 {ALL_WORK_STATUSES.map((st) => {
                                   const isReviewerOnly = st.isReviewerOnly;
                                   const isAllowed = canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
@@ -1051,6 +1053,25 @@ export function CommandCenterView({
               )}
 
               <div style={{ display: "flex", gap: "8px", overflowX: "auto", flexWrap: "wrap" }}>
+                {!ALL_WORK_STATUSES.some((st) => st.id === selectedTask.rawStatus) && selectedTask.rawStatus && (
+                  <button
+                    type="button"
+                    disabled
+                    style={{
+                      padding: "7px 18px",
+                      borderRadius: "999px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      background: "#00E676",
+                      color: "#051A10",
+                      border: "none",
+                      cursor: "not-allowed",
+                      opacity: 0.8,
+                    }}
+                  >
+                    {selectedTask.rawStatus} ✓
+                  </button>
+                )}
                 {ALL_WORK_STATUSES.map((st) => {
                   const isCurrent = selectedTask.rawStatus === st.id;
                   const isReviewerOnly = st.isReviewerOnly;
