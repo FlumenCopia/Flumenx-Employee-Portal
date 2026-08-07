@@ -82,11 +82,30 @@ def set_token_cookies(response, access, refresh=None):
 
 def clear_token_cookies(response):
     samesite = settings.JWT_COOKIE_SAMESITE
-    response.delete_cookie(settings.JWT_ACCESS_COOKIE_NAME, path="/api/", samesite=samesite)
-    response.delete_cookie(settings.JWT_ACCESS_COOKIE_NAME, path="/", samesite=samesite)
-    response.delete_cookie(settings.JWT_REFRESH_COOKIE_NAME, path="/api/auth/", samesite=samesite)
-    response.delete_cookie(settings.JWT_REFRESH_COOKIE_NAME, path="/api/", samesite=samesite)
-    response.delete_cookie(settings.JWT_REFRESH_COOKIE_NAME, path="/", samesite=samesite)
+    secure = settings.JWT_COOKIE_SECURE
+    if samesite and samesite.lower() == "none":
+        secure = True
+
+    response.set_cookie(
+        settings.JWT_ACCESS_COOKIE_NAME,
+        "",
+        max_age=0,
+        expires="Thu, 01 Jan 1970 00:00:00 GMT",
+        path="/api/",
+        secure=secure,
+        httponly=True,
+        samesite=samesite,
+    )
+    response.set_cookie(
+        settings.JWT_REFRESH_COOKIE_NAME,
+        "",
+        max_age=0,
+        expires="Thu, 01 Jan 1970 00:00:00 GMT",
+        path="/api/auth/",
+        secure=secure,
+        httponly=True,
+        samesite=samesite,
+    )
 
 
 
@@ -163,6 +182,7 @@ def register(request):
 @authentication_classes([])
 @permission_classes([AllowAny])
 def logout(request):
+    enforce_csrf(request)
     response = Response(status=204)
     raw_refresh = request.COOKIES.get(settings.JWT_REFRESH_COOKIE_NAME)
     if raw_refresh:
