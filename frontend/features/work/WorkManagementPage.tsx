@@ -382,26 +382,9 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       return;
     }
     const effectiveClient = form.client || (clients.length > 0 ? String(clients[0].id) : "");
-    if (!effectiveClient) {
-      setFormErrors({ client: "Counts toward / Client is required." });
-      setActionError("Counts toward / Client is required.");
-      setSubmitting(false);
-      return;
-    }
-    const deliverablesToSync: DeliverableFormState[] = form.deliverables.length > 0
-      ? form.deliverables
-      : [{
-          client: effectiveClient,
-          title: form.title.trim(),
-          brief: form.description || "",
-          work_type: form.work_type || "design",
-          due_date: form.due_date,
-          status: "Pending" as WorkStatus,
-        }];
 
     const payload = {
       employee: Number(form.employee),
-      client: Number(effectiveClient),
       title: form.title.trim(),
       description: form.description,
       priority: form.priority,
@@ -413,6 +396,7 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       reviewer: form.reviewer ? (isNaN(Number(form.reviewer)) ? form.reviewer : Number(form.reviewer)) : null,
 
       ...(form.statusMode === "Blocked" ? { status: "Blocked" as WorkStatus } : editing ? {} : { status: "Pending" as WorkStatus }),
+      ...(effectiveClient ? { client: Number(effectiveClient) } : {}),
     };
 
     try {
@@ -420,6 +404,17 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
         method: editing ? "PATCH" : "POST",
         body: JSON.stringify(payload),
       });
+      const savedClient = String(saved.client);
+      const deliverablesToSync: DeliverableFormState[] = form.deliverables.length > 0
+        ? form.deliverables.map(deliverable => ({ ...deliverable, client: deliverable.client || savedClient }))
+        : [{
+            client: savedClient,
+            title: form.title.trim(),
+            brief: form.description || "",
+            work_type: form.work_type || "design",
+            due_date: form.due_date,
+            status: "Pending" as WorkStatus,
+          }];
       await syncDeliverables(saved.id, deliverablesToSync);
       setModalOpen(false);
       setEditing(null);
@@ -764,8 +759,8 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
           </label>
         </div>
 
-        {/* DUE DATE, EST. HOURS & COUNTS TOWARD */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+        {/* DUE DATE & EST. HOURS */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
             DUE DATE
             <input
@@ -791,21 +786,6 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
             />
           </label>
 
-          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-            COUNTS TOWARD
-            <select
-              value={form.client || (clients.length > 0 ? String(clients[0].id) : "")}
-              onChange={event => setForm(current => ({ ...current, client: event.target.value }))}
-              required
-              disabled={optionsLoading}
-              className="fs"
-            >
-              {clients.map(client => (
-                <option key={client.id} value={client.id}>{client.name}</option>
-              ))}
-            </select>
-            {formErrors.client && <small style={{ color: "#EF4444" }}>{formErrors.client}</small>}
-          </label>
         </div>
 
         {actionError && <div className="toast error">{actionError}</div>}

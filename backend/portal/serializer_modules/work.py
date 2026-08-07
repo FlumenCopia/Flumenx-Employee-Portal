@@ -69,6 +69,12 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["progress", "remaining_quantity", "completed_at", "created_at", "updated_at"]
+        extra_kwargs = {"client": {"required": False, "allow_null": True}}
+
+    @staticmethod
+    def default_client():
+        client, _ = Client.objects.get_or_create(name="General")
+        return client
 
     def get_reviewer_details(self, obj):
         if obj.reviewer:
@@ -164,7 +170,7 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
 
         values = {
             "employee": employee,
-            "client": attrs.get("client", getattr(self.instance, "client", None)),
+            "client": attrs.get("client", getattr(self.instance, "client", None)) or self.default_client(),
             "title": attrs.get("title", getattr(self.instance, "title", "")),
             "description": attrs.get("description", getattr(self.instance, "description", "")),
             "priority": attrs.get("priority", getattr(self.instance, "priority", "Normal")),
@@ -184,6 +190,11 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(exc.message_dict if hasattr(exc, "message_dict") else exc.messages)
         return attrs
+
+    def create(self, validated_data):
+        if not validated_data.get("client"):
+            validated_data["client"] = self.default_client()
+        return super().create(validated_data)
 
     def get_deliverables(self, obj):
         return WorkDeliverableSerializer(obj.deliverables.all(), many=True, context=self.context).data

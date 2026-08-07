@@ -567,13 +567,6 @@ export function CommandCenterView({
               />
 
               <div style={{ display: "flex", gap: "4px", overflowX: "auto" }}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPhaseFilter("all")}
-                  style={{ padding: "6px 12px", borderRadius: "var(--rs)", fontSize: "11px", fontWeight: 700, background: selectedPhaseFilter === "all" ? "var(--neon)" : "var(--panel2)", color: selectedPhaseFilter === "all" ? "var(--bg)" : "var(--muted)" }}
-                >
-                  All Phases
-                </button>
                 {SHOW_ADVANCED_WORKBOARD && PHASES.map((p) => (
                   <button
                     key={p.id}
@@ -610,19 +603,29 @@ export function CommandCenterView({
               </div>
 
               <div style={{ display: "flex", gap: "8px" }}>
-                <select className="fs" value={selectedMemberFilter} onChange={(e) => setSelectedMemberFilter(e.target.value)} style={{ width: "auto" }}>
-                  <option value="all">All Members</option>
+                <select
+                  className="fs"
+                  value={selectedMemberFilter}
+                  onChange={(e) => setSelectedMemberFilter(e.target.value)}
+                  style={{ width: "auto", minWidth: "128px", background: "var(--panel2)", color: "var(--text)", border: "1px solid var(--border2)" }}
+                >
+                  <option value="all" style={{ background: "var(--panel2)", color: "var(--text)" }}>All Members</option>
                   {dynamicMembers.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
+                    <option key={m.id} value={m.id} style={{ background: "var(--panel2)", color: "var(--text)" }}>{m.name}</option>
                   ))}
                 </select>
 
 
-                <select className="fs" value={selectedPriorityFilter} onChange={(e) => setSelectedPriorityFilter(e.target.value)} style={{ width: "auto" }}>
-                  <option value="all">All Priorities</option>
-                  <option value="p0">P0 Critical</option>
-                  <option value="p1">P1 High</option>
-                  <option value="p2">P2 Normal</option>
+                <select
+                  className="fs"
+                  value={selectedPriorityFilter}
+                  onChange={(e) => setSelectedPriorityFilter(e.target.value)}
+                  style={{ width: "auto", minWidth: "126px", background: "var(--panel2)", color: "var(--text)", border: "1px solid var(--border2)" }}
+                >
+                  <option value="all" style={{ background: "var(--panel2)", color: "var(--text)" }}>All Priorities</option>
+                  <option value="p0" style={{ background: "var(--panel2)", color: "var(--text)" }}>P0 Critical</option>
+                  <option value="p1" style={{ background: "var(--panel2)", color: "var(--text)" }}>P1 High</option>
+                  <option value="p2" style={{ background: "var(--panel2)", color: "var(--text)" }}>P2 Normal</option>
                 </select>
 
               </div>
