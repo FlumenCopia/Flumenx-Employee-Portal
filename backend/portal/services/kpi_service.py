@@ -41,15 +41,16 @@ class KPIService:
         if assignments:
             sum_assigned = sum(wa.assigned_quantity for wa in assignments if wa.assigned_quantity > 0)
             sum_completed = sum(wa.completed_quantity for wa in assignments)
-            work_comp_ratio = (sum_completed / sum_assigned) if sum_assigned > 0 else 1.0
+            work_comp_ratio = (sum_completed / sum_assigned) if sum_assigned > 0 else 0.0
         else:
             sum_assigned = 0
             sum_completed = 0
-            work_comp_ratio = 1.0
+            work_comp_ratio = 0.0
 
         work_completion_ratio = min(1.0, max(0.0, work_comp_ratio))
         work_completion_score = round(work_completion_ratio * 40.0, 2)
         work_completion_pct = round(work_completion_ratio * 100.0, 1)
+        is_evaluated = bool(assignments)
 
         # 2. Attendance (20%)
         attendance_records = AttendanceRecord.objects.filter(
@@ -71,7 +72,7 @@ class KPIService:
         if total_att_records > 0 and effective_total > 0:
             att_ratio = min(1.0, max(0.0, effective_present / effective_total))
         else:
-            att_ratio = 1.0
+            att_ratio = 0.0
 
         attendance_score = round(att_ratio * 20.0, 2)
         attendance_pct = round(att_ratio * 100.0, 1)
@@ -89,7 +90,7 @@ class KPIService:
             ontime_ratio = min(1.0, max(0.0, on_time_count / len(due_assignments)))
         else:
             on_time_count = 0
-            ontime_ratio = 1.0
+            ontime_ratio = 0.0
 
         ontime_score = round(ontime_ratio * 15.0, 2)
         ontime_pct = round(ontime_ratio * 100.0, 1)
@@ -121,7 +122,7 @@ class KPIService:
             rating_notes = rating_obj.notes
             rated_by_name = rating_obj.rated_by.get_full_name() or rating_obj.rated_by.username if rating_obj.rated_by else ""
         else:
-            quality_rating = 5.0  # Default rating if not yet set
+            quality_rating = 0.0
             rating_notes = ""
             rated_by_name = ""
 
@@ -138,7 +139,8 @@ class KPIService:
             1
         )
         final_score = min(100.0, max(0.0, final_score))
-        grade = get_kpi_grade(final_score)
+        score_out_of_10 = round(final_score / 10.0, 1)
+        grade = get_kpi_grade(final_score) if is_evaluated else "Not Evaluated"
 
         return {
             "employee_id": employee.id,
@@ -149,6 +151,8 @@ class KPIService:
             "month": month,
             "year": year,
             "final_score": final_score,
+            "score_out_of_10": score_out_of_10,
+            "is_evaluated": is_evaluated,
             "grade": grade,
             "components": {
                 "work_completion": {
@@ -219,6 +223,8 @@ class KPIService:
                 "year": y,
                 "period": f"{date(y, m, 1).strftime('%b %Y')}",
                 "final_score": data["final_score"],
+                "score_out_of_10": data["score_out_of_10"],
+                "is_evaluated": data["is_evaluated"],
                 "grade": data["grade"],
                 "quality_rating": data["components"]["work_quality"]["quality_rating"],
                 "work_completion_pct": data["components"]["work_completion"]["percentage"],
@@ -270,18 +276,22 @@ class KPIService:
 
             kpi_list.append(kpi_data)
 
-            # Department metrics
-            dept = kpi_data["department"]
-            dept_scores[dept] = dept_scores.get(dept, 0.0) + kpi_data["final_score"]
-            dept_counts[dept] = dept_counts.get(dept, 0) + 1
+            if kpi_data["is_evaluated"]:
+                dept = kpi_data["department"]
+                dept_scores[dept] = dept_scores.get(dept, 0.0) + kpi_data["final_score"]
+                dept_counts[dept] = dept_counts.get(dept, 0) + 1
 
         total_employees = len(kpi_list)
-        if total_employees > 0:
-            avg_kpi = round(sum(item["final_score"] for item in kpi_list) / total_employees, 1)
-            top_performer = max(kpi_list, key=lambda x: x["final_score"])
-            critical_performers = [item for item in kpi_list if item["grade"] == "Critical" or item["final_score"] < 60.0]
+        evaluated_kpis = [item for item in kpi_list if item["is_evaluated"]]
+        evaluated_count = len(evaluated_kpis)
+        if evaluated_count > 0:
+            avg_kpi = round(sum(item["final_score"] for item in evaluated_kpis) / evaluated_count, 1)
+            avg_kpi_out_of_10 = round(avg_kpi / 10.0, 1)
+            top_performer = max(evaluated_kpis, key=lambda x: x["final_score"])
+            critical_performers = [item for item in evaluated_kpis if item["grade"] == "Critical" or item["final_score"] < 60.0]
         else:
             avg_kpi = 0.0
+            avg_kpi_out_of_10 = 0.0
             top_performer = None
             critical_performers = []
 
@@ -289,6 +299,7 @@ class KPIService:
             {
                 "department": dept,
                 "average_score": round(dept_scores[dept] / dept_counts[dept], 1),
+                "average_score_out_of_10": round((dept_scores[dept] / dept_counts[dept]) / 10.0, 1),
                 "employee_count": dept_counts[dept]
             }
             for dept in sorted(dept_scores.keys())
@@ -303,28 +314,37 @@ class KPIService:
             while m <= 0:
                 m += 12
                 y -= 1
+            scores = []
             if all_active_employees:
-                scores = [cls.calculate_employee_kpi(e, m, y)["final_score"] for e in all_active_employees]
+                month_kpis = [cls.calculate_employee_kpi(e, m, y) for e in all_active_employees]
+                scores = [item["final_score"] for item in month_kpis if item["is_evaluated"]]
+            if scores:
                 month_avg = round(sum(scores) / len(scores), 1)
+                month_avg_out_of_10 = round(month_avg / 10.0, 1)
             else:
                 month_avg = 0.0
+                month_avg_out_of_10 = 0.0
             monthly_trend.append({
                 "month": m,
                 "year": y,
                 "period": f"{date(y, m, 1).strftime('%b %Y')}",
-                "average_score": month_avg
+                "average_score": month_avg,
+                "average_score_out_of_10": month_avg_out_of_10
             })
 
         return {
             "selected_month": month,
             "selected_year": year,
             "total_employees": total_employees,
+            "evaluated_employees": evaluated_count,
             "average_kpi": avg_kpi,
+            "average_kpi_out_of_10": avg_kpi_out_of_10,
             "top_performer": {
                 "id": top_performer["employee_id"],
                 "name": top_performer["employee_name"],
                 "department": top_performer["department"],
                 "score": top_performer["final_score"],
+                "score_out_of_10": top_performer["score_out_of_10"],
                 "grade": top_performer["grade"]
             } if top_performer else None,
             "critical_performers_count": len(critical_performers),
@@ -334,6 +354,7 @@ class KPIService:
                     "name": p["employee_name"],
                     "department": p["department"],
                     "score": p["final_score"],
+                    "score_out_of_10": p["score_out_of_10"],
                     "grade": p["grade"]
                 } for p in critical_performers
             ],
@@ -364,7 +385,7 @@ class KPIService:
             "Month/Year", "Work Completion (40)", "Attendance (20)",
             "On-Time Delivery (15)", "Leave Discipline (10)",
             "Quality Rating (1-5)", "Quality Score (10)", "Consistency (5)",
-            "Final Score (100)", "Grade"
+            "KPI Score (10)", "Final Score (100)", "Grade"
         ])
 
         for emp in data["employees"]:
@@ -382,6 +403,7 @@ class KPIService:
                 comp["work_quality"]["quality_rating"],
                 comp["work_quality"]["score"],
                 comp["consistency"]["score"],
+                emp["score_out_of_10"],
                 emp["final_score"],
                 emp["grade"]
             ])

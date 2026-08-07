@@ -75,7 +75,7 @@ export type WorkReviewerOption = {
 };
 
 
-export type KPIGrade = "Outstanding" | "Excellent" | "Good" | "Needs Improvement" | "Critical";
+export type KPIGrade = "Outstanding" | "Excellent" | "Good" | "Needs Improvement" | "Critical" | "Not Evaluated";
 
 export type KPIScoreComponent = {
   score: number;
@@ -105,6 +105,8 @@ export type KPIHistoryItem = {
   year: number;
   period: string;
   final_score: number;
+  score_out_of_10: number;
+  is_evaluated: boolean;
   grade: KPIGrade;
   quality_rating: number;
   work_completion_pct: number;
@@ -120,6 +122,8 @@ export type KPIEmployeeData = {
   month: number;
   year: number;
   final_score: number;
+  score_out_of_10: number;
+  is_evaluated: boolean;
   grade: KPIGrade;
   components: {
     work_completion: KPIScoreComponent;
@@ -136,12 +140,15 @@ export type KPIDashboardData = {
   selected_month: number;
   selected_year: number;
   total_employees: number;
+  evaluated_employees: number;
   average_kpi: number;
+  average_kpi_out_of_10: number;
   top_performer: {
     id: number;
     name: string;
     department: Department;
     score: number;
+    score_out_of_10: number;
     grade: KPIGrade;
   } | null;
   critical_performers_count: number;
@@ -150,11 +157,13 @@ export type KPIDashboardData = {
     name: string;
     department: Department;
     score: number;
+    score_out_of_10: number;
     grade: KPIGrade;
   }[];
   department_averages: {
     department: Department;
     average_score: number;
+    average_score_out_of_10: number;
     employee_count: number;
   }[];
   monthly_trend: {
@@ -162,6 +171,7 @@ export type KPIDashboardData = {
     year: number;
     period: string;
     average_score: number;
+    average_score_out_of_10: number;
   }[];
   employees: KPIEmployeeData[];
 };

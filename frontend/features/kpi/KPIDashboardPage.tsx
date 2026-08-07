@@ -15,7 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  FileSpreadsheet,
   Filter,
   Layers,
   Minus,
@@ -54,6 +53,7 @@ const GRADES: KPIGrade[] = [
   "Good",
   "Needs Improvement",
   "Critical",
+  "Not Evaluated",
 ];
 
 function getGradeBadgeClass(grade?: KPIGrade) {
@@ -68,27 +68,15 @@ function getGradeBadgeClass(grade?: KPIGrade) {
       return "bg-amber-500/15 text-amber-400 border-amber-500/30 shadow-sm shadow-amber-500/10";
     case "Critical":
       return "bg-rose-500/15 text-rose-400 border-rose-500/30 shadow-sm shadow-rose-500/10";
+    case "Not Evaluated":
+      return "bg-slate-500/15 text-slate-300 border-slate-500/30";
     default:
       return "bg-slate-500/15 text-slate-400 border-slate-500/30";
   }
 }
 
-function csvCell(value: string | number | null | undefined) {
-  const text = String(value ?? "");
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function downloadCSV(filename: string, rows: (string | number | null | undefined)[][]) {
-  const content = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
+function scoreOutOf10(score: number | undefined) {
+  return Number(((score ?? 0) / 10).toFixed(1));
 }
 
 export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string }) {
@@ -98,8 +86,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
   const [department, setDepartment] = useState("");
   const [grade, setGrade] = useState("");
   const [search, setSearch] = useState("");
-  const [minScore, setMinScore] = useState("");
-  const [maxScore, setMaxScore] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
 
   // Table Sorting & Pagination State
@@ -109,7 +95,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
 
   const [data, setData] = useState<KPIDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
 
   // Searchable Employee Combobox State
@@ -127,8 +112,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
       if (department) params.set("department", department);
       if (grade) params.set("grade", grade);
       if (search) params.set("search", search);
-      if (minScore) params.set("min_score", minScore);
-      if (maxScore) params.set("max_score", maxScore);
 
       const res = await api<KPIDashboardData>(`/kpi/dashboard/?${params.toString()}`);
       setData(res);
@@ -141,7 +124,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
 
   useEffect(() => {
     loadDashboard();
-  }, [selectedMonth, selectedYear, department, grade, search, minScore, maxScore]);
+  }, [selectedMonth, selectedYear, department, grade, search]);
 
   // Click outside to close employee dropdown
   useEffect(() => {
@@ -154,64 +137,10 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleCSVExport = async () => {
-    setExporting(true);
-    try {
-      downloadCSV(
-        `employee_kpis_${selectedYear}_${String(selectedMonth).padStart(2, "0")}.csv`,
-        [
-          [
-            "Employee Code",
-            "Name",
-            "Department",
-            "Designation",
-            "Month/Year",
-            "Work Completion (40)",
-            "Attendance (20)",
-            "On-Time Delivery (15)",
-            "Leave Discipline (10)",
-            "Quality Score (10)",
-            "Consistency (5)",
-            "Final Score (100)",
-            "Grade",
-          ],
-          ...processedEmployees.map((emp) => [
-            emp.employee_code,
-            emp.employee_name,
-            emp.department,
-            emp.designation,
-            `${String(emp.month).padStart(2, "0")}/${emp.year}`,
-            emp.components.work_completion.score,
-            emp.components.attendance.score,
-            emp.components.on_time_delivery.score,
-            emp.components.leave_discipline.score,
-            emp.components.work_quality.score,
-            emp.components.consistency.score,
-            emp.final_score,
-            emp.grade,
-          ]),
-        ]
-      );
-    } catch (err) {
-      alert("Failed to download CSV export.");
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const handleRefresh = async () => {
-    setEmployeeSearchOpen(false);
-    setEmployeeSearchQuery("");
-    setCurrentPage(1);
-    await loadDashboard();
-  };
-
   const resetFilters = () => {
     setDepartment("");
     setGrade("");
     setSearch("");
-    setMinScore("");
-    setMaxScore("");
     setSelectedEmployeeId(null);
     setEmployeeSearchQuery("");
     setCurrentPage(1);
@@ -221,8 +150,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
     Boolean(department) ||
     Boolean(grade) ||
     Boolean(search) ||
-    Boolean(minScore) ||
-    Boolean(maxScore) ||
     selectedEmployeeId !== null;
 
   const selectedEmployeeData = selectedEmployeeId
@@ -239,12 +166,12 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
     );
   });
 
-  // Calculate highest & lowest performers
-  const sortedByScore = [...(data?.employees || [])].sort((a, b) => b.final_score - a.final_score);
+  const evaluatedEmployees = (data?.employees || []).filter((emp) => emp.is_evaluated);
+
+  // Calculate highest & lowest performers from employees with actual assigned work.
+  const sortedByScore = [...evaluatedEmployees].sort((a, b) => b.final_score - a.final_score);
   const highestPerformer = sortedByScore.length > 0 ? sortedByScore[0] : null;
   const lowestPerformer = sortedByScore.length > 0 ? sortedByScore[sortedByScore.length - 1] : null;
-  const topPerformersList = sortedByScore.slice(0, 4);
-  const lowestPerformersList = [...sortedByScore].reverse().slice(0, 4);
 
   // Grade Distribution Counts
   const gradeDistribution = GRADES.map((g) => {
@@ -257,15 +184,15 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
     (e) => e.grade === "Outstanding" || e.grade === "Excellent"
   ).length;
 
-  const criticalCount = (data?.employees || []).filter(
+  const criticalCount = evaluatedEmployees.filter(
     (e) => e.grade === "Critical" || e.grade === "Needs Improvement" || e.final_score < 75
   ).length;
 
   const companyComponentAverages = (() => {
-    if (!data || data.employees.length === 0) return null;
-    const count = data.employees.length;
+    if (evaluatedEmployees.length === 0) return null;
+    const count = evaluatedEmployees.length;
     let work = 0, att = 0, onTime = 0, leave = 0, quality = 0, consistency = 0;
-    for (const emp of data.employees) {
+    for (const emp of evaluatedEmployees) {
       work += emp.components.work_completion.score;
       att += emp.components.attendance.score;
       onTime += emp.components.on_time_delivery.score;
@@ -345,25 +272,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={handleCSVExport}
-            disabled={exporting || processedEmployees.length === 0}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-emerald-950 bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 rounded-xl transition shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-          >
-            <FileSpreadsheet size={16} />
-            {exporting ? "Exporting..." : "Export CSV"}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={loading}
-            className="p-2.5 text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl transition"
-            title="Refresh Data"
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin text-emerald-400" : ""} />
-          </button>
         </div>
       </div>
 
@@ -513,7 +421,9 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                         <span className="font-medium text-white">{emp.employee_name}</span>
                         <span className="text-[10px] text-slate-400 ml-1.5">({emp.department})</span>
                       </div>
-                      <span className="text-[11px] font-mono text-emerald-400 ml-2 font-bold">{emp.final_score}</span>
+                      <span className="text-[11px] font-mono text-emerald-400 ml-2 font-bold">
+                        {emp.is_evaluated ? emp.score_out_of_10 ?? scoreOutOf10(emp.final_score) : "N/A"}
+                      </span>
                     </button>
                   ))}
 
@@ -525,30 +435,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             )}
           </div>
 
-          {/* Min / Max Score */}
-          <div>
-            <label className="block text-[11px] text-slate-400 mb-1 font-medium">Min / Max Score</label>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="number"
-                placeholder="Min"
-                min="0"
-                max="100"
-                value={minScore}
-                onChange={(e) => { setMinScore(e.target.value); setCurrentPage(1); }}
-                className="w-1/2 text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-2.5 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
-              />
-              <input
-                type="number"
-                placeholder="Max"
-                min="0"
-                max="100"
-                value={maxScore}
-                onChange={(e) => { setMaxScore(e.target.value); setCurrentPage(1); }}
-                className="w-1/2 text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-2.5 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-          </div>
         </div>
       </div>
 
@@ -566,13 +452,13 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
           <div className="flex justify-between items-start">
             <div>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total Evaluated</p>
-              <h3 className="text-xl font-extrabold text-white mt-1 font-mono">{data?.total_employees ?? 0}</h3>
+              <h3 className="text-xl font-extrabold text-white mt-1 font-mono">{data?.evaluated_employees ?? evaluatedEmployees.length}</h3>
             </div>
             <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">
               <Users size={18} />
             </div>
           </div>
-          <p className="mt-2 text-[10px] text-slate-400">Active records in {selectedMonth}/{selectedYear}</p>
+          <p className="mt-2 text-[10px] text-slate-400">Evaluated from {data?.total_employees ?? 0} employees</p>
         </div>
 
         {/* Average KPI Score */}
@@ -581,14 +467,14 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             <div>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Average KPI</p>
               <h3 className="text-xl font-extrabold text-white mt-1 font-mono">
-                {data?.average_kpi ?? 0} <span className="text-xs font-normal text-slate-500">/ 100</span>
+                {data?.average_kpi_out_of_10 ?? scoreOutOf10(data?.average_kpi)} <span className="text-xs font-normal text-slate-500">/ 10</span>
               </h3>
             </div>
             <div className="p-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl">
               <TrendingUp size={18} />
             </div>
           </div>
-          <p className="mt-2 text-[10px] text-slate-400">Company-wide avg score</p>
+          <p className="mt-2 text-[10px] text-slate-400">Company-wide performance score</p>
         </div>
 
         {/* Outstanding Performers */}
@@ -602,7 +488,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
               <Award size={18} />
             </div>
           </div>
-          <p className="mt-2 text-[10px] text-slate-400">High performers (&ge; 85)</p>
+          <p className="mt-2 text-[10px] text-slate-400">High performers (&ge; 8.5)</p>
         </div>
 
         {/* Needs Improvement */}
@@ -616,7 +502,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
               <AlertTriangle size={18} />
             </div>
           </div>
-          <p className="mt-2 text-[10px] text-slate-400">Attention needed (&lt; 75)</p>
+          <p className="mt-2 text-[10px] text-slate-400">Attention needed (&lt; 7.5)</p>
         </div>
 
         {/* Highest Score */}
@@ -625,7 +511,8 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             <div>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Highest Score</p>
               <h3 className="text-xl font-extrabold text-emerald-400 mt-1 font-mono">
-                {highestPerformer ? highestPerformer.final_score : 0}
+                {highestPerformer ? (highestPerformer.score_out_of_10 ?? scoreOutOf10(highestPerformer.final_score)) : "N/A"}
+                {highestPerformer && <span className="text-xs font-normal text-slate-500"> / 10</span>}
               </h3>
             </div>
             <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl">
@@ -643,7 +530,8 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
             <div>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Lowest Score</p>
               <h3 className="text-xl font-extrabold text-rose-400 mt-1 font-mono">
-                {lowestPerformer ? lowestPerformer.final_score : 0}
+                {lowestPerformer ? (lowestPerformer.score_out_of_10 ?? scoreOutOf10(lowestPerformer.final_score)) : "N/A"}
+                {lowestPerformer && <span className="text-xs font-normal text-slate-500"> / 10</span>}
               </h3>
             </div>
             <div className="p-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
@@ -670,7 +558,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                   <span className="text-xs text-slate-400 font-mono">({selectedEmployeeData.employee_code})</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {selectedEmployeeData.department} · {selectedEmployeeData.designation}
+                  {selectedEmployeeData.department} / {selectedEmployeeData.designation}
                 </p>
               </div>
             </div>
@@ -683,9 +571,14 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                 </span>
               </div>
               <div className="text-right pl-5 border-l border-slate-800">
-                <span className="text-[11px] text-slate-400 block font-medium">Overall Score</span>
+                <span className="text-[11px] text-slate-400 block font-medium">KPI Score</span>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-2xl font-extrabold text-white font-mono">{selectedEmployeeData.final_score}</span>
+                  <span className="text-2xl font-extrabold text-white font-mono">
+                    {selectedEmployeeData.is_evaluated
+                      ? selectedEmployeeData.score_out_of_10 ?? scoreOutOf10(selectedEmployeeData.final_score)
+                      : "N/A"}
+                    {selectedEmployeeData.is_evaluated && <span className="text-xs font-normal text-slate-500"> / 10</span>}
+                  </span>
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${getGradeBadgeClass(
                       selectedEmployeeData.grade
@@ -723,7 +616,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
               <Building2 size={16} className="text-emerald-400" />
               Department KPI Comparison
             </h3>
-            <span className="text-[11px] text-slate-400 font-mono">Avg Score / 100</span>
+            <span className="text-[11px] text-slate-400 font-mono">Avg KPI / 10</span>
           </div>
 
           {data?.department_averages && data.department_averages.length > 0 ? (
@@ -734,7 +627,9 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                     <span className="truncate">
                       {dept.department} <span className="text-[10px] text-slate-500">({dept.employee_count} emp)</span>
                     </span>
-                    <span className="font-bold font-mono text-white">{dept.average_score}</span>
+                    <span className="font-bold font-mono text-white">
+                      {dept.average_score_out_of_10 ?? scoreOutOf10(dept.average_score)} / 10
+                    </span>
                   </div>
                   <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800/80 p-0.5">
                     <div
@@ -790,7 +685,13 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                     const points = data.monthly_trend.map((item, idx) => {
                       const x = (idx / (data.monthly_trend.length - 1)) * 480 + 10;
                       const y = 110 - (item.average_score / 100) * 100;
-                      return { x, y, score: item.average_score, period: item.period, isCurrent: item.month === selectedMonth };
+                      return {
+                        x,
+                        y,
+                        score: item.average_score_out_of_10 ?? scoreOutOf10(item.average_score),
+                        period: item.period,
+                        isCurrent: item.month === selectedMonth,
+                      };
                     });
 
                     const pathD = points.reduce((acc, pt, i) => `${acc} ${i === 0 ? "M" : "L"} ${pt.x} ${pt.y}`, "");
@@ -930,7 +831,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
               <tr>
                 <th className="py-3.5 px-4">Employee</th>
                 <th className="py-3.5 px-4">Department</th>
-                <th className="py-3.5 px-4">KPI Score</th>
+                <th className="py-3.5 px-4">KPI Score / 10</th>
                 <th className="py-3.5 px-4">Grade</th>
                 <th className="py-3.5 px-4">Performance Status</th>
                 <th className="py-3.5 px-4 text-right">Action</th>
@@ -958,8 +859,13 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                 </tr>
               )}
               {paginatedEmployees.map((emp) => {
-                const trendType =
-                  emp.final_score >= 85 ? "up" : emp.final_score < 75 ? "down" : "stable";
+                const trendType = !emp.is_evaluated
+                  ? "not_evaluated"
+                  : emp.final_score >= 85
+                  ? "up"
+                  : emp.final_score < 75
+                  ? "down"
+                  : "stable";
 
                 return (
                   <tr key={emp.employee_id} className="hover:bg-slate-800/40 transition">
@@ -971,15 +877,17 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                         <div>
                           <div className="font-semibold text-white">{emp.employee_name}</div>
                           <div className="text-[10px] text-slate-400 font-mono">
-                            {emp.employee_code} · {emp.designation}
+                            {emp.employee_code} / {emp.designation}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="py-3.5 px-4 font-medium text-slate-300">{emp.department}</td>
                     <td className="py-3.5 px-4">
-                      <span className="font-mono font-extrabold text-sm text-white">{emp.final_score}</span>
-                      <span className="text-[10px] text-slate-500 font-normal"> / 100</span>
+                      <span className="font-mono font-extrabold text-sm text-white">
+                        {emp.is_evaluated ? emp.score_out_of_10 ?? scoreOutOf10(emp.final_score) : "N/A"}
+                      </span>
+                      {emp.is_evaluated && <span className="text-[10px] text-slate-500 font-normal"> / 10</span>}
                     </td>
                     <td className="py-3.5 px-4">
                       <span
@@ -1004,6 +912,11 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                       {trendType === "stable" && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
                           <Minus size={14} /> Steady
+                        </span>
+                      )}
+                      {trendType === "not_evaluated" && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                          <Minus size={14} /> Not evaluated
                         </span>
                       )}
                     </td>

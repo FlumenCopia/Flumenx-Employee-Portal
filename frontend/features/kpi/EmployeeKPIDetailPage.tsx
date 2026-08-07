@@ -5,9 +5,6 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
-  Award,
-  BarChart3,
-  Building2,
   Calendar,
   CalendarCheck,
   CheckCircle2,
@@ -15,10 +12,7 @@ import {
   FileText,
   ShieldAlert,
   Star,
-  TrendingDown,
   TrendingUp,
-  User,
-  UserCheck,
   Zap,
   X,
 } from "lucide-react";
@@ -37,26 +31,15 @@ function getGradeBadgeClass(grade?: KPIGrade) {
       return "bg-amber-500/15 text-amber-400 border-amber-500/30 shadow-sm shadow-amber-500/10";
     case "Critical":
       return "bg-rose-500/15 text-rose-400 border-rose-500/30 shadow-sm shadow-rose-500/10";
+    case "Not Evaluated":
+      return "bg-slate-500/15 text-slate-300 border-slate-500/30";
     default:
       return "bg-slate-500/15 text-slate-400 border-slate-500/30";
   }
 }
 
-function getGradeColor(grade?: KPIGrade) {
-  switch (grade) {
-    case "Outstanding":
-      return "#10b981";
-    case "Excellent":
-      return "#3b82f6";
-    case "Good":
-      return "#06b6d4";
-    case "Needs Improvement":
-      return "#f59e0b";
-    case "Critical":
-      return "#f43f5e";
-    default:
-      return "#94a3b8";
-  }
+function scoreOutOf10(score: number | undefined) {
+  return Number(((score ?? 0) / 10).toFixed(1));
 }
 
 export function EmployeeKPIDetailPage({
@@ -160,21 +143,71 @@ export function EmployeeKPIDetailPage({
   }
 
   const comp = data.components;
-  const gradeColor = getGradeColor(data.grade);
+  const kpiScore = data.score_out_of_10 ?? scoreOutOf10(data.final_score);
+  const kpiScoreLabel = data.is_evaluated ? String(kpiScore) : "N/A";
 
   const componentList = [
-    { name: "Work Completion", score: comp.work_completion.score, max: 40, pct: comp.work_completion.percentage ?? 0, color: "#10b981", icon: CheckCircle2 },
-    { name: "Attendance", score: comp.attendance.score, max: 20, pct: comp.attendance.percentage ?? 0, color: "#34d399", icon: CalendarCheck },
-    { name: "On-Time Delivery", score: comp.on_time_delivery.score, max: 15, pct: comp.on_time_delivery.percentage ?? 0, color: "#3b82f6", icon: Clock },
-    { name: "Leave Discipline", score: comp.leave_discipline.score, max: 10, pct: comp.leave_discipline.percentage ?? 0, color: "#f59e0b", icon: FileText },
-    { name: "Work Quality", score: comp.work_quality.score, max: 10, pct: (((comp.work_quality.quality_rating || 0) / 5) * 100), color: "#a855f7", icon: Star },
-    { name: "Consistency", score: comp.consistency.score, max: 5, pct: comp.consistency.percentage ?? 0, color: "#06b6d4", icon: TrendingUp },
+    {
+      name: "Work Completion",
+      score: comp.work_completion.score,
+      max: 40,
+      pct: comp.work_completion.percentage ?? 0,
+      color: "#10b981",
+      icon: CheckCircle2,
+      description: "How much assigned work was completed.",
+      detail: `${comp.work_completion.completed_quantity ?? 0} completed from ${comp.work_completion.assigned_quantity ?? 0} assigned`,
+    },
+    {
+      name: "Attendance",
+      score: comp.attendance.score,
+      max: 20,
+      pct: comp.attendance.percentage ?? 0,
+      color: "#34d399",
+      icon: CalendarCheck,
+      description: "Presence in the selected month.",
+      detail: `${comp.attendance.present_days ?? 0} present, ${comp.attendance.half_days ?? 0} half day, ${comp.attendance.absent_days ?? 0} absent`,
+    },
+    {
+      name: "On-Time Delivery",
+      score: comp.on_time_delivery.score,
+      max: 15,
+      pct: comp.on_time_delivery.percentage ?? 0,
+      color: "#3b82f6",
+      icon: Clock,
+      description: "Completed tasks before or on due date.",
+      detail: `${comp.on_time_delivery.on_time_count ?? 0} on time from ${comp.on_time_delivery.total_due ?? 0} due tasks`,
+    },
+    {
+      name: "Leave Discipline",
+      score: comp.leave_discipline.score,
+      max: 10,
+      pct: comp.leave_discipline.percentage ?? 0,
+      color: "#f59e0b",
+      icon: FileText,
+      description: "Approved leave behavior and unapproved absences.",
+      detail: `${comp.leave_discipline.unapproved_absences ?? 0} unapproved absences, ${comp.leave_discipline.rejected_leaves ?? 0} rejected leaves`,
+    },
+    {
+      name: "Work Quality",
+      score: comp.work_quality.score,
+      max: 10,
+      pct: ((comp.work_quality.quality_rating || 0) / 5) * 100,
+      color: "#a855f7",
+      icon: Star,
+      description: "Manager quality rating for the period.",
+      detail: `${comp.work_quality.quality_rating ?? 0} out of 5 manager rating`,
+    },
+    {
+      name: "Consistency",
+      score: comp.consistency.score,
+      max: 5,
+      pct: comp.consistency.percentage ?? 0,
+      color: "#06b6d4",
+      icon: TrendingUp,
+      description: "Balance of attendance and on-time delivery.",
+      detail: `${comp.consistency.percentage ?? 0}% stability index`,
+    },
   ];
-
-  // SVG Gauge calculations
-  const radius = 54;
-  const circumference = 2 * Math.PI * radius;
-  const gaugeOffset = circumference - (Math.min(100, Math.max(0, data.final_score)) / 100) * circumference;
 
   return (
     <div className="kpi-detail-page w-full max-w-7xl mx-auto space-y-6 text-slate-100 font-sans">
@@ -207,7 +240,7 @@ export function EmployeeKPIDetailPage({
               </div>
               <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-3 flex-wrap">
                 <span>{data.department}</span>
-                <span>·</span>
+                <span>/</span>
                 <span className="text-slate-300 font-medium">{data.designation}</span>
               </p>
             </div>
@@ -241,436 +274,128 @@ export function EmployeeKPIDetailPage({
             </select>
           </div>
 
-          {canUpdateRating && !isSelf && (
-            <button
-              type="button"
-              onClick={() => setShowRatingModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-emerald-950 bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 rounded-xl transition shadow-lg shadow-emerald-500/20"
-            >
-              <Star size={15} className="fill-emerald-950 text-emerald-950" />
-              Update Rating
-            </button>
-          )}
         </div>
       </div>
 
-      {/* 2. Hero Score Gauge & High-Level Metrics Summary */}
-      <div className="kpi-score-panel bg-gradient-to-br from-slate-900 via-slate-900/90 to-slate-900 border border-emerald-500/30 rounded-2xl p-6 shadow-2xl space-y-6">
-        <div className="kpi-score-layout grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
-          {/* Circular Score Gauge Container */}
-          <div className="kpi-gauge-card flex flex-col items-center justify-center p-6 bg-slate-950/80 border border-slate-800/80 rounded-2xl text-center shadow-inner relative">
-            <div className="relative w-36 h-36 flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
-                {/* Background Circle */}
-                <circle
-                  cx="60"
-                  cy="60"
-                  r={radius}
-                  stroke="#1e293b"
-                  strokeWidth="10"
-                  fill="transparent"
-                />
-                {/* Score Circle Progress */}
-                <circle
-                  cx="60"
-                  cy="60"
-                  r={radius}
-                  stroke={gradeColor}
-                  strokeWidth="10"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={gaugeOffset}
-                  strokeLinecap="round"
-                  fill="transparent"
-                  className="transition-all duration-1000 ease-out"
-                />
-              </svg>
-
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-3xl font-extrabold text-white font-mono tracking-tight">{data.final_score}</span>
-                <span className="text-[10px] text-slate-400 font-mono font-medium uppercase tracking-wider">out of 100</span>
-              </div>
+      <div className="kpi-simple-layout">
+        <section className="kpi-score-summary">
+          <div>
+            <p className="kpi-score-eyebrow">Employee KPI</p>
+            <div className="kpi-score-value">
+              <span>{kpiScoreLabel}</span>
+              {data.is_evaluated && <small>/ 10</small>}
             </div>
-
-            <div className="mt-4 space-y-1">
-              <span className="text-[11px] text-slate-400 block font-medium">Overall Performance Grade</span>
-              <span
-                className={`inline-flex items-center px-3 py-0.5 rounded-full text-xs font-bold border ${getGradeBadgeClass(
-                  data.grade
-                )}`}
-              >
-                {data.grade}
-              </span>
-            </div>
+            <span className={`kpi-grade-pill ${getGradeBadgeClass(data.grade)}`}>
+              {data.grade}
+            </span>
           </div>
 
-          {/* Quick Metrics Widget Cards (Right 2 Columns) */}
-          <div className="kpi-quick-grid lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            {/* Work Completion Widget */}
-            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2 hover:border-slate-700 transition">
-              <div className="flex justify-between items-center text-slate-400">
-                <span className="text-[11px] font-medium truncate">Work Comp.</span>
-                <CheckCircle2 size={15} className="text-emerald-400" />
-              </div>
-              <p className="text-xl font-extrabold text-white font-mono">{comp.work_completion.score} <span className="text-xs text-slate-500 font-normal">/ 40</span></p>
-              <div className="flex items-center justify-between text-[10px] text-slate-400">
-                <span>Completion</span>
-                <span className="font-mono font-semibold text-emerald-400">{comp.work_completion.percentage}%</span>
-              </div>
-            </div>
-
-            {/* Attendance Widget */}
-            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2 hover:border-slate-700 transition">
-              <div className="flex justify-between items-center text-slate-400">
-                <span className="text-[11px] font-medium truncate">Attendance</span>
-                <CalendarCheck size={15} className="text-emerald-400" />
-              </div>
-              <p className="text-xl font-extrabold text-emerald-400 font-mono">{comp.attendance.score} <span className="text-xs text-slate-500 font-normal">/ 20</span></p>
-              <div className="flex items-center justify-between text-[10px] text-slate-400">
-                <span>Presence</span>
-                <span className="font-mono font-semibold text-emerald-400">{comp.attendance.percentage}%</span>
-              </div>
-            </div>
-
-            {/* On-Time Delivery Widget */}
-            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2 hover:border-slate-700 transition">
-              <div className="flex justify-between items-center text-slate-400">
-                <span className="text-[11px] font-medium truncate">On-Time</span>
-                <Clock size={15} className="text-blue-400" />
-              </div>
-              <p className="text-xl font-extrabold text-blue-400 font-mono">{comp.on_time_delivery.score} <span className="text-xs text-slate-500 font-normal">/ 15</span></p>
-              <div className="flex items-center justify-between text-[10px] text-slate-400">
-                <span>On-Time Rate</span>
-                <span className="font-mono font-semibold text-blue-400">{comp.on_time_delivery.percentage}%</span>
-              </div>
-            </div>
-
-            {/* Leave Discipline Widget */}
-            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2 hover:border-slate-700 transition">
-              <div className="flex justify-between items-center text-slate-400">
-                <span className="text-[11px] font-medium truncate">Leave Disc.</span>
-                <FileText size={15} className="text-amber-400" />
-              </div>
-              <p className="text-xl font-extrabold text-amber-400 font-mono">{comp.leave_discipline.score} <span className="text-xs text-slate-500 font-normal">/ 10</span></p>
-              <div className="flex items-center justify-between text-[10px] text-slate-400">
-                <span>Discipline</span>
-                <span className="font-mono font-semibold text-amber-400">{comp.leave_discipline.percentage}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. 6 Component Breakdown Cards Grid */}
-      <div className="kpi-breakdown space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-white flex items-center gap-2">
-            <Zap size={16} className="text-emerald-400" />
-            Detailed KPI Component Score Breakdown
-          </h2>
-          <span className="text-[11px] text-slate-400 font-mono">Weighted Factor Breakdown</span>
-        </div>
-
-        <div className="kpi-component-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Work Completion Card */}
-          <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-              <h3 className="text-xs font-bold text-white flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-emerald-400" />
-                Work Completion (40)
-              </h3>
-              <span className="text-xs font-extrabold text-white font-mono">{comp.work_completion.score} / 40</span>
-            </div>
-            <div className="space-y-2 text-xs text-slate-300">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Assigned Volume:</span>
-                <span className="font-semibold text-white">{comp.work_completion.assigned_quantity}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Completed Output:</span>
-                <span className="font-semibold text-emerald-400">{comp.work_completion.completed_quantity}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Completion Ratio:</span>
-                <span className="font-semibold font-mono text-emerald-400">{comp.work_completion.percentage}%</span>
-              </div>
-              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80 mt-2">
-                <div
-                  className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.max(0, comp.work_completion.percentage || 0))}%` }}
-                />
-              </div>
-            </div>
+          <div className="kpi-score-copy">
+            {data.is_evaluated ? (
+              <>
+                <p>
+                  This KPI shows the employee performance for {selectedMonth}/{selectedYear}.
+                </p>
+                <p>
+                  The score is calculated from work completion, attendance, on-time delivery, leave discipline, manager quality rating, and consistency.
+                </p>
+              </>
+            ) : (
+              <>
+                <p>No KPI evaluation for {selectedMonth}/{selectedYear}.</p>
+                <p>This employee has no assigned work in the selected month, so management should not treat this as poor performance.</p>
+              </>
+            )}
           </div>
 
-          {/* Attendance Card */}
-          <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-              <h3 className="text-xs font-bold text-white flex items-center gap-2">
-                <CalendarCheck size={16} className="text-emerald-400" />
-                Attendance (20)
-              </h3>
-              <span className="text-xs font-extrabold text-white font-mono">{comp.attendance.score} / 20</span>
-            </div>
-            <div className="space-y-2 text-xs text-slate-300">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Present Days:</span>
-                <span className="font-semibold text-emerald-400">{comp.attendance.present_days}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Half Days:</span>
-                <span className="font-semibold text-amber-400">{comp.attendance.half_days}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Absent Days:</span>
-                <span className="font-semibold text-rose-400">{comp.attendance.absent_days}</span>
-              </div>
-              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80 mt-2">
-                <div
-                  className="bg-emerald-400 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.max(0, comp.attendance.percentage || 0))}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* On-Time Delivery Card */}
-          <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-              <h3 className="text-xs font-bold text-white flex items-center gap-2">
-                <Clock size={16} className="text-blue-400" />
-                On-Time Delivery (15)
-              </h3>
-              <span className="text-xs font-extrabold text-white font-mono">{comp.on_time_delivery.score} / 15</span>
-            </div>
-            <div className="space-y-2 text-xs text-slate-300">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Total Due Tasks:</span>
-                <span className="font-semibold text-white">{comp.on_time_delivery.total_due}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">On-Time Completed:</span>
-                <span className="font-semibold text-blue-400">{comp.on_time_delivery.on_time_count}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">On-Time Rate:</span>
-                <span className="font-semibold font-mono text-blue-400">{comp.on_time_delivery.percentage}%</span>
-              </div>
-              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80 mt-2">
-                <div
-                  className="bg-blue-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.max(0, comp.on_time_delivery.percentage || 0))}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Leave Discipline Card */}
-          <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-              <h3 className="text-xs font-bold text-white flex items-center gap-2">
-                <FileText size={16} className="text-amber-400" />
-                Leave Discipline (10)
-              </h3>
-              <span className="text-xs font-extrabold text-white font-mono">{comp.leave_discipline.score} / 10</span>
-            </div>
-            <div className="space-y-2 text-xs text-slate-300">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Approved Leaves:</span>
-                <span className="font-semibold text-emerald-400">{comp.leave_discipline.approved_leaves}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Rejected Requests:</span>
-                <span className="font-semibold text-rose-400">{comp.leave_discipline.rejected_leaves}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Unapproved Absences:</span>
-                <span className="font-semibold text-rose-400">{comp.leave_discipline.unapproved_absences}</span>
-              </div>
-              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80 mt-2">
-                <div
-                  className="bg-amber-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.max(0, comp.leave_discipline.percentage || 0))}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Work Quality Card */}
-          <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-              <h3 className="text-xs font-bold text-white flex items-center gap-2">
-                <Star size={16} className="text-purple-400 fill-purple-400" />
-                Work Quality (10)
-              </h3>
-              <span className="text-xs font-extrabold text-white font-mono">{comp.work_quality.score} / 10</span>
-            </div>
-            <div className="space-y-2 text-xs text-slate-300">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Manager Rating:</span>
-                <span className="font-semibold text-purple-400 font-mono text-sm font-bold">
-                  {comp.work_quality.quality_rating} / 5.0 ★
-                </span>
-              </div>
-              {comp.work_quality.rated_by && (
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Reviewed By:</span>
-                  <span className="font-semibold text-slate-200">{comp.work_quality.rated_by}</span>
+          <div className="kpi-scale-box">
+            <p>How to read</p>
+              <div>
+                <div>
+                  <span>No assigned work</span>
+                  <b>Not Evaluated</b>
                 </div>
-              )}
-              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80 mt-2">
-                <div
-                  className="bg-purple-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.max(0, ((comp.work_quality.quality_rating || 0) / 5) * 100))}%` }}
-                />
+                <div>
+                  <span>9.5 - 10</span>
+                  <b>Outstanding</b>
+              </div>
+              <div>
+                <span>8.5 - 9.4</span>
+                <b>Excellent</b>
+              </div>
+              <div>
+                <span>7.5 - 8.4</span>
+                <b>Good</b>
+              </div>
+              <div>
+                <span>6.0 - 7.4</span>
+                <b>Needs Improvement</b>
+              </div>
+              <div>
+                <span>Below 6.0</span>
+                <b>Critical</b>
               </div>
             </div>
           </div>
+        </section>
 
-          {/* Consistency Card */}
-          <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-              <h3 className="text-xs font-bold text-white flex items-center gap-2">
-                <TrendingUp size={16} className="text-cyan-400" />
-                Consistency (5)
-              </h3>
-              <span className="text-xs font-extrabold text-white font-mono">{comp.consistency.score} / 5</span>
+        <section className="kpi-factor-panel">
+          <div className="kpi-factor-head">
+            <div>
+              <h2>
+                <Zap size={17} className="text-emerald-400" />
+                KPI factors
+              </h2>
+              <p>
+                {data.is_evaluated
+                  ? "These items explain why the employee received this score."
+                  : "Factors will be calculated after work is assigned in this month."}
+              </p>
             </div>
-            <div className="space-y-2 text-xs text-slate-300">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Stability Index:</span>
-                <span className="font-semibold font-mono text-cyan-400">{comp.consistency.percentage}%</span>
-              </div>
-              <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80 mt-2">
-                <div
-                  className="bg-cyan-400 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.max(0, comp.consistency.percentage || 0))}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-
-      {/* 4. Monthly Performance Charts Grid: 6-Month Trend & Component Bar Chart */}
-      <div className="kpi-detail-charts grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 6-Month Monthly Trend Line Chart */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-4 shadow-xl backdrop-blur-md">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <TrendingUp size={16} className="text-emerald-400" />
-              6-Month Performance Trend History
-            </h3>
-            <span className="text-[11px] text-slate-400 font-mono">Score / 100</span>
+            <span>{data.is_evaluated ? `${data.final_score} / 100 weighted score` : "Not evaluated"}</span>
           </div>
 
-          {data.history && data.history.length > 0 ? (
-            <div className="space-y-4">
-              <div className="h-44 w-full pt-4 pb-2 relative">
-                <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120">
-                  <defs>
-                    <linearGradient id="empHistGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10b981" stopOpacity="0.4" />
-                      <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-                    </linearGradient>
-                  </defs>
-
-                  {[20, 50, 80, 110].map((yVal, idx) => (
-                    <line key={idx} x1="0" y1={yVal} x2="500" y2={yVal} stroke="#1e293b" strokeDasharray="3 3" strokeWidth="1" />
-                  ))}
-
-                  {(() => {
-                    const points = data.history!.map((item, idx) => {
-                      const x = (idx / (data.history!.length - 1)) * 480 + 10;
-                      const y = 110 - (item.final_score / 100) * 100;
-                      return { x, y, score: item.final_score, period: item.period, isCurrent: item.month === selectedMonth };
-                    });
-
-                    const pathD = points.reduce((acc, pt, i) => `${acc} ${i === 0 ? "M" : "L"} ${pt.x} ${pt.y}`, "");
-                    const areaD = `${pathD} L ${points[points.length - 1].x} 115 L ${points[0].x} 115 Z`;
-
-                    return (
-                      <>
-                        <path d={areaD} fill="url(#empHistGrad)" />
-                        <path d={pathD} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                        {points.map((pt, i) => (
-                          <g key={i} className="group cursor-pointer">
-                            <circle
-                              cx={pt.x}
-                              cy={pt.y}
-                              r={pt.isCurrent ? "6" : "4"}
-                              fill={pt.isCurrent ? "#10b981" : "#34d399"}
-                              stroke="#020617"
-                              strokeWidth="2"
-                            />
-                            <text
-                              x={pt.x}
-                              y={pt.y - 10}
-                              textAnchor="middle"
-                              fill={pt.isCurrent ? "#10b981" : "#cbd5e1"}
-                              fontSize="10"
-                              fontWeight={pt.isCurrent ? "bold" : "normal"}
-                            >
-                              {pt.score}
-                            </text>
-                          </g>
-                        ))}
-                      </>
-                    );
-                  })()}
-                </svg>
-              </div>
-
-              <div className="flex justify-between border-t border-slate-800/80 pt-2 text-[11px] text-slate-400">
-                {data.history.map((item) => (
-                  <span
-                    key={item.period}
-                    className={item.month === selectedMonth ? "text-emerald-400 font-bold" : ""}
-                  >
-                    {item.period}
-                  </span>
-                ))}
-              </div>
+          {data.is_evaluated ? (
+            <div className="kpi-factor-list">
+              {componentList.map((item) => {
+              const Icon = item.icon;
+              const factorPct = Math.min(100, Math.max(0, (item.score / item.max) * 100));
+              return (
+                <div key={item.name} className="kpi-factor-card">
+                  <div className="kpi-factor-main">
+                    <div className="kpi-factor-title">
+                      <div className="kpi-factor-icon" style={{ color: item.color }}>
+                        <Icon size={16} />
+                      </div>
+                      <div>
+                        <h3>{item.name}</h3>
+                        <p>{item.description}</p>
+                        <small>{item.detail}</small>
+                      </div>
+                    </div>
+                    <div className="kpi-factor-score">
+                      <p>
+                        {item.score} <span>/ {item.max}</span>
+                      </p>
+                      <small>{Math.round(factorPct)}%</small>
+                    </div>
+                  </div>
+                  <div className="kpi-factor-bar">
+                    <div
+                      className="kpi-factor-fill"
+                      style={{ width: `${factorPct}%`, backgroundColor: item.color }}
+                    />
+                  </div>
+                </div>
+              );
+              })}
             </div>
           ) : (
-            <div className="h-44 flex items-center justify-center text-xs text-slate-500">
-              No historical data available for visualization.
+            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-300">
+              No work assigned for this period. KPI tracking will start when assignments are added for this employee.
             </div>
           )}
-        </div>
-
-        {/* Component Breakdown Bar Chart */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-4 shadow-xl backdrop-blur-md">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <BarChart3 size={16} className="text-emerald-400" />
-              Component Score vs Maximum Weight
-            </h3>
-            <span className="text-[11px] text-slate-400 font-mono">{selectedMonth}/{selectedYear}</span>
-          </div>
-
-          <div className="space-y-3.5 pt-1">
-            {componentList.map((item) => (
-              <div key={item.name} className="space-y-1.5">
-                <div className="flex justify-between text-xs font-medium text-slate-300">
-                  <span>{item.name}</span>
-                  <span className="font-mono font-bold text-white">
-                    {item.score} <span className="text-[10px] text-slate-500 font-normal">/ {item.max}</span>
-                  </span>
-                </div>
-                <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800/80 p-0.5">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${Math.min(100, Math.max(0, (item.score / item.max) * 100))}%`,
-                      backgroundColor: item.color,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        </section>
       </div>
 
       {/* Manager Rating Modal */}
@@ -705,7 +430,7 @@ export function EmployeeKPIDetailPage({
             <form onSubmit={handleRatingSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Quality Rating (1.0 – 5.0)
+                  Quality Rating (1.0 - 5.0)
                 </label>
                 <input
                   type="number"

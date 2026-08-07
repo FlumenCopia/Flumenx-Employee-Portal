@@ -95,6 +95,7 @@ class KPISystemTests(TestCase):
         )
 
         kpi = KPIService.calculate_employee_kpi(self.emp1, today.month, today.year)
+        self.assertTrue(kpi["is_evaluated"])
         self.assertEqual(kpi["final_score"], 100.0)
         self.assertEqual(kpi["grade"], "Outstanding")
         self.assertEqual(kpi["components"]["work_completion"]["score"], 40.0)
@@ -103,6 +104,21 @@ class KPISystemTests(TestCase):
         self.assertEqual(kpi["components"]["leave_discipline"]["score"], 10.0)
         self.assertEqual(kpi["components"]["work_quality"]["score"], 10.0)
         self.assertEqual(kpi["components"]["consistency"]["score"], 5.0)
+
+    def test_kpi_does_not_award_full_score_without_activity(self):
+        today = date.today()
+
+        kpi = KPIService.calculate_employee_kpi(self.emp2, today.month, today.year)
+
+        self.assertEqual(kpi["final_score"], 10.0)
+        self.assertEqual(kpi["score_out_of_10"], 1.0)
+        self.assertFalse(kpi["is_evaluated"])
+        self.assertEqual(kpi["grade"], "Not Evaluated")
+        self.assertEqual(kpi["components"]["work_completion"]["score"], 0.0)
+        self.assertEqual(kpi["components"]["attendance"]["score"], 0.0)
+        self.assertEqual(kpi["components"]["on_time_delivery"]["score"], 0.0)
+        self.assertEqual(kpi["components"]["work_quality"]["score"], 0.0)
+        self.assertEqual(kpi["components"]["consistency"]["score"], 0.0)
 
     def test_manager_rating_api_and_permissions(self):
         today = date.today()
