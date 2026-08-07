@@ -79,10 +79,11 @@ export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[
 
 export const getFilteredNavigation = (role: WorkspaceRole): readonly NavigationItem[] => {
   const items = workspaceNavigation[role];
+  const visibleItems = items.filter(([label]) => label !== "Overview");
   if (!SHOW_ADVANCED_WORKBOARD) {
-    return items.filter(([label]) => label !== "Command Center" && label !== "Timeline & Phases");
+    return visibleItems.filter(([label]) => label !== "Command Center" && label !== "Timeline & Phases");
   }
-  return items;
+  return visibleItems;
 };
 
 

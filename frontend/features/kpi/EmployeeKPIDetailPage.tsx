@@ -13,11 +13,8 @@ import {
   CheckCircle2,
   Clock,
   FileText,
-  MessageSquare,
   ShieldAlert,
-  Sparkles,
   Star,
-  Target,
   TrendingDown,
   TrendingUp,
   User,
@@ -174,20 +171,15 @@ export function EmployeeKPIDetailPage({
     { name: "Consistency", score: comp.consistency.score, max: 5, pct: comp.consistency.percentage ?? 0, color: "#06b6d4", icon: TrendingUp },
   ];
 
-  const strengths = componentList.filter((c) => c.pct >= 80);
-  const areasToImprove = componentList.filter((c) => c.pct < 80);
-
   // SVG Gauge calculations
   const radius = 54;
   const circumference = 2 * Math.PI * radius;
   const gaugeOffset = circumference - (Math.min(100, Math.max(0, data.final_score)) / 100) * circumference;
 
-  const reportingManager = comp.work_quality.rated_by || "HR / Team Management";
-
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 text-slate-100 font-sans">
+    <div className="kpi-detail-page w-full max-w-7xl mx-auto space-y-6 text-slate-100 font-sans">
       {/* 1. Large Employee Header & Control Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-md">
+      <div className="kpi-detail-hero flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-md">
         <div className="flex items-center gap-4">
           {!isSelf && (
             <Link
@@ -217,14 +209,12 @@ export function EmployeeKPIDetailPage({
                 <span>{data.department}</span>
                 <span>·</span>
                 <span className="text-slate-300 font-medium">{data.designation}</span>
-                <span>·</span>
-                <span className="text-slate-400">Manager: <strong className="text-slate-200">{reportingManager}</strong></span>
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="kpi-detail-actions flex items-center gap-3">
           {/* Month & Year Selectors */}
           <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 p-1.5 rounded-xl shadow-inner">
             <Calendar size={14} className="text-emerald-400 ml-2" />
@@ -253,6 +243,7 @@ export function EmployeeKPIDetailPage({
 
           {canUpdateRating && !isSelf && (
             <button
+              type="button"
               onClick={() => setShowRatingModal(true)}
               className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-emerald-950 bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 rounded-xl transition shadow-lg shadow-emerald-500/20"
             >
@@ -264,10 +255,10 @@ export function EmployeeKPIDetailPage({
       </div>
 
       {/* 2. Hero Score Gauge & High-Level Metrics Summary */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900/90 to-slate-900 border border-emerald-500/30 rounded-2xl p-6 shadow-2xl space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+      <div className="kpi-score-panel bg-gradient-to-br from-slate-900 via-slate-900/90 to-slate-900 border border-emerald-500/30 rounded-2xl p-6 shadow-2xl space-y-6">
+        <div className="kpi-score-layout grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
           {/* Circular Score Gauge Container */}
-          <div className="flex flex-col items-center justify-center p-6 bg-slate-950/80 border border-slate-800/80 rounded-2xl text-center shadow-inner relative">
+          <div className="kpi-gauge-card flex flex-col items-center justify-center p-6 bg-slate-950/80 border border-slate-800/80 rounded-2xl text-center shadow-inner relative">
             <div className="relative w-36 h-36 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
                 {/* Background Circle */}
@@ -313,7 +304,7 @@ export function EmployeeKPIDetailPage({
           </div>
 
           {/* Quick Metrics Widget Cards (Right 2 Columns) */}
-          <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+          <div className="kpi-quick-grid lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             {/* Work Completion Widget */}
             <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl space-y-2 hover:border-slate-700 transition">
               <div className="flex justify-between items-center text-slate-400">
@@ -370,7 +361,7 @@ export function EmployeeKPIDetailPage({
       </div>
 
       {/* 3. 6 Component Breakdown Cards Grid */}
-      <div className="space-y-3">
+      <div className="kpi-breakdown space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
             <Zap size={16} className="text-emerald-400" />
@@ -379,7 +370,7 @@ export function EmployeeKPIDetailPage({
           <span className="text-[11px] text-slate-400 font-mono">Weighted Factor Breakdown</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="kpi-component-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Work Completion Card */}
           <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl backdrop-blur-md">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
@@ -560,85 +551,9 @@ export function EmployeeKPIDetailPage({
         </div>
       </div>
 
-      {/* 4. Strengths, Focus Areas & Manager Remarks Analytics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Strengths Card */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-bold text-white flex items-center gap-2">
-              <Sparkles size={16} className="text-emerald-400" />
-              Performance Strengths
-            </h3>
-            <span className="text-[10px] text-emerald-400 font-mono">&ge; 80% Efficiency</span>
-          </div>
 
-          <div className="space-y-2 text-xs">
-            {strengths.length > 0 ? (
-              strengths.map((item) => (
-                <div key={item.name} className="flex items-center justify-between bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
-                  <span className="font-medium text-slate-200">{item.name}</span>
-                  <span className="font-mono font-bold text-emerald-400">{item.score} / {item.max}</span>
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-slate-500 py-4 text-center">No components above 80% threshold in period.</p>
-            )}
-          </div>
-        </div>
-
-        {/* Growth Focus Areas Card */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-bold text-white flex items-center gap-2">
-              <Target size={16} className="text-amber-400" />
-              Growth & Focus Areas
-            </h3>
-            <span className="text-[10px] text-amber-400 font-mono">&lt; 80% Score</span>
-          </div>
-
-          <div className="space-y-2 text-xs">
-            {areasToImprove.length > 0 ? (
-              areasToImprove.map((item) => (
-                <div key={item.name} className="flex items-center justify-between bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
-                  <span className="font-medium text-slate-200">{item.name}</span>
-                  <span className="font-mono font-bold text-amber-400">{item.score} / {item.max}</span>
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-emerald-400/80 py-4 text-center">All components performing at high efficiency (&ge;80%).</p>
-            )}
-          </div>
-        </div>
-
-        {/* Manager Remarks & Comments Log */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-            <h3 className="text-xs font-bold text-white flex items-center gap-2">
-              <MessageSquare size={16} className="text-purple-400" />
-              Manager Remarks
-            </h3>
-            <span className="text-[10px] text-slate-400 font-mono">Review Note</span>
-          </div>
-
-          <div className="space-y-2 text-xs">
-            {comp.work_quality.notes ? (
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 text-slate-300 italic leading-relaxed">
-                &quot;{comp.work_quality.notes}&quot;
-                {comp.work_quality.rated_by && (
-                  <span className="block not-italic text-[10px] text-slate-500 font-medium mt-2 font-mono">
-                    — Reviewed by {comp.work_quality.rated_by}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 py-4 text-center">No manager review comments submitted for this evaluation period.</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 5. Monthly Performance Charts Grid: 6-Month Trend & Component Bar Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* 4. Monthly Performance Charts Grid: 6-Month Trend & Component Bar Chart */}
+      <div className="kpi-detail-charts grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 6-Month Monthly Trend Line Chart */}
         <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-4 shadow-xl backdrop-blur-md">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
@@ -760,7 +675,7 @@ export function EmployeeKPIDetailPage({
 
       {/* Manager Rating Modal */}
       {showRatingModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="kpi-rating-backdrop fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-emerald-500/30 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -768,6 +683,7 @@ export function EmployeeKPIDetailPage({
                 Update Manager Quality Rating
               </h3>
               <button
+                type="button"
                 onClick={() => setShowRatingModal(false)}
                 className="p-1 text-slate-400 hover:text-white rounded-lg transition"
               >

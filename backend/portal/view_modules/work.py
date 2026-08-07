@@ -4,6 +4,7 @@ from django.db.models import Count, Q, ProtectedError
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -23,6 +24,42 @@ def assignment_employee_user(assignment):
 
 def work_title(assignment):
     return f"'{assignment.title}' for {assignment.client.name}"
+
+
+def active_employee_options_for_user(user):
+    if not user or not user.is_authenticated:
+        raise PermissionDenied("Authentication is required.")
+    qs = Employee.objects.filter(status="Active").order_by("name")
+    if user.is_superuser or user.is_staff:
+        return qs
+    role = str(portal_role(user)).upper()
+    if role in ("ADMIN", "HR", "BDE", "OPERATIONS_HEAD", "OPERATIONS"):
+        return qs
+    if role == "TEAM_LEAD":
+        lead = getattr(user, "employee", None)
+        if not lead:
+            return qs.none()
+        return qs.filter(team_lead=lead)
+    raise PermissionDenied("You do not have permission to access employee options.")
+
+
+def scoped_work_assignments_for_user(qs, user):
+    if not user or not user.is_authenticated:
+        return qs.none()
+    if user.is_superuser or user.is_staff:
+        return qs
+    role = str(portal_role(user)).upper()
+    if role in ("ADMIN", "HR", "BDE", "OPERATIONS_HEAD", "OPERATIONS"):
+        return qs
+    if role == "TEAM_LEAD":
+        lead = getattr(user, "employee", None)
+        if not lead:
+            return qs.none()
+        return qs.filter(employee__team_lead=lead)
+    employee = getattr(user, "employee", None)
+    if employee and role in ("EMPLOYEE", "MEMBER"):
+        return qs.filter(employee=employee)
+    return qs.none()
 
 
 def notify_work_assigned(assignment, actor):
@@ -63,7 +100,7 @@ class ClientViewSet(viewsets.ModelViewSet):
 
 class WorkEmployeeOptionsView(APIView):
     def get(self, request):
-        qs = Employee.objects.filter(status="Active").order_by("name")
+        qs = active_employee_options_for_user(request.user)
         return Response([{"id": employee.id, "display_name": employee.name, "department": employee.department} for employee in qs])
 
 
@@ -152,6 +189,7 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = WorkAssignment.objects.select_related("employee", "client", "assigned_by").prefetch_related("deliverables__client").order_by("-id")
+        qs = scoped_work_assignments_for_user(qs, self.request.user)
         return self.apply_filters(qs)
 
 

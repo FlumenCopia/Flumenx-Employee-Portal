@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { BriefcaseBusiness, Globe, LayoutDashboard, ListFilter, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
+import { BriefcaseBusiness, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import type { Client, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary } from "@/lib/types";
 import { SHOW_ADVANCED_WORKBOARD } from "@/lib/types";
@@ -485,7 +485,7 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       ? "budget"
       : "overview";
 
-  const [activeViewMode, setActiveViewMode] = useState<"COMMAND_CENTER" | "LIST">("COMMAND_CENTER");
+  const [activeViewMode] = useState<"COMMAND_CENTER" | "LIST">("COMMAND_CENTER");
 
 
   const handleStatusChange = async (id: number, status: WorkStatus) => {
@@ -525,32 +525,7 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       subtitle={SHOW_ADVANCED_WORKBOARD ? "Assign client work, track taskboards, timeline phases, and KPI targets in real time." : "Assign client work, track taskboards, and update deliverable progress in real time."}
       action={
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          <div className="flex bg-[#0F2218] border border-[rgba(77,255,160,0.14)] rounded-xl p-1 gap-1">
-            <button
-              type="button"
-              onClick={() => setActiveViewMode("COMMAND_CENTER")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                activeViewMode === "COMMAND_CENTER"
-                  ? "bg-[#4DFFA0] text-[#020806] shadow-[0_0_10px_rgba(77,255,160,0.3)]"
-                  : "text-[#89ACA0] hover:text-white"
-              }`}
-            >
-              <LayoutDashboard size={14} /> {SHOW_ADVANCED_WORKBOARD ? "Command Center" : "Task Board"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveViewMode("LIST")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                activeViewMode === "LIST"
-                  ? "bg-[#4DFFA0] text-[#020806] shadow-[0_0_10px_rgba(77,255,160,0.3)]"
-                  : "text-[#89ACA0] hover:text-white"
-              }`}
-            >
-              <ListFilter size={14} /> List View
-            </button>
-          </div>
-          {clients.length > 0 && (
+          {/* {clients.length > 0 && (
             <button
               type="button"
               className="secondary-button"
@@ -564,7 +539,7 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
             >
               <Globe size={15} /> Share progress
             </button>
-          )}
+          )} */}
           <PrimaryButton onClick={openCreate}>Assign work</PrimaryButton>
         </div>
       }
@@ -578,6 +553,7 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       <CommandCenterView
         assignments={items}
         clients={clients}
+        members={visibleEmployees}
         userRole={role}
         currentUser={shellUser ? { id: shellUser.id, name: shellUser.first_name || shellUser.username, username: shellUser.username, role: shellUser.portal_role } : undefined}
         onStatusChange={handleStatusChange}

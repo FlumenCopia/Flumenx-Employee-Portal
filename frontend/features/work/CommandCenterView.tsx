@@ -25,7 +25,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import type { WorkAssignment, Client, WorkPriority, WorkStatus, PortalRole } from "@/lib/types";
+import type { WorkAssignment, Client, WorkEmployeeOption, WorkPriority, WorkStatus, PortalRole } from "@/lib/types";
 import { Modal } from "@/features/common/Modal";
 
 export interface TaskItem {
@@ -132,6 +132,7 @@ const DEFAULT_SEED_TASKS: TaskItem[] = [];
 export function CommandCenterView({
   assignments,
   clients,
+  members,
   userRole = "ADMIN",
   currentUser,
   onStatusChange,
@@ -140,6 +141,7 @@ export function CommandCenterView({
 }: {
   assignments: WorkAssignment[];
   clients: Client[];
+  members?: WorkEmployeeOption[];
   userRole?: PortalRole | string;
   currentUser?: { id?: number; name?: string; username?: string; role?: string };
   onStatusChange?: (id: number, status: WorkStatus) => Promise<void> | void;
@@ -160,7 +162,6 @@ export function CommandCenterView({
   const [selectedMemberFilter, setSelectedMemberFilter] = useState("all");
   const [selectedPriorityFilter, setSelectedPriorityFilter] = useState("all");
   const [statusPillFilter, setStatusPillFilter] = useState<string>("all");
-  const [sortOrder, setSortOrder] = useState<"date-asc" | "date-desc" | "priority">("date-desc");
 
   const [openPhases, setOpenPhases] = useState<Record<string, boolean>>({
     ph1: true,
@@ -283,16 +284,21 @@ export function CommandCenterView({
 
 
   const dynamicMembers = useMemo(() => {
-    if (!assignments || assignments.length === 0) return [];
-    const map = new Map<string, { id: string; name: string; department: string }>();
-    assignments.forEach((a) => {
-      const id = String(a.employee);
-      if (!map.has(id)) {
-        map.set(id, { id, name: a.employee_name, department: a.employee_department || "Member" });
-      }
-    });
-    return Array.from(map.values());
-  }, [assignments]);
+    return [...(members || [])]
+      .map((member) => ({
+        id: String(member.id),
+        name: member.display_name,
+        department: member.department || "Member",
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [members]);
+
+  useEffect(() => {
+    if (selectedMemberFilter === "all") return;
+    if (!dynamicMembers.some((member) => member.id === selectedMemberFilter)) {
+      setSelectedMemberFilter("all");
+    }
+  }, [dynamicMembers, selectedMemberFilter]);
 
 
 
@@ -313,8 +319,7 @@ export function CommandCenterView({
   }, 0);
 
   const filteredTasks = useMemo(() => {
-    return tasks
-      .filter((t) => {
+    return tasks.filter((t) => {
         if (searchQuery) {
           const q = searchQuery.toLowerCase();
           if (!t.title.toLowerCase().includes(q) && !t.code.toLowerCase().includes(q) && !t.assigneeName.toLowerCase().includes(q)) return false;
@@ -328,22 +333,17 @@ export function CommandCenterView({
           }
         }
 
-        if (selectedMemberFilter !== "all" && t.assignee !== selectedMemberFilter && t.assigneeName !== selectedMemberFilter) return false;
+        if (selectedMemberFilter !== "all" && t.assignee !== selectedMemberFilter) return false;
         if (selectedPriorityFilter !== "all" && t.priority !== selectedPriorityFilter) return false;
         if (statusPillFilter !== "all" && t.status !== statusPillFilter) return false;
         return true;
-      })
-      .sort((a, b) => {
-        if (sortOrder === "date-desc") return Number(b.id) - Number(a.id);
-        if (sortOrder === "date-asc") return Number(a.id) - Number(b.id);
-        if (sortOrder === "priority") {
-          const pRank: Record<string, number> = { p0: 0, p1: 1, p2: 2 };
-          return pRank[a.priority] - pRank[b.priority];
-        }
-        return Number(b.id) - Number(a.id);
       });
 
-  }, [tasks, searchQuery, selectedPhaseFilter, selectedTypeFilter, selectedMemberFilter, selectedPriorityFilter, statusPillFilter, sortOrder]);
+  }, [tasks, searchQuery, selectedPhaseFilter, selectedTypeFilter, selectedMemberFilter, selectedPriorityFilter, statusPillFilter]);
+
+  const selectedMember = useMemo(() => {
+    return selectedMemberFilter === "all" ? null : dynamicMembers.find((member) => member.id === selectedMemberFilter) || null;
+  }, [dynamicMembers, selectedMemberFilter]);
 
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState("");
@@ -625,12 +625,6 @@ export function CommandCenterView({
                   <option value="p2">P2 Normal</option>
                 </select>
 
-                <select className="fs" value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} style={{ width: "auto" }}>
-                  <option value="date-desc">Sort: Newest First</option>
-                  <option value="date-asc">Sort: Oldest First</option>
-                  <option value="priority">Sort: Priority</option>
-                </select>
-
               </div>
             </div>
 
@@ -659,6 +653,12 @@ export function CommandCenterView({
               })}
             </div>
           </div>
+
+          {selectedMember && filteredTasks.length === 0 && (
+            <div style={{ border: "1px solid var(--border)", background: "var(--panel2)", color: "var(--muted)", padding: "12px 14px", fontSize: "12px", fontWeight: 700 }}>
+              No assignments found for this employee.
+            </div>
+          )}
 
           {/* 6 Kanban Columns Grid */}
           <div className="kb">
@@ -1153,4 +1153,3 @@ export function CommandCenterView({
     </div>
   );
 }
-

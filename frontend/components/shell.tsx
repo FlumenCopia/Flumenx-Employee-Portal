@@ -303,6 +303,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [revalidatingBfCache, setRevalidatingBfCache] = useState(false);
+  const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -359,6 +360,33 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     };
   }, [workspaceRole]);
 
+  useEffect(() => {
+    const canReviewLeaves = user?.portal_role === "ADMIN" || user?.portal_role === "HR";
+    if (!canReviewLeaves) {
+      setPendingLeaveCount(0);
+      return;
+    }
+
+    const controller = new AbortController();
+    const loadPendingLeaveCount = () => {
+      api<{ count: number }>("/leaves/pending-count/", { signal: controller.signal })
+        .then(data => setPendingLeaveCount(data.count))
+        .catch(err => {
+          if (!controller.signal.aborted) {
+            console.warn("Could not load pending leave count", err);
+            setPendingLeaveCount(0);
+          }
+        });
+    };
+
+    loadPendingLeaveCount();
+    const timer = window.setInterval(loadPendingLeaveCount, 60000);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [user]);
+
   const openLogoutModal = () => {
     setOpen(false);
     setLoggingOut(false);
@@ -401,7 +429,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
       <aside className={`sidebar ${open ? "open" : ""}`}>
         <div className="side-brand"><FlumenxMark /><button className="mobile-close" onClick={() => setOpen(false)}><X /></button></div>
         <div className="workspace"><div className="workspace-icon">FX</div><div><b>FLUMENX HQ</b><span>Core workspace</span></div><ChevronDown size={14} /></div>
-        <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label === "Leave requests" && workspaceRole === "admin" && <em>2</em>}</Link>)}</nav>
+        <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label === "Leave requests" && pendingLeaveCount > 0 && <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>}</Link>)}</nav>
         <div className="sidebar-foot">
           <div className="mini-profile cursor-pointer hover:bg-[rgba(77,255,160,0.08)] transition-colors rounded-xl p-2 mb-2" onClick={openLogoutModal} title="Click to sign out"><Avatar name={name} /><div><b>{name}</b><span>{roleLabel}</span></div></div>
           <button type="button" onClick={openLogoutModal} disabled={loggingOut}><LogOut size={17} /> {loggingOut ? "Signing out..." : "Sign out"}</button>

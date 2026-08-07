@@ -27,6 +27,10 @@ class LeaveViewSet(viewsets.ModelViewSet):
             return qs
         return qs.filter(employee__user=self.request.user)
 
+    @action(detail=False, methods=["get"], url_path="pending-count")
+    def pending_count(self, request):
+        return Response({"count": self.get_queryset().filter(status="Pending").count()})
+
     def perform_create(self, serializer):
         if portal_role(self.request.user) in ("ADMIN", "HR") and self.request.data.get("employee"):
             leave = serializer.save(employee_id=self.request.data["employee"])

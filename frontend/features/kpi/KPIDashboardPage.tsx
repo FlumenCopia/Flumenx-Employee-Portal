@@ -35,7 +35,7 @@ import {
   Zap,
   X,
 } from "lucide-react";
-import { api, apiBlob } from "@/lib/api";
+import { api } from "@/lib/api";
 import type { Department, KPIDashboardData, KPIEmployeeData, KPIGrade } from "@/lib/types";
 
 const DEPARTMENTS: Department[] = [
@@ -71,6 +71,24 @@ function getGradeBadgeClass(grade?: KPIGrade) {
     default:
       return "bg-slate-500/15 text-slate-400 border-slate-500/30";
   }
+}
+
+function csvCell(value: string | number | null | undefined) {
+  const text = String(value ?? "");
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadCSV(filename: string, rows: (string | number | null | undefined)[][]) {
+  const content = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
 }
 
 export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string }) {
@@ -139,29 +157,53 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
   const handleCSVExport = async () => {
     setExporting(true);
     try {
-      const params = new URLSearchParams();
-      params.set("month", String(selectedMonth));
-      params.set("year", String(selectedYear));
-      if (department) params.set("department", department);
-      if (grade) params.set("grade", grade);
-      if (search) params.set("search", search);
-      if (minScore) params.set("min_score", minScore);
-      if (maxScore) params.set("max_score", maxScore);
-
-      const blob = await apiBlob(`/kpi/export-csv/?${params.toString()}`);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `employee_kpis_${selectedYear}_${String(selectedMonth).padStart(2, "0")}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      downloadCSV(
+        `employee_kpis_${selectedYear}_${String(selectedMonth).padStart(2, "0")}.csv`,
+        [
+          [
+            "Employee Code",
+            "Name",
+            "Department",
+            "Designation",
+            "Month/Year",
+            "Work Completion (40)",
+            "Attendance (20)",
+            "On-Time Delivery (15)",
+            "Leave Discipline (10)",
+            "Quality Score (10)",
+            "Consistency (5)",
+            "Final Score (100)",
+            "Grade",
+          ],
+          ...processedEmployees.map((emp) => [
+            emp.employee_code,
+            emp.employee_name,
+            emp.department,
+            emp.designation,
+            `${String(emp.month).padStart(2, "0")}/${emp.year}`,
+            emp.components.work_completion.score,
+            emp.components.attendance.score,
+            emp.components.on_time_delivery.score,
+            emp.components.leave_discipline.score,
+            emp.components.work_quality.score,
+            emp.components.consistency.score,
+            emp.final_score,
+            emp.grade,
+          ]),
+        ]
+      );
     } catch (err) {
       alert("Failed to download CSV export.");
     } finally {
       setExporting(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    setEmployeeSearchOpen(false);
+    setEmployeeSearchQuery("");
+    setCurrentPage(1);
+    await loadDashboard();
   };
 
   const resetFilters = () => {
@@ -253,24 +295,32 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
     : companyComponentAverages;
 
   // Process Employees Table with Sorting & Pagination
-  const processedEmployees = [...(data?.employees || [])].sort((a, b) => {
-    if (sortBy === "score_desc") return b.final_score - a.final_score;
-    if (sortBy === "score_asc") return a.final_score - b.final_score;
-    if (sortBy === "name") return a.employee_name.localeCompare(b.employee_name);
-    if (sortBy === "dept") return a.department.localeCompare(b.department);
-    return 0;
-  });
+  const processedEmployees = [...(data?.employees || [])]
+    .filter((emp) => selectedEmployeeId === null || emp.employee_id === selectedEmployeeId)
+    .sort((a, b) => {
+      if (sortBy === "score_desc") return b.final_score - a.final_score;
+      if (sortBy === "score_asc") return a.final_score - b.final_score;
+      if (sortBy === "name") return a.employee_name.localeCompare(b.employee_name);
+      if (sortBy === "dept") return a.department.localeCompare(b.department);
+      return 0;
+    });
 
   const totalPages = Math.ceil(processedEmployees.length / pageSize) || 1;
   const paginatedEmployees = processedEmployees.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const inputControlClasses =
     "w-full text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition appearance-none cursor-pointer";
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 text-slate-100 font-sans">
+    <div className="kpi-dashboard w-full max-w-7xl mx-auto space-y-6 text-slate-100 font-sans">
       {/* 1. Large Modern Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-md">
+      <div className="kpi-hero flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-md">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-3">
             <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400 shadow-md shadow-emerald-500/10">
@@ -283,9 +333,10 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="kpi-hero-actions flex items-center gap-3">
           {hasActiveFilters && (
             <button
+              type="button"
               onClick={resetFilters}
               className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl transition"
             >
@@ -295,8 +346,9 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
           )}
 
           <button
+            type="button"
             onClick={handleCSVExport}
-            disabled={exporting}
+            disabled={exporting || processedEmployees.length === 0}
             className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-emerald-950 bg-emerald-400 hover:bg-emerald-300 active:bg-emerald-500 rounded-xl transition shadow-lg shadow-emerald-500/20 disabled:opacity-50"
           >
             <FileSpreadsheet size={16} />
@@ -304,7 +356,8 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
           </button>
 
           <button
-            onClick={loadDashboard}
+            type="button"
+            onClick={handleRefresh}
             disabled={loading}
             className="p-2.5 text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl transition"
             title="Refresh Data"
@@ -315,14 +368,15 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
       </div>
 
       {/* 2. Premium Filter Toolbar Panel */}
-      <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4 backdrop-blur-md">
-        <div className="flex items-center justify-between text-xs font-semibold text-slate-300 border-b border-slate-800/80 pb-3">
+      <div className="kpi-filter-panel bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4 backdrop-blur-md">
+        <div className="kpi-panel-head flex items-center justify-between text-xs font-semibold text-slate-300 border-b border-slate-800/80 pb-3">
           <div className="flex items-center gap-2">
             <Filter size={15} className="text-emerald-400" />
             <span>Filter Performance Records</span>
           </div>
           {hasActiveFilters && (
             <button
+              type="button"
               onClick={resetFilters}
               className="text-xs text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1 font-normal"
             >
@@ -331,7 +385,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="kpi-filter-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {/* Month */}
           <div>
             <label className="block text-[11px] text-slate-400 mb-1 font-medium">Month</label>
@@ -427,6 +481,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                     onClick={() => {
                       setSelectedEmployeeId(null);
                       setEmployeeSearchOpen(false);
+                      setEmployeeSearchQuery("");
                       setCurrentPage(1);
                     }}
                     className={`w-full text-left px-2.5 py-1.5 rounded-lg transition ${
@@ -445,6 +500,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                       onClick={() => {
                         setSelectedEmployeeId(emp.employee_id);
                         setEmployeeSearchOpen(false);
+                        setEmployeeSearchQuery("");
                         setCurrentPage(1);
                       }}
                       className={`w-full text-left px-2.5 py-1.5 rounded-lg transition flex items-center justify-between ${
@@ -504,7 +560,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
       )}
 
       {/* 3. Summary Section Widget Cards Grid (6 Metric Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="kpi-summary-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         {/* Total Evaluated */}
         <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-4 relative overflow-hidden shadow-lg hover:border-slate-700 transition hover:-translate-y-0.5">
           <div className="flex justify-between items-start">
@@ -602,7 +658,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
 
       {/* 4. Selected Employee Spotlight Banner */}
       {selectedEmployeeData ? (
-        <div className="bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900 border border-emerald-500/30 rounded-2xl p-6 shadow-2xl space-y-4">
+        <div className="kpi-spotlight bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900 border border-emerald-500/30 rounded-2xl p-6 shadow-2xl space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-extrabold text-xl shadow-lg shadow-emerald-500/10">
@@ -649,7 +705,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
           </div>
         </div>
       ) : (
-        <div className="bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 flex items-center justify-between text-xs text-slate-400">
+        <div className="kpi-empty-spotlight bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-emerald-400" />
             <span>Select an employee from the dropdown or performance table to highlight their spotlight metrics.</span>
@@ -659,7 +715,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
       )}
 
       {/* 5. Analytics Grid (Grade Distribution, Department Comparison, Monthly Trend, Top/Bottom Performers) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="kpi-analytics-grid grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Department Average KPI Comparison */}
         <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-5 space-y-4 shadow-xl backdrop-blur-md">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
@@ -831,7 +887,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
       </div>
 
       {/* 6. Enterprise Performance Table Section */}
-      <div className="bg-slate-900/90 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md space-y-0">
+      <div className="kpi-table-panel bg-slate-900/90 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md space-y-0">
         <div className="p-5 border-b border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -857,7 +913,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
 
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => { setSortBy(e.target.value as any); setCurrentPage(1); }}
               className="text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               <option value="score_desc">Sort: Highest Score</option>
@@ -977,6 +1033,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
 
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 className="p-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 hover:text-white disabled:opacity-40 transition"
@@ -987,6 +1044,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                 Page {currentPage} of {totalPages}
               </span>
               <button
+                type="button"
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 className="p-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 hover:text-white disabled:opacity-40 transition"

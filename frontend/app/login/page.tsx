@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useLayoutEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import gsap from "gsap";
@@ -8,6 +8,17 @@ import { FlumenxMark } from "@/components/icons";
 import { api, ApiError } from "@/lib/api";
 import { clearCachedAuthUser, setCachedAuthUser } from "@/lib/auth-cache";
 import type { AuthUser } from "@/lib/types";
+
+const destinations: Record<string, string> = {
+  ADMIN: "/admin/dashboard",
+  HR: "/hr/dashboard",
+  ACCOUNTANT: "/accountant/dashboard",
+  BDE: "/bdo/dashboard",
+  TEAM_LEAD: "/team-lead/dashboard",
+  EMPLOYEE: "/employee/dashboard",
+  OPERATIONS: "/admin/dashboard",
+  OPERATIONS_HEAD: "/admin/dashboard",
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +29,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
 
 
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
@@ -25,6 +37,24 @@ export default function LoginPage() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotMessage, setForgotMessage] = useState("");
   const [forgotError, setForgotError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    api<AuthUser>("/auth/me/")
+      .then(user => {
+        if (!active) return;
+        setCachedAuthUser(user);
+        router.replace(destinations[user.portal_role] || "/login");
+      })
+      .catch(() => {
+        if (active) setCheckingSession(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   async function handleForgotSubmit(e: FormEvent) {
     e.preventDefault();
@@ -67,14 +97,6 @@ export default function LoginPage() {
       });
       const meUser = await api<AuthUser>("/auth/me/");
       setCachedAuthUser(meUser);
-      const destinations: Record<string, string> = {
-        ADMIN: "/admin/dashboard",
-        HR: "/hr/dashboard",
-        ACCOUNTANT: "/accountant/dashboard",
-        BDE: "/bdo/dashboard",
-        TEAM_LEAD: "/team-lead/dashboard",
-        EMPLOYEE: "/employee/dashboard",
-      };
       router.push(destinations[meUser.portal_role] || "/login");
     } catch (error) {
       setError(error instanceof Error ? error.message : "Unable to sign in.");
@@ -82,6 +104,10 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (checkingSession) {
+    return <div className="route-loader"><span>F</span><p>Checking workspace session</p></div>;
   }
 
   return (
