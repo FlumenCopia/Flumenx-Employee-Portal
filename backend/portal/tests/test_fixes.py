@@ -1,5 +1,6 @@
 from datetime import date
 from django.contrib.auth.models import User
+from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -145,6 +146,33 @@ class AppFixesTests(TestCase):
         self.assertIn("user", login_res.data)
         self.assertIn("flumenx_access", login_res.cookies)
         self.assertEqual(login_res.data["user"]["email"], emp_email)
+
+    def test_employee_create_emails_login_details(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token_for('ADMIN')}")
+        emp_email = "welcome@flumenx.local"
+        temp_pass = "Welcome#2026"
+
+        create_res = self.client.post("/api/employees/", {
+            "employee_code": "FLX-WELCOME",
+            "name": "Welcome Employee",
+            "email": emp_email,
+            "phone": "9876543210",
+            "department": "Web Development",
+            "designation": "Developer",
+            "joining_date": "2026-08-05",
+            "status": "Active",
+            "portal_role": "EMPLOYEE",
+            "password": temp_pass,
+        }, format="json")
+
+        self.assertEqual(create_res.status_code, 201, create_res.data)
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertIn(emp_email, message.to)
+        self.assertIn("Your Login Details", message.subject)
+        self.assertIn(f"Email: {emp_email}", message.body)
+        self.assertIn(f"Temporary password: {temp_pass}", message.body)
+        self.assertIn("/login", message.body)
 
     def test_work_assignment_assignee_and_management_permissions(self):
         from portal.models import Client, WorkAssignment
