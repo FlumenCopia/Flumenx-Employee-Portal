@@ -166,9 +166,17 @@ function NotificationBell({ user }: { user: AuthUser | null }) {
     }
   }
 
+  function toggleNotifications() {
+    const nextOpen = !open;
+    setOpen(nextOpen);
+    if (nextOpen && count > 0) {
+      markAllRead();
+    }
+  }
+
   return (
     <div className="notification-wrap" ref={panelRef}>
-      <button className="icon-button notification-trigger" type="button" aria-label="Open notifications" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+      <button className="icon-button notification-trigger" type="button" aria-label="Open notifications" aria-expanded={open} onClick={toggleNotifications}>
         <Bell size={19} />
         {count > 0 && <span className="notification-badge">{count > 99 ? "99+" : count}</span>}
       </button>
@@ -188,7 +196,7 @@ function NotificationBell({ user }: { user: AuthUser | null }) {
             const Icon = notificationIcon(item.category);
             return <button key={item.id} type="button" className={`notification-item ${item.is_read ? "read" : "unread"}`} disabled={readingId === item.id} onClick={() => markRead(item)}>
               <span className="notification-icon"><Icon size={15} /></span>
-              <span><b>{item.title}</b><small>{item.message}</small><em>{item.category.replaceAll("_", " ")} · {readableTime(item.created_at)}</em></span>
+              <span><b>{item.title}</b><small>{item.message}</small><em>{item.category.replaceAll("_", " ")} / {readableTime(item.created_at)}</em></span>
             </button>;
           })}
         </div>
