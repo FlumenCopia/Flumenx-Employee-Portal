@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import connection, transaction
 from portal.models import Department, DynamicRole, PortalPage, RolePermission, UserRole
 
 
@@ -243,39 +243,47 @@ class Command(BaseCommand):
                         },
                     )
 
-            dept_data = [
-                {"name": "Web Development", "code": "WEB_DEVELOPMENT", "order": 1},
-                {"name": "Video Editing", "code": "VIDEO_EDITING", "order": 2},
-                {"name": "Design", "code": "DESIGN", "order": 3},
-                {"name": "Digital Marketing", "code": "DIGITAL_MARKETING", "order": 4},
-                {"name": "Accountant", "code": "ACCOUNTANT", "order": 5},
-                {"name": "HR", "code": "HR", "order": 6},
-                {"name": "Operations", "code": "OPERATIONS", "order": 7},
-            ]
-
-            created_depts = {}
+            # Department & Employee link (ONLY run if portal_department table exists)
             linked_emp_count = 0
-            try:
-                for ditem in dept_data:
-                    dept_obj, _ = Department.objects.get_or_create(
-                        code=ditem["code"],
-                        defaults={
-                            "name": ditem["name"],
-                            "display_order": ditem["order"],
-                            "is_active": True,
-                        },
-                    )
-                    created_depts[ditem["name"]] = dept_obj
+            tables = connection.introspection.table_names()
+            if "portal_department" in tables:
+                try:
+                    with transaction.atomic():
+                        from portal.models import Department, Employee
 
-                from portal.models import Employee
-                for emp in Employee.objects.filter(department_ref__isnull=True):
-                    dept_name = emp.department
-                    if dept_name and dept_name in created_depts:
-                        emp.department_ref = created_depts[dept_name]
-                        emp.save(update_fields=["department_ref"])
-                        linked_emp_count += 1
-            except Exception:
-                pass
+                        dept_data = [
+                            {"name": "Web Development", "code": "WEB_DEVELOPMENT", "order": 1},
+                            {"name": "Video Editing", "code": "VIDEO_EDITING", "order": 2},
+                            {"name": "Design", "code": "DESIGN", "order": 3},
+                            {"name": "Digital Marketing", "code": "DIGITAL_MARKETING", "order": 4},
+                            {"name": "Accountant", "code": "ACCOUNTANT", "order": 5},
+                            {"name": "HR", "code": "HR", "order": 6},
+                            {"name": "Operations", "code": "OPERATIONS", "order": 7},
+                        ]
+
+                        created_depts = {}
+                        for ditem in dept_data:
+                            dept_obj, _ = Department.objects.get_or_create(
+                                code=ditem["code"],
+                                defaults={
+                                    "name": ditem["name"],
+                                    "display_order": ditem["order"],
+                                    "is_active": True,
+                                },
+                            )
+                            created_depts[ditem["name"]] = dept_obj
+
+                        cursor = connection.cursor()
+                        emp_cols = [c.name for c in connection.introspection.get_table_description(cursor, "portal_employee")]
+                        if "department_ref_id" in emp_cols:
+                            for emp in Employee.objects.filter(department_ref__isnull=True):
+                                dept_name = emp.department
+                                if dept_name and dept_name in created_depts:
+                                    emp.department_ref = created_depts[dept_name]
+                                    emp.save(update_fields=["department_ref"])
+                                    linked_emp_count += 1
+                except Exception as exc:
+                    self.stdout.write(f"Skipping department seeding: {exc}")
 
             updated_count = 0
             for user_role in UserRole.objects.filter(dynamic_role__isnull=True):
