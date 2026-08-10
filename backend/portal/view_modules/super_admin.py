@@ -93,9 +93,9 @@ class DynamicRoleViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.is_system_role:
+        if instance.code.upper() == "SUPER_ADMIN" or instance.is_superadmin_wildcard:
             return Response(
-                {"detail": "System default roles cannot be deleted."},
+                {"detail": "The SUPER_ADMIN role cannot be deleted."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

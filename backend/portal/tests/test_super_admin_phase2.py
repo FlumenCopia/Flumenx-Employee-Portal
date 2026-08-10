@@ -111,8 +111,8 @@ class SuperAdminPhase2APITests(APITestCase):
         res_dup = self.client.post("/api/portal/roles/", payload, format="json")
         self.assertEqual(res_dup.status_code, status.HTTP_400_BAD_REQUEST)
 
-        # System role deletion blocked
-        sys_role = DynamicRole.objects.get(code="ADMIN")
+        # SUPER_ADMIN role deletion blocked
+        sys_role = DynamicRole.objects.get(code="SUPER_ADMIN")
         res_sys_del = self.client.delete(f"/api/portal/roles/{sys_role.id}/")
         self.assertEqual(res_sys_del.status_code, status.HTTP_400_BAD_REQUEST)
 

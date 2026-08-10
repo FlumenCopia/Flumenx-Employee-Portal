@@ -201,7 +201,7 @@ export function SettingsAccessPage() {
                             >
                               Edit
                             </button>
-                            {!r.is_system_role && (
+                            {r.code.toUpperCase() !== "SUPER_ADMIN" && !r.is_superadmin_wildcard && (
                               <button
                                 type="button"
                                 className="secondary-button"
