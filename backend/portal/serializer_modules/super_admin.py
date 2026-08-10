@@ -1,10 +1,12 @@
 from datetime import date
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
 
 from portal.models import Department, DynamicRole, Employee, PortalPage, RolePermission, UserRole
 from portal.permissions import portal_role, normalize_portal_role
+from portal.services.email_service import send_onboarding_email
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
@@ -298,39 +300,42 @@ class SuperAdminUserCreateSerializer(serializers.Serializer):
         else:
             dept_obj = Department.objects.filter(name__iexact=department_str).first()
 
-        user = User.objects.create_user(
-            username=email,
-            email=email,
-            password=password,
-            first_name=full_name.split()[0] if full_name else "",
-            last_name=" ".join(full_name.split()[1:]) if len(full_name.split()) > 1 else "",
-        )
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                password=password,
+                first_name=full_name.split()[0] if full_name else "",
+                last_name=" ".join(full_name.split()[1:]) if len(full_name.split()) > 1 else "",
+            )
 
-        valid_legacy_roles = [choice[0] for choice in UserRole.ROLES]
-        norm_code = normalize_portal_role(drole.code)
-        legacy_role = norm_code if norm_code in valid_legacy_roles else "EMPLOYEE"
+            valid_legacy_roles = [choice[0] for choice in UserRole.ROLES]
+            norm_code = normalize_portal_role(drole.code)
+            legacy_role = norm_code if norm_code in valid_legacy_roles else "EMPLOYEE"
 
-        UserRole.objects.create(user=user, role=legacy_role, dynamic_role=drole)
+            UserRole.objects.create(user=user, role=legacy_role, dynamic_role=drole)
 
-        count = Employee.objects.count() + 1
-        emp_code = f"EMP-{count:04d}"
-        while Employee.objects.filter(employee_code=emp_code).exists():
-            count += 1
+            count = Employee.objects.count() + 1
             emp_code = f"EMP-{count:04d}"
+            while Employee.objects.filter(employee_code=emp_code).exists():
+                count += 1
+                emp_code = f"EMP-{count:04d}"
 
-        Employee.objects.create(
-            user=user,
-            employee_code=emp_code,
-            name=full_name,
-            email=email,
-            phone=phone,
-            department=department_str,
-            department_ref=dept_obj,
-            designation=designation,
-            joining_date=date.today(),
-            status="Active",
-            location=location,
-        )
+            Employee.objects.create(
+                user=user,
+                employee_code=emp_code,
+                name=full_name,
+                email=email,
+                phone=phone,
+                department=department_str,
+                department_ref=dept_obj,
+                designation=designation,
+                joining_date=date.today(),
+                status="Active",
+                location=location,
+            )
+
+            send_onboarding_email(full_name, email, password)
 
         return user
 

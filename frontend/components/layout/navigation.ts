@@ -148,7 +148,8 @@ export const getFilteredNavigation = (role: WorkspaceRole): readonly NavigationI
       label !== "Overview" &&
       label !== "Command Center" &&
       label !== "Command Center Dashboard" &&
-      label !== "Timeline & Phases"
+      label !== "Timeline & Phases" &&
+      label !== "Employees"
   );
 };
 

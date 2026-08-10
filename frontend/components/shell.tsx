@@ -326,8 +326,10 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
             item.title !== "Command Center" &&
             item.title !== "Command Center Dashboard" &&
             item.title !== "Timeline & Phases" &&
+            item.title !== "Employees" &&
             !item.route_path.includes("view=command-center") &&
-            !item.route_path.includes("view=timeline")
+            !item.route_path.includes("view=timeline") &&
+            !item.route_path.includes("/employees")
         );
         const mapped = filtered.map((item) => [
           item.title,
