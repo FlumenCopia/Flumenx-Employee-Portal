@@ -10,6 +10,7 @@ import { clearCachedAuthUser, setCachedAuthUser } from "@/lib/auth-cache";
 import type { AuthUser } from "@/lib/types";
 
 const destinations: Record<string, string> = {
+  SUPER_ADMIN: "/admin/dashboard",
   ADMIN: "/admin/dashboard",
   HR: "/hr/dashboard",
   ACCOUNTANT: "/accountant/dashboard",
@@ -45,7 +46,12 @@ export default function LoginPage() {
       .then(user => {
         if (!active) return;
         setCachedAuthUser(user);
-        router.replace(destinations[user.portal_role] || "/login");
+        const dest = destinations[user.portal_role];
+        if (dest && dest !== "/login") {
+          router.replace(dest);
+        } else {
+          setCheckingSession(false);
+        }
       })
       .catch(() => {
         if (active) setCheckingSession(false);

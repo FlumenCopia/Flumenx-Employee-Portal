@@ -8,7 +8,7 @@ import { FlumenxMark, Avatar } from "./icons";
 import { api, logout } from "@/lib/api";
 import { clearCachedAuthUser, getCachedAuthUser, loadAuthUser } from "@/lib/auth-cache";
 import type { AuthUser, Paginated, PortalNotification, WorkspaceRole } from "@/lib/types";
-import { expectedPortalRoles, getFilteredNavigation, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
+import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
 
 
 const ShellUserContext = createContext<AuthUser | null>(null);
@@ -312,6 +312,54 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
   const [loggingOut, setLoggingOut] = useState(false);
   const [revalidatingBfCache, setRevalidatingBfCache] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+  const [dynamicNav, setDynamicNav] = useState<readonly (readonly [string, string, any])[] | null>(null);
+  const [navLoading, setNavLoading] = useState(true);
+
+  const fetchDynamicNavigation = useCallback(async () => {
+    if (!user) return;
+    try {
+      const items = await api<import("./layout/navigation").DynamicApiNavItem[]>("/portal/navigation/me/");
+      if (Array.isArray(items)) {
+        const sorted = [...items].sort((a, b) => a.sidebar_order - b.sidebar_order);
+        const filtered = sorted.filter(
+          (item) =>
+            item.title !== "Command Center" &&
+            item.title !== "Command Center Dashboard" &&
+            item.title !== "Timeline & Phases" &&
+            !item.route_path.includes("view=command-center") &&
+            !item.route_path.includes("view=timeline")
+        );
+        const mapped = filtered.map((item) => [
+          item.title,
+          item.route_path,
+          getLucideIcon(item.icon),
+        ] as const);
+        setDynamicNav(mapped);
+      } else {
+        setDynamicNav(getFilteredNavigation(workspaceRole));
+      }
+    } catch {
+      setDynamicNav(getFilteredNavigation(workspaceRole));
+    } finally {
+      setNavLoading(false);
+    }
+  }, [user, workspaceRole]);
+
+  useEffect(() => {
+    if (user) {
+      fetchDynamicNavigation();
+    }
+  }, [user, fetchDynamicNavigation]);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetchDynamicNavigation();
+    };
+    window.addEventListener("flumenx:navigation_refresh", handleRefresh);
+    return () => {
+      window.removeEventListener("flumenx:navigation_refresh", handleRefresh);
+    };
+  }, [fetchDynamicNavigation]);
 
   useEffect(() => {
     let active = true;
@@ -425,11 +473,30 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     }
   };
 
-  const nav = getFilteredNavigation(workspaceRole);
+  const nav = dynamicNav !== null ? dynamicNav : getFilteredNavigation(workspaceRole);
 
   const name = user?.first_name || workspaceFallbackNames[workspaceRole];
   const roleLabel = workspaceLabels[workspaceRole];
-  if (!ready || revalidatingBfCache) return <div className="route-loader"><span>F</span><p>Verifying workspace session</p></div>;
+  if (!ready || revalidatingBfCache || (navLoading && dynamicNav === null)) return <div className="route-loader"><span>F</span><p>Verifying workspace session</p></div>;
+
+  const canCreateTask = (() => {
+    if (!user) return false;
+    const role = (user.portal_role || "").toUpperCase();
+    const creatorRoles = ["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS"];
+    if (!creatorRoles.includes(role)) return false;
+    if (workspaceRole === "employee" || workspaceRole === "accountant") return false;
+    return true;
+  })();
+
+  const handleNewTaskClick = () => {
+    if (typeof window !== "undefined") {
+      if (path.includes("/work")) {
+        window.dispatchEvent(new CustomEvent("flumenx:open_new_task_modal"));
+      } else {
+        router.push(`/${workspaceRole}/work?createTask=true`);
+      }
+    }
+  };
 
   return (
     <ShellUserContext.Provider value={user}>
@@ -448,12 +515,30 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
         <header className="topbar">
           <button className="menu-button" onClick={() => setOpen(true)}><Menu /></button>
           <div className="topbar-word">FLUMENX / <span>{roleLabel.toUpperCase()}</span></div>
-          <div className="top-actions">
-            <NotificationBell user={user} />
-            <div className="top-profile cursor-pointer hover:opacity-80 transition-opacity" onClick={openLogoutModal} title="Click to sign out">
-              <Avatar name={name} size={34} />
-              <div><b>{name}</b><span>{roleLabel}</span></div>
-            </div>
+          <div className="top-actions" style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            <span style={{ fontSize: "13px", fontWeight: 600, color: "#F2F6F3" }}>
+              {user?.employee?.name || user?.first_name || user?.username || name}
+            </span>
+            {canCreateTask && (
+              <button
+                type="button"
+                className="primary-button"
+                onClick={handleNewTaskClick}
+                style={{ height: "34px", padding: "0 14px", fontSize: "12px", borderRadius: "6px", fontWeight: 700 }}
+              >
+                + New Task
+              </button>
+            )}
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={openLogoutModal}
+              disabled={loggingOut}
+              style={{ height: "34px", padding: "0 12px", fontSize: "12px", borderRadius: "6px", gap: "6px" }}
+            >
+              <LogOut size={14} />
+              Logout
+            </button>
           </div>
         </header>
         <div className="page">{children}</div>

@@ -29,12 +29,7 @@ from .view_modules.salary import SalarySlipViewSet
 from .view_modules.share_links import PublicWorkProgressView, ShareLinkListCreateView, ShareLinkRegenerateView, ShareLinkRevokeView
 from .view_modules.password_reset import PasswordResetConfirmView, PasswordResetRequestView
 from .view_modules.work import ClientViewSet, WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView, WorkReviewerOptionsView
-
-
-
-
-
-
+from .view_modules.super_admin import DepartmentViewSet, DynamicNavigationView, DynamicRoleViewSet, PortalPageViewSet, RolePermissionMatrixView, SuperAdminUserViewSet
 
 
 class FlumenxTokenSerializer(TokenObtainPairSerializer):

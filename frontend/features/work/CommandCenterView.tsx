@@ -25,7 +25,8 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import type { WorkAssignment, Client, WorkEmployeeOption, WorkPriority, WorkStatus, PortalRole } from "@/lib/types";
+import type { WorkAssignment, Client, WorkEmployeeOption, WorkPriority, WorkStatus, PortalRole, DepartmentItem } from "@/lib/types";
+import { api } from "@/lib/api";
 import { Modal } from "@/features/common/Modal";
 
 export interface TaskItem {
@@ -137,7 +138,7 @@ export function CommandCenterView({
   currentUser,
   onStatusChange,
   onDeleteWork,
-  initialTab = "overview",
+  initialTab = "kanban",
 }: {
   assignments: WorkAssignment[];
   clients: Client[];
@@ -146,9 +147,9 @@ export function CommandCenterView({
   currentUser?: { id?: number; name?: string; username?: string; role?: string };
   onStatusChange?: (id: number, status: WorkStatus) => Promise<void> | void;
   onDeleteWork?: (id: number) => Promise<boolean>;
-  initialTab?: "overview" | "kanban" | "timeline" | "deliverables" | "approvals" | "team" | "kpis" | "budget";
+  initialTab?: string;
 }) {
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [tasks, setTasks] = useState<TaskItem[]>(DEFAULT_SEED_TASKS);
   const [kpis, setKpis] = useState<DualKPI[]>(DEFAULT_KPIS);
   const [kpiInputs, setKpiInputs] = useState<Record<string, string>>({});
@@ -206,8 +207,38 @@ export function CommandCenterView({
     return canUserChangeTaskStatus(selectedTask);
   }, [userRole, selectedTask, currentUser]);
 
+  const [departments, setDepartments] = useState<DepartmentItem[]>([]);
+
   useEffect(() => {
-    setActiveTab(initialTab);
+    api<DepartmentItem[] | { results: DepartmentItem[] }>("/portal/departments/")
+      .then((res) => {
+        const list = Array.isArray(res) ? res : res?.results || [];
+        setDepartments(list);
+      })
+      .catch(() => {});
+  }, []);
+
+  const dynamicDeptPills = useMemo(() => {
+    const list: Array<{ id: string; name: string }> = [];
+    const seen = new Set<string>();
+
+    (departments || []).forEach((d) => {
+      const nameKey = d.name.trim();
+      if (nameKey && !seen.has(nameKey.toUpperCase())) {
+        seen.add(nameKey.toUpperCase());
+        list.push({ id: d.name.toLowerCase(), name: d.name });
+      }
+    });
+
+    if (list.length === 0) {
+      return Object.entries(TASK_TYPES).map(([k, v]) => ({ id: k, name: v.name }));
+    }
+
+    return list;
+  }, [departments]);
+
+  useEffect(() => {
+    setActiveTab(initialTab === "overview" || initialTab === "command-center" ? "kanban" : initialTab);
   }, [initialTab]);
 
   useEffect(() => {
@@ -326,9 +357,11 @@ export function CommandCenterView({
         }
         if (selectedPhaseFilter !== "all" && t.phase !== selectedPhaseFilter) return false;
         if (selectedTypeFilter !== "all") {
-          if (["it", "web", "development"].includes(selectedTypeFilter)) {
-            if (!["it", "web", "development"].includes(t.type)) return false;
-          } else if (t.type !== selectedTypeFilter) {
+          const filterKey = selectedTypeFilter.toLowerCase();
+          const taskType = (t.type || "").toLowerCase();
+          if (filterKey === "it" || filterKey === "web" || filterKey.includes("development")) {
+            if (!["it", "web", "development"].some((k) => taskType.includes(k))) return false;
+          } else if (!taskType.includes(filterKey) && !filterKey.includes(taskType)) {
             return false;
           }
         }
@@ -408,7 +441,6 @@ export function CommandCenterView({
             {[
               { id: "overview", label: "Command Center", icon: LayoutDashboard },
               { id: "kanban", label: "Task Board", icon: Kanban },
-              { id: "timeline", label: "Timeline & Phases", icon: Layers },
               { id: "deliverables", label: "Contract Scope", icon: CheckCircle2 },
               { id: "approvals", label: "Approvals Queue", icon: Zap },
               { id: "team", label: "Team Capacity", icon: Users },
@@ -590,14 +622,14 @@ export function CommandCenterView({
                 >
                   All Depts / Types
                 </button>
-                {Object.entries(TASK_TYPES).map(([key, val]) => (
+                {dynamicDeptPills.map((pill) => (
                   <button
-                    key={key}
+                    key={pill.id}
                     type="button"
-                    onClick={() => setSelectedTypeFilter(key)}
-                    style={{ padding: "4px 10px", borderRadius: "var(--rs)", fontSize: "10.5px", fontWeight: 700, background: selectedTypeFilter === key ? "var(--neon)" : "var(--panel2)", color: selectedTypeFilter === key ? "var(--bg)" : "var(--muted)" }}
+                    onClick={() => setSelectedTypeFilter(pill.id)}
+                    style={{ padding: "4px 10px", borderRadius: "var(--rs)", fontSize: "10.5px", fontWeight: 700, background: selectedTypeFilter === pill.id ? "var(--neon)" : "var(--panel2)", color: selectedTypeFilter === pill.id ? "var(--bg)" : "var(--muted)" }}
                   >
-                    {val.name}
+                    {pill.name}
                   </button>
                 ))}
               </div>

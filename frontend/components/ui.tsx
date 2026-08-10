@@ -1,13 +1,13 @@
 import { ReactNode } from "react";
-import { ArrowUpRight, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 
 export function PageHeader({ eyebrow, title, subtitle, action }: { eyebrow?: string; title: string; subtitle?: string; action?: ReactNode }) {
   return (
-    <div className="page-header">
+    <div className="page-header" style={{ marginBottom: "14px" }}>
       <div>
-        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
-        <h1>{title}</h1>
-        {subtitle && <p>{subtitle}</p>}
+        {eyebrow && <div className="eyebrow" style={{ fontSize: "9.5px", letterSpacing: "0.1em", color: "var(--neon)", fontWeight: 700, marginBottom: "4px" }}>{eyebrow}</div>}
+        <h1 style={{ fontSize: "21px", fontWeight: 700, color: "var(--text)", margin: 0, lineHeight: 1.2 }}>{title}</h1>
+        {subtitle && <p style={{ fontSize: "11.5px", color: "var(--muted)", margin: "3px 0 0 0" }}>{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -35,7 +35,7 @@ export function Section({ title, kicker, children, action }: { title: string; ki
           {kicker && <span>{kicker}</span>}
           <h2>{title}</h2>
         </div>
-        {action || <button className="ghost-icon"><MoreHorizontal size={20} /></button>}
+        {action || <button className="ghost-icon"><MoreHorizontal size={18} /></button>}
       </div>
       {children}
     </section>
@@ -50,7 +50,6 @@ export function PrimaryButton({ children, type = "button", onClick, disabled }: 
   return (
     <button type={type} className="primary-button" onClick={onClick} disabled={disabled}>
       {children}
-      <ArrowUpRight size={17} />
     </button>
   );
 }

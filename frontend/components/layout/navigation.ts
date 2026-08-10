@@ -1,8 +1,74 @@
 import type { LucideIcon } from "lucide-react";
-import { BriefcaseBusiness, CalendarCheck, CalendarDays, Clock3, Kanban, Layers, LayoutDashboard, Sparkles, TrendingUp, UserRound, Users } from "lucide-react";
+import {
+  BarChart3,
+  BriefcaseBusiness,
+  CalendarCheck,
+  CalendarDays,
+  CheckSquare,
+  ClipboardList,
+  Clock3,
+  FileCode,
+  FolderGit2,
+  Grid,
+  Kanban,
+  Layers,
+  LayoutDashboard,
+  Megaphone,
+  Pencil,
+  Settings,
+  Shield,
+  Sparkles,
+  TrendingUp,
+  UserCheck,
+  UserRound,
+  Users,
+  Wrench,
+} from "lucide-react";
 import type { PortalRole, WorkspaceRole } from "@/lib/types";
+import { SHOW_ADVANCED_WORKBOARD } from "@/lib/types";
 
 export type NavigationItem = readonly [label: string, href: string, Icon: LucideIcon];
+
+export const iconMap: Record<string, LucideIcon> = {
+  LayoutDashboard,
+  Sparkles,
+  Kanban,
+  Layers,
+  TrendingUp,
+  Users,
+  CalendarCheck,
+  CalendarDays,
+  UserRound,
+  Clock3,
+  BriefcaseBusiness,
+  Megaphone,
+  BarChart3,
+  CheckSquare,
+  ClipboardList,
+  FileCode,
+  FolderGit2,
+  Pencil,
+  Shield,
+  UserCheck,
+  Wrench,
+  Settings,
+  Grid,
+};
+
+export function getLucideIcon(iconName?: string): LucideIcon {
+  if (!iconName) return LayoutDashboard;
+  const trimmed = iconName.trim();
+  return iconMap[trimmed] || LayoutDashboard;
+}
+
+export type DynamicApiNavItem = {
+  id: number;
+  title: string;
+  route_path: string;
+  module_code: string;
+  icon: string;
+  sidebar_order: number;
+};
 
 const adminNav = [
   ["Overview", "/admin/dashboard", LayoutDashboard],
@@ -66,8 +132,6 @@ const teamLeadNav = [
   ["KPI Performance", "/admin/kpi", TrendingUp],
 ] as const satisfies readonly NavigationItem[];
 
-import { SHOW_ADVANCED_WORKBOARD } from "@/lib/types";
-
 export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[]> = {
   admin: adminNav,
   employee: employeeNav,
@@ -79,15 +143,17 @@ export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[
 
 export const getFilteredNavigation = (role: WorkspaceRole): readonly NavigationItem[] => {
   const items = workspaceNavigation[role];
-  const visibleItems = items.filter(([label]) => label !== "Overview");
-  if (!SHOW_ADVANCED_WORKBOARD) {
-    return visibleItems.filter(([label]) => label !== "Command Center" && label !== "Timeline & Phases");
-  }
-  return visibleItems;
+  return items.filter(
+    ([label]) =>
+      label !== "Overview" &&
+      label !== "Command Center" &&
+      label !== "Command Center Dashboard" &&
+      label !== "Timeline & Phases"
+  );
 };
 
-
 export const portalRoleRoutes: Record<PortalRole, WorkspaceRole> = {
+  SUPER_ADMIN: "admin",
   ADMIN: "admin",
   HR: "hr",
   ACCOUNTANT: "accountant",
@@ -99,7 +165,7 @@ export const portalRoleRoutes: Record<PortalRole, WorkspaceRole> = {
 };
 
 export const expectedPortalRoles: Record<WorkspaceRole, readonly PortalRole[]> = {
-  admin: ["ADMIN", "OPERATIONS", "OPERATIONS_HEAD"],
+  admin: ["SUPER_ADMIN", "ADMIN", "OPERATIONS", "OPERATIONS_HEAD"],
   hr: ["HR"],
   accountant: ["ACCOUNTANT"],
   bdo: ["BDE"],
@@ -115,7 +181,6 @@ export const expectedPortalRole: Record<WorkspaceRole, PortalRole> = {
   "team-lead": "TEAM_LEAD",
   employee: "EMPLOYEE",
 };
-
 
 export const workspaceLabels: Record<WorkspaceRole, string> = {
   admin: "Administrator",

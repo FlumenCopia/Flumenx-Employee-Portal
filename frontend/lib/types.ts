@@ -1,7 +1,82 @@
 export const SHOW_ADVANCED_WORKBOARD = false;
 
-export type PortalRole = "ADMIN" | "HR" | "ACCOUNTANT" | "BDE" | "TEAM_LEAD" | "EMPLOYEE" | "OPERATIONS" | "OPERATIONS_HEAD";
+export type PortalRole = "SUPER_ADMIN" | "ADMIN" | "HR" | "ACCOUNTANT" | "BDE" | "TEAM_LEAD" | "EMPLOYEE" | "OPERATIONS" | "OPERATIONS_HEAD";
 export type WorkspaceRole = "admin" | "employee" | "hr" | "accountant" | "bdo" | "team-lead";
+
+export type PortalPage = {
+  id: number;
+  title: string;
+  route_path: string;
+  module_code: string;
+  icon: string;
+  sidebar_order: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DepartmentItem = {
+  id: number;
+  name: string;
+  code: string;
+  description: string;
+  is_active: boolean;
+  display_order: number;
+  employees_count?: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DynamicRole = {
+  id: number;
+  name: string;
+  code: string;
+  description: string;
+  is_superadmin_wildcard: boolean;
+  is_system_role: boolean;
+  permissions_count?: number;
+  assigned_users_count?: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type RolePermissionItem = {
+  page_id: number;
+  page_title: string;
+  route_path: string;
+  module_code: string;
+  can_view: boolean;
+  can_create: boolean;
+  can_edit: boolean;
+  can_delete: boolean;
+};
+
+export type RolePermissionMatrixResponse = {
+  role: {
+    id: number;
+    code: string;
+    name: string;
+    is_superadmin_wildcard: boolean;
+    is_system_role: boolean;
+  };
+  permissions: RolePermissionItem[];
+};
+
+export type SuperAdminUser = {
+  user_id: number;
+  employee_id: number | null;
+  full_name: string;
+  work_email: string;
+  designation: string;
+  department: string;
+  department_id?: number | null;
+  team_lead_id: number | null;
+  dynamic_role: { id: number; code: string; name: string } | null;
+  legacy_portal_role: PortalRole;
+  status: EmployeeStatus;
+  is_active: boolean;
+  date_joined: string;
+};
 
 export type Role = WorkspaceRole;
 export type Department = "Web Development" | "Video Editing" | "Design" | "Digital Marketing" | "Accountant" | "HR" | "Operations";

@@ -807,9 +807,8 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                 placeholder="Search table..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-                className="w-full text-xs bg-slate-950 border border-slate-800/80 rounded-xl pl-8 pr-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
+                className="w-full text-xs bg-slate-950 border border-slate-800/80 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
               />
-              <Search size={14} className="absolute left-2.5 top-2.5 text-slate-500" />
             </div>
 
             <select

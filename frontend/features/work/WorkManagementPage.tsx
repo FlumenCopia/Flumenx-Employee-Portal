@@ -4,9 +4,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { useSearchParams } from "next/navigation";
 import { BriefcaseBusiness, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
-import type { Client, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary } from "@/lib/types";
+import type { Client, DepartmentItem, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary } from "@/lib/types";
 import { SHOW_ADVANCED_WORKBOARD } from "@/lib/types";
-
 
 import { Badge, EmptyState, PageHeader, PrimaryButton, StatCard } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
@@ -14,15 +13,12 @@ import { useShellUser } from "@/components/shell";
 import { ShareLinkModal } from "./ShareLinkModal";
 import { CommandCenterView } from "./CommandCenterView";
 
-
-
-
 type ManagementWorkspace = "admin" | "hr" | "bdo" | "team-lead";
 type WorkFormState = {
   employee: string; client: string; title: string; description: string; priority: WorkPriority;
   assigned_date: string; due_date: string; assigned_quantity: string; completed_quantity: string;
   unit: string; statusMode: "AUTO" | "Blocked"; deliverables: DeliverableFormState[];
-  work_type?: string; reviewer?: string;
+  work_type?: string; reviewer?: string; phase?: string; estimated_hours?: string;
 };
 type DeliverableFormState = {
   id?: number; client: string; title: string; brief: string; work_type: string; due_date: string; status: WorkStatus;
@@ -49,33 +45,47 @@ function defaultForm(): WorkFormState {
     priority: "Normal",
     assigned_date: today(),
     due_date: today(),
-    assigned_quantity: "4",
+    assigned_quantity: "1",
     completed_quantity: "0",
     unit: "tasks",
     statusMode: "AUTO",
     deliverables: [],
     work_type: "design",
     reviewer: "",
+    phase: "ph1",
+    estimated_hours: "4",
   };
 }
 
-
 function formFromAssignment(item: WorkAssignment): WorkFormState {
+  let phase = "ph1";
+  let estimated_hours = "4";
+  let cleanDesc = item.description || "";
+
+  const phaseMatch = cleanDesc.match(/\[PHASE:\s*(ph\d)\]/i);
+  if (phaseMatch) phase = phaseMatch[1].toLowerCase();
+
+  const estMatch = cleanDesc.match(/\[EST_HOURS:\s*(\d+)\]/i);
+  if (estMatch) estimated_hours = estMatch[1];
+
+  cleanDesc = cleanDesc.replace(/\[PHASE:\s*ph\d\]/gi, "").replace(/\[EST_HOURS:\s*\d+\]/gi, "").trim();
+
   return {
     employee: String(item.employee),
     client: String(item.client),
     title: item.title,
-    description: item.description || "",
+    description: cleanDesc,
     priority: item.priority,
     assigned_date: item.assigned_date,
     due_date: item.due_date,
-    assigned_quantity: String(item.assigned_quantity),
-    completed_quantity: String(item.completed_quantity),
-    unit: item.unit,
+    assigned_quantity: String(item.assigned_quantity || 1),
+    completed_quantity: String(item.completed_quantity || 0),
+    unit: item.unit || "tasks",
     statusMode: item.status === "Blocked" ? "Blocked" : "AUTO",
     reviewer: String(item.reviewer || item.reviewer_name || ""),
-    deliverables: item.deliverables.map(deliverable => ({
-
+    phase,
+    estimated_hours,
+    deliverables: (item.deliverables || []).map(deliverable => ({
       id: deliverable.id,
       client: String(deliverable.client),
       title: deliverable.title,
@@ -130,8 +140,36 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [employees, setEmployees] = useState<WorkEmployeeOption[]>([]);
   const [reviewers, setReviewers] = useState<WorkReviewerOption[]>([]);
+  const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [filters, setFilters] = useState<WorkFilters>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
+
+  const dynamicWorkTypeOptions = useMemo(() => {
+    const list: Array<{ value: string; label: string }> = [];
+    const seen = new Set<string>();
+
+    (departments || []).forEach((d) => {
+      const nameKey = d.name.trim();
+      if (nameKey && !seen.has(nameKey.toUpperCase())) {
+        seen.add(nameKey.toUpperCase());
+        list.push({ value: d.name.toLowerCase(), label: d.name });
+      }
+    });
+
+    if (list.length === 0) {
+      return [
+        { value: "design", label: "Design" },
+        { value: "video", label: "Video Editing" },
+        { value: "ads", label: "Digital Marketing" },
+        { value: "it", label: "Web Development" },
+        { value: "ops", label: "Operations" },
+        { value: "accountant", label: "Accountant" },
+        { value: "hr", label: "HR" },
+      ];
+    }
+
+    return list;
+  }, [departments]);
 
   const [count, setCount] = useState(0);
   const [hasNext, setHasNext] = useState(false);
@@ -161,7 +199,9 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
   const optionsAbortRef = useRef<AbortController | null>(null);
 
 
-  const visibleEmployees = useMemo(() => [...employees].sort((a, b) => a.display_name.localeCompare(b.display_name)), [employees]);
+  const visibleEmployees = useMemo(() => {
+    return [...employees].sort((a, b) => a.display_name.localeCompare(b.display_name));
+  }, [employees]);
   const selectedEmployee = useMemo(() => employees.find(employee => String(employee.id) === form.employee), [employees, form.employee]);
   const isDeliverableWorkflow = selectedEmployee?.department === "Design" || selectedEmployee?.department === "Video Editing" || form.deliverables.length > 0;
 
@@ -212,17 +252,19 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
     setOptionsLoading(true);
     setOptionsError("");
     try {
-      const [clientData, employeeData, reviewerData] = await Promise.all([
+      const [clientData, employeeData, reviewerData, deptData] = await Promise.all([
         api<Paginated<Client>>("/clients/", { signal: controller.signal }),
         api<WorkEmployeeOption[]>("/work-employee-options/", { signal: controller.signal }),
         api<WorkReviewerOption[]>("/work-reviewer-options/", { signal: controller.signal }),
+        api<DepartmentItem[] | { results: DepartmentItem[] }>("/portal/departments/", { signal: controller.signal }).catch(() => []),
       ]);
       if (controller.signal.aborted) return;
       setClients(clientData.results);
       setEmployees(employeeData);
       setReviewers(reviewerData);
+      const deptList = Array.isArray(deptData) ? deptData : (deptData as any)?.results || [];
+      setDepartments(deptList);
     } catch (err) {
-
       if (!controller.signal.aborted) setOptionsError(apiError(err, "Could not load form options."));
     } finally {
       if (!controller.signal.aborted) setOptionsLoading(false);
@@ -257,6 +299,18 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
     setDeliverableDraft(defaultDeliverable());
     setModalOpen(true);
   }
+
+  useEffect(() => {
+    const handleOpenModal = () => openCreate();
+    window.addEventListener("flumenx:open_new_task_modal", handleOpenModal);
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("createTask") === "true") {
+      openCreate();
+      const url = new URL(window.location.href);
+      url.searchParams.delete("createTask");
+      window.history.replaceState({}, "", url.toString());
+    }
+    return () => window.removeEventListener("flumenx:open_new_task_modal", handleOpenModal);
+  }, []);
 
   function openEdit(item: WorkAssignment) {
     setEditing(item);
@@ -383,12 +437,17 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
     }
     const effectiveClient = form.client || (clients.length > 0 ? String(clients[0].id) : "");
 
+    const phaseTag = `[PHASE: ${form.phase || "ph1"}]`;
+    const estTag = `[EST_HOURS: ${form.estimated_hours || "4"}]`;
+    const cleanDesc = form.description ? form.description.trim() : "";
+    const fullDesc = `${cleanDesc ? cleanDesc + "\n\n" : ""}${phaseTag} ${estTag}`.trim();
+
     const payload = {
       employee: Number(form.employee),
       title: form.title.trim(),
-      description: form.description,
+      description: fullDesc,
       priority: form.priority,
-      assigned_date: form.assigned_date,
+      assigned_date: form.assigned_date || today(),
       due_date: form.due_date,
       assigned_quantity: assignedQuantity,
       completed_quantity: completedQuantity,
@@ -408,13 +467,13 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       const deliverablesToSync: DeliverableFormState[] = form.deliverables.length > 0
         ? form.deliverables.map(deliverable => ({ ...deliverable, client: deliverable.client || savedClient }))
         : [{
-            client: savedClient,
-            title: form.title.trim(),
-            brief: form.description || "",
-            work_type: form.work_type || "design",
-            due_date: form.due_date,
-            status: "Pending" as WorkStatus,
-          }];
+          client: savedClient,
+          title: form.title.trim(),
+          brief: form.description || "",
+          work_type: form.work_type || "design",
+          due_date: form.due_date,
+          status: "Pending" as WorkStatus,
+        }];
       await syncDeliverables(saved.id, deliverablesToSync);
       setModalOpen(false);
       setEditing(null);
@@ -467,18 +526,18 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
     viewParam === "kanban"
       ? "kanban"
       : viewParam === "timeline"
-      ? "timeline"
-      : viewParam === "deliverables"
-      ? "deliverables"
-      : viewParam === "approvals"
-      ? "approvals"
-      : viewParam === "team"
-      ? "team"
-      : viewParam === "kpis"
-      ? "kpis"
-      : viewParam === "budget"
-      ? "budget"
-      : "overview";
+        ? "timeline"
+        : viewParam === "deliverables"
+          ? "deliverables"
+          : viewParam === "approvals"
+            ? "approvals"
+            : viewParam === "team"
+              ? "team"
+              : viewParam === "kpis"
+                ? "kpis"
+                : viewParam === "budget"
+                  ? "budget"
+                  : "overview";
 
   const [activeViewMode] = useState<"COMMAND_CENTER" | "LIST">("COMMAND_CENTER");
 
@@ -518,26 +577,6 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
       eyebrow={SHOW_ADVANCED_WORKBOARD ? "WORK / EXECUTION COMMAND CENTER" : "WORK / TASK BOARD"}
       title={SHOW_ADVANCED_WORKBOARD ? "Work board & Command Center." : "Work Board"}
       subtitle={SHOW_ADVANCED_WORKBOARD ? "Assign client work, track taskboards, timeline phases, and KPI targets in real time." : "Assign client work, track taskboards, and update deliverable progress in real time."}
-      action={
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          {/* {clients.length > 0 && (
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => {
-                const currentClient = clients.find(c => String(c.id) === filters.client) || clients[0];
-                if (currentClient) {
-                  setSelectedShareClient({ id: currentClient.id, name: currentClient.name });
-                  setShareModalOpen(true);
-                }
-              }}
-            >
-              <Globe size={15} /> Share progress
-            </button>
-          )} */}
-          <PrimaryButton onClick={openCreate}>Assign work</PrimaryButton>
-        </div>
-      }
     />
 
     {message && <div className="toast success">{message}</div>}
@@ -556,153 +595,117 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
         initialTab={initialTab}
       />
     ) : (
-
-
       <>
-
-
-    <div className="stats-grid">
-      <StatCard label="Total" value={loading ? "--" : summary.total} note="visible assignments" icon={<BriefcaseBusiness />} />
-      <StatCard label="Pending" value={loading ? "--" : summary.pending} note="waiting to begin" icon={<BriefcaseBusiness />} />
-      <StatCard label="In Progress" value={loading ? "--" : summary.in_progress} note="currently moving" icon={<BriefcaseBusiness />} accent />
-      <StatCard label="Blocked" value={loading ? "--" : summary.blocked} note="needs attention" icon={<BriefcaseBusiness />} />
-      <StatCard label="Completed" value={loading ? "--" : summary.completed} note="finished work" icon={<BriefcaseBusiness />} />
-      <StatCard label="Overdue" value={loading ? "--" : summary.overdue} note="past due date" icon={<BriefcaseBusiness />} />
-    </div>
-
-    <div className="toolbar work-toolbar">
-      <SlidersHorizontal size={18} />
-      <select value={filters.employee} onChange={event => updateFilter("employee", event.target.value)} aria-label="Filter by employee">
-        <option value="">All employees</option>
-        {visibleEmployees.map(employee => <option key={employee.id} value={employee.id}>{employee.display_name}</option>)}
-      </select>
-      <select value={filters.client} onChange={event => updateFilter("client", event.target.value)} aria-label="Filter by client">
-        <option value="">All clients</option>
-        {clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
-      </select>
-      <select value={filters.status} onChange={event => updateFilter("status", event.target.value)} aria-label="Filter by status">
-        <option value="">All statuses</option>
-        {STATUSES.map(status => <option key={status}>{status}</option>)}
-      </select>
-      <select value={filters.priority} onChange={event => updateFilter("priority", event.target.value)} aria-label="Filter by priority">
-        <option value="">All priorities</option>
-        {PRIORITIES.map(priority => <option key={priority}>{priority}</option>)}
-      </select>
-      <input type="date" value={filters.assigned_date} onChange={event => updateFilter("assigned_date", event.target.value)} aria-label="Filter by assigned date" />
-      <input type="date" value={filters.due_date} onChange={event => updateFilter("due_date", event.target.value)} aria-label="Filter by due date" />
-      <select value={filters.is_overdue} onChange={event => updateFilter("is_overdue", event.target.value)} aria-label="Filter by overdue">
-        <option value="">Any due state</option>
-        <option value="true">Overdue</option>
-        <option value="false">Not overdue</option>
-      </select>
-      <button type="button" className="secondary-button" onClick={() => { setFilters(EMPTY_FILTERS); setPage(1); }}>Reset</button>
-      <button type="button" className="secondary-button" onClick={() => loadWork(filters)} disabled={loading}><RotateCw size={15} /> Refresh</button>
-    </div>
-
-    <div className="data-card work-card">
-      <div className="data-table work-table">
-        <div className="table-head">
-          <span>Employee</span><span>Client</span><span>Work</span><span>Quantity</span><span>Priority</span><span>Status</span>
-          <span>Progress</span><span>Assigned</span><span>Due</span><span>Owner</span><span />
+        <div className="stats-grid">
+          <StatCard label="Total" value={loading ? "--" : summary.total} note="visible assignments" icon={<BriefcaseBusiness />} />
+          <StatCard label="Pending" value={loading ? "--" : summary.pending} note="waiting to begin" icon={<BriefcaseBusiness />} />
+          <StatCard label="In Progress" value={loading ? "--" : summary.in_progress} note="currently moving" icon={<BriefcaseBusiness />} accent />
+          <StatCard label="Blocked" value={loading ? "--" : summary.blocked} note="needs attention" icon={<BriefcaseBusiness />} />
+          <StatCard label="Completed" value={loading ? "--" : summary.completed} note="finished work" icon={<BriefcaseBusiness />} />
+          <StatCard label="Overdue" value={loading ? "--" : summary.overdue} note="past due date" icon={<BriefcaseBusiness />} />
         </div>
-        {!loading && !error && items.map(item => <div className={`table-row ${item.is_overdue ? "overdue-row" : ""}`} key={item.id}>
-          <span>{item.employee_name}</span>
-          <span>{item.client_name}</span>
-          <div className="work-title"><b>{item.title}</b><small>{item.description || "No description"}</small>{item.deliverables.length > 0 && <small>{item.deliverables.length} deliverable items</small>}</div>
-          <div className="quantity-cell"><b>{quantityLabel(item)}</b><small>{item.remaining_quantity} {item.unit} remaining</small></div>
-          <Badge tone={item.priority}>{item.priority}</Badge>
-          <Badge tone={item.status}>{item.status}</Badge>
-          <ProgressMeter value={item.progress} />
-          <span>{formatDate(item.assigned_date)}</span>
-          <span>{formatDate(item.due_date)} {item.is_overdue && <em>Overdue</em>}</span>
-          <span>{item.assigned_by_name || "Portal"}</span>
-          {canManageAll && (
-            <div className="row-actions">
-              <button type="button" onClick={() => openEdit(item)} aria-label={`Edit ${item.title}`}><Pencil size={16} /></button>
-              <button type="button" disabled={deletingId !== null} onClick={() => deleteAssignment(item)} aria-label={`Delete ${item.title}`}><Trash2 size={16} /></button>
+
+        <div className="toolbar work-toolbar">
+          <SlidersHorizontal size={18} />
+          <select value={filters.employee} onChange={event => updateFilter("employee", event.target.value)} aria-label="Filter by employee">
+            <option value="">All employees</option>
+            {visibleEmployees.map(employee => <option key={employee.id} value={employee.id}>{employee.display_name}</option>)}
+          </select>
+          <select value={filters.client} onChange={event => updateFilter("client", event.target.value)} aria-label="Filter by client">
+            <option value="">All clients</option>
+            {clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
+          </select>
+          <select value={filters.status} onChange={event => updateFilter("status", event.target.value)} aria-label="Filter by status">
+            <option value="">All statuses</option>
+            {STATUSES.map(status => <option key={status}>{status}</option>)}
+          </select>
+          <select value={filters.priority} onChange={event => updateFilter("priority", event.target.value)} aria-label="Filter by priority">
+            <option value="">All priorities</option>
+            {PRIORITIES.map(priority => <option key={priority}>{priority}</option>)}
+          </select>
+          <input type="date" value={filters.assigned_date} onChange={event => updateFilter("assigned_date", event.target.value)} aria-label="Filter by assigned date" />
+          <input type="date" value={filters.due_date} onChange={event => updateFilter("due_date", event.target.value)} aria-label="Filter by due date" />
+          <select value={filters.is_overdue} onChange={event => updateFilter("is_overdue", event.target.value)} aria-label="Filter by overdue">
+            <option value="">Any due state</option>
+            <option value="true">Overdue</option>
+            <option value="false">Not overdue</option>
+          </select>
+          <button type="button" className="secondary-button" onClick={() => { setFilters(EMPTY_FILTERS); setPage(1); }}>Reset</button>
+          <button type="button" className="secondary-button" onClick={() => loadWork(filters)} disabled={loading}><RotateCw size={15} /> Refresh</button>
+        </div>
+
+        <div className="data-card work-card">
+          <div className="data-table work-table">
+            <div className="table-head">
+              <span>Employee</span><span>Client</span><span>Work</span><span>Quantity</span><span>Priority</span><span>Status</span>
+              <span>Progress</span><span>Assigned</span><span>Due</span><span>Owner</span><span />
+            </div>
+            {!loading && !error && items.map(item => <div className={`table-row ${item.is_overdue ? "overdue-row" : ""}`} key={item.id}>
+              <span>{item.employee_name}</span>
+              <span>{item.client_name}</span>
+              <div className="work-title"><b>{item.title}</b><small>{item.description || "No description"}</small>{item.deliverables.length > 0 && <small>{item.deliverables.length} deliverable items</small>}</div>
+              <div className="quantity-cell"><b>{quantityLabel(item)}</b><small>{item.remaining_quantity} {item.unit} remaining</small></div>
+              <Badge tone={item.priority}>{item.priority}</Badge>
+              <Badge tone={item.status}>{item.status}</Badge>
+              <ProgressMeter value={item.progress} />
+              <span>{formatDate(item.assigned_date)}</span>
+              <span>{formatDate(item.due_date)} {item.is_overdue && <em>Overdue</em>}</span>
+              <span>{item.assigned_by_name || "Portal"}</span>
+              {canManageAll && (
+                <div className="row-actions">
+                  <button type="button" onClick={() => openEdit(item)} aria-label={`Edit ${item.title}`}><Pencil size={16} /></button>
+                  <button type="button" disabled={deletingId !== null} onClick={() => deleteAssignment(item)} aria-label={`Delete ${item.title}`}><Trash2 size={16} /></button>
+                </div>
+              )}
+            </div>)}
+          </div>
+          {loading && <EmptyState title="Loading work" text="Fetching work assignments and summary." />}
+          {error && <EmptyState title="Could not load work" text={error} />}
+          {!loading && !error && !items.length && <EmptyState title="No work found" text="Try clearing filters or assign new work." />}
+          {!loading && !error && count > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderTop: "1px solid var(--line)" }}>
+              <span className="record-count" style={{ padding: 0 }}>
+                Page {page} of {Math.ceil(count / 20) || 1} ({count} total)
+              </span>
+              <div className="header-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={!hasPrevious || loading}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={!hasNext || loading}
+                  onClick={() => setPage(p => p + 1)}
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
-        </div>)}
-      </div>
-      {loading && <EmptyState title="Loading work" text="Fetching work assignments and summary." />}
-      {error && <EmptyState title="Could not load work" text={error} />}
-      {!loading && !error && !items.length && <EmptyState title="No work found" text="Try clearing filters or assign new work." />}
-      {!loading && !error && count > 0 && (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderTop: "1px solid var(--line)" }}>
-          <span className="record-count" style={{ padding: 0 }}>
-            Page {page} of {Math.ceil(count / 20) || 1} ({count} total)
-          </span>
-          <div className="header-actions">
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={!hasPrevious || loading}
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={!hasNext || loading}
-              onClick={() => setPage(p => p + 1)}
-            >
-              Next
-            </button>
-          </div>
         </div>
-      )}
-    </div>
-    </>
+      </>
     )}
 
     {modalOpen && <Modal title={editing ? "Edit Task" : "New Task"} onClose={() => !submitting && setModalOpen(false)}>
-      <form className="modal-form" onSubmit={saveAssignment} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-        {/* TASK TITLE */}
-
-        <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-          TASK TITLE
-          <input
-            type="text"
-            value={form.title}
-            onChange={event => setForm(current => ({ ...current, title: event.target.value }))}
-            placeholder="e.g. Countdown creative series (12 posters)"
-            required
-            className="fi"
-          />
-          {formErrors.title && <small style={{ color: "#EF4444" }}>{formErrors.title}</small>}
-        </label>
-
-        {/* DESCRIPTION / BRIEF */}
-        <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-          DESCRIPTION / BRIEF
-          <textarea
-            value={form.description}
-            onChange={event => setForm(current => ({ ...current, description: event.target.value }))}
-            placeholder="What exactly needs to be produced, and any constraints"
-            rows={3}
-            className="fi"
-          />
-          {formErrors.description && <small style={{ color: "#EF4444" }}>{formErrors.description}</small>}
-        </label>
-
-        {/* TYPE & PRIORITY */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+      <form className="modal-form" onSubmit={saveAssignment} style={{ display: "flex", flexDirection: "column", gap: "14px", maxHeight: "80vh", overflowY: "auto", paddingRight: "4px" }}>
+        {/* ROW 1: TASK TITLE & PRIORITY */}
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "12px" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-            TYPE
-            <select
-              value={form.work_type || "design"}
-              onChange={event => setForm(current => ({ ...current, work_type: event.target.value }))}
-              className="fs"
-            >
-              <option value="design">Design</option>
-              <option value="video">Video</option>
-              <option value="ads">Ads</option>
-              <option value="it">IT / Web</option>
-              <option value="content">Content</option>
-              <option value="ops">Ops</option>
-              <option value="client">Client</option>
-            </select>
+            TASK TITLE *
+            <input
+              type="text"
+              value={form.title}
+              onChange={event => setForm(current => ({ ...current, title: event.target.value }))}
+              placeholder="e.g. Countdown creative series (12 posters)"
+              required
+              className="fi"
+            />
+            {formErrors.title && <small style={{ color: "#EF4444" }}>{formErrors.title}</small>}
           </label>
 
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
@@ -720,104 +723,171 @@ export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
           </label>
         </div>
 
-        {/* ASSIGN TO & REVIEWER */}
+        {/* ROW 2: TYPE & PHASE */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-            ASSIGN TO
+            TYPE
             <select
-              value={form.employee}
-              onChange={event => changeEmployee(event.target.value)}
-              required
-              disabled={optionsLoading}
+              value={form.work_type || "design"}
+              onChange={(event) => {
+                const val = event.target.value;
+                setForm((current) => ({ ...current, work_type: val }));
+              }}
               className="fs"
             >
-              <option value="">Select employee</option>
-              {visibleEmployees.map(employee => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.display_name} — {employee.department}
+              {dynamicWorkTypeOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
                 </option>
               ))}
             </select>
-            {formErrors.employee && <small style={{ color: "#EF4444" }}>{formErrors.employee}</small>}
           </label>
 
-          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-            REVIEWER
-            <select
-              value={form.reviewer || ""}
-              onChange={event => setForm(current => ({ ...current, reviewer: event.target.value }))}
-              className="fs"
-            >
-              <option value="">Select Reviewer (Default: Admin)</option>
-              {reviewers.map(r => (
-                <option key={r.id} value={r.id}>
-                  {r.display_name} ({r.username})
-                </option>
-              ))}
-            </select>
+      <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+        PHASE
+        <select
+          value={form.phase || "ph1"}
+          onChange={event => setForm(current => ({ ...current, phase: event.target.value }))}
+          className="fs"
+        >
+          <option value="ph1">PHASE 1 — IGNITE</option>
+          <option value="ph2">PHASE 2 — AMPLIFY</option>
+          <option value="ph3">PHASE 3 — CONVERT</option>
+          <option value="ph4">PHASE 4 — LAST MILE</option>
+          <option value="ph5">PHASE 5 — LIVE + POST</option>
+        </select>
+      </label>
+    </div>
 
-          </label>
-        </div>
+        {/* ROW 3: ASSIGN TO & REVIEWER */}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+      <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+        ASSIGN TO *
+        <select
+          value={form.employee}
+          onChange={event => changeEmployee(event.target.value)}
+          required
+          disabled={optionsLoading}
+          className="fs"
+        >
+          <option value="" disabled>
+            {optionsLoading ? "Loading employees..." : visibleEmployees.length ? "Select employee" : "No active employees in this department"}
+          </option>
+          {visibleEmployees.map(employee => (
+            <option key={employee.id} value={employee.id}>
+              {employee.display_name} — {employee.department}
+            </option>
+          ))}
+        </select>
+        {formErrors.employee && <small style={{ color: "#EF4444" }}>{formErrors.employee}</small>}
+      </label>
 
-        {/* DUE DATE & EST. HOURS */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-            DUE DATE
-            <input
-              type="date"
-              value={form.due_date}
-              onChange={event => setForm(current => ({ ...current, due_date: event.target.value }))}
-              required
-              className="fi"
-            />
-            {formErrors.due_date && <small style={{ color: "#EF4444" }}>{formErrors.due_date}</small>}
-          </label>
+      <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+        REVIEWER
+        <select
+          value={form.reviewer || ""}
+          onChange={event => setForm(current => ({ ...current, reviewer: event.target.value }))}
+          className="fs"
+        >
+          <option value="">Select Reviewer (Default: Admin)</option>
+          {reviewers.map(r => (
+            <option key={r.id} value={r.id}>
+              {r.display_name} ({r.username})
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
 
-          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-            EST. HOURS
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={form.assigned_quantity || 4}
-              onChange={event => setForm(current => ({ ...current, assigned_quantity: event.target.value }))}
-              placeholder="4"
-              className="fi"
-            />
-          </label>
+    {/* ROW 4: DUE DATE & ESTIMATED HOURS */}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+      <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+        DUE DATE *
+        <input
+          type="date"
+          value={form.due_date}
+          onChange={event => setForm(current => ({ ...current, due_date: event.target.value }))}
+          required
+          className="fi"
+        />
+        {formErrors.due_date && <small style={{ color: "#EF4444" }}>{formErrors.due_date}</small>}
+      </label>
 
-        </div>
+      <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+        ESTIMATED HOURS
+        <input
+          type="number"
+          min="1"
+          step="1"
+          value={form.estimated_hours || "4"}
+          onChange={event => setForm(current => ({ ...current, estimated_hours: event.target.value }))}
+          placeholder="e.g. 4"
+          className="fi"
+        />
+      </label>
+    </div>
 
-        {actionError && <div className="toast error">{actionError}</div>}
+    {/* ROW 5: COUNTS TOWARD */}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+      <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+        COUNTS TOWARD (KPI QUANTITY) *
+        <input
+          type="number"
+          min="1"
+          step="1"
+          value={form.assigned_quantity || "1"}
+          onChange={event => setForm(current => ({ ...current, assigned_quantity: event.target.value }))}
+          placeholder="e.g. 1"
+          required
+          className="fi"
+        />
+        {formErrors.assigned_quantity && <small style={{ color: "#EF4444" }}>{formErrors.assigned_quantity}</small>}
+      </label>
+    </div>
 
-        {/* ACTIONS */}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => setModalOpen(false)}
-            disabled={submitting}
-          >
-            Cancel
-          </button>
-          <PrimaryButton type="submit" disabled={submitting}>
-            {submitting ? "Saving..." : editing ? "Save Changes" : "Create Task"}
-          </PrimaryButton>
-        </div>
+    {/* ROW 6: DESCRIPTION / BRIEF */}
+    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+      DESCRIPTION / BRIEF
+      <textarea
+        value={form.description}
+        onChange={event => setForm(current => ({ ...current, description: event.target.value }))}
+        placeholder="What exactly needs to be produced, deliverables, and constraints"
+        rows={3}
+        className="fi"
+      />
+      {formErrors.description && <small style={{ color: "#EF4444" }}>{formErrors.description}</small>}
+    </label>
+
+    {actionError && <div className="toast error">{actionError}</div>}
+
+    {/* ACTIONS */}
+    <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
+      <button
+        type="button"
+        className="secondary-button"
+        onClick={() => setModalOpen(false)}
+        disabled={submitting}
+      >
+        Cancel
+      </button>
+      <PrimaryButton type="submit" disabled={submitting}>
+        {submitting ? "Saving..." : editing ? "Save Changes" : "Create Task"}
+      </PrimaryButton>
+    </div>
 
       </form>
     </Modal>}
 
-
-
-    {selectedShareClient && (
-      <ShareLinkModal
-        clientId={selectedShareClient.id}
-        clientName={selectedShareClient.name}
-        assignments={items}
-        open={shareModalOpen}
-        onClose={() => setShareModalOpen(false)}
-      />
-    )}
+{
+  selectedShareClient && (
+    <ShareLinkModal
+      clientId={selectedShareClient.id}
+      clientName={selectedShareClient.name}
+      assignments={items}
+      open={shareModalOpen}
+      onClose={() => setShareModalOpen(false)}
+    />
+  )
+}
   </>;
 }

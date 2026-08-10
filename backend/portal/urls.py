@@ -2,14 +2,14 @@ from django.urls import include, path, re_path
 from rest_framework.routers import DefaultRouter
 from .views import (
     AnnouncementViewSet, AttendanceCorrectionViewSet, AttendancePolicyViewSet, AttendanceRecordViewSet,
-    AuditLogViewSet, ClientViewSet, EmployeeViewSet, EmployeeKPIDetailView, KPIDashboardView, KPIExportCSVView,
-    KPIRatingView, LeaveViewSet, LoginView, MeetingViewSet, MyKPIDetailView, NotificationViewSet,
-    PasswordResetConfirmView, PasswordResetRequestView,
-    PublicWorkProgressView, SalarySlipViewSet, ShareLinkListCreateView, ShareLinkRegenerateView, ShareLinkRevokeView,
+    AuditLogViewSet, ClientViewSet, DepartmentViewSet, DynamicNavigationView, DynamicRoleViewSet, EmployeeViewSet, EmployeeKPIDetailView,
+    KPIDashboardView, KPIExportCSVView, KPIRatingView, LeaveViewSet, LoginView, MeetingViewSet, MyKPIDetailView,
+    NotificationViewSet, PasswordResetConfirmView, PasswordResetRequestView, PortalPageViewSet,
+    PublicWorkProgressView, RolePermissionMatrixView, SalarySlipViewSet, ShareLinkListCreateView,
+    ShareLinkRegenerateView, ShareLinkRevokeView, SuperAdminUserViewSet,
     WorkAssignmentViewSet, WorkDeliverableViewSet, WorkEmployeeOptionsView, WorkReviewerOptionsView,
     csrf, dashboard, logout, me, refresh, register
 )
-
 
 
 class OptionalSlashRouter(DefaultRouter):
@@ -31,6 +31,10 @@ router.register("attendance-policy", AttendancePolicyViewSet, basename="attendan
 router.register("attendance-corrections", AttendanceCorrectionViewSet, basename="attendance-correction")
 router.register("notifications", NotificationViewSet, basename="notification")
 router.register("audit-logs", AuditLogViewSet, basename="audit-log")
+router.register("portal/departments", DepartmentViewSet, basename="portal-department")
+router.register("portal/pages", PortalPageViewSet, basename="portal-page")
+router.register("portal/roles", DynamicRoleViewSet, basename="dynamic-role")
+router.register("portal/super-admin/users", SuperAdminUserViewSet, basename="super-admin-user")
 
 urlpatterns = [
     re_path(r"^auth/login/?$", LoginView.as_view(), name="login"),
@@ -55,5 +59,9 @@ urlpatterns = [
     re_path(r"^work-share-links/(?P<pk>\d+)/revoke/?$", ShareLinkRevokeView.as_view(), name="work-share-links-revoke"),
     re_path(r"^work-share-links/(?P<pk>\d+)/regenerate/?$", ShareLinkRegenerateView.as_view(), name="work-share-links-regenerate"),
     re_path(r"^public/work-progress/(?P<token>[A-Za-z0-9_-]+)/?$", PublicWorkProgressView.as_view(), name="public-work-progress"),
+
+    re_path(r"^portal/roles/(?P<role_id>\d+)/permissions/?$", RolePermissionMatrixView.as_view(), name="role-permission-matrix"),
+    re_path(r"^portal/navigation/me/?$", DynamicNavigationView.as_view(), name="dynamic-navigation-me"),
+
     path("", include(router.urls)),
 ]

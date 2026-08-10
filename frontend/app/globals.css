@@ -26,31 +26,31 @@
 
 /* FLOXA reference UI skin */
 :root{
-  --bg:#020806;
-  --panel:#0A1912;
-  --panel2:#0F2218;
-  --surface:#0A1912;
-  --card:#0F2218;
-  --card2:#152C1E;
-  --line:rgba(77,255,160,.1);
-  --border:rgba(77,255,160,.1);
-  --border2:rgba(77,255,160,.22);
-  --text:#E8F5EF;
-  --muted:#89ACA0;
-  --dim:#4A6B5E;
-  --amber:#4DFFA0;
-  --green:#4DFFA0;
-  --red:#FF6B6B;
-  --danger:#FF6B6B;
+  --bg:#06110C;
+  --panel:#0C2117;
+  --panel2:#10291D;
+  --surface:#081711;
+  --card:#0C2117;
+  --card2:#10291D;
+  --line:rgba(70,150,105,.22);
+  --border:rgba(70,150,105,.22);
+  --border2:rgba(70,150,105,.35);
+  --text:#F2F6F3;
+  --muted:#9CB8A8;
+  --dim:#5F8872;
+  --amber:#00E889;
+  --green:#00E889;
+  --red:#FF594D;
+  --danger:#FF594D;
   --cobalt:#4A9EFF;
-  --neon:#4DFFA0;
-  --neon-dim:rgba(77,255,160,.08);
-  --neon-mid:rgba(77,255,160,.18);
+  --neon:#00E889;
+  --neon-dim:rgba(0,232,137,.12);
+  --neon-mid:rgba(0,232,137,.22);
   --font-display:var(--font-body),sans-serif;
-  --sidebar:220px;
-  --topbar:52px;
-  --r:10px;
-  --r-sm:7px;
+  --sidebar:240px;
+  --topbar:60px;
+  --r:8px;
+  --r-sm:6px;
   --r-full:999px;
 }
 
@@ -94,9 +94,10 @@ body{background:radial-gradient(circle at 72% -20%,rgba(77,255,160,.08),transpar
 .sidebar-foot>button{border-radius:var(--r-sm);color:var(--muted);transition:all .18s cubic-bezier(.16,1,.3,1)}
 .sidebar-foot>button:hover{background:var(--neon-dim);color:var(--text)}
 .main{margin-left:var(--sidebar);background:var(--bg)}
-.topbar{height:var(--topbar);background:rgba(10,25,18,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 16px}
-.topbar-word{font-size:14px;font-weight:600;letter-spacing:0;text-transform:none}
-.top-actions{gap:10px}
+.topbar{position:sticky;top:0;z-index:90;height:60px;background:rgba(8,23,17,.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(70,150,105,.22);padding:0 20px;display:flex;align-items:center;justify-content:space-between}
+.topbar-word{font-size:13.5px;font-weight:700;letter-spacing:0;text-transform:none;color:#F2F6F3}
+.topbar-word span{color:#5F8872;font-weight:600}
+.top-actions{display:flex;align-items:center;gap:14px}
 .icon-button,.menu-button,.mobile-close,.ghost-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;color:var(--muted);transition:all .18s cubic-bezier(.16,1,.3,1)}
 .icon-button:hover,.menu-button:hover,.mobile-close:hover,.ghost-icon:hover{background:var(--neon-dim);color:var(--text)}
 .notification-wrap{position:relative}
@@ -127,10 +128,10 @@ body{background:radial-gradient(circle at 72% -20%,rgba(77,255,160,.08),transpar
 .notification-item em{font-style:normal;font-size:10px;color:#6f9287;text-transform:capitalize}
 .menu-button,.mobile-close{display:none}
 .top-profile{border-left:1px solid var(--border);padding-left:12px}
-.page{padding:20px;max-width:1600px}
-.page-header{align-items:flex-start;margin-bottom:18px}
-.page-header h1{font-size:clamp(30px,3vw,44px);font-weight:700;letter-spacing:-.02em}
-.page-header p{color:var(--muted);font-size:13px;line-height:1.6}
+.page{padding:16px 20px 24px;max-width:100%}
+.page-header{align-items:flex-end;margin-bottom:12px}
+.page-header h1{font-size:21px!important;font-weight:700!important;letter-spacing:-.02em;margin:0;line-height:1.2!important;color:#F2F6F3}
+.page-header p{color:#9CB8A8;font-size:11.5px!important;margin:3px 0 0 0!important;line-height:1.35}
 .page-header .eyebrow,.panel-head span,.team-strip>div:first-child span,.profile-feature span,.leave-balance>span,.notice-grid span,.modal-head span,.dashboard-attendance-link span,.policy-editor-head span,.profile-cover span,.profile-main span{color:var(--neon);font-size:9px;letter-spacing:.12em}
 .stats-grid,.dashboard-grid,.dashboard-grid.lower,.attendance-hero,.meeting-layout{gap:12px}
 .stat-card,.panel,.data-card,.editor-card,.team-strip,.employee-hero,.today-record,.meeting-stack,.profile-page-card,.policy-editor,.mini-metrics,.dashboard-attendance-link{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
@@ -142,7 +143,7 @@ body{background:radial-gradient(circle at 72% -20%,rgba(77,255,160,.08),transpar
 .stat-card strong{font-size:32px;font-weight:700}
 .stat-card small,.compact-row span,.day-list span,.payslip-list span,.meeting-stack p,.profile-main p,.profile-facts span{color:var(--muted)}
 .panel-head{padding:12px 14px;border-bottom:1px solid var(--border)}
-.panel-head h2{font-size:16px;font-weight:600}
+.panel-head h2{font-size:15px;font-weight:700;color:#F2F6F3}
 .chart-line,.chart-wrap circle{stroke:var(--neon)}
 .chart-legend i,.schedule-item>i.amber,.member-stack>span,.leave-balance>div i,.day-line i.active,.document-banner,.date-poster,.clock-panel{background:var(--neon)}
 .chart-wrap circle{fill:var(--card)}
@@ -152,12 +153,12 @@ body{background:radial-gradient(circle at 72% -20%,rgba(77,255,160,.08),transpar
 .search-box:focus-within,.input-wrap:focus-within,.form-input:focus,.policy-fields input:focus{border-color:var(--neon);box-shadow:0 0 0 3px rgba(77,255,160,.07)}
 .input-wrap svg,.file-drop svg,.record-times svg,.policy-editor-head svg{color:var(--neon)}
 .input-wrap input,.search-box input{color:var(--text)}
-.login-button,.primary-button,.clock-actions button{border:1px solid var(--neon);background:var(--neon);color:var(--bg);border-radius:var(--r-sm);font-weight:600}
-.login-button:hover,.primary-button:hover,.clock-actions button:hover{background:#6AFFB4;box-shadow:0 12px 34px rgba(77,255,160,.16);transform:translateY(-1px)}
-.secondary-button,.download-button,.profile-main button{border:1px solid var(--border2);border-radius:var(--r-sm);background:transparent;color:var(--text);transition:all .18s cubic-bezier(.16,1,.3,1)}
-.secondary-button:hover,.download-button:hover,.profile-main button:hover{background:var(--neon-dim);border-color:var(--neon);color:var(--neon)}
-.table-head{background:rgba(77,255,160,.04);border-bottom:1px solid var(--border);color:var(--muted);font-size:10px}
-.table-row{border-bottom:1px solid rgba(77,255,160,.06);color:var(--muted);font-size:12px}
+.login-button,.primary-button,.clock-actions button{border:1px solid var(--neon);background:var(--neon);color:#05110B;border-radius:6px;font-weight:700;height:34px;padding:0 14px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.login-button:hover,.primary-button:hover,.clock-actions button:hover{background:#22F29A;border-color:#22F29A;box-shadow:0 6px 20px rgba(0,232,137,.2);transform:translateY(-1px)}
+.secondary-button,.download-button,.profile-main button{border:1px solid rgba(70,150,105,.3);border-radius:5px;background:#10291D;color:#F2F6F3;height:30px;padding:0 10px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:5px;transition:all .18s cubic-bezier(.16,1,.3,1)}
+.secondary-button:hover,.download-button:hover,.profile-main button:hover{background:rgba(0,232,137,.15);border-color:var(--neon);color:var(--neon)}
+.table-head{background:rgba(77,255,160,.04);border-bottom:1px solid var(--border);color:#5F8872;font-size:10.5px;font-weight:700;letter-spacing:.08em}
+.table-row{border-bottom:1px solid rgba(70,150,105,.12);color:var(--muted);font-size:12.5px;min-height:50px}
 .table-row:hover{background:var(--neon-dim)}
 .person-cell a,.person-cell b,.time-value b{color:var(--text);font-size:12px}
 .badge{border-radius:var(--r-full);font-size:10px!important;text-transform:none;letter-spacing:0;padding:2px 9px}
@@ -339,26 +340,83 @@ body{background:radial-gradient(circle at 72% -20%,rgba(77,255,160,.08),transpar
 .tl-ph-d { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
 .tl-ph-body { padding: 0 15px 13px; display: block; }
 
-/* Sleek Modern Modal Form Styling */
-.modal-form .fi, .modal-form .fs {
-  background: var(--panel2) !important;
-  border: 1px solid var(--border2) !important;
-  color: var(--text) !important;
-  border-radius: var(--r-sm) !important;
-  padding: 10px 12px !important;
+/* Sleek Universal Form Input & Autofill Styling */
+input,
+select,
+textarea,
+.fi,
+.fs,
+.input-wrap input,
+.form-grid input,
+.form-grid select,
+.modal-form input,
+.modal-form select,
+.modal-form textarea,
+.search-box input,
+.toolbar select,
+.table-filters input,
+.table-filters select {
+  background-color: #0F2419 !important;
+  color: #F2F6F3 !important;
+  border: 1px solid rgba(80, 160, 110, 0.28) !important;
+  border-radius: 6px !important;
   font-size: 13px !important;
-  transition: all 0.2s ease !important;
+  caret-color: #00E889 !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
   outline: none !important;
 }
 
-.modal-form .fi:focus, .modal-form .fs:focus {
-  border-color: var(--neon) !important;
-  box-shadow: 0 0 0 3px rgba(77, 255, 160, 0.15) !important;
+input::placeholder,
+textarea::placeholder,
+.fi::placeholder {
+  color: #6F8F7D !important;
+  opacity: 1 !important;
 }
 
+input:focus,
+select:focus,
+textarea:focus,
+.fi:focus,
+.fs:focus,
+.input-wrap:focus-within {
+  border-color: #00E889 !important;
+  box-shadow: 0 0 0 3px rgba(0, 232, 137, 0.15) !important;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled,
+.fi:disabled,
+.fs:disabled {
+  background-color: #081711 !important;
+  color: #5F8872 !important;
+  border-color: rgba(70, 150, 105, 0.15) !important;
+  opacity: 0.75 !important;
+  cursor: not-allowed !important;
+}
+
+select option,
+.fs option,
 .modal-form option {
-  background: #111827;
-  color: #F3F4F6;
+  background-color: #0B1612 !important;
+  color: #F2F6F3 !important;
+  padding: 8px 12px !important;
+}
+
+/* Chrome & Safari Autofill Dark Skin Override */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #F2F6F3 !important;
+  -webkit-box-shadow: 0 0 0px 1000px #0F2419 inset !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+  caret-color: #00E889 !important;
 }
 
 .logout-backdrop {

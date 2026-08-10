@@ -15,8 +15,76 @@ DEPARTMENT_CHOICES = [
 ]
 
 
+class Department(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    code = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True, default="")
+    is_active = models.BooleanField(default=True)
+    display_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["display_order", "name"]
+
+    def __str__(self):
+        return f"{self.name} [{self.code}]"
+
+
+class PortalPage(models.Model):
+    title = models.CharField(max_length=100)
+    route_path = models.CharField(max_length=200, unique=True)
+    module_code = models.CharField(max_length=50, unique=True)
+    icon = models.CharField(max_length=50, default="LayoutDashboard")
+    sidebar_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sidebar_order", "title"]
+
+    def __str__(self):
+        return f"{self.title} ({self.route_path})"
+
+
+class DynamicRole(models.Model):
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True, default="")
+    is_superadmin_wildcard = models.BooleanField(default=False)
+    is_system_role = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} [{self.code}]"
+
+
+class RolePermission(models.Model):
+    role = models.ForeignKey(DynamicRole, on_delete=models.CASCADE, related_name="permissions")
+    page = models.ForeignKey(PortalPage, on_delete=models.CASCADE, related_name="role_permissions")
+    can_view = models.BooleanField(default=False)
+    can_create = models.BooleanField(default=False)
+    can_edit = models.BooleanField(default=False)
+    can_delete = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("role", "page")
+        ordering = ["page__sidebar_order", "page__title"]
+
+    def __str__(self):
+        return f"{self.role.code} -> {self.page.module_code} (V:{self.can_view}, C:{self.can_create}, E:{self.can_edit}, D:{self.can_delete})"
+
+
 class UserRole(models.Model):
     ROLES = [
+        ("SUPER_ADMIN", "Super Admin"),
         ("HR", "HR"),
         ("ADMIN", "Admin"),
         ("ACCOUNTANT", "Accountant"),
@@ -28,6 +96,7 @@ class UserRole(models.Model):
     ]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="portal_profile")
     role = models.CharField(max_length=20, choices=ROLES)
+    dynamic_role = models.ForeignKey(DynamicRole, on_delete=models.SET_NULL, null=True, blank=True, related_name="user_roles")
 
     def __str__(self):
         return f"{self.user.username} · {self.role}"
@@ -41,6 +110,7 @@ class Employee(models.Model):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20)
     department = models.CharField(max_length=50, choices=DEPARTMENTS)
+    department_ref = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name="employees")
     designation = models.CharField(max_length=100)
     joining_date = models.DateField()
     status = models.CharField(max_length=20, choices=STATUS, default="Active")
