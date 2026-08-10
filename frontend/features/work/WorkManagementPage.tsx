@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { useSearchParams } from "next/navigation";
 import { BriefcaseBusiness, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
-import type { Client, DepartmentItem, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary } from "@/lib/types";
+import type { Client, DepartmentItem, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary, WorkspaceRole } from "@/lib/types";
 import { SHOW_ADVANCED_WORKBOARD } from "@/lib/types";
 
 import { Badge, EmptyState, PageHeader, PrimaryButton, StatCard } from "@/components/ui";
@@ -13,7 +13,7 @@ import { useShellUser } from "@/components/shell";
 import { ShareLinkModal } from "./ShareLinkModal";
 import { CommandCenterView } from "./CommandCenterView";
 
-type ManagementWorkspace = "admin" | "hr" | "bdo" | "team-lead";
+type ManagementWorkspace = WorkspaceRole;
 type WorkFormState = {
   employee: string; client: string; title: string; description: string; priority: WorkPriority;
   assigned_date: string; due_date: string; assigned_quantity: string; completed_quantity: string;
@@ -131,10 +131,11 @@ function ProgressMeter({ value }: { value: number }) {
   return <div className="work-progress"><div><i style={{ width: `${width}%` }} /></div><span>{value}%</span></div>;
 }
 
-export function WorkManagementPage({ role }: { role: ManagementWorkspace }) {
+export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
   const currentShellUser = useShellUser();
-  const canManageAll = ["ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS"].includes((currentShellUser?.portal_role || "").toUpperCase()) || ["admin", "hr", "bdo", "team-lead"].includes(role);
-  const canAddClient = role !== "team-lead";
+  const isEmployeeWorkspace = role === "employee";
+  const canManageAll = (["ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS"].includes((currentShellUser?.portal_role || "").toUpperCase()) || ["admin", "hr", "bdo", "team-lead"].includes(role)) && !isEmployeeWorkspace;
+  const canAddClient = role !== "team-lead" && !isEmployeeWorkspace;
   const [summary, setSummary] = useState<WorkSummary>(EMPTY_SUMMARY);
   const [items, setItems] = useState<WorkAssignment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);

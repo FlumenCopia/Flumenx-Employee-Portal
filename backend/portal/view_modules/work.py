@@ -40,7 +40,10 @@ def active_employee_options_for_user(user):
         if not lead:
             return qs.none()
         return qs.filter(team_lead=lead)
-    raise PermissionDenied("You do not have permission to access employee options.")
+    emp = getattr(user, "employee", None)
+    if emp:
+        return qs.filter(id=emp.id)
+    return qs.none()
 
 
 def scoped_work_assignments_for_user(qs, user):
@@ -55,11 +58,11 @@ def scoped_work_assignments_for_user(qs, user):
         lead = getattr(user, "employee", None)
         if not lead:
             return qs.none()
-        return qs.filter(employee__team_lead=lead)
+        return qs.filter(Q(employee__team_lead=lead) | Q(employee=lead) | Q(reviewer=user) | Q(assigned_by=user)).distinct()
     employee = getattr(user, "employee", None)
-    if employee and role in ("EMPLOYEE", "MEMBER"):
-        return qs.filter(employee=employee)
-    return qs.none()
+    if employee:
+        return qs.filter(Q(employee=employee) | Q(reviewer=user) | Q(assigned_by=user)).distinct()
+    return qs.filter(Q(reviewer=user) | Q(assigned_by=user)).distinct()
 
 
 def notify_work_assigned(assignment, actor):

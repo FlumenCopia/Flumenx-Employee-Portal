@@ -175,6 +175,14 @@ export function isRoleAllowedInWorkspace(portalRole: string | undefined, workspa
   return getWorkspaceRole(portalRole) === workspaceRole;
 }
 
+export function normalizeWorkspaceRoute(routePath: string, workspaceRole: WorkspaceRole): string {
+  if (!routePath) return `/${workspaceRole}/dashboard`;
+  if (routePath.startsWith("/admin/")) {
+    return routePath.replace(/^\/admin\//, `/${workspaceRole}/`);
+  }
+  return routePath;
+}
+
 export const portalRoleRoutes: Record<PortalRole, WorkspaceRole> = {
   SUPER_ADMIN: "admin",
   ADMIN: "admin",

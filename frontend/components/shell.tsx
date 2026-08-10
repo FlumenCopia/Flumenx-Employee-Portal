@@ -8,7 +8,7 @@ import { FlumenxMark, Avatar } from "./icons";
 import { api, logout } from "@/lib/api";
 import { clearCachedAuthUser, getCachedAuthUser, loadAuthUser } from "@/lib/auth-cache";
 import type { AuthUser, Paginated, PortalNotification, WorkspaceRole } from "@/lib/types";
-import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, getWorkspaceDestination, isRoleAllowedInWorkspace, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
+import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, getWorkspaceDestination, isRoleAllowedInWorkspace, normalizeWorkspaceRoute, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
 
 
 const ShellUserContext = createContext<AuthUser | null>(null);
@@ -333,7 +333,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
         );
         const mapped = filtered.map((item) => [
           item.title,
-          item.route_path,
+          normalizeWorkspaceRoute(item.route_path, workspaceRole),
           getLucideIcon(item.icon),
         ] as const);
         setDynamicNav(mapped);

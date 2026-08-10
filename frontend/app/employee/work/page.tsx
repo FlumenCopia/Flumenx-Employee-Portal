@@ -1,5 +1,5 @@
-import { EmployeeWorkPage } from "@/features/work/EmployeeWorkPage";
+import { WorkManagementPage } from "@/features/work/WorkManagementPage";
 
 export default function Page() {
-  return <EmployeeWorkPage />;
+  return <WorkManagementPage role="employee" />;
 }
