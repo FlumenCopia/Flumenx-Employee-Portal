@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Modal } from "@/features/common/Modal";
 import { PrimaryButton } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -29,6 +30,7 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
   const [rolesLoading, setRolesLoading] = useState(false);
   const [deptsLoading, setDeptsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -128,6 +130,28 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
 
   if (!open) return null;
 
+  async function handleDeleteUser() {
+    if (!user) return;
+    if (!window.confirm(`Are you sure you want to delete / deactivate user account "${user.full_name}"?`)) {
+      return;
+    }
+    setDeleteLoading(true);
+    setError("");
+    try {
+      await api(`/portal/super-admin/users/${user.user_id}/`, { method: "DELETE" });
+      onSuccess();
+      onClose();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message || "Failed to delete user.");
+      } else {
+        setError(err instanceof Error ? err.message : "An error occurred while deleting user.");
+      }
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
@@ -187,7 +211,7 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
   }
 
   return (
-    <Modal title={isEdit ? "Edit Team Member Account" : "Add New Team User"} onClose={() => !loading && onClose()}>
+    <Modal title={isEdit ? "Edit Team Member Account" : "Add New Team User"} onClose={() => !loading && !deleteLoading && onClose()}>
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px", maxHeight: "75vh", overflowY: "auto", paddingRight: "4px" }}>
         <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
           FULL NAME
@@ -318,13 +342,39 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
 
         {error && <div className="toast error">{error}</div>}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
-          <button type="button" className="secondary-button" onClick={onClose} disabled={loading}>
-            Cancel
-          </button>
-          <PrimaryButton type="submit" disabled={loading}>
-            {loading ? "Saving..." : isEdit ? "Save Changes" : "Create User Account"}
-          </PrimaryButton>
+        <div style={{ display: "flex", justifyContent: isEdit ? "space-between" : "flex-end", alignItems: "center", gap: "10px", marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
+          {isEdit && user && (
+            <button
+              type="button"
+              onClick={handleDeleteUser}
+              disabled={loading || deleteLoading}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 14px",
+                borderRadius: "8px",
+                background: "rgba(239, 68, 68, 0.12)",
+                color: "#EF4444",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                fontSize: "12px",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+            >
+              <Trash2 size={14} />
+              {deleteLoading ? "Deleting..." : "Delete User"}
+            </button>
+          )}
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <button type="button" className="secondary-button" onClick={onClose} disabled={loading || deleteLoading}>
+              Cancel
+            </button>
+            <PrimaryButton type="submit" disabled={loading || deleteLoading}>
+              {loading ? "Saving..." : isEdit ? "Save Changes" : "Create User Account"}
+            </PrimaryButton>
+          </div>
         </div>
       </form>
     </Modal>
