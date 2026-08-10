@@ -264,13 +264,19 @@ class SuperAdminUserViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         user = self.get_object()
-        user.is_active = False
-        user.save()
-        emp = getattr(user, "employee", None)
-        if emp:
-            emp.status = "Inactive"
-            emp.save()
-        return Response({"detail": f"User {user.username} deactivated successfully."})
+        if user.id == request.user.id:
+            return Response(
+                {"detail": "You cannot delete your own account."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if user.is_superuser and User.objects.filter(is_superuser=True).count() <= 1:
+            return Response(
+                {"detail": "The primary superuser account cannot be deleted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        username = user.username
+        user.delete()
+        return Response({"detail": f"User {username} deleted successfully."})
 
     @action(detail=True, methods=["post"], url_path="password")
     def reset_password(self, request, pk=None):
