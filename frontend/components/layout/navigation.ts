@@ -153,6 +153,28 @@ export const getFilteredNavigation = (role: WorkspaceRole): readonly NavigationI
   );
 };
 
+export function getWorkspaceRole(portalRole?: string): WorkspaceRole {
+  if (!portalRole) return "employee";
+  const role = portalRole.trim().toUpperCase();
+  if (role === "SUPER_ADMIN" || role === "ADMIN" || role === "OPERATIONS" || role === "OPERATIONS_HEAD") {
+    return "admin";
+  }
+  if (role === "HR") return "hr";
+  if (role === "ACCOUNTANT") return "accountant";
+  if (role === "BDE") return "bdo";
+  if (role === "TEAM_LEAD") return "team-lead";
+  return "employee";
+}
+
+export function getWorkspaceDestination(portalRole?: string): string {
+  const ws = getWorkspaceRole(portalRole);
+  return `/${ws}/dashboard`;
+}
+
+export function isRoleAllowedInWorkspace(portalRole: string | undefined, workspaceRole: WorkspaceRole): boolean {
+  return getWorkspaceRole(portalRole) === workspaceRole;
+}
+
 export const portalRoleRoutes: Record<PortalRole, WorkspaceRole> = {
   SUPER_ADMIN: "admin",
   ADMIN: "admin",

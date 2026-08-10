@@ -8,7 +8,7 @@ import { FlumenxMark, Avatar } from "./icons";
 import { api, logout } from "@/lib/api";
 import { clearCachedAuthUser, getCachedAuthUser, loadAuthUser } from "@/lib/auth-cache";
 import type { AuthUser, Paginated, PortalNotification, WorkspaceRole } from "@/lib/types";
-import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
+import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, getWorkspaceDestination, isRoleAllowedInWorkspace, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
 
 
 const ShellUserContext = createContext<AuthUser | null>(null);
@@ -304,7 +304,7 @@ function LogoutModal({
 export function Shell({ children, role = "admin" }: { children: ReactNode; role?: WorkspaceRole }) {
   const workspaceRole = role;
   const cachedUser = getCachedAuthUser();
-  const cachedUserMatchesRole = Boolean(cachedUser && expectedPortalRoles[workspaceRole].includes(cachedUser.portal_role));
+  const cachedUserMatchesRole = Boolean(cachedUser && isRoleAllowedInWorkspace(cachedUser.portal_role, workspaceRole));
   const path = usePathname(); const router = useRouter(); const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(Boolean(cachedUserMatchesRole));
   const [user, setUser] = useState<AuthUser | null>(cachedUserMatchesRole ? cachedUser : null);
@@ -368,9 +368,9 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     loadAuthUser(() => api<AuthUser>("/auth/me/"), true)
       .then(current => {
         if (!active) return;
-        const destination = portalRoleRoutes[current.portal_role];
-        if (!expectedPortalRoles[workspaceRole].includes(current.portal_role)) {
-          router.replace(destination ? `/${destination}/dashboard` : "/login");
+        const destination = getWorkspaceDestination(current.portal_role);
+        if (!isRoleAllowedInWorkspace(current.portal_role, workspaceRole)) {
+          router.replace(destination);
           return;
         }
         setUser(current); setReady(true);
@@ -393,7 +393,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
         api<AuthUser>("/auth/me/")
           .then(current => {
             if (!active) return;
-            if (!expectedPortalRoles[workspaceRole].includes(current.portal_role)) {
+            if (!isRoleAllowedInWorkspace(current.portal_role, workspaceRole)) {
               clearCachedAuthUser();
               window.location.replace("/login");
               return;

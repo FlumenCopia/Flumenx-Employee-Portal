@@ -6,20 +6,9 @@ import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import gsap from "gsap";
 import { FlumenxMark } from "@/components/icons";
 import { api, ApiError } from "@/lib/api";
+import { getWorkspaceDestination } from "@/components/layout/navigation";
 import { clearCachedAuthUser, setCachedAuthUser } from "@/lib/auth-cache";
 import type { AuthUser } from "@/lib/types";
-
-const destinations: Record<string, string> = {
-  SUPER_ADMIN: "/admin/dashboard",
-  ADMIN: "/admin/dashboard",
-  HR: "/hr/dashboard",
-  ACCOUNTANT: "/accountant/dashboard",
-  BDE: "/bdo/dashboard",
-  TEAM_LEAD: "/team-lead/dashboard",
-  EMPLOYEE: "/employee/dashboard",
-  OPERATIONS: "/admin/dashboard",
-  OPERATIONS_HEAD: "/admin/dashboard",
-};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -46,7 +35,7 @@ export default function LoginPage() {
       .then(user => {
         if (!active) return;
         setCachedAuthUser(user);
-        const dest = destinations[user.portal_role];
+        const dest = getWorkspaceDestination(user.portal_role);
         if (dest && dest !== "/login") {
           router.replace(dest);
         } else {
@@ -103,7 +92,8 @@ export default function LoginPage() {
       });
       const meUser = await api<AuthUser>("/auth/me/");
       setCachedAuthUser(meUser);
-      router.push(destinations[meUser.portal_role] || "/login");
+      const dest = getWorkspaceDestination(meUser.portal_role);
+      router.replace(dest);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Unable to sign in.");
       if (error instanceof ApiError) setFieldErrors(error.fields);
