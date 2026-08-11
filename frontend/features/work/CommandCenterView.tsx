@@ -140,6 +140,8 @@ export function CommandCenterView({
   currentUser,
   workSummary,
   selectedClientName,
+  selectedClientId,
+  onClientChange,
   onStatusChange,
   onDeleteWork,
   initialTab = "kanban",
@@ -151,6 +153,8 @@ export function CommandCenterView({
   currentUser?: { id?: number; name?: string; username?: string; role?: string };
   workSummary?: WorkSummary;
   selectedClientName?: string;
+  selectedClientId?: string;
+  onClientChange?: (clientId: string) => void;
   onStatusChange?: (id: number, status: WorkStatus) => Promise<void> | void;
   onDeleteWork?: (id: number) => Promise<boolean>;
   initialTab?: string;
@@ -631,10 +635,38 @@ export function CommandCenterView({
                 boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "#E8F5EF", letterSpacing: "0.2px" }}>
-                  {trackerTitle}
-                </span>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 700, color: "#E8F5EF", letterSpacing: "0.2px" }}>
+                    {trackerTitle}
+                  </span>
+                  {onClientChange && (
+                    <select
+                      value={selectedClientId || ""}
+                      onChange={(e) => onClientChange(e.target.value)}
+                      style={{
+                        background: "rgba(255, 255, 255, 0.08)",
+                        color: "#4DFFA0",
+                        border: "1px solid rgba(77, 255, 160, 0.35)",
+                        borderRadius: "6px",
+                        padding: "4px 10px",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        outline: "none",
+                      }}
+                    >
+                      <option value="" style={{ background: "#0F2218", color: "#E8F5EF" }}>
+                        All Clients
+                      </option>
+                      {clients.map((c) => (
+                        <option key={c.id} value={String(c.id)} style={{ background: "#0F2218", color: "#E8F5EF" }}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
                 <span style={{ fontSize: "14px", fontWeight: 800, color: "#4DFFA0", fontFamily: "monospace" }}>
                   {Math.round(overallProgressPct)}%
                 </span>

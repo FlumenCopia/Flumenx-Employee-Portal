@@ -600,6 +600,8 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
         currentUser={shellUser ? { id: shellUser.id, name: shellUser.first_name || shellUser.username, username: shellUser.username, role: shellUser.portal_role } : undefined}
         workSummary={summary}
         selectedClientName={selectedClient?.name}
+        selectedClientId={filters.client}
+        onClientChange={(clientId) => updateFilters({ ...filters, client: clientId })}
         onStatusChange={handleStatusChange}
         onDeleteWork={canManageAll ? handleDeleteWork : undefined}
         initialTab={initialTab}
