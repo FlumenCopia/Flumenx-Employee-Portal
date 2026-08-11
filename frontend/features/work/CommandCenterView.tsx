@@ -25,7 +25,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import type { WorkAssignment, Client, WorkEmployeeOption, WorkPriority, WorkStatus, PortalRole, DepartmentItem } from "@/lib/types";
+import type { WorkAssignment, Client, WorkEmployeeOption, WorkPriority, WorkStatus, PortalRole, DepartmentItem, WorkSummary } from "@/lib/types";
 import { api } from "@/lib/api";
 import { Modal } from "@/features/common/Modal";
 
@@ -136,6 +136,8 @@ export function CommandCenterView({
   members,
   userRole = "ADMIN",
   currentUser,
+  workSummary,
+  selectedClientName,
   onStatusChange,
   onDeleteWork,
   initialTab = "kanban",
@@ -145,6 +147,8 @@ export function CommandCenterView({
   members?: WorkEmployeeOption[];
   userRole?: PortalRole | string;
   currentUser?: { id?: number; name?: string; username?: string; role?: string };
+  workSummary?: WorkSummary;
+  selectedClientName?: string;
   onStatusChange?: (id: number, status: WorkStatus) => Promise<void> | void;
   onDeleteWork?: (id: number) => Promise<boolean>;
   initialTab?: string;
@@ -430,6 +434,30 @@ export function CommandCenterView({
     setKpiInputs((prev) => ({ ...prev, [id]: "" }));
   };
 
+  const overallProgressPct = useMemo(() => {
+    if (workSummary && typeof workSummary.overall_progress === "number") {
+      return workSummary.overall_progress;
+    }
+    const relevantTasks = tasks.filter((t) => {
+      const typeStr = (t.type || "").toLowerCase();
+      return (
+        typeStr.includes("design") ||
+        typeStr.includes("video") ||
+        typeStr.includes("it") ||
+        typeStr.includes("web") ||
+        typeStr.includes("ads") ||
+        typeStr.includes("content") ||
+        typeStr.includes("marketing")
+      );
+    });
+    if (relevantTasks.length === 0) return 0;
+    const completed = relevantTasks.filter((t) => ["published", "approved"].includes(t.status)).length;
+    return Math.round((completed / relevantTasks.length) * 100);
+  }, [workSummary, tasks]);
+
+  const trackerTitle = selectedClientName ? `${selectedClientName} Progress` : "Overall Client Progress";
+  const deptProgress = workSummary?.dept_progress;
+
   const currentActiveTab = SHOW_ADVANCED_WORKBOARD ? activeTab : "kanban";
 
   return (
@@ -479,7 +507,6 @@ export function CommandCenterView({
 
       {/* 1. COMMAND CENTER OVERVIEW */}
       {currentActiveTab === "overview" && (
-
         <div className="grid mb">
           {lateTasks.length > 0 && (
             <div style={{ padding: "12px 16px", borderRadius: "var(--r-sm)", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--red)", fontSize: "12px", display: "flex", alignItems: "center", gap: "10px" }}>
@@ -584,10 +611,75 @@ export function CommandCenterView({
 
       {/* 2. TASK BOARD (Matches screenshot expo-ui-bice.vercel.app/tasks) */}
       {currentActiveTab === "kanban" && (
-
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
           {/* Filter Bar Row 1 & 2 */}
-          <div className="card" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div className="card" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {/* COMPACT CLIENT PROGRESS TRACKER */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                padding: "12px 16px",
+                borderRadius: "8px",
+                background: "rgba(15, 34, 24, 0.75)",
+                border: "1px solid rgba(77, 255, 160, 0.2)",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#E8F5EF", letterSpacing: "0.2px" }}>
+                  {trackerTitle}
+                </span>
+                <span style={{ fontSize: "14px", fontWeight: 800, color: "#4DFFA0", fontFamily: "monospace" }}>
+                  {Math.round(overallProgressPct)}%
+                </span>
+              </div>
+
+              <div
+                style={{
+                  height: "7px",
+                  width: "100%",
+                  background: "rgba(255, 255, 255, 0.08)",
+                  borderRadius: "99px",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${Math.max(0, Math.min(100, overallProgressPct))}%`,
+                    background: "linear-gradient(90deg, #22c55e 0%, #4DFFA0 100%)",
+                    borderRadius: "99px",
+                    transition: "width 0.4s ease",
+                    boxShadow: "0 0 8px rgba(77, 255, 160, 0.4)",
+                  }}
+                />
+              </div>
+
+              {deptProgress && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: "10px",
+                    fontSize: "10.5px",
+                    color: "#89ACA0",
+                    paddingTop: "2px",
+                  }}
+                >
+                  <span>Design <strong style={{ color: "#E8F5EF" }}>{deptProgress.design.pct}%</strong></span>
+                  <span>•</span>
+                  <span>Marketing <strong style={{ color: "#E8F5EF" }}>{deptProgress.marketing.pct}%</strong></span>
+                  <span>•</span>
+                  <span>Web Dev <strong style={{ color: "#E8F5EF" }}>{deptProgress.web.pct}%</strong></span>
+                  <span>•</span>
+                  <span>Video Editing <strong style={{ color: "#E8F5EF" }}>{deptProgress.video.pct}%</strong></span>
+                </div>
+              )}
+            </div>
+
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
               <input
                 type="text"

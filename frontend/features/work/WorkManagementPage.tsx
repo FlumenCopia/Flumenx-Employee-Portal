@@ -204,6 +204,7 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
     return [...employees].sort((a, b) => a.display_name.localeCompare(b.display_name));
   }, [employees]);
   const selectedEmployee = useMemo(() => employees.find(employee => String(employee.id) === form.employee), [employees, form.employee]);
+  const selectedClient = useMemo(() => clients.find(client => String(client.id) === filters.client), [clients, filters.client]);
   const isDeliverableWorkflow = selectedEmployee?.department === "Design" || selectedEmployee?.department === "Video Editing" || form.deliverables.length > 0;
 
   const updateFilters = (nextFilters: WorkFilters) => {
@@ -221,7 +222,7 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
     setError("");
     try {
       const listQuery = queryFromFilters({ ...nextFilters, ...(nextPage > 1 ? { page: String(nextPage) } : {}) });
-      const summaryQuery = queryFromFilters(nextFilters);
+      const summaryQuery = queryFromFilters({ client: nextFilters.client } as WorkFilters);
       const [list, nextSummary] = await Promise.all([
         api<Paginated<WorkAssignment>>(`/work-assignments/${listQuery}`, { signal: controller.signal }),
         api<WorkSummary>(`/work-assignments/summary/${summaryQuery}`, { signal: controller.signal }),
@@ -292,9 +293,15 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
 
   function openCreate() {
     setEditing(null);
-    setForm(defaultForm());
+    const initialForm = defaultForm();
+    if (clients.length > 0) {
+      initialForm.client = String(clients[0].id);
+    }
+    setForm(initialForm);
     setFormErrors({});
     setActionError("");
+    setClientName("");
+    setClientError("");
     setDeliverablePanelOpen(false);
     setDeliverableEditingIndex(null);
     setDeliverableDraft(defaultDeliverable());
@@ -591,8 +598,10 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
         members={visibleEmployees}
         userRole={role}
         currentUser={shellUser ? { id: shellUser.id, name: shellUser.first_name || shellUser.username, username: shellUser.username, role: shellUser.portal_role } : undefined}
+        workSummary={summary}
+        selectedClientName={selectedClient?.name}
         onStatusChange={handleStatusChange}
-        onDeleteWork={handleDeleteWork}
+        onDeleteWork={canManageAll ? handleDeleteWork : undefined}
         initialTab={initialTab}
       />
     ) : (
@@ -724,8 +733,31 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
           </label>
         </div>
 
-        {/* ROW 2: TYPE & PHASE */}
+        {/* ROW 2: CLIENT & TYPE */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+            CLIENT / ACCOUNT *
+            <select
+              value={form.client}
+              onChange={(event) => {
+                const val = event.target.value;
+                setForm((current) => ({ ...current, client: val }));
+              }}
+              required
+              className="fs"
+            >
+              <option value="" disabled>
+                {optionsLoading ? "Loading clients..." : clients.length ? "Select Client" : "No clients available"}
+              </option>
+              {clients.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {formErrors.client && <small style={{ color: "#EF4444" }}>{formErrors.client}</small>}
+          </label>
+
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
             TYPE
             <select
@@ -743,22 +775,48 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
               ))}
             </select>
           </label>
+        </div>
 
-      <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-        PHASE
-        <select
-          value={form.phase || "ph1"}
-          onChange={event => setForm(current => ({ ...current, phase: event.target.value }))}
-          className="fs"
-        >
-          <option value="ph1">PHASE 1 — IGNITE</option>
-          <option value="ph2">PHASE 2 — AMPLIFY</option>
-          <option value="ph3">PHASE 3 — CONVERT</option>
-          <option value="ph4">PHASE 4 — LAST MILE</option>
-          <option value="ph5">PHASE 5 — LIVE + POST</option>
-        </select>
-      </label>
-    </div>
+        {canAddClient && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "-4px" }}>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <input
+                type="text"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="+ Or type new client name to add dynamically..."
+                className="fi"
+                style={{ flex: 1, padding: "7px 10px", fontSize: "11px" }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addClient();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={addClient}
+                disabled={clientPending || !clientName.trim()}
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: "8px",
+                  background: "rgba(77, 255, 160, 0.12)",
+                  color: "#4DFFA0",
+                  border: "1px solid rgba(77, 255, 160, 0.3)",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  cursor: clientName.trim() ? "pointer" : "not-allowed",
+                  whiteSpace: "nowrap",
+                  opacity: clientName.trim() ? 1 : 0.6,
+                }}
+              >
+                {clientPending ? "Adding..." : "+ Add Client"}
+              </button>
+            </div>
+            {clientError && <small style={{ color: "#EF4444", fontSize: "10.5px" }}>{clientError}</small>}
+          </div>
+        )}
 
         {/* ROW 3: ASSIGN TO & REVIEWER */}
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
@@ -829,7 +887,7 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
     </div>
 
     {/* ROW 5: COUNTS TOWARD */}
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px" }}>
       <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
         COUNTS TOWARD (KPI QUANTITY) *
         <input
@@ -845,19 +903,6 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
         {formErrors.assigned_quantity && <small style={{ color: "#EF4444" }}>{formErrors.assigned_quantity}</small>}
       </label>
     </div>
-
-    {/* ROW 6: DESCRIPTION / BRIEF */}
-    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-      DESCRIPTION / BRIEF
-      <textarea
-        value={form.description}
-        onChange={event => setForm(current => ({ ...current, description: event.target.value }))}
-        placeholder="What exactly needs to be produced, deliverables, and constraints"
-        rows={3}
-        className="fi"
-      />
-      {formErrors.description && <small style={{ color: "#EF4444" }}>{formErrors.description}</small>}
-    </label>
 
     {actionError && <div className="toast error">{actionError}</div>}
 

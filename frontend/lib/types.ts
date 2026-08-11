@@ -139,8 +139,28 @@ export type WorkAssignment = {
   is_overdue: boolean; deliverables: WorkDeliverable[]; created_at: string; updated_at: string;
 };
 
+export type DeptCategoryProgress = {
+  assigned: number;
+  completed: number;
+  pct: number;
+};
+
 export type WorkSummary = {
-  total: number; pending: number; in_progress: number; blocked: number; completed: number; overdue: number;
+  total: number;
+  pending: number;
+  in_progress: number;
+  blocked: number;
+  completed: number;
+  overdue: number;
+  total_assigned_qty?: number;
+  total_completed_qty?: number;
+  overall_progress?: number;
+  dept_progress?: {
+    design: DeptCategoryProgress;
+    marketing: DeptCategoryProgress;
+    web: DeptCategoryProgress;
+    video: DeptCategoryProgress;
+  };
 };
 export type WorkEmployeeOption = {
   id: number; display_name: string; department: Department;
