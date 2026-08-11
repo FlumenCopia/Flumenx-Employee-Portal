@@ -46,6 +46,8 @@ export interface TaskItem {
   status: "backlog" | "assigned" | "progress" | "review" | "approved" | "published";
   priority: "p0" | "p1" | "p2";
   rawStatus?: WorkStatus;
+  clientName?: string;
+  clientId?: number;
 }
 
 export interface MemberItem {
@@ -302,6 +304,8 @@ export function CommandCenterView({
           status: statusMap[a.status] || "progress",
           priority: priorityMap[a.priority] || "p1",
           rawStatus: a.status,
+          clientName: a.client_name,
+          clientId: a.client,
         };
       });
       setTasks(converted);
@@ -1148,12 +1152,17 @@ export function CommandCenterView({
               </div>
 
               <div style={{ display: "flex", gap: "6px" }}>
-                <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Due date</span>
-                <span style={{ color: "#A7C1B5" }}>{selectedTask.due}</span>
+                <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Client—</span>
+                <span style={{ color: "#4DFFA0", fontWeight: 700 }}>{selectedTask.clientName || clients.find((c) => c.id === selectedTask.clientId)?.name || "—"}</span>
               </div>
               <div style={{ display: "flex", gap: "6px" }}>
                 <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Counts toward—</span>
-                <span style={{ color: "#A7C1B5" }}>{clients.find((c) => String(c.id) === selectedTask.deliverable)?.name || "—"}</span>
+                <span style={{ color: "#A7C1B5" }}>—</span>
+              </div>
+
+              <div style={{ display: "flex", gap: "6px" }}>
+                <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Due date</span>
+                <span style={{ color: "#A7C1B5" }}>{selectedTask.due || "—"}</span>
               </div>
             </div>
 
