@@ -443,8 +443,9 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
             c_agg = c_qs.aggregate(a=Sum("assigned_quantity"), c=Sum("completed_quantity"))
             a_val = c_agg["a"] or 0
             c_val = c_agg["c"] or 0
-            pct_val = round(max(0.0, min(100.0, (c_val / a_val) * 100.0)), 1) if a_val > 0 else 0.0
-            return {"assigned": a_val, "completed": c_val, "pct": pct_val}
+            has_w = a_val > 0
+            pct_val = round(max(0.0, min(100.0, (c_val / a_val) * 100.0)), 1) if has_w else 0.0
+            return {"assigned": a_val, "completed": c_val, "pct": pct_val, "has_work": has_w}
 
         dept_summary = {
             "design": calc_category(q_design),

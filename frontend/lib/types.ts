@@ -143,6 +143,7 @@ export type DeptCategoryProgress = {
   assigned: number;
   completed: number;
   pct: number;
+  has_work?: boolean;
 };
 
 export type WorkSummary = {

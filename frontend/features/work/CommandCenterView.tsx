@@ -696,22 +696,49 @@ export function CommandCenterView({
               {deptProgress && (
                 <div
                   style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: "10px",
-                    fontSize: "10.5px",
-                    color: "#89ACA0",
-                    paddingTop: "2px",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+                    gap: "10px 14px",
+                    paddingTop: "8px",
+                    borderTop: "1px solid rgba(77, 255, 160, 0.12)",
+                    marginTop: "2px",
                   }}
                 >
-                  <span>Design <strong style={{ color: "#E8F5EF" }}>{deptProgress.design.pct}%</strong></span>
-                  <span>•</span>
-                  <span>Marketing <strong style={{ color: "#E8F5EF" }}>{deptProgress.marketing.pct}%</strong></span>
-                  <span>•</span>
-                  <span>Web Dev <strong style={{ color: "#E8F5EF" }}>{deptProgress.web.pct}%</strong></span>
-                  <span>•</span>
-                  <span>Video Editing <strong style={{ color: "#E8F5EF" }}>{deptProgress.video.pct}%</strong></span>
+                  {[
+                    { label: "Design", key: "design" },
+                    { label: "Marketing", key: "marketing" },
+                    { label: "Web Dev", key: "web" },
+                    { label: "Video Editing", key: "video" },
+                  ].map(({ label, key }) => {
+                    const cat = deptProgress[key as keyof typeof deptProgress];
+                    const hasWork = cat ? (cat.has_work ?? (cat.assigned > 0)) : false;
+                    const pct = cat ? cat.pct : 0;
+                    return (
+                      <div key={key} style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10.5px" }}>
+                          <span style={{ color: "#A7C1B5", fontWeight: 600 }}>{label}</span>
+                          <span style={{ fontSize: "10px", fontWeight: 700, color: hasWork ? "#4DFFA0" : "#6B7280", fontFamily: "monospace" }}>
+                            {hasWork ? `${Math.round(pct)}%` : "No work"}
+                          </span>
+                        </div>
+                        <div style={{ height: "4px", width: "100%", background: "rgba(255, 255, 255, 0.08)", borderRadius: "99px", overflow: "hidden" }}>
+                          {hasWork ? (
+                            <div
+                              style={{
+                                height: "100%",
+                                width: `${Math.max(0, Math.min(100, pct))}%`,
+                                background: "#4DFFA0",
+                                borderRadius: "99px",
+                                transition: "width 0.4s ease",
+                              }}
+                            />
+                          ) : (
+                            <div style={{ height: "100%", width: "0%", background: "transparent" }} />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
