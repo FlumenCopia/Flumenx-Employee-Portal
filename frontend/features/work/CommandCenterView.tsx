@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { SHOW_ADVANCED_WORKBOARD } from "@/lib/types";
+import { SHOW_ADVANCED_WORKBOARD, CANONICAL_DEPARTMENTS, normalizeDepartment } from "@/lib/types";
 
 import {
   AlertTriangle,
@@ -43,7 +43,7 @@ export interface TaskItem {
   due: string;
   hours: number;
   deliverable?: string | null;
-  status: "backlog" | "assigned" | "progress" | "review" | "approved" | "published";
+  status: "assigned" | "progress" | "review" | "approved" | "published";
   priority: "p0" | "p1" | "p2";
   rawStatus?: WorkStatus;
   clientName?: string;
@@ -98,7 +98,6 @@ export const PHASES = [
 ];
 
 export const STATUSES: Array<{ id: TaskItem["status"]; name: string; color: string }> = [
-  { id: "backlog", name: "Backlog", color: "#64748B" },
   { id: "assigned", name: "Assigned", color: "#3B82F6" },
   { id: "progress", name: "In Progress", color: "#F59E0B" },
   { id: "review", name: "In Review", color: "#A78BFA" },
@@ -107,23 +106,27 @@ export const STATUSES: Array<{ id: TaskItem["status"]; name: string; color: stri
 ];
 
 export const ALL_WORK_STATUSES: Array<{ id: WorkStatus; name: string; isReviewerOnly: boolean }> = [
-  { id: "Pending", name: "Pending", isReviewerOnly: false },
-  { id: "Ongoing", name: "Ongoing", isReviewerOnly: false },
+  { id: "Assigned", name: "Assigned", isReviewerOnly: false },
   { id: "In Progress", name: "In Progress", isReviewerOnly: false },
-  { id: "Blocked", name: "Blocked", isReviewerOnly: false },
   { id: "In Review", name: "In Review", isReviewerOnly: false },
   { id: "Approved", name: "Approved", isReviewerOnly: true },
   { id: "Published", name: "Published", isReviewerOnly: true },
 ];
 
 export const TASK_TYPES: Record<string, { id: string; name: string; color: string }> = {
+  web_development: { id: "web_development", name: "Web Development", color: "#4DFFA0" },
+  video_editing: { id: "video_editing", name: "Video Editing", color: "#F472B6" },
   design: { id: "design", name: "Design", color: "#F59E0B" },
-  video: { id: "video", name: "Video", color: "#F472B6" },
-  ads: { id: "ads", name: "Ads", color: "#22D3EE" },
-  it: { id: "it", name: "IT / Web", color: "#4DFFA0" },
-  content: { id: "content", name: "Content", color: "#A78BFA" },
-  ops: { id: "ops", name: "Ops", color: "#3B82F6" },
-  client: { id: "client", name: "Client", color: "#89ACA0" },
+  digital_marketing: { id: "digital_marketing", name: "Digital Marketing", color: "#22D3EE" },
+  accountant: { id: "accountant", name: "Accountant", color: "#A78BFA" },
+  operations: { id: "operations", name: "Operations", color: "#3B82F6" },
+  hr: { id: "hr", name: "HR", color: "#EC4899" },
+  // Fallbacks for legacy keys
+  it: { id: "web_development", name: "Web Development", color: "#4DFFA0" },
+  video: { id: "video_editing", name: "Video Editing", color: "#F472B6" },
+  ads: { id: "digital_marketing", name: "Digital Marketing", color: "#22D3EE" },
+  content: { id: "digital_marketing", name: "Digital Marketing", color: "#22D3EE" },
+  ops: { id: "operations", name: "Operations", color: "#3B82F6" },
 };
 
 const DEFAULT_MEMBERS: MemberItem[] = [];
@@ -229,23 +232,16 @@ export function CommandCenterView({
   }, []);
 
   const dynamicDeptPills = useMemo(() => {
-    const list: Array<{ id: string; name: string }> = [];
-    const seen = new Set<string>();
-
-    (departments || []).forEach((d) => {
-      const nameKey = d.name.trim();
-      if (nameKey && !seen.has(nameKey.toUpperCase())) {
-        seen.add(nameKey.toUpperCase());
-        list.push({ id: d.name.toLowerCase(), name: d.name });
-      }
-    });
-
-    if (list.length === 0) {
-      return Object.entries(TASK_TYPES).map(([k, v]) => ({ id: k, name: v.name }));
-    }
-
-    return list;
-  }, [departments]);
+    return [
+      { id: "web_development", name: "Web Development" },
+      { id: "video_editing", name: "Video Editing" },
+      { id: "design", name: "Design" },
+      { id: "digital_marketing", name: "Digital Marketing" },
+      { id: "accountant", name: "Accountant" },
+      { id: "operations", name: "Operations" },
+      { id: "hr", name: "HR" },
+    ];
+  }, []);
 
   useEffect(() => {
     setActiveTab(initialTab === "overview" || initialTab === "command-center" ? "kanban" : initialTab);
@@ -255,13 +251,14 @@ export function CommandCenterView({
     if (assignments && assignments.length > 0) {
       const converted: TaskItem[] = assignments.map((a) => {
         const statusMap: Record<string, TaskItem["status"]> = {
-          Pending: "backlog",
-          Ongoing: "assigned",
+          Assigned: "assigned",
+          Pending: "assigned",
           "In Progress": "progress",
+          Ongoing: "progress",
+          Blocked: "progress",
           "In Review": "review",
-          Blocked: "review",
           "Changes Requested": "progress",
-          Rejected: "backlog",
+          Rejected: "assigned",
           Approved: "approved",
           Completed: "published",
           Published: "published",
@@ -272,25 +269,10 @@ export function CommandCenterView({
           High: "p1",
           Urgent: "p0",
         };
-        let detectedType = "design";
-        if (a.employee_department) {
-          const d = a.employee_department.toLowerCase();
-          if (d.includes("video") || d.includes("anim") || d.includes("editing")) detectedType = "video";
-          else if (d.includes("web") || d.includes("it") || d.includes("dev") || d.includes("software")) detectedType = "it";
-          else if (d.includes("design") || d.includes("ui") || d.includes("ux") || d.includes("graphic")) detectedType = "design";
-          else if (d.includes("marketing") || d.includes("ad") || d.includes("bde")) detectedType = "ads";
-          else if (d.includes("content") || d.includes("copy") || d.includes("writer")) detectedType = "content";
-          else if (d.includes("ops") || d.includes("operations") || d.includes("hr") || d.includes("account")) detectedType = "ops";
-        }
-        if (a.deliverables && a.deliverables.length > 0 && a.deliverables[0].work_type) {
-          const wt = a.deliverables[0].work_type.toLowerCase();
-          if (wt.includes("video") || wt.includes("reel") || wt.includes("edit")) detectedType = "video";
-          else if (wt.includes("web") || wt.includes("it") || wt.includes("dev")) detectedType = "it";
-          else if (wt.includes("ad") || wt.includes("market")) detectedType = "ads";
-          else if (wt.includes("design") || wt.includes("graphic") || wt.includes("ui") || wt.includes("ux")) detectedType = "design";
-          else if (wt.includes("content") || wt.includes("copy")) detectedType = "content";
-          else if (wt.includes("ops")) detectedType = "ops";
-        }
+        const rawWorkType = (a.deliverables && a.deliverables.length > 0 && a.deliverables[0].work_type)
+          ? a.deliverables[0].work_type
+          : a.employee_department;
+        const detectedType = normalizeDepartment(rawWorkType);
 
         return {
           id: String(a.id),
@@ -369,11 +351,7 @@ export function CommandCenterView({
         }
         if (selectedPhaseFilter !== "all" && t.phase !== selectedPhaseFilter) return false;
         if (selectedTypeFilter !== "all") {
-          const filterKey = selectedTypeFilter.toLowerCase();
-          const taskType = (t.type || "").toLowerCase();
-          if (filterKey === "it" || filterKey === "web" || filterKey.includes("development")) {
-            if (!["it", "web", "development"].some((k) => taskType.includes(k))) return false;
-          } else if (!taskType.includes(filterKey) && !filterKey.includes(taskType)) {
+          if (normalizeDepartment(t.type) !== normalizeDepartment(selectedTypeFilter)) {
             return false;
           }
         }
@@ -397,14 +375,15 @@ export function CommandCenterView({
     if (!onStatusChange || isNaN(Number(id)) || isUpdatingStatus) return;
     setIsUpdatingStatus(true);
     setStatusError("");
-    const statusMap: Record<WorkStatus, TaskItem["status"]> = {
-      Pending: "backlog",
-      Ongoing: "assigned",
+    const statusMap: Record<string, TaskItem["status"]> = {
+      Assigned: "assigned",
+      Pending: "assigned",
       "In Progress": "progress",
+      Ongoing: "progress",
+      Blocked: "progress",
       "In Review": "review",
-      Blocked: "review",
       "Changes Requested": "progress",
-      Rejected: "backlog",
+      Rejected: "assigned",
       Approved: "approved",
       Completed: "published",
       Published: "published",
@@ -425,8 +404,7 @@ export function CommandCenterView({
 
   const moveTask = (id: string, newStatus: TaskItem["status"]) => {
     const reverseMap: Record<TaskItem["status"], WorkStatus> = {
-      backlog: "Pending",
-      assigned: "Ongoing",
+      assigned: "Assigned",
       progress: "In Progress",
       review: "In Review",
       approved: "Approved",
@@ -870,7 +848,8 @@ export function CommandCenterView({
                     ) : (
                       colTasks.map((t) => {
                         const isOverdue = new Date(t.due) < new Date();
-                        const typeInfo = TASK_TYPES[t.type] || { name: t.type, color: "#89ACA0" };
+                        const canonKey = normalizeDepartment(t.type);
+                        const typeInfo = CANONICAL_DEPARTMENTS[canonKey] || { label: t.type, badge: t.type, color: "#89ACA0" };
                         return (
                           <div
                             key={t.id}
@@ -881,7 +860,7 @@ export function CommandCenterView({
 
                             <div className="tc-top" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
                               <span className="chip" style={{ background: typeInfo.color + "20", color: typeInfo.color, padding: "2px 8px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
-                                {typeInfo.name}
+                                {typeInfo.label}
                               </span>
                               <span className={`chip ${t.priority === "p0" ? "p-p0" : "p-p1"}`} style={{ padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
                                 {t.priority.toUpperCase()}
@@ -912,7 +891,7 @@ export function CommandCenterView({
                             <div style={{ marginTop: "8px", paddingTop: "6px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                               <span style={{ fontSize: "10.5px", color: "#89ACA0", fontWeight: 600 }}>Status:</span>
                               <select
-                                value={t.rawStatus || "Pending"}
+                                value={t.rawStatus || "Assigned"}
                                 disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={async (e) => {
@@ -1175,7 +1154,7 @@ export function CommandCenterView({
             {/* STATUS CHIPS */}
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span style={{ background: "rgba(34, 211, 238, 0.15)", color: "#22D3EE", padding: "3px 9px", borderRadius: "5px", fontSize: "10px", fontWeight: 800, textTransform: "uppercase" }}>
-                {TASK_TYPES[selectedTask.type]?.name || selectedTask.type}
+                {CANONICAL_DEPARTMENTS[normalizeDepartment(selectedTask.type)]?.label || selectedTask.type}
               </span>
               <span style={{ background: "rgba(245, 158, 11, 0.15)", color: "#F59E0B", padding: "3px 9px", borderRadius: "5px", fontSize: "10px", fontWeight: 800, textTransform: "uppercase" }}>
                 {selectedTask.priority.toUpperCase()}

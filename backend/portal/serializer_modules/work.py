@@ -136,7 +136,7 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
         attrs = super().validate(attrs)
         request = self.context.get("request")
         requested_status = attrs.get("status")
-        valid_statuses = ("Pending", "In Progress", "Ongoing", "Blocked", "In Review", "Changes Requested", "Rejected", "Approved", "Completed", "Published")
+        valid_statuses = ("Assigned", "Pending", "In Progress", "Ongoing", "Blocked", "In Review", "Changes Requested", "Rejected", "Approved", "Completed", "Published")
 
         if requested_status and requested_status not in valid_statuses:
             raise serializers.ValidationError({"status": f"Invalid status value '{requested_status}'."})
@@ -146,7 +146,7 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
             if not is_rev:
                 if requested_status in ("Approved", "Changes Requested", "Rejected", "Completed", "Published"):
                     raise PermissionDenied("Only the assigned Reviewer or Management can approve, reject, request changes, complete, or publish work.")
-                if requested_status not in ("Pending", "In Progress", "Ongoing", "Blocked", "In Review"):
+                if requested_status not in ("Assigned", "Pending", "In Progress", "Ongoing", "Blocked", "In Review"):
                     raise PermissionDenied("Assigned employee can only move work to In Review or update progress.")
                 if requested_status == "In Review" and self.instance.status in ("Approved", "Completed", "Published", "Rejected"):
                     raise PermissionDenied(f"Assigned employee cannot submit work for review when current status is '{self.instance.status}'.")
@@ -160,7 +160,7 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
                     raise PermissionDenied("Employees can update only work status and progress.")
 
         if self.instance and "completed_quantity" in attrs and "status" not in attrs and self.instance.status == "Blocked":
-            attrs["status"] = "Pending"
+            attrs["status"] = "In Progress"
 
         employee = attrs.get("employee", getattr(self.instance, "employee", None))
         self.validate_employee_scope(employee)
@@ -176,7 +176,7 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
             "priority": attrs.get("priority", getattr(self.instance, "priority", "Normal")),
             "assigned_date": attrs.get("assigned_date", getattr(self.instance, "assigned_date", None)),
             "due_date": attrs.get("due_date", getattr(self.instance, "due_date", None)),
-            "status": attrs.get("status", getattr(self.instance, "status", "Pending")),
+            "status": attrs.get("status", getattr(self.instance, "status", "Assigned")),
             "assigned_quantity": attrs.get("assigned_quantity", getattr(self.instance, "assigned_quantity", 100)),
             "completed_quantity": attrs.get("completed_quantity", getattr(self.instance, "completed_quantity", 0)),
             "unit": attrs.get("unit", getattr(self.instance, "unit", "%")),
@@ -256,7 +256,7 @@ class WorkDeliverableSerializer(serializers.ModelSerializer):
             if protected:
                 raise PermissionDenied("Employees can update only deliverable status.")
             requested_status = attrs.get("status")
-            if requested_status not in ("Pending", "In Progress", "Completed", "Blocked"):
+            if requested_status not in ("Assigned", "Pending", "In Progress", "Ongoing", "Blocked", "In Review", "Approved", "Completed", "Published"):
                 raise PermissionDenied("Employees can update only valid deliverable statuses.")
         elif not self.instance and role == "EMPLOYEE":
             raise PermissionDenied("Employees cannot create deliverables.")
@@ -271,7 +271,7 @@ class WorkDeliverableSerializer(serializers.ModelSerializer):
             "brief": attrs.get("brief", getattr(self.instance, "brief", "")),
             "work_type": attrs.get("work_type", getattr(self.instance, "work_type", "")),
             "due_date": attrs.get("due_date", getattr(self.instance, "due_date", None)),
-            "status": attrs.get("status", getattr(self.instance, "status", "Pending")),
+            "status": attrs.get("status", getattr(self.instance, "status", "Assigned")),
         }
         deliverable = WorkDeliverable(**values)
         if self.instance:

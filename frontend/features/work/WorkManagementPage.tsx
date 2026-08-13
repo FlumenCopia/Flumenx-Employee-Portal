@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { BriefcaseBusiness, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import type { Client, DepartmentItem, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary, WorkspaceRole } from "@/lib/types";
-import { SHOW_ADVANCED_WORKBOARD } from "@/lib/types";
+import { SHOW_ADVANCED_WORKBOARD, normalizeDepartment } from "@/lib/types";
 
 import { Badge, EmptyState, PageHeader, PrimaryButton, StatCard } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
@@ -29,7 +29,7 @@ type WorkFilters = {
 
 const EMPTY_SUMMARY: WorkSummary = { total: 0, pending: 0, in_progress: 0, blocked: 0, completed: 0, overdue: 0 };
 const PRIORITIES: WorkPriority[] = ["Low", "Normal", "High", "Urgent"];
-const STATUSES: WorkStatus[] = ["Pending", "Ongoing", "In Progress", "Blocked", "In Review", "Approved", "Published"];
+const STATUSES: WorkStatus[] = ["Assigned", "In Progress", "In Review", "Approved", "Published"];
 const EMPTY_FILTERS: WorkFilters = { employee: "", client: "", status: "", priority: "", due_date: "", assigned_date: "", is_overdue: "" };
 
 function today() {
@@ -98,7 +98,7 @@ function formFromAssignment(item: WorkAssignment): WorkFormState {
 }
 
 function defaultDeliverable(client = "", dueDate = today()): DeliverableFormState {
-  return { client, title: "", brief: "", work_type: "", due_date: dueDate, status: "Pending" };
+  return { client, title: "", brief: "", work_type: "web_development", due_date: dueDate, status: "Assigned" };
 }
 
 function queryFromFilters(filters: WorkFilters) {
@@ -146,31 +146,16 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
   const [page, setPage] = useState(1);
 
   const dynamicWorkTypeOptions = useMemo(() => {
-    const list: Array<{ value: string; label: string }> = [];
-    const seen = new Set<string>();
-
-    (departments || []).forEach((d) => {
-      const nameKey = d.name.trim();
-      if (nameKey && !seen.has(nameKey.toUpperCase())) {
-        seen.add(nameKey.toUpperCase());
-        list.push({ value: d.name.toLowerCase(), label: d.name });
-      }
-    });
-
-    if (list.length === 0) {
-      return [
-        { value: "design", label: "Design" },
-        { value: "video", label: "Video Editing" },
-        { value: "ads", label: "Digital Marketing" },
-        { value: "it", label: "Web Development" },
-        { value: "ops", label: "Operations" },
-        { value: "accountant", label: "Accountant" },
-        { value: "hr", label: "HR" },
-      ];
-    }
-
-    return list;
-  }, [departments]);
+    return [
+      { value: "web_development", label: "Web Development" },
+      { value: "video_editing", label: "Video Editing" },
+      { value: "design", label: "Design" },
+      { value: "digital_marketing", label: "Digital Marketing" },
+      { value: "accountant", label: "Accountant" },
+      { value: "operations", label: "Operations" },
+      { value: "hr", label: "HR" },
+    ];
+  }, []);
 
   const [count, setCount] = useState(0);
   const [hasNext, setHasNext] = useState(false);
@@ -201,8 +186,11 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
 
 
   const visibleEmployees = useMemo(() => {
-    return [...employees].sort((a, b) => a.display_name.localeCompare(b.display_name));
-  }, [employees]);
+    const targetDept = normalizeDepartment(form.work_type || "web_development");
+    return employees
+      .filter((emp) => normalizeDepartment(emp.department) === targetDept)
+      .sort((a, b) => a.display_name.localeCompare(b.display_name));
+  }, [employees, form.work_type]);
   const selectedEmployee = useMemo(() => employees.find(employee => String(employee.id) === form.employee), [employees, form.employee]);
   const selectedClient = useMemo(() => clients.find(client => String(client.id) === filters.client), [clients, filters.client]);
   const isDeliverableWorkflow = selectedEmployee?.department === "Design" || selectedEmployee?.department === "Video Editing" || form.deliverables.length > 0;
@@ -462,7 +450,7 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
       unit: "tasks",
       reviewer: form.reviewer ? (isNaN(Number(form.reviewer)) ? form.reviewer : Number(form.reviewer)) : null,
 
-      ...(form.statusMode === "Blocked" ? { status: "Blocked" as WorkStatus } : editing ? {} : { status: "Pending" as WorkStatus }),
+      ...(editing ? {} : { status: "Assigned" as WorkStatus }),
       ...(effectiveClient ? { client: Number(effectiveClient) } : {}),
     };
 
@@ -480,7 +468,7 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
           brief: form.description || "",
           work_type: form.work_type || "design",
           due_date: form.due_date,
-          status: "Pending" as WorkStatus,
+          status: "Assigned" as WorkStatus,
         }];
       await syncDeliverables(saved.id, deliverablesToSync);
       setModalOpen(false);
@@ -763,10 +751,18 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
             TYPE
             <select
-              value={form.work_type || "design"}
+              value={form.work_type || "web_development"}
               onChange={(event) => {
                 const val = event.target.value;
-                setForm((current) => ({ ...current, work_type: val }));
+                setForm((current) => {
+                  const selectedEmp = employees.find((emp) => String(emp.id) === current.employee);
+                  const isEmpValid = selectedEmp && normalizeDepartment(selectedEmp.department) === normalizeDepartment(val);
+                  return {
+                    ...current,
+                    work_type: val,
+                    employee: isEmpValid ? current.employee : "",
+                  };
+                });
               }}
               className="fs"
             >
@@ -832,7 +828,7 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
           className="fs"
         >
           <option value="" disabled>
-            {optionsLoading ? "Loading employees..." : visibleEmployees.length ? "Select employee" : "No active employees in this department"}
+            {optionsLoading ? "Loading employees..." : visibleEmployees.length ? "Select employee" : "No active employees available for this department."}
           </option>
           {visibleEmployees.map(employee => (
             <option key={employee.id} value={employee.id}>

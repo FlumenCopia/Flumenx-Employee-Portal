@@ -39,7 +39,7 @@ class WorkManagementModelTests(TestCase):
             "priority": "Normal",
             "assigned_date": date(2026, 8, 1),
             "due_date": date(2026, 8, 5),
-            "status": "Pending",
+            "status": "Assigned",
             "assigned_quantity": 10,
             "completed_quantity": 0,
             "unit": "tasks",
@@ -259,7 +259,7 @@ class WorkManagementModelTests(TestCase):
             due_date=date(2026, 8, 3),
         )
         assignment.refresh_from_db()
-        self.assertEqual(assignment.status, "Pending")
+        self.assertEqual(assignment.status, "Assigned")
 
         first.status = "Blocked"
         first.save()
@@ -362,3 +362,37 @@ class WorkManagementModelTests(TestCase):
         self.assertEqual(assignment.progress, 100)
         self.assertIsNotNone(deliverable1.completed_at)
         self.assertIsNotNone(deliverable2.completed_at)
+
+    def test_assigned_status_default_and_workflow_sequence(self):
+        # Default status for new assignment is Assigned
+        assignment = self.assignment(assigned_quantity=10)
+        assignment.full_clean()
+        assignment.save()
+        self.assertEqual(assignment.status, "Assigned")
+        self.assertEqual(assignment.progress, 0)
+        self.assertEqual(assignment.completed_quantity, 0)
+        self.assertIsNone(assignment.completed_at)
+
+        # Transition -> In Progress
+        assignment.status = "In Progress"
+        assignment.save()
+        self.assertEqual(assignment.status, "In Progress")
+
+        # Transition -> In Review
+        assignment.status = "In Review"
+        assignment.save()
+        self.assertEqual(assignment.status, "In Review")
+        self.assertNotEqual(assignment.progress, 100)
+
+        # Transition -> Approved
+        assignment.status = "Approved"
+        assignment.save()
+        self.assertEqual(assignment.status, "Approved")
+        self.assertEqual(assignment.progress, 100)
+        self.assertEqual(assignment.completed_quantity, 10)
+
+        # Transition -> Published
+        assignment.status = "Published"
+        assignment.save()
+        self.assertEqual(assignment.status, "Published")
+        self.assertEqual(assignment.progress, 100)

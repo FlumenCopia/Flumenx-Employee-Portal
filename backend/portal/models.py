@@ -180,6 +180,7 @@ class WorkAssignment(models.Model):
         ("Urgent", "Urgent"),
     ]
     STATUSES = [
+        ("Assigned", "Assigned"),
         ("Pending", "Pending"),
         ("In Progress", "In Progress"),
         ("Ongoing", "Ongoing"),
@@ -199,7 +200,7 @@ class WorkAssignment(models.Model):
     priority = models.CharField(max_length=20, choices=PRIORITIES, default="Normal")
     assigned_date = models.DateField()
     due_date = models.DateField()
-    status = models.CharField(max_length=20, choices=STATUSES, default="Pending")
+    status = models.CharField(max_length=20, choices=STATUSES, default="Assigned")
     progress = models.PositiveSmallIntegerField(default=0)
     assigned_quantity = models.PositiveIntegerField(default=100)
     completed_quantity = models.PositiveIntegerField(default=0)
@@ -256,14 +257,11 @@ class WorkAssignment(models.Model):
 
     def derived_status(self):
         if self.status == "Blocked" and self.completed_quantity < self.assigned_quantity:
-            return "Blocked"
+            return "In Progress"
         if not self.assigned_quantity or self.assigned_quantity <= 0 or self.completed_quantity <= 0:
-            return "Pending"
+            return "Assigned"
         if self.completed_quantity >= self.assigned_quantity:
             return "Completed"
-        pct = (self.completed_quantity / self.assigned_quantity) * 100
-        if pct >= 50:
-            return "Ongoing"
         return "In Progress"
 
     def sync_quantity_state(self):
@@ -283,16 +281,18 @@ class WorkAssignment(models.Model):
 
         was_completed = self.status in completed_statuses
 
-        if self.completed_quantity > 0 and self.status == "Pending":
+        if self.completed_quantity > 0 and self.status in ("Assigned", "Pending"):
             self.status = self.derived_status()
 
-        if self.assigned_quantity and self.assigned_quantity > 0 and self.completed_quantity >= self.assigned_quantity and self.status != "Pending":
+        if self.assigned_quantity and self.assigned_quantity > 0 and self.completed_quantity >= self.assigned_quantity and self.status not in ("Assigned", "Pending"):
             if self.status not in completed_statuses:
                 self.status = "Completed"
 
-        if self.status == "Pending":
-            self.progress = 0
-            self.completed_quantity = 0
+        if self.status in ("Assigned", "Pending"):
+            if self.assigned_quantity and self.assigned_quantity > 0 and self.completed_quantity > 0:
+                self.progress = max(0, min(100, round((self.completed_quantity / self.assigned_quantity) * 100)))
+            else:
+                self.progress = 0
             self.completed_at = None
         elif self.status == "In Progress":
             self.progress = 25
@@ -347,14 +347,14 @@ class WorkAssignment(models.Model):
         else:
             if self.completed_at:
                 self.completed_at = None
-            if self.status in ("In Review", "Approved", "Published", "Assigned", "Backlog"):
+            if self.status in ("In Review", "Approved", "Published"):
                 pass
             elif "Blocked" in statuses:
                 self.status = "Blocked"
             elif any(s in statuses for s in ("In Progress", "Ongoing", "Completed", "Approved", "Published")):
                 self.status = "In Progress"
             else:
-                self.status = "Pending"
+                self.status = "Assigned"
         if save:
             self.save(update_fields=["assigned_quantity", "completed_quantity", "unit", "progress", "status", "completed_at", "updated_at"])
 
@@ -400,7 +400,7 @@ class WorkDeliverable(models.Model):
     brief = models.TextField(blank=True)
     work_type = models.CharField(max_length=80)
     due_date = models.DateField()
-    status = models.CharField(max_length=20, choices=STATUSES, default="Pending")
+    status = models.CharField(max_length=20, choices=STATUSES, default="Assigned")
     completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

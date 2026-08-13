@@ -80,6 +80,55 @@ export type SuperAdminUser = {
 
 export type Role = WorkspaceRole;
 export type Department = "Web Development" | "Video Editing" | "Design" | "Digital Marketing" | "Accountant" | "HR" | "Operations";
+
+export type CanonicalDepartmentKey =
+  | "web_development"
+  | "video_editing"
+  | "design"
+  | "digital_marketing"
+  | "accountant"
+  | "operations"
+  | "hr";
+
+export interface CanonicalDepartmentInfo {
+  key: CanonicalDepartmentKey;
+  label: string;
+  badge: string;
+  color: string;
+}
+
+export const CANONICAL_DEPARTMENTS: Record<CanonicalDepartmentKey, CanonicalDepartmentInfo> = {
+  web_development: { key: "web_development", label: "Web Development", badge: "Web Development", color: "#4DFFA0" },
+  video_editing: { key: "video_editing", label: "Video Editing", badge: "Video Editing", color: "#F472B6" },
+  design: { key: "design", label: "Design", badge: "Design", color: "#F59E0B" },
+  digital_marketing: { key: "digital_marketing", label: "Digital Marketing", badge: "Digital Marketing", color: "#22D3EE" },
+  accountant: { key: "accountant", label: "Accountant", badge: "Accountant", color: "#A78BFA" },
+  operations: { key: "operations", label: "Operations", badge: "Operations", color: "#3B82F6" },
+  hr: { key: "hr", label: "HR", badge: "HR", color: "#EC4899" },
+};
+
+export function normalizeDepartment(val?: string | null): CanonicalDepartmentKey {
+  if (!val) return "design";
+  const s = val.trim().toLowerCase();
+
+  if (s === "web_development" || s === "web development" || s === "web dev" || s === "web" || s === "web_developer" || s === "software" || s === "it" || s === "it / web" || s === "it / web development") return "web_development";
+  if (s === "video_editing" || s === "video editing" || s === "video" || s === "editing" || s === "animation" || s === "reel") return "video_editing";
+  if (s === "design" || s === "graphic design" || s === "graphic" || s === "ui/ux" || s === "ui" || s === "ux" || s === "poster") return "design";
+  if (s === "digital_marketing" || s === "digital marketing" || s === "marketing" || s === "ads" || s === "ad" || s === "bde" || s === "social media" || s === "content" || s === "copy") return "digital_marketing";
+  if (s === "accountant" || s === "accounting" || s === "accounts" || s === "finance") return "accountant";
+  if (s === "operations" || s === "ops" || s === "operations_head" || s === "operations head") return "operations";
+  if (s === "hr" || s === "human resources") return "hr";
+
+  if (s.includes("web") || s.includes("software") || s.includes("development")) return "web_development";
+  if (s.includes("video") || s.includes("anim") || s.includes("editing")) return "video_editing";
+  if (s.includes("design") || s.includes("graphic")) return "design";
+  if (s.includes("marketing") || s.includes("bde")) return "digital_marketing";
+  if (s.includes("account")) return "accountant";
+  if (s.includes("ops") || s.includes("operation")) return "operations";
+  if (s.includes("hr")) return "hr";
+
+  return "design";
+}
 export type EmployeeStatus = "Active" | "On Leave" | "Inactive";
 export type EmployeeProfile = {
   id: number; employee_code: string; name: string; email: string; phone: string;
@@ -121,7 +170,7 @@ export type Client = {
   id: number; name: string; created_at: string; updated_at: string;
 };
 export type WorkPriority = "Low" | "Normal" | "High" | "Urgent";
-export type WorkStatus = "Pending" | "In Progress" | "Ongoing" | "Blocked" | "In Review" | "Changes Requested" | "Rejected" | "Approved" | "Completed" | "Published";
+export type WorkStatus = "Assigned" | "In Progress" | "In Review" | "Approved" | "Published" | "Pending" | "Ongoing" | "Blocked" | "Changes Requested" | "Rejected" | "Completed";
 export type WorkDeliverable = {
   id: number; assignment: number; assignment_title: string; employee_name: string;
   client: number; client_name: string; title: string; brief: string; work_type: string;

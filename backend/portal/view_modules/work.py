@@ -410,8 +410,8 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
         today = timezone.localdate()
         counts = view_qs.aggregate(
             total=Count("id"),
-            pending=Count("id", filter=Q(status="Pending")),
-            in_progress=Count("id", filter=Q(status="In Progress")),
+            pending=Count("id", filter=Q(status__in=["Assigned", "Pending"])),
+            in_progress=Count("id", filter=Q(status__in=["In Progress", "Ongoing", "Blocked"])),
             blocked=Count("id", filter=Q(status="Blocked")),
             completed=Count("id", filter=Q(status__in=["Completed", "Approved", "Published"])),
             overdue=Count("id", filter=Q(due_date__lt=today) & ~Q(status__in=["Completed", "Approved", "Published"])),
@@ -421,7 +421,7 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
         q_marketing = Q(employee__department__iexact="Digital Marketing") | Q(employee__department__icontains="digital marketing") | Q(employee__department__icontains="marketing") | Q(employee__department__icontains="social media") | Q(employee__department__icontains="bde")
         q_web = Q(employee__department__iexact="Web Development") | Q(employee__department__icontains="web development") | Q(employee__department__icontains="web") | Q(employee__department__icontains="software")
         q_video = Q(employee__department__iexact="Video Editing") | Q(employee__department__icontains="video editing") | Q(employee__department__icontains="video") | Q(employee__department__icontains="animation")
-        q_deliverable_fallback = Q(deliverables__work_type__in=["design", "video", "web", "it", "ads", "content", "marketing"])
+        q_deliverable_fallback = Q(deliverables__work_type__in=["design", "video", "web", "it", "ads", "content", "marketing", "web_development", "video_editing", "digital_marketing"])
 
         relevant_q = q_design | q_marketing | q_web | q_video | (Q(employee__department__isnull=True) & q_deliverable_fallback)
 
