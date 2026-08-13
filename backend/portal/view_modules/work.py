@@ -360,18 +360,18 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
         assignment = serializer.save(**kwargs)
         if old_values["status"] != assignment.status:
             assignment.deliverables.all().update(status=assignment.status)
+            if assignment.has_deliverables():
+                assignment.sync_from_deliverables(save=True)
+            else:
+                assignment.sync_quantity_state()
+                assignment.save()
         changed = any(getattr(assignment, field) != value for field, value in old_values.items())
         if not changed:
             return
-        if old_values["status"] != "Completed" and assignment.status == "Completed":
+        if old_values["status"] != "Completed" and assignment.status in ("Completed", "Approved", "Published"):
             notify_work_completed(assignment, self.request.user)
             return
         notify_work_updated(assignment, self.request.user)
-
-
-
-
-
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -413,8 +413,8 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
             pending=Count("id", filter=Q(status="Pending")),
             in_progress=Count("id", filter=Q(status="In Progress")),
             blocked=Count("id", filter=Q(status="Blocked")),
-            completed=Count("id", filter=Q(status="Completed")),
-            overdue=Count("id", filter=Q(due_date__lt=today) & ~Q(status="Completed")),
+            completed=Count("id", filter=Q(status__in=["Completed", "Approved", "Published"])),
+            overdue=Count("id", filter=Q(due_date__lt=today) & ~Q(status__in=["Completed", "Approved", "Published"])),
         )
 
         q_design = Q(employee__department__iexact="Design") | Q(employee__department__icontains="graphic") | Q(employee__department__icontains="ui") | Q(employee__department__icontains="ux")

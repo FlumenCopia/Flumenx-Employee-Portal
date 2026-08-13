@@ -313,3 +313,52 @@ class WorkManagementModelTests(TestCase):
 
         with self.assertRaises(ValidationError):
             invalid.full_clean()
+
+    def test_approved_and_published_set_completed_quantity_and_progress(self):
+        # Test Approved status on WorkAssignment
+        assignment = self.assignment(assigned_quantity=10, status="Approved")
+        assignment.full_clean()
+        assignment.save()
+        self.assertEqual(assignment.progress, 100)
+        self.assertEqual(assignment.completed_quantity, 10)
+        self.assertIsNotNone(assignment.completed_at)
+
+        # Test Published status on WorkAssignment
+        assignment.status = "Published"
+        assignment.full_clean()
+        assignment.save()
+        self.assertEqual(assignment.progress, 100)
+        self.assertEqual(assignment.completed_quantity, 10)
+
+    def test_in_review_does_not_force_completed_quantity_or_full_progress(self):
+        assignment = self.assignment(assigned_quantity=10, completed_quantity=3, status="In Review")
+        assignment.full_clean()
+        assignment.save()
+        self.assertEqual(assignment.completed_quantity, 3)
+        self.assertEqual(assignment.progress, 30)
+
+    def test_deliverable_approved_and_published_counts_as_completed(self):
+        assignment = self.assignment(assigned_quantity=1, completed_quantity=0, unit="items")
+        assignment.save()
+        deliverable1 = WorkDeliverable.objects.create(
+            assignment=assignment,
+            client=self.client,
+            title="Approved Item",
+            work_type="design",
+            due_date=date(2026, 8, 15),
+            status="Approved",
+        )
+        deliverable2 = WorkDeliverable.objects.create(
+            assignment=assignment,
+            client=self.client,
+            title="Published Item",
+            work_type="design",
+            due_date=date(2026, 8, 15),
+            status="Published",
+        )
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.assigned_quantity, 2)
+        self.assertEqual(assignment.completed_quantity, 2)
+        self.assertEqual(assignment.progress, 100)
+        self.assertIsNotNone(deliverable1.completed_at)
+        self.assertIsNotNone(deliverable2.completed_at)

@@ -100,7 +100,7 @@ export function SettingsAccessPage() {
 
       {actionError && <div className="toast error">{actionError}</div>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(460px, 1fr))", gap: "16px", alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: "16px", alignItems: "start" }}>
         {/* LEFT COLUMN: DYNAMIC ROLES & PERMISSIONS MATRIX */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "16px", background: "#0C2117", border: "1px solid rgba(70, 150, 105, 0.22)", borderRadius: "8px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>

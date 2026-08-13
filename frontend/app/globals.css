@@ -600,3 +600,344 @@ body{font-size:13px;line-height:1.45}.sidebar nav a{font-size:13px;padding:12px 
 .kpi-factor-fill{height:100%!important;border-radius:var(--r-full)!important}
 @media(max-width:1100px){.kpi-simple-layout{grid-template-columns:1fr!important}.kpi-factor-list{grid-template-columns:1fr!important}}
 @media(max-width:640px){.kpi-factor-main,.kpi-factor-head{flex-direction:column!important}.kpi-factor-score{text-align:left!important}.kpi-score-value>span{font-size:52px!important}}
+
+/* ==========================================================================
+   COMPREHENSIVE RESPONSIVENESS OVERRIDES & REFINEMENTS
+   ========================================================================== */
+
+/* Topbar & Header Responsive Adjustments */
+.topbar {
+  transition: padding 0.2s ease, height 0.2s ease;
+}
+
+.top-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.topbar-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #F2F6F3;
+  white-space: nowrap;
+}
+
+.topbar-task-btn {
+  height: 34px !important;
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  border-radius: 6px !important;
+  font-weight: 700 !important;
+  white-space: nowrap;
+}
+
+.task-btn-compact {
+  display: none;
+}
+
+.topbar-logout-btn {
+  height: 34px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  border-radius: 6px !important;
+  gap: 6px !important;
+  white-space: nowrap;
+}
+
+/* Kanban Board Swipe & Touch Optimization */
+.kb {
+  display: flex !important;
+  overflow-x: auto !important;
+  gap: 14px !important;
+  padding-bottom: 12px !important;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+}
+
+.kb-col {
+  min-width: 280px !important;
+  max-width: 320px !important;
+  flex: 0 0 280px !important;
+  scroll-snap-align: start;
+}
+
+/* Universal Table & Panel Containers Horizontal Scroll */
+.data-card,
+.work-card,
+.panel,
+.kpi-table-panel,
+.editor-card {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Media Query: Large Tablets / Laptops (<= 1024px) */
+@media (max-width: 1024px) {
+  .g4,
+  .g5,
+  .stats-grid,
+  .kpi-summary-grid,
+  .kpi-quick-grid,
+  .report-summary-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .g3,
+  .kpi-analytics-grid,
+  .kpi-component-grid,
+  .kpi-insights-grid,
+  .kpi-detail-charts,
+  .notice-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .g-2-1,
+  .g-1-2,
+  .kpi-score-layout,
+  .kpi-simple-layout,
+  .employee-hero,
+  .meeting-layout,
+  .attendance-hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  .date-poster {
+    min-height: 220px;
+  }
+
+  .date-poster strong {
+    font-size: 80px;
+  }
+
+  .date-poster h3,
+  .date-poster p {
+    margin-left: 0;
+  }
+}
+
+/* Media Query: Tablets & Mobile Devices (<= 768px) */
+@media (max-width: 768px) {
+  :root {
+    --sidebar: 0px;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(290px, 84vw) !important;
+    z-index: 999 !important;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.7);
+  }
+
+  .sidebar.open {
+    transform: translateX(0) !important;
+  }
+
+  .scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    z-index: 998 !important;
+  }
+
+  .menu-button,
+  .mobile-close {
+    display: grid !important;
+  }
+
+  .main {
+    margin-left: 0 !important;
+  }
+
+  .topbar {
+    padding: 0 14px !important;
+    height: 56px !important;
+  }
+
+  .topbar-word {
+    display: none !important;
+  }
+
+  .page {
+    padding: 14px 12px 36px !important;
+  }
+
+  .page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .page-header h1 {
+    font-size: 24px !important;
+  }
+
+  .toolbar,
+  .work-toolbar,
+  .table-filters,
+  .header-actions,
+  .report-controls,
+  .kpi-hero-actions {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .toolbar select,
+  .toolbar input,
+  .work-toolbar select,
+  .work-toolbar input,
+  .table-filters select,
+  .table-filters input {
+    flex: 1 1 140px;
+    min-width: 120px;
+  }
+
+  .form-grid,
+  .two-col,
+  .deliverable-form-row,
+  .quick-client,
+  .policy-fields,
+  .rule-preview,
+  .profile-facts {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mini-metrics {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mini-metrics > div {
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+
+  .mini-metrics > div:last-child {
+    border-bottom: 0 !important;
+  }
+
+  .modal-backdrop {
+    padding: 10px !important;
+  }
+
+  .modal {
+    width: 100% !important;
+    max-height: 94vh !important;
+    padding: 18px 14px !important;
+    border-radius: 12px !important;
+  }
+
+  .modal-head h2 {
+    font-size: 18px !important;
+  }
+}
+
+/* Media Query: Small Mobile Phones (<= 560px) */
+@media (max-width: 560px) {
+  .top-actions {
+    gap: 8px !important;
+  }
+
+  .topbar-user-name {
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .task-btn-full {
+    display: none !important;
+  }
+
+  .task-btn-compact {
+    display: inline !important;
+  }
+
+  .topbar-task-btn {
+    padding: 0 10px !important;
+    font-size: 11px !important;
+  }
+
+  .topbar-logout-btn {
+    padding: 0 8px !important;
+  }
+
+  .logout-text {
+    display: none !important;
+  }
+
+  .g2,
+  .g3,
+  .g4,
+  .g5,
+  .g-2-1,
+  .g-1-2,
+  .stats-grid,
+  .kpi-summary-grid,
+  .kpi-quick-grid,
+  .kpi-filter-grid,
+  .kpi-analytics-grid,
+  .kpi-component-grid,
+  .kpi-insights-grid,
+  .kpi-detail-charts,
+  .notice-grid,
+  .report-summary-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .stat-card {
+    min-height: 110px !important;
+    padding: 12px !important;
+  }
+
+  .stat-card strong {
+    font-size: 26px !important;
+  }
+
+  .kpi-hero {
+    padding: 16px !important;
+  }
+
+  .kpi-hero h1 {
+    font-size: 20px !important;
+  }
+
+  .kpi-score-value > span {
+    font-size: 48px !important;
+  }
+
+  .form-actions {
+    flex-wrap: wrap !important;
+    justify-content: stretch !important;
+    width: 100% !important;
+  }
+
+  .form-actions > button,
+  .form-actions > a {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .logout-dialog {
+    padding: 18px 14px !important;
+    width: 100% !important;
+  }
+
+  .logout-dialog-actions {
+    flex-direction: column-reverse !important;
+    gap: 8px !important;
+  }
+
+  .logout-cancel,
+  .logout-confirm {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}

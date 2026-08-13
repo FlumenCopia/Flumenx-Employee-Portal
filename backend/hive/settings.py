@@ -109,6 +109,9 @@ elif DB_ENGINE == "mysql" or os.getenv("MYSQL_DATABASE"):
                 "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
                 "ssl": False,
             },
+            "TEST": {
+                "NAME": "test_flumenx_portal",
+            },
             "CONN_MAX_AGE": 60,
         }
     }

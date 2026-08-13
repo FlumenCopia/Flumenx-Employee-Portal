@@ -445,6 +445,17 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     };
   }, [user]);
 
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
   const openLogoutModal = () => {
     setOpen(false);
     setLoggingOut(false);
@@ -504,7 +515,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
     <ShellUserContext.Provider value={user}>
     <div className="app-shell">
       <aside className={`sidebar ${open ? "open" : ""}`}>
-        <div className="side-brand"><FlumenxMark /><button className="mobile-close" onClick={() => setOpen(false)}><X /></button></div>
+        <div className="side-brand"><FlumenxMark /><button className="mobile-close" onClick={() => setOpen(false)} aria-label="Close navigation sidebar"><X /></button></div>
         <div className="workspace"><div className="workspace-icon">FX</div><div><b>FLUMENX HQ</b><span>Core workspace</span></div><ChevronDown size={14} /></div>
         <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label === "Leave requests" && pendingLeaveCount > 0 && <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>}</Link>)}</nav>
         <div className="sidebar-foot">
@@ -515,31 +526,32 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
       {open && <div className="scrim" onClick={() => setOpen(false)} />}
       <main className="main">
         <header className="topbar">
-          <button className="menu-button" onClick={() => setOpen(true)}><Menu /></button>
+          <button className="menu-button" onClick={() => setOpen(true)} aria-label="Open navigation menu"><Menu /></button>
           <div className="topbar-word">FLUMENX / <span>{roleLabel.toUpperCase()}</span></div>
-          <div className="top-actions" style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-            <span style={{ fontSize: "13px", fontWeight: 600, color: "#F2F6F3" }}>
+          <div className="top-actions">
+            <NotificationBell user={user} />
+            <span className="topbar-user-name">
               {user?.employee?.name || user?.first_name || user?.username || name}
             </span>
             {canCreateTask && (
               <button
                 type="button"
-                className="primary-button"
+                className="primary-button topbar-task-btn"
                 onClick={handleNewTaskClick}
-                style={{ height: "34px", padding: "0 14px", fontSize: "12px", borderRadius: "6px", fontWeight: 700 }}
               >
-                + New Task
+                <span className="task-btn-full">+ New Task</span>
+                <span className="task-btn-compact">+ Task</span>
               </button>
             )}
             <button
               type="button"
-              className="secondary-button"
+              className="secondary-button topbar-logout-btn"
               onClick={openLogoutModal}
               disabled={loggingOut}
-              style={{ height: "34px", padding: "0 12px", fontSize: "12px", borderRadius: "6px", gap: "6px" }}
+              aria-label="Sign out"
             >
               <LogOut size={14} />
-              Logout
+              <span className="logout-text">Logout</span>
             </button>
           </div>
         </header>

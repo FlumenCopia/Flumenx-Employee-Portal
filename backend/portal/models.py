@@ -267,9 +267,10 @@ class WorkAssignment(models.Model):
         return "In Progress"
 
     def sync_quantity_state(self):
-        review_statuses = ("In Review", "Changes Requested", "Rejected", "Approved", "Published")
+        completed_statuses = ("Completed", "Approved", "Published")
+        review_statuses = ("In Review", "Changes Requested", "Rejected") + completed_statuses
         if self.status in review_statuses:
-            if self.status in ("Approved", "Published", "Completed"):
+            if self.status in completed_statuses:
                 self.progress = 100
                 if self.assigned_quantity:
                     self.completed_quantity = self.assigned_quantity
@@ -280,13 +281,14 @@ class WorkAssignment(models.Model):
                     self.progress = max(0, min(100, round((self.completed_quantity / self.assigned_quantity) * 100)))
             return
 
-        was_completed = self.status == "Completed"
+        was_completed = self.status in completed_statuses
 
         if self.completed_quantity > 0 and self.status == "Pending":
             self.status = self.derived_status()
 
         if self.assigned_quantity and self.assigned_quantity > 0 and self.completed_quantity >= self.assigned_quantity and self.status != "Pending":
-            self.status = "Completed"
+            if self.status not in completed_statuses:
+                self.status = "Completed"
 
         if self.status == "Pending":
             self.progress = 0
@@ -302,7 +304,7 @@ class WorkAssignment(models.Model):
             if self.assigned_quantity:
                 self.completed_quantity = max(0, round(0.75 * self.assigned_quantity))
             self.completed_at = None
-        elif self.status == "Completed":
+        elif self.status in completed_statuses:
             self.progress = 100
             if self.assigned_quantity:
                 self.completed_quantity = self.assigned_quantity
@@ -329,24 +331,27 @@ class WorkAssignment(models.Model):
         if not rows:
             return
         assigned = len(rows)
-        completed = sum(1 for row in rows if row.status == "Completed")
+        completed_statuses = ("Completed", "Approved", "Published")
+        completed = sum(1 for row in rows if row.status in completed_statuses)
+
         statuses = {row.status for row in rows}
         self.assigned_quantity = assigned
         self.completed_quantity = completed
         self.unit = "items"
-        self.progress = round((completed / assigned) * 100)
-        if completed == assigned:
-            self.status = "Completed"
+        self.progress = round((completed / assigned) * 100) if assigned > 0 else 0
+        if assigned > 0 and completed == assigned:
+            if self.status not in completed_statuses:
+                self.status = "Completed"
             if not self.completed_at:
                 self.completed_at = timezone.now()
         else:
             if self.completed_at:
                 self.completed_at = None
-            if self.status in ("In Review", "Approved", "Published", "Assigned", "Backlog", "In Progress", "Ongoing", "Blocked", "Pending"):
+            if self.status in ("In Review", "Approved", "Published", "Assigned", "Backlog"):
                 pass
             elif "Blocked" in statuses:
                 self.status = "Blocked"
-            elif "In Progress" in statuses or "Completed" in statuses:
+            elif any(s in statuses for s in ("In Progress", "Ongoing", "Completed", "Approved", "Published")):
                 self.status = "In Progress"
             else:
                 self.status = "Pending"
@@ -410,7 +415,7 @@ class WorkDeliverable(models.Model):
 
     @property
     def is_overdue(self):
-        return self.status != "Completed" and self.due_date < timezone.localdate()
+        return self.status not in ("Completed", "Approved", "Published") and self.due_date < timezone.localdate()
 
     def clean(self):
         super().clean()
@@ -422,9 +427,10 @@ class WorkDeliverable(models.Model):
             raise ValidationError({"work_type": "Work type is required."})
         if self.assignment_id and self.due_date and self.assignment.assigned_date and self.due_date < self.assignment.assigned_date:
             raise ValidationError({"due_date": "Deliverable due date cannot be before assignment date."})
-        if self.status == "Completed" and not self.completed_at:
+        completed_statuses = ("Completed", "Approved", "Published")
+        if self.status in completed_statuses and not self.completed_at:
             self.completed_at = timezone.now()
-        elif self.status != "Completed" and self.completed_at:
+        elif self.status not in completed_statuses and self.completed_at:
             self.completed_at = None
 
     def save(self, *args, **kwargs):
