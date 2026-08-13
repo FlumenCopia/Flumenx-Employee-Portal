@@ -140,11 +140,11 @@ class WorkManagementModelTests(TestCase):
         self.assertEqual(assignment.progress, 25)
         self.assertEqual(assignment.completed_quantity, 25)
 
-        # Ongoing -> 75%
+        # Ongoing -> 25%
         assignment.status = "Ongoing"
         assignment.save()
-        self.assertEqual(assignment.progress, 75)
-        self.assertEqual(assignment.completed_quantity, 75)
+        self.assertEqual(assignment.progress, 25)
+        self.assertEqual(assignment.completed_quantity, 25)
 
         # Completed -> 100%
         assignment.status = "Completed"
@@ -163,11 +163,12 @@ class WorkManagementModelTests(TestCase):
         assignment.save()
 
         self.assertEqual(assignment.status, "Blocked")
-        self.assertEqual(assignment.progress, 30)
+        self.assertEqual(assignment.progress, 0)
 
-        assignment.completed_quantity = 10
+        assignment.status = "Published"
         assignment.save()
-        self.assertEqual(assignment.status, "Completed")
+        self.assertEqual(assignment.status, "Published")
+        self.assertEqual(assignment.progress, 100)
 
     def test_deliverables_roll_up_parent_quantities_and_status(self):
         assignment = self.assignment(assigned_quantity=1, completed_quantity=0, unit="items")
@@ -237,7 +238,7 @@ class WorkManagementModelTests(TestCase):
         self.assertIsNone(deliverable.completed_at)
         self.assertIsNone(assignment.completed_at)
         self.assertEqual(assignment.status, "In Progress")
-        self.assertEqual(assignment.progress, 0)
+        self.assertEqual(assignment.progress, 25)
 
     def test_deliverable_parent_status_rollup_rules(self):
         assignment = self.assignment(assigned_quantity=1, completed_quantity=0, unit="items")
@@ -292,12 +293,12 @@ class WorkManagementModelTests(TestCase):
         assignment = self.assignment(assigned_quantity=5, completed_quantity=2)
         assignment.save()
 
-        assignment.completed_quantity = 5
+        assignment.status = "Published"
         assignment.save()
 
         self.assertFalse(assignment.has_deliverables())
         self.assertEqual(assignment.progress, 100)
-        self.assertEqual(assignment.status, "Completed")
+        self.assertEqual(assignment.status, "Published")
 
     def test_deliverable_requires_title_work_type_and_valid_due_date(self):
         assignment = self.assignment()
@@ -315,27 +316,27 @@ class WorkManagementModelTests(TestCase):
             invalid.full_clean()
 
     def test_approved_and_published_set_completed_quantity_and_progress(self):
-        # Test Approved status on WorkAssignment
+        # Test Approved status on WorkAssignment (75%)
         assignment = self.assignment(assigned_quantity=10, status="Approved")
+        assignment.full_clean()
+        assignment.save()
+        self.assertEqual(assignment.progress, 75)
+        self.assertEqual(assignment.completed_quantity, 7.5)
+
+        # Test Published status on WorkAssignment (100%)
+        assignment.status = "Published"
         assignment.full_clean()
         assignment.save()
         self.assertEqual(assignment.progress, 100)
         self.assertEqual(assignment.completed_quantity, 10)
         self.assertIsNotNone(assignment.completed_at)
 
-        # Test Published status on WorkAssignment
-        assignment.status = "Published"
-        assignment.full_clean()
-        assignment.save()
-        self.assertEqual(assignment.progress, 100)
-        self.assertEqual(assignment.completed_quantity, 10)
-
     def test_in_review_does_not_force_completed_quantity_or_full_progress(self):
-        assignment = self.assignment(assigned_quantity=10, completed_quantity=3, status="In Review")
+        assignment = self.assignment(assigned_quantity=10, status="In Review")
         assignment.full_clean()
         assignment.save()
-        self.assertEqual(assignment.completed_quantity, 3)
-        self.assertEqual(assignment.progress, 30)
+        self.assertEqual(assignment.completed_quantity, 5)
+        self.assertEqual(assignment.progress, 50)
 
     def test_deliverable_approved_and_published_counts_as_completed(self):
         assignment = self.assignment(assigned_quantity=1, completed_quantity=0, unit="items")
@@ -358,14 +359,15 @@ class WorkManagementModelTests(TestCase):
         )
         assignment.refresh_from_db()
         self.assertEqual(assignment.assigned_quantity, 2)
-        self.assertEqual(assignment.completed_quantity, 2)
-        self.assertEqual(assignment.progress, 100)
+        # Approved (0.75) + Published (1.0) = 1.75
+        self.assertEqual(assignment.completed_quantity, 1.75)
+        self.assertEqual(assignment.progress, 88)
         self.assertIsNotNone(deliverable1.completed_at)
         self.assertIsNotNone(deliverable2.completed_at)
 
     def test_assigned_status_default_and_workflow_sequence(self):
-        # Default status for new assignment is Assigned
-        assignment = self.assignment(assigned_quantity=10)
+        # Default status for new assignment is Assigned -> 0%
+        assignment = self.assignment(assigned_quantity=100)
         assignment.full_clean()
         assignment.save()
         self.assertEqual(assignment.status, "Assigned")
@@ -373,29 +375,33 @@ class WorkManagementModelTests(TestCase):
         self.assertEqual(assignment.completed_quantity, 0)
         self.assertIsNone(assignment.completed_at)
 
-        # Transition -> In Progress
+        # Transition -> In Progress -> 25%
         assignment.status = "In Progress"
         assignment.save()
         self.assertEqual(assignment.status, "In Progress")
+        self.assertEqual(assignment.progress, 25)
+        self.assertEqual(assignment.completed_quantity, 25)
 
-        # Transition -> In Review
+        # Transition -> In Review -> 50%
         assignment.status = "In Review"
         assignment.save()
         self.assertEqual(assignment.status, "In Review")
-        self.assertNotEqual(assignment.progress, 100)
+        self.assertEqual(assignment.progress, 50)
+        self.assertEqual(assignment.completed_quantity, 50)
 
-        # Transition -> Approved
+        # Transition -> Approved -> 75%
         assignment.status = "Approved"
         assignment.save()
         self.assertEqual(assignment.status, "Approved")
-        self.assertEqual(assignment.progress, 100)
-        self.assertEqual(assignment.completed_quantity, 10)
+        self.assertEqual(assignment.progress, 75)
+        self.assertEqual(assignment.completed_quantity, 75)
 
-        # Transition -> Published
+        # Transition -> Published -> 100%
         assignment.status = "Published"
         assignment.save()
         self.assertEqual(assignment.status, "Published")
         self.assertEqual(assignment.progress, 100)
+        self.assertEqual(assignment.completed_quantity, 100)
 
     def test_in_progress_status_persists_with_assigned_child_deliverable(self):
         assignment = self.assignment(assigned_quantity=1)
@@ -415,6 +421,22 @@ class WorkManagementModelTests(TestCase):
         assignment.status = "In Progress"
         assignment.save()
 
-        # Reload from DB and assert status remains In Progress
+        # Reload from DB and assert status remains In Progress and progress is 25%
         assignment.refresh_from_db()
         self.assertEqual(assignment.status, "In Progress")
+        self.assertEqual(assignment.progress, 25)
+
+    def test_multiple_task_weighted_progress_calculation(self):
+        # Task A: In Review (50%)
+        task_a = self.assignment(title="Task A", assigned_quantity=1, status="In Review")
+        task_a.save()
+
+        # Task B: Published (100%)
+        task_b = self.assignment(title="Task B", assigned_quantity=1, status="Published")
+        task_b.save()
+
+        # Combined progress = (0.5 + 1.0) / (1 + 1) * 100 = 75.0%
+        tot_assigned = task_a.assigned_quantity + task_b.assigned_quantity
+        tot_completed = task_a.completed_quantity + task_b.completed_quantity
+        overall_pct = (tot_completed / tot_assigned) * 100
+        self.assertEqual(overall_pct, 75.0)

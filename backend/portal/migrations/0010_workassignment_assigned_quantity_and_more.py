@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='workassignment',
             name='completed_quantity',
-            field=models.PositiveIntegerField(default=0),
+            field=models.FloatField(default=0.0),
         ),
         migrations.AddField(
             model_name='workassignment',

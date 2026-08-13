@@ -203,7 +203,7 @@ class WorkAssignment(models.Model):
     status = models.CharField(max_length=20, choices=STATUSES, default="Assigned")
     progress = models.PositiveSmallIntegerField(default=0)
     assigned_quantity = models.PositiveIntegerField(default=100)
-    completed_quantity = models.PositiveIntegerField(default=0)
+    completed_quantity = models.FloatField(default=0.0)
     unit = models.CharField(max_length=30, default="%")
     completed_at = models.DateTimeField(null=True, blank=True)
     assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="assigned_work")
@@ -265,64 +265,35 @@ class WorkAssignment(models.Model):
         return "In Progress"
 
     def sync_quantity_state(self):
-        completed_statuses = ("Completed", "Approved", "Published")
-        review_statuses = ("In Review", "Changes Requested", "Rejected") + completed_statuses
-        if self.status in review_statuses:
-            if self.status in completed_statuses:
-                self.progress = 100
-                if self.assigned_quantity:
-                    self.completed_quantity = self.assigned_quantity
-                if not self.completed_at:
-                    self.completed_at = timezone.now()
-            elif self.status in ("In Review", "Changes Requested", "Rejected"):
-                if self.assigned_quantity and self.assigned_quantity > 0:
-                    self.progress = max(0, min(100, round((self.completed_quantity / self.assigned_quantity) * 100)))
-            return
+        weight_map = {
+            "Assigned": 0.0,
+            "Pending": 0.0,
+            "In Progress": 0.25,
+            "Ongoing": 0.25,
+            "In Review": 0.50,
+            "Changes Requested": 0.50,
+            "Rejected": 0.0,
+            "Approved": 0.75,
+            "Completed": 1.0,
+            "Published": 1.0,
+            "Blocked": 0.0,
+        }
 
-        was_completed = self.status in completed_statuses
+        completed_statuses = ("Completed", "Published")
+        weight = weight_map.get(self.status, 0.0)
 
-        if self.completed_quantity > 0 and self.status in ("Assigned", "Pending"):
-            self.status = self.derived_status()
+        if self.assigned_quantity and self.assigned_quantity > 0:
+            self.completed_quantity = round(weight * self.assigned_quantity, 2)
+            self.progress = max(0, min(100, round(weight * 100)))
+        else:
+            self.completed_quantity = 0
+            self.progress = 0
 
-        if self.assigned_quantity and self.assigned_quantity > 0 and self.completed_quantity >= self.assigned_quantity and self.status not in ("Assigned", "Pending"):
-            if self.status not in completed_statuses:
-                self.status = "Completed"
-
-        if self.status in ("Assigned", "Pending"):
-            if self.assigned_quantity and self.assigned_quantity > 0 and self.completed_quantity > 0:
-                self.progress = max(0, min(100, round((self.completed_quantity / self.assigned_quantity) * 100)))
-            else:
-                self.progress = 0
-            self.completed_at = None
-        elif self.status == "In Progress":
-            self.progress = 25
-            if self.assigned_quantity:
-                self.completed_quantity = max(0, round(0.25 * self.assigned_quantity))
-            self.completed_at = None
-        elif self.status == "Ongoing":
-            self.progress = 75
-            if self.assigned_quantity:
-                self.completed_quantity = max(0, round(0.75 * self.assigned_quantity))
-            self.completed_at = None
-        elif self.status in completed_statuses:
-            self.progress = 100
-            if self.assigned_quantity:
-                self.completed_quantity = self.assigned_quantity
+        if self.status in completed_statuses or (self.assigned_quantity and self.completed_quantity >= self.assigned_quantity):
             if not self.completed_at:
                 self.completed_at = timezone.now()
-        elif self.status == "Blocked":
-            if self.completed_quantity >= self.assigned_quantity and self.assigned_quantity > 0:
-                self.status = "Completed"
-                self.progress = 100
-                if not self.completed_at:
-                    self.completed_at = timezone.now()
-            else:
-                if not self.assigned_quantity:
-                    self.progress = 0
-                else:
-                    self.progress = max(0, min(100, round((self.completed_quantity / self.assigned_quantity) * 100)))
-                if (self.completed_at or was_completed):
-                    self.completed_at = None
+        else:
+            self.completed_at = None
 
     def sync_from_deliverables(self, save=False):
         if not self.pk:
@@ -331,22 +302,47 @@ class WorkAssignment(models.Model):
         if not rows:
             return
         assigned = len(rows)
-        completed_statuses = ("Completed", "Approved", "Published")
-        completed = sum(1 for row in rows if row.status in completed_statuses)
 
+        weight_map = {
+            "Assigned": 0.0,
+            "Pending": 0.0,
+            "In Progress": 0.25,
+            "Ongoing": 0.25,
+            "In Review": 0.50,
+            "Changes Requested": 0.50,
+            "Rejected": 0.0,
+            "Approved": 0.75,
+            "Completed": 1.0,
+            "Published": 1.0,
+            "Blocked": 0.0,
+        }
+
+        sum_deliv_completed = sum(weight_map.get(row.status, 0.0) for row in rows)
+        if self.status in ("Completed", "Published") and sum_deliv_completed < assigned:
+            parent_weight = 0.0
+        else:
+            parent_weight = weight_map.get(self.status, 0.0)
+        parent_completed = assigned * parent_weight
+
+        effective_completed = max(0.0, min(float(assigned), max(sum_deliv_completed, parent_completed)))
+
+        completed_statuses = ("Completed", "Published")
         statuses = {row.status for row in rows}
+
         self.assigned_quantity = assigned
-        self.completed_quantity = completed
+        self.completed_quantity = round(effective_completed, 2)
         self.unit = "items"
-        self.progress = round((completed / assigned) * 100) if assigned > 0 else 0
-        if assigned > 0 and completed == assigned:
+        self.progress = max(0, min(100, round((effective_completed / assigned) * 100))) if assigned > 0 else 0
+
+        if assigned > 0 and effective_completed >= assigned:
             if self.status not in completed_statuses:
                 self.status = "Completed"
             if not self.completed_at:
                 self.completed_at = timezone.now()
         else:
-            if self.completed_at:
-                self.completed_at = None
+            if self.status in completed_statuses and effective_completed < assigned:
+                if self.completed_at:
+                    self.completed_at = None
             if self.status in ("In Progress", "In Review", "Approved", "Published"):
                 pass
             elif "Blocked" in statuses:
@@ -355,6 +351,7 @@ class WorkAssignment(models.Model):
                 self.status = "In Progress"
             else:
                 self.status = "Assigned"
+
         if save:
             self.save(update_fields=["assigned_quantity", "completed_quantity", "unit", "progress", "status", "completed_at", "updated_at"])
 
