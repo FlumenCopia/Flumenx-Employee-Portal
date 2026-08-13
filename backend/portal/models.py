@@ -347,7 +347,7 @@ class WorkAssignment(models.Model):
         else:
             if self.completed_at:
                 self.completed_at = None
-            if self.status in ("In Review", "Approved", "Published"):
+            if self.status in ("In Progress", "In Review", "Approved", "Published"):
                 pass
             elif "Blocked" in statuses:
                 self.status = "Blocked"

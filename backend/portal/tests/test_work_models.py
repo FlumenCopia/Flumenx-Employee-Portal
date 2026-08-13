@@ -396,3 +396,25 @@ class WorkManagementModelTests(TestCase):
         assignment.save()
         self.assertEqual(assignment.status, "Published")
         self.assertEqual(assignment.progress, 100)
+
+    def test_in_progress_status_persists_with_assigned_child_deliverable(self):
+        assignment = self.assignment(assigned_quantity=1)
+        assignment.save()
+        deliverable = WorkDeliverable.objects.create(
+            assignment=assignment,
+            client=self.client,
+            title="Design Asset",
+            brief="Initial draft",
+            work_type="design",
+            due_date=date(2026, 8, 3),
+            status="Assigned",
+        )
+        self.assertEqual(deliverable.status, "Assigned")
+
+        # Set parent status to In Progress and save
+        assignment.status = "In Progress"
+        assignment.save()
+
+        # Reload from DB and assert status remains In Progress
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.status, "In Progress")
