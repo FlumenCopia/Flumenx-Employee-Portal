@@ -276,7 +276,7 @@ export type KPIEmployeeData = {
     on_time_delivery: KPIScoreComponent;
     leave_discipline: KPIScoreComponent;
     work_quality: KPIScoreComponent;
-    consistency: KPIScoreComponent;
+    consistency?: KPIScoreComponent;
   };
   history?: KPIHistoryItem[];
 };

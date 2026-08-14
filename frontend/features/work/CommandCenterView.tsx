@@ -458,7 +458,6 @@ export function CommandCenterView({
               { id: "deliverables", label: "Contract Scope", icon: CheckCircle2 },
               { id: "approvals", label: "Approvals Queue", icon: Zap },
               { id: "team", label: "Team Capacity", icon: Users },
-              { id: "kpis", label: "KPI Tracker", icon: Target },
               { id: "budget", label: "Ad Budget", icon: DollarSign },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -1092,29 +1091,6 @@ export function CommandCenterView({
         </div>
       )}
 
-      {/* 7. KPI TRACKER */}
-      {activeTab === "kpis" && (
-        <div className="grid g2">
-          {kpis.map((k) => {
-            const pct = Math.min(100, Math.round((k.current / k.dreamMax) * 100));
-            return (
-              <div key={k.id} className="card">
-                <div className="card-h">
-                  <div><div className="card-t">{k.name}</div><div className="card-s">{k.source}</div></div>
-                  <div style={{ fontSize: "20px", fontWeight: 800, color: "var(--neon)" }}>{k.current.toLocaleString("en-IN")}</div>
-                </div>
-                <div className="pbar" style={{ height: "7px" }}><div className="pfill g" style={{ width: `${pct}%` }} /></div>
-                {canManageAll && (
-                  <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
-                    <input className="fi" type="number" placeholder="Update metric" value={kpiInputs[k.id] || ""} onChange={(e) => setKpiInputs((prev) => ({ ...prev, [k.id]: e.target.value }))} />
-                    <button type="button" onClick={() => updateKpi(k.id)} className="btn btn-p" style={{ padding: "6px 12px", fontSize: "11px" }}>Update</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {/* 8. AD BUDGET */}
       {activeTab === "budget" && (

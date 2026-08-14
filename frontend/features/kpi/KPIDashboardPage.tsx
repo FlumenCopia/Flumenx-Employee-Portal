@@ -191,14 +191,13 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
   const companyComponentAverages = (() => {
     if (evaluatedEmployees.length === 0) return null;
     const count = evaluatedEmployees.length;
-    let work = 0, att = 0, onTime = 0, leave = 0, quality = 0, consistency = 0;
+    let work = 0, att = 0, onTime = 0, leave = 0, quality = 0;
     for (const emp of evaluatedEmployees) {
       work += emp.components.work_completion.score;
       att += emp.components.attendance.score;
       onTime += emp.components.on_time_delivery.score;
       leave += emp.components.leave_discipline.score;
       quality += emp.components.work_quality.score;
-      consistency += emp.components.consistency.score;
     }
     return {
       work_completion: Number((work / count).toFixed(1)),
@@ -206,7 +205,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
       on_time_delivery: Number((onTime / count).toFixed(1)),
       leave_discipline: Number((leave / count).toFixed(1)),
       work_quality: Number((quality / count).toFixed(1)),
-      consistency: Number((consistency / count).toFixed(1)),
     };
   })();
 
@@ -217,7 +215,6 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
         on_time_delivery: selectedEmployeeData.components.on_time_delivery.score,
         leave_discipline: selectedEmployeeData.components.leave_discipline.score,
         work_quality: selectedEmployeeData.components.work_quality.score,
-        consistency: selectedEmployeeData.components.consistency.score,
       }
     : companyComponentAverages;
 

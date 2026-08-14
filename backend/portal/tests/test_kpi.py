@@ -71,13 +71,14 @@ class KPISystemTests(TestCase):
     def test_kpi_calculation_perfect_score(self):
         today = date.today()
 
-        # Work Assignment: 100% completed on time
+        from datetime import datetime
+        # Work Assignment: 100% completed on time (status="Published")
         WorkAssignment.objects.create(
             employee=self.emp1, client=self.client_obj, title="Task 1",
             assigned_date=date(today.year, today.month, 1),
             due_date=date(today.year, today.month, 10),
-            assigned_quantity=100, completed_quantity=100, status="Completed",
-            completed_at=timezone.now()
+            assigned_quantity=100, completed_quantity=100, status="Published",
+            completed_at=timezone.make_aware(datetime.combine(date(today.year, today.month, 5), time(12, 0)))
         )
 
         # Attendance: Present every day
@@ -98,27 +99,26 @@ class KPISystemTests(TestCase):
         self.assertTrue(kpi["is_evaluated"])
         self.assertEqual(kpi["final_score"], 100.0)
         self.assertEqual(kpi["grade"], "Outstanding")
-        self.assertEqual(kpi["components"]["work_completion"]["score"], 40.0)
+        self.assertEqual(kpi["components"]["work_completion"]["score"], 50.0)
         self.assertEqual(kpi["components"]["attendance"]["score"], 20.0)
         self.assertEqual(kpi["components"]["on_time_delivery"]["score"], 15.0)
-        self.assertEqual(kpi["components"]["leave_discipline"]["score"], 10.0)
+        self.assertEqual(kpi["components"]["leave_discipline"]["score"], 5.0)
         self.assertEqual(kpi["components"]["work_quality"]["score"], 10.0)
-        self.assertEqual(kpi["components"]["consistency"]["score"], 5.0)
 
     def test_kpi_does_not_award_full_score_without_activity(self):
         today = date.today()
 
         kpi = KPIService.calculate_employee_kpi(self.emp2, today.month, today.year)
 
-        self.assertEqual(kpi["final_score"], 10.0)
-        self.assertEqual(kpi["score_out_of_10"], 1.0)
+        self.assertEqual(kpi["final_score"], 5.0)
+        self.assertEqual(kpi["score_out_of_10"], 0.5)
         self.assertFalse(kpi["is_evaluated"])
         self.assertEqual(kpi["grade"], "Not Evaluated")
         self.assertEqual(kpi["components"]["work_completion"]["score"], 0.0)
         self.assertEqual(kpi["components"]["attendance"]["score"], 0.0)
         self.assertEqual(kpi["components"]["on_time_delivery"]["score"], 0.0)
         self.assertEqual(kpi["components"]["work_quality"]["score"], 0.0)
-        self.assertEqual(kpi["components"]["consistency"]["score"], 0.0)
+        self.assertEqual(kpi["components"]["leave_discipline"]["score"], 5.0)
 
     def test_manager_rating_api_and_permissions(self):
         today = date.today()

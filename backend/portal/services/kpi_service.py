@@ -24,7 +24,7 @@ def get_kpi_grade(score: float) -> str:
 class KPIService:
     @staticmethod
     def calculate_employee_kpi(employee: Employee, month: int, year: int) -> dict:
-        # 1. Work Completion (40%)
+        # 1. Work Performance (50%)
         assignments = list(WorkAssignment.objects.filter(
             employee=employee,
             assigned_date__year=year,
@@ -48,7 +48,7 @@ class KPIService:
             work_comp_ratio = 0.0
 
         work_completion_ratio = min(1.0, max(0.0, work_comp_ratio))
-        work_completion_score = round(work_completion_ratio * 40.0, 2)
+        work_completion_score = round(work_completion_ratio * 50.0, 2)
         work_completion_pct = round(work_completion_ratio * 100.0, 1)
         is_evaluated = bool(assignments)
 
@@ -77,12 +77,12 @@ class KPIService:
         attendance_score = round(att_ratio * 20.0, 2)
         attendance_pct = round(att_ratio * 100.0, 1)
 
-        # 3. On-Time Delivery (15%)
+        # 3. On-Time Delivery (15%) - Align with Published / Completed workflow
         due_assignments = [wa for wa in assignments if wa.due_date and wa.due_date.year == year and wa.due_date.month == month]
         if due_assignments:
             on_time_count = 0
             for wa in due_assignments:
-                if wa.status == "Completed":
+                if wa.status in ("Published", "Completed"):
                     if wa.completed_at and wa.completed_at.date() <= wa.due_date:
                         on_time_count += 1
                     elif not wa.completed_at:
@@ -95,7 +95,38 @@ class KPIService:
         ontime_score = round(ontime_ratio * 15.0, 2)
         ontime_pct = round(ontime_ratio * 100.0, 1)
 
-        # 4. Leave Discipline (10%)
+        # 4. Work Quality (10%) - Auto-derived from reviewer workflow status (with manual rating override if set)
+        rating_obj = EmployeeKPIRating.objects.filter(
+            employee=employee, month=month, year=year
+        ).first()
+
+        if rating_obj:
+            quality_rating = float(rating_obj.rating)
+            quality_score = round((quality_rating / 5.0) * 10.0, 2)
+            rating_notes = rating_obj.notes
+            rated_by_name = rating_obj.rated_by.get_full_name() or rating_obj.rated_by.username if rating_obj.rated_by else ""
+        else:
+            rating_notes = ""
+            rated_by_name = ""
+            if assignments:
+                quality_weight_map = {
+                    "Published": 1.0,
+                    "Completed": 1.0,
+                    "Approved": 1.0,
+                    "In Review": 0.5,
+                    "In Progress": 0.25,
+                    "Ongoing": 0.25,
+                }
+                sum_q = sum(quality_weight_map.get(wa.status, 0.0) for wa in assignments)
+                q_ratio = min(1.0, max(0.0, sum_q / len(assignments)))
+            else:
+                q_ratio = 0.0
+            quality_score = round(q_ratio * 10.0, 2)
+            quality_rating = round(q_ratio * 5.0, 1)
+
+        quality_pct = round((quality_score / 10.0) * 100.0, 1)
+
+        # 5. Leave Discipline (5%)
         leave_requests = LeaveRequest.objects.filter(
             employee=employee,
             start_date__year=year,
@@ -108,34 +139,13 @@ class KPIService:
         # Unapproved absences = absent count without approved leave
         unapproved_absences = max(0, absent_count - approved_leaves)
 
-        leave_deduction = (unapproved_absences * 2.0) + (rejected_leaves * 1.0)
-        leave_discipline_score = max(0.0, round(10.0 - leave_deduction, 2))
-        leave_discipline_pct = round((leave_discipline_score / 10.0) * 100.0, 1)
+        leave_deduction = (unapproved_absences * 1.0) + (rejected_leaves * 0.5)
+        leave_discipline_score = max(0.0, round(5.0 - leave_deduction, 2))
+        leave_discipline_pct = round((leave_discipline_score / 5.0) * 100.0, 1)
 
-        # 5. Work Quality (10%) - Manager rating from 1 to 5
-        rating_obj = EmployeeKPIRating.objects.filter(
-            employee=employee, month=month, year=year
-        ).first()
-
-        if rating_obj:
-            quality_rating = float(rating_obj.rating)
-            rating_notes = rating_obj.notes
-            rated_by_name = rating_obj.rated_by.get_full_name() or rating_obj.rated_by.username if rating_obj.rated_by else ""
-        else:
-            quality_rating = 0.0
-            rating_notes = ""
-            rated_by_name = ""
-
-        quality_score = round((quality_rating / 5.0) * 10.0, 2)
-
-        # 6. Consistency (5%)
-        consistency_ratio = (att_ratio * 0.5) + (ontime_ratio * 0.5)
-        consistency_score = round(min(1.0, max(0.0, consistency_ratio)) * 5.0, 2)
-        consistency_pct = round(consistency_ratio * 100.0, 1)
-
-        # Final Score
+        # Final Score (100 Max)
         final_score = round(
-            work_completion_score + attendance_score + ontime_score + leave_discipline_score + quality_score + consistency_score,
+            work_completion_score + attendance_score + ontime_score + quality_score + leave_discipline_score,
             1
         )
         final_score = min(100.0, max(0.0, final_score))
@@ -157,7 +167,7 @@ class KPIService:
             "components": {
                 "work_completion": {
                     "score": work_completion_score,
-                    "max_score": 40.0,
+                    "max_score": 50.0,
                     "percentage": work_completion_pct,
                     "assigned_quantity": sum_assigned,
                     "completed_quantity": sum_completed,
@@ -180,26 +190,22 @@ class KPIService:
                     "total_due": len(due_assignments) if due_assignments else 0,
                     "on_time_count": on_time_count if due_assignments else 0
                 },
+                "work_quality": {
+                    "score": quality_score,
+                    "max_score": 10.0,
+                    "percentage": quality_pct,
+                    "quality_rating": quality_rating,
+                    "notes": rating_notes,
+                    "rated_by": rated_by_name
+                },
                 "leave_discipline": {
                     "score": leave_discipline_score,
-                    "max_score": 10.0,
+                    "max_score": 5.0,
                     "percentage": leave_discipline_pct,
                     "approved_leaves": approved_leaves,
                     "rejected_leaves": rejected_leaves,
                     "pending_leaves": pending_leaves,
                     "unapproved_absences": unapproved_absences
-                },
-                "work_quality": {
-                    "score": quality_score,
-                    "max_score": 10.0,
-                    "quality_rating": quality_rating,
-                    "notes": rating_notes,
-                    "rated_by": rated_by_name
-                },
-                "consistency": {
-                    "score": consistency_score,
-                    "max_score": 5.0,
-                    "percentage": consistency_pct
                 }
             }
         }
@@ -382,9 +388,8 @@ class KPIService:
         writer = csv.writer(output)
         writer.writerow([
             "Employee Code", "Name", "Department", "Designation",
-            "Month/Year", "Work Completion (40)", "Attendance (20)",
-            "On-Time Delivery (15)", "Leave Discipline (10)",
-            "Quality Rating (1-5)", "Quality Score (10)", "Consistency (5)",
+            "Month/Year", "Work Performance (50)", "Attendance (20)",
+            "On-Time Delivery (15)", "Work Quality (10)", "Leave Discipline (5)",
             "KPI Score (10)", "Final Score (100)", "Grade"
         ])
 
@@ -399,10 +404,8 @@ class KPIService:
                 comp["work_completion"]["score"],
                 comp["attendance"]["score"],
                 comp["on_time_delivery"]["score"],
-                comp["leave_discipline"]["score"],
-                comp["work_quality"]["quality_rating"],
                 comp["work_quality"]["score"],
-                comp["consistency"]["score"],
+                comp["leave_discipline"]["score"],
                 emp["score_out_of_10"],
                 emp["final_score"],
                 emp["grade"]
