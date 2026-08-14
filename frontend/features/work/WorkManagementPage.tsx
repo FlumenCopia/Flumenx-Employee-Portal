@@ -187,9 +187,13 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
 
   const visibleEmployees = useMemo(() => {
     const targetDept = normalizeDepartment(form.work_type || "web_development");
-    return employees
+    const matching = employees
       .filter((emp) => normalizeDepartment(emp.department) === targetDept)
       .sort((a, b) => a.display_name.localeCompare(b.display_name));
+    const remaining = employees
+      .filter((emp) => normalizeDepartment(emp.department) !== targetDept)
+      .sort((a, b) => a.display_name.localeCompare(b.display_name));
+    return [...matching, ...remaining];
   }, [employees, form.work_type]);
   const selectedEmployee = useMemo(() => employees.find(employee => String(employee.id) === form.employee), [employees, form.employee]);
   const selectedClient = useMemo(() => clients.find(client => String(client.id) === filters.client), [clients, filters.client]);
@@ -754,15 +758,10 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
               value={form.work_type || "web_development"}
               onChange={(event) => {
                 const val = event.target.value;
-                setForm((current) => {
-                  const selectedEmp = employees.find((emp) => String(emp.id) === current.employee);
-                  const isEmpValid = selectedEmp && normalizeDepartment(selectedEmp.department) === normalizeDepartment(val);
-                  return {
-                    ...current,
-                    work_type: val,
-                    employee: isEmpValid ? current.employee : "",
-                  };
-                });
+                setForm((current) => ({
+                  ...current,
+                  work_type: val,
+                }));
               }}
               className="fs"
             >
