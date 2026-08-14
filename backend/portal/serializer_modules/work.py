@@ -85,12 +85,8 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
         return None
 
     def get_assigned_by_name(self, obj):
-        if obj.reviewer:
-            return obj.reviewer.first_name.strip() if obj.reviewer.first_name else obj.reviewer.username
-        if obj.reviewer_name and obj.reviewer_name.strip():
-            return obj.reviewer_name.strip()
         if not obj.assigned_by:
-            return "Manager"
+            return "Admin"
         u = obj.assigned_by
         return u.first_name.strip() if u.first_name and u.first_name.strip() else u.username or "Admin"
 

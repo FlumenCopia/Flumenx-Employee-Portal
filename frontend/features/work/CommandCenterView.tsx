@@ -283,7 +283,7 @@ export function CommandCenterView({
           phase: "ph1",
           assignee: String(a.employee),
           assigneeName: a.employee_name,
-          reviewer: a.assigned_by_name || a.reviewer_name || "Manager",
+          reviewer: a.reviewer_name || (a.reviewer_details ? a.reviewer_details.name : "") || "Admin",
           reviewerId: a.reviewer,
           due: a.due_date,
           hours: 8,
@@ -876,7 +876,7 @@ export function CommandCenterView({
                                 <span style={{ color: "#4DFFA0", fontWeight: 700 }}>{t.assigneeName || "Unassigned"}</span>
                               </div>
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10.5px" }}>
-                                <span style={{ color: "#89ACA0" }}>Assigned By:</span>
+                                <span style={{ color: "#89ACA0" }}>Reviewer:</span>
                                 <span style={{ color: "#A78BFA", fontWeight: 600 }}>{t.reviewer || "Admin"}</span>
                               </div>
                             </div>
