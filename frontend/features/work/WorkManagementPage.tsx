@@ -134,8 +134,8 @@ function ProgressMeter({ value }: { value: number }) {
 export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
   const currentShellUser = useShellUser();
   const isEmployeeWorkspace = role === "employee";
-  const canManageAll = (["ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS"].includes((currentShellUser?.portal_role || "").toUpperCase()) || ["admin", "hr", "bdo", "team-lead"].includes(role)) && !isEmployeeWorkspace;
-  const canAddClient = role !== "team-lead" && !isEmployeeWorkspace;
+  const canManageAll = (["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD"].includes((currentShellUser?.portal_role || "").toUpperCase()) || ["admin", "hr", "team-lead"].includes(role)) && !isEmployeeWorkspace;
+  const canAddClient = (["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"].includes((currentShellUser?.portal_role || "").toUpperCase()) || ["admin", "hr"].includes(role)) && !isEmployeeWorkspace;
   const [summary, setSummary] = useState<WorkSummary>(EMPTY_SUMMARY);
   const [items, setItems] = useState<WorkAssignment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);

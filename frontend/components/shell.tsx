@@ -495,7 +495,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
   const canCreateTask = (() => {
     if (!user) return false;
     const role = (user.portal_role || "").toUpperCase();
-    const creatorRoles = ["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS"];
+    const creatorRoles = ["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD"];
     if (!creatorRoles.includes(role)) return false;
     if (workspaceRole === "employee" || workspaceRole === "accountant") return false;
     return true;
@@ -519,7 +519,33 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
         <div className="workspace"><div className="workspace-icon">FX</div><div><b>FLUMENX HQ</b><span>Core workspace</span></div><ChevronDown size={14} /></div>
         <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label === "Leave requests" && pendingLeaveCount > 0 && <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>}</Link>)}</nav>
         <div className="sidebar-foot">
-          <div className="mini-profile cursor-pointer hover:bg-[rgba(77,255,160,0.08)] transition-colors rounded-xl p-2 mb-2" onClick={openLogoutModal} title="Click to sign out"><Avatar name={name} /><div><b>{name}</b><span>{roleLabel}</span></div></div>
+          {workspaceRole === "employee" || workspaceRole === "bdo" || workspaceRole === "team-lead" ? (
+            <div
+              className="mini-profile cursor-pointer hover:bg-[rgba(77,255,160,0.08)] transition-colors rounded-xl p-2 mb-2"
+              onClick={() => {
+                setOpen(false);
+                router.push(`/${workspaceRole}/profile`);
+              }}
+              title="View Work Profile"
+            >
+              <Avatar name={name} />
+              <div>
+                <b>{name}</b>
+                <span>{roleLabel}</span>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="mini-profile rounded-xl p-2 mb-2 select-none"
+              title={name}
+            >
+              <Avatar name={name} />
+              <div>
+                <b>{name}</b>
+                <span>{roleLabel}</span>
+              </div>
+            </div>
+          )}
           <button type="button" onClick={openLogoutModal} disabled={loggingOut}><LogOut size={17} /> {loggingOut ? "Signing out..." : "Sign out"}</button>
         </div>
       </aside>

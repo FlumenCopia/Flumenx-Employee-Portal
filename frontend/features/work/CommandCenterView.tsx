@@ -185,12 +185,12 @@ export function CommandCenterView({
     ph5: true,
   });
 
-  const canManageAll = ["ADMIN", "HR", "OPERATIONS_HEAD", "OPERATIONS", "TEAM_LEAD"].includes((userRole || "").toUpperCase());
+  const canManageAll = ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "TEAM_LEAD"].includes((userRole || "").toUpperCase());
 
   const isReviewerOrManager = (task: TaskItem | null): boolean => {
     if (!task) return false;
     const roleUpper = (userRole || currentUser?.role || "").toUpperCase();
-    if (["ADMIN", "HR", "OPERATIONS_HEAD", "OPERATIONS", "TEAM_LEAD"].includes(roleUpper)) {
+    if (["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "TEAM_LEAD"].includes(roleUpper)) {
       return true;
     }
     if (currentUser?.id && task.reviewerId && Number(task.reviewerId) === Number(currentUser.id)) {

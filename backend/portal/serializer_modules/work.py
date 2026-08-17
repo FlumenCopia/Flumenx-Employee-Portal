@@ -120,13 +120,12 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
         if self.is_reviewer_or_manager(self.instance):
             return
         role = str(portal_role(request.user)).upper()
-        if role in ("ADMIN", "HR", "BDE", "OPERATIONS", "OPERATIONS_HEAD", "TEAM_LEAD"):
+        if role in WORK_CREATOR_ROLES:
             return
-        if role == "EMPLOYEE":
-            if not self.instance:
-                raise PermissionDenied("Employees cannot create new work assignments.")
-            if getattr(request.user, "employee", None) != employee:
-                raise PermissionDenied("Employees can access only their own assignments.")
+        if not self.instance:
+            raise PermissionDenied("Only management and Team Leads can create work assignments.")
+        if getattr(request.user, "employee", None) != employee:
+            raise PermissionDenied("Execution roles can access only their own assignments.")
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -149,11 +148,11 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
 
         if self.instance and not self.is_reviewer_or_manager(self.instance):
             role = self.actor_role()
-            if role == "EMPLOYEE":
+            if role not in WORK_CREATOR_ROLES:
                 allowed = {"status", "completed_quantity"}
                 protected = set(getattr(self, "initial_data", {}) or {}) - allowed
                 if protected:
-                    raise PermissionDenied("Employees can update only work status and progress.")
+                    raise PermissionDenied("Execution roles can update only work status and progress.")
 
         if self.instance and "completed_quantity" in attrs and "status" not in attrs and self.instance.status == "Blocked":
             attrs["status"] = "In Progress"
@@ -232,30 +231,30 @@ class WorkDeliverableSerializer(serializers.ModelSerializer):
         if not request or not assignment:
             return
         role = portal_role(request.user)
-        if role in WORK_CREATOR_ROLES or role == "BDE":
+        if role in WORK_CREATOR_ROLES:
             return
         if role == "TEAM_LEAD":
             actor_employee = getattr(request.user, "employee", None)
             if not actor_employee or assignment.employee.team_lead_id != actor_employee.id:
                 raise PermissionDenied("Team Lead can manage deliverables only for their own team members.")
             return
-        if role == "EMPLOYEE" and getattr(request.user, "employee", None) != assignment.employee:
-            raise PermissionDenied("Employees can access only their own deliverables.")
+        if getattr(request.user, "employee", None) != assignment.employee:
+            raise PermissionDenied("Execution roles can access only their own deliverables.")
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
         role = self.actor_role()
 
-        if self.instance and role == "EMPLOYEE":
+        if self.instance and role not in WORK_CREATOR_ROLES:
             allowed = {"status"}
             protected = set(getattr(self, "initial_data", {}) or {}) - allowed
             if protected:
-                raise PermissionDenied("Employees can update only deliverable status.")
+                raise PermissionDenied("Execution roles can update only deliverable status.")
             requested_status = attrs.get("status")
             if requested_status not in ("Assigned", "Pending", "In Progress", "Ongoing", "Blocked", "In Review", "Approved", "Completed", "Published"):
-                raise PermissionDenied("Employees can update only valid deliverable statuses.")
-        elif not self.instance and role == "EMPLOYEE":
-            raise PermissionDenied("Employees cannot create deliverables.")
+                raise PermissionDenied("Execution roles can update only valid deliverable statuses.")
+        elif not self.instance and role not in WORK_CREATOR_ROLES:
+            raise PermissionDenied("Execution roles cannot create deliverables.")
 
         assignment = attrs.get("assignment", getattr(self.instance, "assignment", None))
         self.validate_assignment_scope(assignment)

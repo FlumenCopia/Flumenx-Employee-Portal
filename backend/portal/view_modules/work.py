@@ -33,7 +33,7 @@ def active_employee_options_for_user(user):
     if user.is_superuser or user.is_staff:
         return qs
     role = str(portal_role(user)).upper()
-    if role in ("ADMIN", "HR", "BDE", "OPERATIONS_HEAD", "OPERATIONS"):
+    if role in ("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"):
         return qs
     if role == "TEAM_LEAD":
         lead = getattr(user, "employee", None)
@@ -52,7 +52,7 @@ def scoped_work_assignments_for_user(qs, user):
     if user.is_superuser or user.is_staff:
         return qs
     role = str(portal_role(user)).upper()
-    if role in ("ADMIN", "HR", "BDE", "OPERATIONS_HEAD", "OPERATIONS"):
+    if role in ("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"):
         return qs
     if role == "TEAM_LEAD":
         lead = getattr(user, "employee", None)
@@ -61,8 +61,8 @@ def scoped_work_assignments_for_user(qs, user):
         return qs.filter(Q(employee__team_lead=lead) | Q(employee=lead) | Q(reviewer=user) | Q(assigned_by=user)).distinct()
     employee = getattr(user, "employee", None)
     if employee:
-        return qs.filter(Q(employee=employee) | Q(reviewer=user) | Q(assigned_by=user)).distinct()
-    return qs.filter(Q(reviewer=user) | Q(assigned_by=user)).distinct()
+        return qs.filter(Q(employee=employee) | Q(reviewer=user)).distinct()
+    return qs.filter(Q(reviewer=user)).distinct()
 
 
 def notify_work_assigned(assignment, actor):
@@ -101,6 +101,7 @@ class ClientViewSet(viewsets.ModelViewSet):
     queryset = Client.objects.all()
 
 
+
 class WorkEmployeeOptionsView(APIView):
     def get(self, request):
         qs = active_employee_options_for_user(request.user)
@@ -120,92 +121,14 @@ class WorkReviewerOptionsView(APIView):
         return Response(options)
 
 
-
 class WorkDeliverableViewSet(viewsets.ModelViewSet):
     serializer_class = WorkDeliverableSerializer
     permission_classes = [IsWorkAssignmentUser]
 
     def get_queryset(self):
         qs = WorkDeliverable.objects.select_related("assignment", "assignment__employee", "assignment__assigned_by", "client")
-        return self.apply_filters(qs)
-
-
-    def apply_filters(self, qs):
-        params = self.request.query_params
-        if params.get("assignment"):
-            qs = qs.filter(assignment_id=params["assignment"])
-        if params.get("employee"):
-            qs = qs.filter(assignment__employee_id=params["employee"])
-        if params.get("client"):
-            qs = qs.filter(client_id=params["client"])
-        if params.get("status"):
-            qs = qs.filter(status=params["status"])
-        if params.get("work_type"):
-            qs = qs.filter(work_type__iexact=params["work_type"])
-        if params.get("due_date"):
-            qs = qs.filter(due_date=params["due_date"])
-        overdue = params.get("is_overdue")
-        if overdue is not None:
-            if overdue.lower() in ("true", "1", "yes"):
-                qs = qs.exclude(status="Completed").filter(due_date__lt=timezone.localdate())
-            elif overdue.lower() in ("false", "0", "no"):
-                qs = qs.filter(Q(status="Completed") | Q(due_date__gte=timezone.localdate()))
-        return qs
-
-    def perform_create(self, serializer):
-        deliverable = serializer.save()
-        notify_work_updated(deliverable.assignment, self.request.user)
-
-    def perform_update(self, serializer):
-        instance = serializer.instance
-        assignment = instance.assignment
-        old_assignment_status = assignment.status
-        old_values = {
-            "client_id": instance.client_id,
-            "title": instance.title,
-            "brief": instance.brief,
-            "work_type": instance.work_type,
-            "due_date": instance.due_date,
-            "status": instance.status,
-            "completed_at": instance.completed_at,
-        }
-        deliverable = serializer.save()
-        changed = any(getattr(deliverable, field) != value for field, value in old_values.items())
-        if not changed:
-            return
-        deliverable.assignment.refresh_from_db()
-        if old_assignment_status != "Completed" and deliverable.assignment.status == "Completed":
-            notify_work_completed(deliverable.assignment, self.request.user)
-            return
-        notify_work_updated(deliverable.assignment, self.request.user)
-
-    def perform_destroy(self, instance):
-        assignment = instance.assignment
-        actor = self.request.user
-        instance.delete()
-        notify_work_updated(assignment, actor)
-
-
-class WorkReviewerOptionsView(APIView):
-    def get(self, request):
-        users = User.objects.filter(is_active=True).select_related("employee").order_by("first_name", "username")
-        options = []
-        for u in users:
-            name = u.first_name.strip() if u.first_name and u.first_name.strip() else u.username
-            emp = getattr(u, "employee", None)
-            if emp:
-                name = emp.name
-            options.append({"id": u.id, "display_name": name, "username": u.username})
-        return Response(options)
-
-
-
-class WorkDeliverableViewSet(viewsets.ModelViewSet):
-    serializer_class = WorkDeliverableSerializer
-    permission_classes = [IsWorkAssignmentUser]
-
-    def get_queryset(self):
-        qs = WorkDeliverable.objects.select_related("assignment", "assignment__employee", "assignment__assigned_by", "client")
+        assignments = scoped_work_assignments_for_user(WorkAssignment.objects.all(), self.request.user)
+        qs = qs.filter(assignment__in=assignments)
         return self.apply_filters(qs)
 
 

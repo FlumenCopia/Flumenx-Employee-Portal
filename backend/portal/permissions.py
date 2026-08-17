@@ -127,7 +127,7 @@ class IsAdminOrHR(BasePermission):
 
 class IsWorkClientUser(BasePermission):
     read_roles = ("SUPER_ADMIN", "ADMIN", "HR", "BDE", "TEAM_LEAD", "EMPLOYEE", "OPERATIONS_HEAD", "OPERATIONS", "MEMBER")
-    write_roles = ("SUPER_ADMIN", "ADMIN", "HR", "BDE", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS")
+    write_roles = ("SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD")
 
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
@@ -137,7 +137,7 @@ class IsWorkClientUser(BasePermission):
             return True
         return role in self.write_roles
 
-WORK_CREATOR_ROLES = ("SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS")
+WORK_CREATOR_ROLES = ("SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD")
 
 class IsWorkAssignmentUser(BasePermission):
     allowed_roles = ("SUPER_ADMIN", "ADMIN", "HR", "BDE", "TEAM_LEAD", "EMPLOYEE", "OPERATIONS_HEAD", "OPERATIONS", "MEMBER")
