@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, BriefcaseBusiness, Building2, CalendarDays, UserCheck, Users } from "lucide-react";
+import { BriefcaseBusiness, Building2, CalendarDays, UserCheck, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { Meeting } from "@/lib/types";
 import { AttendanceSummary } from "@/features/attendance/types";
@@ -41,7 +41,7 @@ export function AdminDashboard({ basePath = "/admin" }: { basePath?: "/admin" | 
   const displayMeetings = dashboard?.upcoming_meetings || [];
 
   return <>
-    <PageHeader eyebrow={`COMMAND CENTRE - ${today.toUpperCase()}`} title="Good morning." subtitle="Here is the pulse of FLUMENX today." action={<Link className="text-action" href={`${basePath}/employees`}>View employees <ArrowRight size={17} /></Link>} />
+    <PageHeader eyebrow={`COMMAND CENTRE - ${today.toUpperCase()}`} title="Good morning." subtitle="Here is the pulse of FLUMENX today." />
     {dashboardError && <EmptyState title="Could not load dashboard" text={dashboardError} />}
     <div className="stats-grid">
       <StatCard label="Total employees" value={dashboardLoading ? "--" : dashboard?.total_employees ?? "Not available"} note={dashboard?.active_employees !== undefined ? `${dashboard.active_employees} active` : "Employee count"} icon={<Users />} />

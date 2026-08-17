@@ -3,23 +3,18 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Briefcase,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  User,
   Building2,
-  MapPin,
-  Mail,
   Layers,
   TrendingUp,
   Filter,
   CheckCheck,
-  Award,
   AlertCircle,
-  ChevronRight,
+  Clock,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 import { Avatar } from "@/components/icons";
-import { PageHeader, EmptyState } from "@/components/ui";
+import { EmptyState } from "@/components/ui";
 import { useShellUser } from "@/components/shell";
 import { api } from "@/lib/api";
 import type { WorkAssignment, Paginated, KPIEmployeeData, Client } from "@/lib/types";
@@ -29,19 +24,40 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December"
 ];
 
-function getStatusBadgeClass(status: string) {
-  const s = (status || "").toLowerCase();
-  if (s === "published" || s === "completed" || s === "approved") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-  if (s === "in review") return "bg-amber-500/10 text-amber-400 border-amber-500/20";
-  if (s === "in progress") return "bg-blue-500/10 text-blue-400 border-blue-500/20";
-  return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+function getStatusBadgeStyle(status: string) {
+  const s = (status || "").toLowerCase().trim();
+  if (s === "published" || s === "completed" || s === "approved") {
+    return { background: "rgba(0, 232, 137, 0.12)", color: "var(--neon)", border: "1px solid rgba(0, 232, 137, 0.3)" };
+  }
+  if (
+    s === "changes requested" ||
+    s === "revisions" ||
+    s === "revision" ||
+    s === "rejected" ||
+    s === "blocked" ||
+    s === "needs correction" ||
+    s === "correction"
+  ) {
+    return { background: "rgba(255, 89, 77, 0.15)", color: "var(--red)", border: "1px solid rgba(255, 89, 77, 0.35)" };
+  }
+  if (s === "in review") {
+    return { background: "rgba(245, 158, 11, 0.15)", color: "#F59E0B", border: "1px solid rgba(245, 158, 11, 0.35)" };
+  }
+  if (s === "in progress" || s === "ongoing") {
+    return { background: "rgba(74, 158, 255, 0.15)", color: "#4A9EFF", border: "1px solid rgba(74, 158, 255, 0.35)" };
+  }
+  return { background: "rgba(156, 184, 168, 0.12)", color: "var(--muted)", border: "1px solid var(--border)" };
 }
 
-function getPriorityBadgeClass(priority: string) {
+function getPriorityBadgeStyle(priority: string) {
   const p = (priority || "").toLowerCase();
-  if (p === "urgent" || p === "high") return "bg-rose-500/10 text-rose-400 border-rose-500/20";
-  if (p === "normal") return "bg-sky-500/10 text-sky-400 border-sky-500/20";
-  return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+  if (p === "urgent" || p === "high") {
+    return { background: "rgba(255, 89, 77, 0.15)", color: "var(--red)", border: "1px solid rgba(255, 89, 77, 0.35)" };
+  }
+  if (p === "normal") {
+    return { background: "rgba(74, 158, 255, 0.15)", color: "#4A9EFF", border: "1px solid rgba(74, 158, 255, 0.35)" };
+  }
+  return { background: "rgba(156, 184, 168, 0.12)", color: "var(--muted)", border: "1px solid var(--border)" };
 }
 
 function getStatusProgressPct(status: string, assignedQty: number, completedQty: number): number {
@@ -52,15 +68,65 @@ function getStatusProgressPct(status: string, assignedQty: number, completedQty:
   if (s === "published" || s === "completed") return 100;
   if (s === "approved") return 75;
   if (s === "in review") return 50;
-  if (s === "in progress") return 25;
+  if (s === "in progress" || s === "ongoing") return 25;
   return 0;
+}
+
+function checkIsCorrection(status: string): boolean {
+  const s = (status || "").toLowerCase().trim();
+  return (
+    s === "changes requested" ||
+    s === "revisions" ||
+    s === "revision" ||
+    s === "rejected" ||
+    s === "blocked" ||
+    s === "needs correction" ||
+    s === "correction"
+  );
+}
+
+function checkIsOverdue(task: WorkAssignment): boolean {
+  if ((task as any).is_overdue) return true;
+  const s = (task.status || "").toLowerCase().trim();
+  if (s === "published" || s === "completed") return false;
+  if (task.due_date) {
+    const due = new Date(task.due_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return due < today;
+  }
+  return false;
+}
+
+function getTaskSortPriority(task: WorkAssignment): number {
+  const s = (task.status || "").toLowerCase().trim();
+  if (s === "published" || s === "completed") return 7;
+  if (checkIsCorrection(task.status)) return 1;
+  if (checkIsOverdue(task)) return 2;
+  if (s === "in progress" || s === "ongoing") return 3;
+  if (s === "in review") return 4;
+  if (s === "assigned") return 5;
+  if (s === "approved") return 6;
+  return 6.5;
+}
+
+function sortTasks(tasks: WorkAssignment[]): WorkAssignment[] {
+  return [...tasks].sort((a, b) => {
+    const prioA = getTaskSortPriority(a);
+    const prioB = getTaskSortPriority(b);
+    if (prioA !== prioB) return prioA - prioB;
+
+    const dateA = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+    const dateB = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+    return dateA - dateB;
+  });
 }
 
 export function ProfilePage() {
   const user = useShellUser();
   const [assignments, setAssignments] = useState<WorkAssignment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
-  const [kpiData, setKpiData] = useState<KPIEmployeeData | null>(null);
+  const [, setKpiData] = useState<KPIEmployeeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -69,7 +135,7 @@ export function ProfilePage() {
   const [selectedYear, setSelectedYear] = useState<string>(currentDate.getFullYear().toString());
   const [selectedClient, setSelectedClient] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<"current" | "published" | "all">("current");
+  const [activeTab, setActiveTab] = useState<"pending" | "current" | "corrections" | "completed" | "all">("pending");
 
   const employeeId = user?.employee?.id;
 
@@ -155,40 +221,32 @@ export function ProfilePage() {
     });
   }, [assignments, selectedYear, selectedMonth, selectedClient, selectedStatus]);
 
-  const currentAssignments = useMemo(() => {
-    return filteredAssignments.filter((a) => a.status !== "Published" && a.status !== "Completed");
-  }, [filteredAssignments]);
-
-  const publishedAssignments = useMemo(() => {
-    return filteredAssignments.filter((a) => a.status === "Published" || a.status === "Completed");
-  }, [filteredAssignments]);
-
-  const displayedAssignments = useMemo(() => {
-    if (activeTab === "current") return currentAssignments;
-    if (activeTab === "published") return publishedAssignments;
-    return filteredAssignments;
-  }, [activeTab, currentAssignments, publishedAssignments, filteredAssignments]);
-
   const summaryStats = useMemo(() => {
     let totalAssignedQty = 0;
     let totalCompletedQty = 0;
 
-    let assignedCount = 0;
+    let pendingCount = 0;
     let inProgressCount = 0;
     let inReviewCount = 0;
-    let approvedCount = 0;
-    let publishedCount = 0;
+    let correctionCount = 0;
+    let completedCount = 0;
 
     filteredAssignments.forEach((a) => {
       totalAssignedQty += a.assigned_quantity || 0;
       totalCompletedQty += a.completed_quantity || 0;
 
-      const s = (a.status || "").toLowerCase();
-      if (s === "assigned") assignedCount++;
-      else if (s === "in progress") inProgressCount++;
-      else if (s === "in review") inReviewCount++;
-      else if (s === "approved") approvedCount++;
-      else if (s === "published" || s === "completed") publishedCount++;
+      const s = (a.status || "").toLowerCase().trim();
+      const isDone = s === "published" || s === "completed";
+      const isCorr = checkIsCorrection(s);
+
+      if (isDone) {
+        completedCount++;
+      } else {
+        pendingCount++;
+        if (isCorr) correctionCount++;
+        if (s === "in progress" || s === "ongoing") inProgressCount++;
+        else if (s === "in review") inReviewCount++;
+      }
     });
 
     const overallProgress = totalAssignedQty > 0
@@ -200,13 +258,38 @@ export function ProfilePage() {
       totalAssignedQty,
       totalCompletedQty,
       overallProgress,
-      assignedCount,
+      pendingCount,
       inProgressCount,
       inReviewCount,
-      approvedCount,
-      publishedCount,
+      correctionCount,
+      completedCount,
     };
   }, [filteredAssignments]);
+
+  const displayedAssignments = useMemo(() => {
+    let list: WorkAssignment[] = [];
+    if (activeTab === "pending") {
+      list = filteredAssignments.filter((a) => {
+        const s = (a.status || "").toLowerCase().trim();
+        return s !== "published" && s !== "completed";
+      });
+    } else if (activeTab === "current") {
+      list = filteredAssignments.filter((a) => {
+        const s = (a.status || "").toLowerCase().trim();
+        return s === "in progress" || s === "ongoing" || s === "in review" || s === "approved" || s === "assigned";
+      });
+    } else if (activeTab === "corrections") {
+      list = filteredAssignments.filter((a) => checkIsCorrection(a.status));
+    } else if (activeTab === "completed") {
+      list = filteredAssignments.filter((a) => {
+        const s = (a.status || "").toLowerCase().trim();
+        return s === "published" || s === "completed";
+      });
+    } else {
+      list = filteredAssignments;
+    }
+    return sortTasks(list);
+  }, [activeTab, filteredAssignments]);
 
   const clientGroupedWork = useMemo(() => {
     const groups: Record<
@@ -214,6 +297,8 @@ export function ProfilePage() {
       {
         clientName: string;
         tasks: WorkAssignment[];
+        pendingCount: number;
+        completedCount: number;
         assignedQty: number;
         completedQty: number;
         progressPct: number;
@@ -226,12 +311,20 @@ export function ProfilePage() {
         groups[cName] = {
           clientName: cName,
           tasks: [],
+          pendingCount: 0,
+          completedCount: 0,
           assignedQty: 0,
           completedQty: 0,
           progressPct: 0,
         };
       }
       groups[cName].tasks.push(task);
+      const s = (task.status || "").toLowerCase().trim();
+      if (s === "published" || s === "completed") {
+        groups[cName].completedCount++;
+      } else {
+        groups[cName].pendingCount++;
+      }
       groups[cName].assignedQty += task.assigned_quantity || 0;
       groups[cName].completedQty += task.completed_quantity || 0;
     });
@@ -249,7 +342,7 @@ export function ProfilePage() {
             : 0);
     });
 
-    return Object.values(groups).sort((a, b) => b.tasks.length - a.tasks.length);
+    return Object.values(groups).sort((a, b) => b.pendingCount - a.pendingCount || b.tasks.length - a.tasks.length);
   }, [displayedAssignments]);
 
   if (!user) {
@@ -259,169 +352,161 @@ export function ProfilePage() {
   const e = user.employee;
   const name = e?.name || user.first_name || user.email || user.username;
   const code = e?.employee_code || "FLX-EMP";
-  const designation = e?.designation || user.portal_role;
+  const designation = e?.designation || user.portal_role || "Team Member";
   const department = e?.department || "General";
-  const location = e?.location || "India HQ";
-  const joined = e?.joining_date
-    ? new Date(e.joining_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-    : "Active";
-  const status = e?.status || "Active";
-  const email = e?.email || user.email || user.username;
-  const phone = e?.phone || "Not specified";
+
+  const hasActiveFilters =
+    selectedMonth !== "all" || selectedYear !== "all" || selectedClient !== "all" || selectedStatus !== "all";
 
   return (
-    <div className="space-y-6 pb-12">
-      <PageHeader
-        eyebrow="WORK & PERFORMANCE"
-        title="Employee Work Profile"
-        subtitle="Personal dashboard for assigned tasks, work completion progress, and client deliverables."
-      />
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px", paddingBottom: "32px" }}>
+      {/* 1. TOP HEADER & COMPACT EMPLOYEE IDENTITY */}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "14px" }}>
+        <div>
+          <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text)", margin: 0 }}>My Work Dashboard</h1>
+          <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
+            Track assigned work, pending tasks, reviews, corrections and completed client work.
+          </p>
+        </div>
 
-      {/* 1. COMPACT PROFESSIONAL PROFILE HEADER CARD */}
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-6 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 left-0 h-2 bg-gradient-to-r from-emerald-500 via-sky-500 to-indigo-500" />
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="flex items-center gap-5">
-            <Avatar name={name} size={72} />
-            <div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-xs font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-[rgba(77,255,160,0.12)] text-[var(--neon)] border border-[rgba(77,255,160,0.2)]">
-                  {code}
-                </span>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                  {status}
-                </span>
-              </div>
-              <h2 className="text-2xl font-bold text-[var(--text)] mt-1">{name}</h2>
-              <p className="text-sm font-medium text-sky-400">{designation}</p>
-            </div>
-          </div>
-
-          {/* Quick Facts Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto text-xs">
-            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
-              <span className="text-slate-400 block flex items-center gap-1.5 mb-1">
-                <Building2 size={13} className="text-emerald-400" /> Department
+        {/* Small Identity Chip */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 12px" }}>
+          <Avatar name={name} size={36} />
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{name}</span>
+              <span style={{ fontSize: "10px", fontWeight: 700, padding: "1px 6px", background: "var(--neon-dim)", color: "var(--neon)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)" }}>
+                {code}
               </span>
-              <strong className="text-slate-200 block truncate">{department}</strong>
             </div>
-            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
-              <span className="text-slate-400 block flex items-center gap-1.5 mb-1">
-                <Mail size={13} className="text-sky-400" /> Email
-              </span>
-              <strong className="text-slate-200 block truncate" title={email}>{email}</strong>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
-              <span className="text-slate-400 block flex items-center gap-1.5 mb-1">
-                <MapPin size={13} className="text-rose-400" /> Location
-              </span>
-              <strong className="text-slate-200 block truncate">{location}</strong>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
-              <span className="text-slate-400 block flex items-center gap-1.5 mb-1">
-                <Calendar size={13} className="text-amber-400" /> Joined
-              </span>
-              <strong className="text-slate-200 block truncate">{joined}</strong>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
-              <span className="text-slate-400 block flex items-center gap-1.5 mb-1">
-                <User size={13} className="text-indigo-400" /> Phone
-              </span>
-              <strong className="text-slate-200 block truncate">{phone}</strong>
-            </div>
-            {kpiData && (
-              <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-800/50">
-                <span className="text-emerald-400 block flex items-center gap-1.5 mb-1">
-                  <Award size={13} /> Monthly KPI
-                </span>
-                <strong className="text-emerald-200 block">
-                  {kpiData.score_out_of_10} / 10 &bull; {kpiData.grade}
-                </strong>
-              </div>
-            )}
+            <p style={{ fontSize: "11px", color: "var(--muted)", margin: "2px 0 0" }}>{designation} &bull; {department}</p>
           </div>
         </div>
       </div>
 
-      {/* 2. FILTERS CONTROL BAR */}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-          <Filter size={16} className="text-[var(--neon)]" />
-          <span>Work Filters</span>
+      {/* 2. SUMMARY CARDS GRID (6 Cards) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "12px" }}>
+        {/* Card 1: Pending Work (MOST IMPORTANT CARD) */}
+        <div style={{ background: "var(--panel)", border: "1px solid #F59E0B", borderRadius: "var(--r)", padding: "14px", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "8px" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "3px", background: "#F59E0B" }} />
+          <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: "#F59E0B", display: "flex", alignItems: "center", gap: "5px" }}>
+            <Clock size={13} /> Pending Work
+          </span>
+          <strong style={{ fontSize: "30px", fontWeight: 900, color: "var(--text)", fontFamily: "monospace" }}>{summaryStats.pendingCount}</strong>
+          <span style={{ fontSize: "10px", color: "var(--muted)" }}>Incomplete tasks</span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs flex-1 max-w-3xl">
-          {/* Month Filter */}
-          <div>
-            <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Month</label>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[var(--neon)]"
-            >
-              <option value="all">All Months</option>
-              {MONTH_NAMES.map((m, idx) => (
-                <option key={m} value={(idx + 1).toString()}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Year Filter */}
-          <div>
-            <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Year</label>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[var(--neon)]"
-            >
-              <option value="all">All Years</option>
-              {availableYears.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Client Filter */}
-          <div>
-            <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Client</label>
-            <select
-              value={selectedClient}
-              onChange={(e) => setSelectedClient(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[var(--neon)]"
-            >
-              <option value="all">All Clients</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div>
-            <label className="block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1">Status</label>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[var(--neon)]"
-            >
-              <option value="all">All Statuses</option>
-              <option value="Assigned">Assigned</option>
-              <option value="In Progress">In Progress</option>
-              <option value="In Review">In Review</option>
-              <option value="Approved">Approved</option>
-              <option value="Published">Published</option>
-            </select>
-          </div>
+        {/* Card 2: In Progress */}
+        <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "14px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "8px" }}>
+          <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: "#4A9EFF", display: "flex", alignItems: "center", gap: "5px" }}>
+            <Briefcase size={13} /> In Progress
+          </span>
+          <strong style={{ fontSize: "30px", fontWeight: 900, color: "var(--text)", fontFamily: "monospace" }}>{summaryStats.inProgressCount}</strong>
+          <span style={{ fontSize: "10px", color: "var(--muted)" }}>Active working</span>
         </div>
 
-        {/* Quick Reset Shortcut */}
-        {(selectedMonth !== "all" || selectedYear !== "all" || selectedClient !== "all" || selectedStatus !== "all") && (
+        {/* Card 3: In Review */}
+        <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "14px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "8px" }}>
+          <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: "#F59E0B", display: "flex", alignItems: "center", gap: "5px" }}>
+            <Layers size={13} /> In Review
+          </span>
+          <strong style={{ fontSize: "30px", fontWeight: 900, color: "var(--text)", fontFamily: "monospace" }}>{summaryStats.inReviewCount}</strong>
+          <span style={{ fontSize: "10px", color: "var(--muted)" }}>Awaiting review</span>
+        </div>
+
+        {/* Card 4: Needs Correction */}
+        <div style={{ background: summaryStats.correctionCount > 0 ? "rgba(255, 89, 77, 0.1)" : "var(--panel)", border: summaryStats.correctionCount > 0 ? "1px solid var(--red)" : "1px solid var(--border)", borderRadius: "var(--r)", padding: "14px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "8px" }}>
+          <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: summaryStats.correctionCount > 0 ? "var(--red)" : "var(--muted)", display: "flex", alignItems: "center", gap: "5px" }}>
+            <AlertCircle size={13} /> Corrections
+          </span>
+          <strong style={{ fontSize: "30px", fontWeight: 900, color: summaryStats.correctionCount > 0 ? "var(--red)" : "var(--text)", fontFamily: "monospace" }}>{summaryStats.correctionCount}</strong>
+          <span style={{ fontSize: "10px", color: "var(--muted)" }}>Needs revision</span>
+        </div>
+
+        {/* Card 5: Completed */}
+        <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "14px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "8px" }}>
+          <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--neon)", display: "flex", alignItems: "center", gap: "5px" }}>
+            <CheckCheck size={13} /> Completed
+          </span>
+          <strong style={{ fontSize: "30px", fontWeight: 900, color: "var(--text)", fontFamily: "monospace" }}>{summaryStats.completedCount}</strong>
+          <span style={{ fontSize: "10px", color: "var(--muted)" }}>Published &amp; done</span>
+        </div>
+
+        {/* Card 6: Overall Progress */}
+        <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "14px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--muted)", display: "flex", alignItems: "center", gap: "5px" }}>
+              <TrendingUp size={13} style={{ color: "var(--neon)" }} /> Progress
+            </span>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--neon)", fontFamily: "monospace" }}>{summaryStats.overallProgress}%</span>
+          </div>
+          <div className="pbar"><div className="pfill g" style={{ width: `${summaryStats.overallProgress}%` }} /></div>
+          <span style={{ fontSize: "10px", color: "var(--muted)" }}>
+            {summaryStats.totalCompletedQty} / {summaryStats.totalAssignedQty} items
+          </span>
+        </div>
+      </div>
+
+      {/* 3. FILTER TOOLBAR */}
+      <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "12px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--muted)" }}>
+          <Filter size={14} style={{ color: "var(--neon)" }} />
+          <span>Filters</span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "8px", flex: 1 }}>
+          <select
+            aria-label="Filter by client"
+            value={selectedClient}
+            onChange={(e) => setSelectedClient(e.target.value)}
+            style={{ background: "var(--panel2)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: "var(--r-sm)", padding: "6px 10px", fontSize: "12px", fontWeight: 600, outline: "none", cursor: "pointer" }}
+          >
+            <option value="all">All Clients</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.name}>{c.name}</option>
+            ))}
+          </select>
+
+          <select
+            aria-label="Filter by status"
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            style={{ background: "var(--panel2)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: "var(--r-sm)", padding: "6px 10px", fontSize: "12px", fontWeight: 600, outline: "none", cursor: "pointer" }}
+          >
+            <option value="all">All Statuses</option>
+            <option value="Assigned">Assigned</option>
+            <option value="In Progress">In Progress</option>
+            <option value="In Review">In Review</option>
+            <option value="Approved">Approved</option>
+            <option value="Published">Published</option>
+          </select>
+
+          <select
+            aria-label="Filter by month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            style={{ background: "var(--panel2)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: "var(--r-sm)", padding: "6px 10px", fontSize: "12px", fontWeight: 600, outline: "none", cursor: "pointer" }}
+          >
+            <option value="all">All Months</option>
+            {MONTH_NAMES.map((m, idx) => (
+              <option key={m} value={(idx + 1).toString()}>{m}</option>
+            ))}
+          </select>
+
+          <select
+            aria-label="Filter by year"
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            style={{ background: "var(--panel2)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: "var(--r-sm)", padding: "6px 10px", fontSize: "12px", fontWeight: 600, outline: "none", cursor: "pointer" }}
+          >
+            <option value="all">All Years</option>
+            {availableYears.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+
+        {hasActiveFilters && (
           <button
             type="button"
             onClick={() => {
@@ -430,271 +515,313 @@ export function ProfilePage() {
               setSelectedClient("all");
               setSelectedStatus("all");
             }}
-            className="text-xs font-medium text-emerald-400 hover:underline self-end md:self-center"
+            style={{ display: "flex", alignItems: "center", gap: "6px", padding: "6px 12px", borderRadius: "var(--r-sm)", background: "var(--panel2)", border: "1px solid var(--border)", fontSize: "12px", fontWeight: 600, color: "var(--muted)", cursor: "pointer" }}
           >
-            Reset Filters
+            <RotateCcw size={13} />
+            <span>Reset</span>
           </button>
         )}
       </div>
 
-      {/* 3. WORK PROGRESS SUMMARY CARDS & MAIN OVERALL BAR */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Main Progress Card */}
-        <div className="md:col-span-2 rounded-xl border border-[var(--border)] bg-[var(--panel)] p-5 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <TrendingUp size={15} className="text-[var(--neon)]" /> Overall Work Progress
-              </span>
-              <span className="text-2xl font-black text-[var(--neon)]">
-                {summaryStats.overallProgress}%
-              </span>
-            </div>
-            {/* Progress Bar */}
-            <div className="w-full bg-slate-900 rounded-full h-3 overflow-hidden p-0.5 border border-slate-800 mb-3">
-              <div
-                className="bg-gradient-to-r from-emerald-500 via-sky-400 to-teal-400 h-full rounded-full transition-all duration-500"
-                style={{ width: `${summaryStats.overallProgress}%` }}
-              />
-            </div>
-            <p className="text-xs text-slate-400">
-              Formula: Total Completed Qty ({summaryStats.totalCompletedQty}) / Total Assigned Qty ({summaryStats.totalAssignedQty || summaryStats.totalTasks * 100}) &times; 100
-            </p>
-          </div>
+      {/* 4. WORK TABS */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", borderBottom: "1px solid var(--border)", paddingBottom: "12px" }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab("pending")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 14px",
+              borderRadius: "var(--r-sm)",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+              background: activeTab === "pending" ? "var(--neon-dim)" : "var(--panel2)",
+              color: activeTab === "pending" ? "var(--neon)" : "var(--muted)",
+              border: activeTab === "pending" ? "1px solid var(--neon)" : "1px solid var(--border)",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <Clock size={14} />
+            Pending ({summaryStats.pendingCount})
+          </button>
 
-          <div className="grid grid-cols-5 gap-2 mt-4 pt-3 border-t border-slate-800 text-center">
-            <div className="p-1.5 rounded-lg bg-slate-900/50">
-              <span className="text-[10px] text-slate-400 block">Assigned</span>
-              <strong className="text-sm font-bold text-slate-300">{summaryStats.assignedCount}</strong>
-            </div>
-            <div className="p-1.5 rounded-lg bg-blue-950/30">
-              <span className="text-[10px] text-blue-400 block">In Progress</span>
-              <strong className="text-sm font-bold text-blue-300">{summaryStats.inProgressCount}</strong>
-            </div>
-            <div className="p-1.5 rounded-lg bg-amber-950/30">
-              <span className="text-[10px] text-amber-400 block">In Review</span>
-              <strong className="text-sm font-bold text-amber-300">{summaryStats.inReviewCount}</strong>
-            </div>
-            <div className="p-1.5 rounded-lg bg-sky-950/30">
-              <span className="text-[10px] text-sky-400 block">Approved</span>
-              <strong className="text-sm font-bold text-sky-300">{summaryStats.approvedCount}</strong>
-            </div>
-            <div className="p-1.5 rounded-lg bg-emerald-950/30">
-              <span className="text-[10px] text-emerald-400 block">Published</span>
-              <strong className="text-sm font-bold text-emerald-300">{summaryStats.publishedCount}</strong>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("current")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 14px",
+              borderRadius: "var(--r-sm)",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+              background: activeTab === "current" ? "var(--neon-dim)" : "var(--panel2)",
+              color: activeTab === "current" ? "var(--neon)" : "var(--muted)",
+              border: activeTab === "current" ? "1px solid var(--neon)" : "1px solid var(--border)",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <Briefcase size={14} />
+            Current Work ({summaryStats.inProgressCount + summaryStats.inReviewCount})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("corrections")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 14px",
+              borderRadius: "var(--r-sm)",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+              background: activeTab === "corrections" ? "rgba(255, 89, 77, 0.2)" : summaryStats.correctionCount > 0 ? "rgba(255, 89, 77, 0.1)" : "var(--panel2)",
+              color: activeTab === "corrections" ? "var(--red)" : summaryStats.correctionCount > 0 ? "var(--red)" : "var(--muted)",
+              border: activeTab === "corrections" ? "1px solid var(--red)" : summaryStats.correctionCount > 0 ? "1px solid rgba(255, 89, 77, 0.4)" : "1px solid var(--border)",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <AlertCircle size={14} />
+            Needs Correction ({summaryStats.correctionCount})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("completed")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 14px",
+              borderRadius: "var(--r-sm)",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+              background: activeTab === "completed" ? "var(--neon-dim)" : "var(--panel2)",
+              color: activeTab === "completed" ? "var(--neon)" : "var(--muted)",
+              border: activeTab === "completed" ? "1px solid var(--neon)" : "1px solid var(--border)",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <CheckCheck size={14} />
+            Completed ({summaryStats.completedCount})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("all")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 14px",
+              borderRadius: "var(--r-sm)",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+              background: activeTab === "all" ? "var(--neon-dim)" : "var(--panel2)",
+              color: activeTab === "all" ? "var(--neon)" : "var(--muted)",
+              border: activeTab === "all" ? "1px solid var(--neon)" : "1px solid var(--border)",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <Layers size={14} />
+            All Work ({summaryStats.totalTasks})
+          </button>
         </div>
 
-        {/* Task Volume Stat Card */}
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Briefcase size={15} className="text-sky-400" /> Total Tasks
-            </span>
-            <span className="text-3xl font-black text-white">{summaryStats.totalTasks}</span>
-          </div>
-          <div className="space-y-2 my-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400 flex items-center gap-1">
-                <Clock size={13} className="text-blue-400" /> Current Work
-              </span>
-              <strong className="text-blue-300">{currentAssignments.length}</strong>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400 flex items-center gap-1">
-                <CheckCheck size={13} className="text-emerald-400" /> Published History
-              </span>
-              <strong className="text-emerald-300">{publishedAssignments.length}</strong>
-            </div>
-          </div>
-          {kpiData ? (
-            <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
-              <span className="text-slate-400 block">Current KPI Status</span>
-              <span className="font-bold text-emerald-400">
-                {kpiData.score_out_of_10} / 10 ({kpiData.grade})
-              </span>
-            </div>
-          ) : (
-            <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-400">
-              Select specific Month &amp; Year for KPI score
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 4. WORK SECTION WITH TABS (CURRENT VS PUBLISHED) */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-          {/* Tab Switcher */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab("current")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2 ${
-                activeTab === "current"
-                  ? "bg-sky-500/20 text-sky-400 border border-sky-500/30"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
-              }`}
-            >
-              <Clock size={14} />
-              Current Work ({currentAssignments.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("published")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2 ${
-                activeTab === "published"
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
-              }`}
-            >
-              <CheckCheck size={14} />
-              Published History ({publishedAssignments.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("all")}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2 ${
-                activeTab === "all"
-                  ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
-              }`}
-            >
-              <Layers size={14} />
-              All Assigned ({filteredAssignments.length})
-            </button>
-          </div>
-        </div>
-
-        {/* Loading & Error States */}
+        {/* Loading State */}
         {loading && (
-          <div className="p-8 text-center text-slate-400 text-sm">
-            Loading employee work profile data...
+          <div style={{ padding: "32px", textAlign: "center", color: "var(--muted)", fontSize: "14px" }}>
+            Loading your work dashboard...
           </div>
         )}
 
+        {/* Error State */}
         {error && (
-          <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-800 text-rose-300 text-xs flex items-center gap-2">
+          <div style={{ padding: "14px", borderRadius: "var(--r)", background: "rgba(255, 89, 77, 0.15)", border: "1px solid var(--red)", color: "var(--red)", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
             <AlertCircle size={16} />
             <span>{error}</span>
           </div>
         )}
 
-        {/* Empty States */}
+        {/* Empty State */}
         {!loading && !error && clientGroupedWork.length === 0 && (
           <EmptyState
             title={
-              activeTab === "published"
-                ? "No published work found"
-                : activeTab === "current"
-                ? "No current active work"
+              activeTab === "pending"
+                ? "No pending tasks!"
+                : activeTab === "corrections"
+                ? "No tasks need correction"
+                : activeTab === "completed"
+                ? "No completed tasks found"
                 : "No work assigned"
             }
             text={
               filteredAssignments.length === 0
-                ? "No tasks match the selected month, year, client, or status filter criteria."
-                : activeTab === "published"
-                ? "You have no completed or published work records in this selection."
-                : "All assigned work for this selection has been published or completed."
+                ? "No work items match the selected client, status, month, or year filters."
+                : activeTab === "pending"
+                ? "You have completed all assigned tasks for the active selection."
+                : activeTab === "corrections"
+                ? "Great job! None of your tasks are currently marked for corrections or revisions."
+                : "No task records available under this tab view."
             }
           />
         )}
 
-        {/* 5. CLIENT-WISE WORK GROUPS */}
+        {/* 5. CLIENT-WISE WORK CARDS */}
         {!loading && !error && clientGroupedWork.map((clientGroup) => (
           <div
             key={clientGroup.clientName}
-            className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-5 space-y-4"
+            style={{
+              background: "var(--panel)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--r)",
+              padding: "18px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "14px",
+            }}
           >
-            {/* Client Header & Progress */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/60 pb-3">
+            {/* Client Card Header */}
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "12px" }}>
               <div>
-                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Client</span>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Building2 size={18} className="text-sky-400" />
+                <span style={{ fontSize: "10px", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)", display: "block" }}>Client</span>
+                <h3 style={{ fontSize: "16px", fontWeight: 700, color: "var(--text)", margin: "4px 0 0", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Building2 size={16} style={{ color: "#4A9EFF" }} />
                   {clientGroup.clientName}
-                  <span className="text-xs font-semibold text-slate-400">
-                    ({clientGroup.tasks.length} {clientGroup.tasks.length === 1 ? "task" : "tasks"})
+                  <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--muted)" }}>
+                    ({clientGroup.tasks.length} total &bull; {clientGroup.pendingCount} pending &bull; {clientGroup.completedCount} done)
                   </span>
                 </h3>
               </div>
 
-              {/* Client Progress Formula */}
-              <div className="sm:text-right min-w-[200px]">
-                <div className="flex items-center justify-between sm:justify-end gap-2 text-xs font-bold mb-1">
-                  <span className="text-slate-400">Client Progress</span>
-                  <span className="text-emerald-400">{clientGroup.progressPct}%</span>
+              {/* Client Progress Header */}
+              <div style={{ minWidth: "180px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: 700, marginBottom: "4px" }}>
+                  <span style={{ color: "var(--muted)" }}>Client Progress:</span>
+                  <span style={{ color: "var(--neon)", fontFamily: "monospace" }}>{clientGroup.progressPct}%</span>
                 </div>
-                <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-                  <div
-                    className="bg-emerald-500 h-full rounded-full transition-all duration-300"
-                    style={{ width: `${clientGroup.progressPct}%` }}
-                  />
-                </div>
+                <div className="pbar"><div className="pfill g" style={{ width: `${clientGroup.progressPct}%` }} /></div>
               </div>
             </div>
 
-            {/* Task List under this Client */}
-            <div className="grid grid-cols-1 gap-3">
+            {/* Task Card List */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {clientGroup.tasks.map((task) => {
                 const progressPct = getStatusProgressPct(
                   task.status,
                   task.assigned_quantity,
                   task.completed_quantity
                 );
+                const isCorrectionRequired = checkIsCorrection(task.status);
+                const isOverdue = checkIsOverdue(task);
+                const statusStyle = getStatusBadgeStyle(task.status);
+                const priorityStyle = getPriorityBadgeStyle(task.priority);
+
                 return (
                   <div
                     key={task.id}
-                    className="rounded-lg bg-slate-900/60 border border-slate-800/80 p-3.5 hover:border-slate-700 transition-colors flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs"
+                    style={{
+                      background: isCorrectionRequired
+                        ? "rgba(255, 89, 77, 0.08)"
+                        : isOverdue
+                        ? "rgba(255, 89, 77, 0.05)"
+                        : "var(--panel2)",
+                      border: isCorrectionRequired || isOverdue
+                        ? "1px solid var(--red)"
+                        : "1px solid var(--border)",
+                      borderRadius: "var(--r-sm)",
+                      padding: "14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
+                    }}
                   >
-                    {/* Left: Task Info */}
-                    <div className="space-y-1 max-w-xl">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-100 text-sm">{task.title}</span>
-                        <span className={`px-2 py-0.5 rounded border text-[10px] font-bold ${getStatusBadgeClass(task.status)}`}>
-                          {task.status}
-                        </span>
-                        <span className={`px-2 py-0.5 rounded border text-[10px] font-bold ${getPriorityBadgeClass(task.priority)}`}>
-                          {task.priority} Priority
-                        </span>
-                        {task.employee_department && (
-                          <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px]">
-                            {task.employee_department}
+                    {/* Top Row: Title & Badges */}
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                          <h4 style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)", margin: 0 }}>{task.title}</h4>
+
+                          {/* Status Badge */}
+                          <span style={{ padding: "2px 8px", borderRadius: "var(--r-sm)", fontSize: "10px", fontWeight: 700, ...statusStyle }}>
+                            {task.status}
                           </span>
-                        )}
-                      </div>
 
-                      {task.description && (
-                        <p className="text-slate-400 line-clamp-1">{task.description}</p>
-                      )}
+                          {/* Needs Correction Badge */}
+                          {isCorrectionRequired && (
+                            <span style={{ padding: "2px 8px", borderRadius: "var(--r-sm)", fontSize: "10px", fontWeight: 700, background: "rgba(255, 89, 77, 0.2)", color: "var(--red)", border: "1px solid var(--red)", display: "flex", alignItems: "center", gap: "4px" }}>
+                              <AlertCircle size={11} /> Needs Correction
+                            </span>
+                          )}
 
-                      <div className="flex items-center gap-4 text-[11px] text-slate-400 flex-wrap pt-1">
-                        <span>Assigned: <strong className="text-slate-300">{task.assigned_date || "N/A"}</strong></span>
-                        <span>Due: <strong className="text-slate-300">{task.due_date || "N/A"}</strong></span>
-                        {task.reviewer_name && (
-                          <span>Reviewer: <strong className="text-slate-300">{task.reviewer_name}</strong></span>
-                        )}
-                        {task.unit && (
-                          <span>Qty: <strong className="text-emerald-400">{task.completed_quantity || 0} / {task.assigned_quantity || 0} {task.unit}</strong></span>
+                          {/* Overdue Badge */}
+                          {isOverdue && (
+                            <span style={{ padding: "2px 8px", borderRadius: "var(--r-sm)", fontSize: "10px", fontWeight: 700, background: "var(--red)", color: "#000", display: "flex", alignItems: "center", gap: "4px" }}>
+                              <AlertTriangle size={11} /> OVERDUE
+                            </span>
+                          )}
+
+                          {/* Priority Badge */}
+                          {task.priority && (
+                            <span style={{ padding: "2px 8px", borderRadius: "var(--r-sm)", fontSize: "10px", fontWeight: 700, ...priorityStyle }}>
+                              {task.priority} Priority
+                            </span>
+                          )}
+
+                          {/* Department / Work Type */}
+                          {task.employee_department && (
+                            <span style={{ padding: "2px 8px", borderRadius: "var(--r-sm)", fontSize: "10px", background: "var(--bg)", color: "var(--muted)", border: "1px solid var(--border)" }}>
+                              {task.employee_department}
+                            </span>
+                          )}
+                        </div>
+
+                        {task.description && (
+                          <p style={{ fontSize: "12px", color: "var(--muted)", margin: "4px 0 0", lineHeight: 1.4 }}>{task.description}</p>
                         )}
                       </div>
                     </div>
 
-                    {/* Right: Progress Meter */}
-                    <div className="w-full md:w-48 space-y-1 self-stretch md:self-center">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-400">Progress</span>
-                        <span className="font-bold text-sky-400">{progressPct}%</span>
+                    {/* Separate Label & Value Grid */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: "10px", paddingTop: "8px", borderTop: "1px solid var(--border)", fontSize: "12px" }}>
+                      <div>
+                        <span style={{ fontSize: "10px", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)", display: "block" }}>Client</span>
+                        <span style={{ fontWeight: 600, color: "var(--text)", display: "block", marginTop: "2px" }}>{clientGroup.clientName}</span>
                       </div>
-                      <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800 p-0.5">
-                        <div
-                          className="bg-sky-400 h-full rounded-full transition-all duration-300"
-                          style={{ width: `${progressPct}%` }}
-                        />
+                      <div>
+                        <span style={{ fontSize: "10px", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)", display: "block" }}>Due Date</span>
+                        <span style={{ fontWeight: 600, color: isOverdue ? "var(--red)" : "var(--text)", display: "block", marginTop: "2px" }}>
+                          {task.due_date || "N/A"}
+                        </span>
                       </div>
+                      <div>
+                        <span style={{ fontSize: "10px", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)", display: "block" }}>Reviewer</span>
+                        <span style={{ fontWeight: 600, color: "var(--text)", display: "block", marginTop: "2px" }}>{task.reviewer_name || "Unassigned"}</span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: "10px", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)", display: "block" }}>Qty</span>
+                        <span style={{ fontWeight: 600, color: "var(--neon)", display: "block", marginTop: "2px" }}>
+                          {task.completed_quantity || 0} / {task.assigned_quantity || 0} {task.unit || "items"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Task Progress Bar */}
+                    <div style={{ paddingTop: "6px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
+                        <span style={{ fontSize: "10px", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>Task Progress</span>
+                        <span style={{ fontWeight: 700, color: "var(--neon)", fontFamily: "monospace" }}>{progressPct}%</span>
+                      </div>
+                      <div className="pbar"><div className="pfill g" style={{ width: `${progressPct}%` }} /></div>
                     </div>
                   </div>
                 );

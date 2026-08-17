@@ -91,6 +91,22 @@ export function SettingsAccessPage() {
     }
   }
 
+  async function handleDeleteUser(targetUser: SuperAdminUser) {
+    if (targetUser.user_id === user?.id) {
+      setActionError("You cannot delete your own logged-in account.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete user "${targetUser.full_name || targetUser.work_email}"?`)) return;
+    setActionError("");
+    try {
+      await api(`/portal/super-admin/users/${targetUser.user_id}/`, { method: "DELETE" });
+      loadUsers();
+      loadRoles();
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Could not delete user account.");
+    }
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       <PageHeader
@@ -201,16 +217,6 @@ export function SettingsAccessPage() {
                             >
                               Edit
                             </button>
-                            {r.code.toUpperCase() !== "SUPER_ADMIN" && !r.is_superadmin_wildcard && (
-                              <button
-                                type="button"
-                                className="secondary-button"
-                                onClick={() => handleDeleteRole(r)}
-                                style={{ padding: "0 8px", height: "30px", fontSize: "11px", color: "#FF594D", borderColor: "rgba(255,89,77,0.3)", borderRadius: "5px" }}
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            )}
                           </div>
                         </td>
                       </tr>
@@ -330,6 +336,17 @@ export function SettingsAccessPage() {
                             >
                               <Key size={13} />
                             </button>
+                            {u.user_id !== user?.id && (
+                              <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={() => handleDeleteUser(u)}
+                                style={{ padding: "0 8px", height: "30px", fontSize: "11px", color: "#FF594D", borderColor: "rgba(255,89,77,0.3)", borderRadius: "5px" }}
+                                title="Delete User Account"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

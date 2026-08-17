@@ -342,7 +342,8 @@ class DynamicNavigationView(APIView):
         role_module_map = {
             "ADMIN": {"DASHBOARD", "TASKS", "TIMELINE", "KPI", "EMPLOYEES", "ATTENDANCE", "LEAVES", "MEETINGS"},
             "HR": {"DASHBOARD", "TASKS", "TIMELINE", "KPI", "EMPLOYEES", "ATTENDANCE", "LEAVES", "MEETINGS"},
-            "TEAM_LEAD": {"DASHBOARD", "TASKS", "TIMELINE", "KPI", "MEETINGS"},
+            "TEAM_LEAD": {"DASHBOARD", "TASKS", "TIMELINE", "TEAM_WORK", "MEETINGS"},
+            "TEAMLEAD": {"DASHBOARD", "TASKS", "TIMELINE", "TEAM_WORK", "MEETINGS"},
             "EMPLOYEE": {"DASHBOARD", "TASKS", "KPI", "ATTENDANCE", "LEAVES", "MEETINGS"},
             "ACCOUNTANT": {"DASHBOARD", "TASKS", "ATTENDANCE"},
             "BDE": {"DASHBOARD", "TASKS", "TIMELINE", "LEAVES", "MEETINGS"},

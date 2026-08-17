@@ -31,13 +31,13 @@ def send_onboarding_email(recipient_name: str, recipient_email: str, temporary_p
             recipient_list=[recipient_email],
             fail_silently=False,
         )
+        return True
     except Exception as mail_exc:
-        logger.error(
-            "Onboarding email delivery failed: [%s] %s\n%s",
+        logger.warning(
+            "Onboarding email delivery failed for %s (%s): [%s] %s",
+            recipient_name,
+            recipient_email,
             mail_exc.__class__.__name__,
             str(mail_exc),
-            traceback.format_exc(),
         )
-        raise serializers.ValidationError({
-            "email": "Could not send login details email. Please try again later or contact your admin."
-        })
+        return False

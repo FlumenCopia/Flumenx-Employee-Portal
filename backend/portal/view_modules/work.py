@@ -39,7 +39,13 @@ def active_employee_options_for_user(user):
         lead = getattr(user, "employee", None)
         if not lead:
             return qs.none()
-        return qs.filter(team_lead=lead)
+        dept_q = Q(department=lead.department) if lead.department else Q()
+        dept_ref_q = Q(department_ref=lead.department_ref) if lead.department_ref else Q()
+        return qs.filter(
+            Q(team_lead=lead) |
+            Q(id=lead.id) |
+            (Q(team_lead__isnull=True) & (dept_q | dept_ref_q))
+        ).distinct().order_by("name")
     emp = getattr(user, "employee", None)
     if emp:
         return qs.filter(id=emp.id)
@@ -58,7 +64,18 @@ def scoped_work_assignments_for_user(qs, user):
         lead = getattr(user, "employee", None)
         if not lead:
             return qs.none()
-        return qs.filter(Q(employee__team_lead=lead) | Q(employee=lead) | Q(reviewer=user) | Q(assigned_by=user)).distinct()
+        dept_q = Q(department=lead.department) if lead.department else Q()
+        dept_ref_q = Q(department_ref=lead.department_ref) if lead.department_ref else Q()
+        team_members = Employee.objects.filter(
+            Q(team_lead=lead) |
+            Q(id=lead.id) |
+            (Q(team_lead__isnull=True) & (dept_q | dept_ref_q))
+        )
+        return qs.filter(
+            Q(employee__in=team_members) |
+            Q(reviewer=user) |
+            Q(assigned_by=user)
+        ).distinct()
     employee = getattr(user, "employee", None)
     if employee:
         return qs.filter(Q(employee=employee) | Q(reviewer=user)).distinct()
@@ -193,7 +210,7 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsWorkAssignmentUser]
 
     def get_queryset(self):
-        qs = WorkAssignment.objects.select_related("employee", "client", "assigned_by").prefetch_related("deliverables__client").order_by("-id")
+        qs = WorkAssignment.objects.select_related("employee", "client", "assigned_by", "reviewer", "reviewer__employee").prefetch_related("deliverables__client").order_by("-id")
         qs = scoped_work_assignments_for_user(qs, self.request.user)
         return self.apply_filters(qs)
 
@@ -250,9 +267,16 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
         return self.request.user, name
 
     def perform_create(self, serializer):
+        user = self.request.user
+        role = str(portal_role(user)).upper()
+        if role == "TEAM_LEAD":
+            assigned_emp = serializer.validated_data.get("employee")
+            allowed_qs = active_employee_options_for_user(user)
+            if assigned_emp and not allowed_qs.filter(id=assigned_emp.id).exists():
+                raise PermissionDenied("You can only assign tasks to members of your own team.")
         reviewer_user, reviewer_name = self.resolve_reviewer()
-        assignment = serializer.save(assigned_by=self.request.user, reviewer=reviewer_user, reviewer_name=reviewer_name)
-        notify_work_assigned(assignment, self.request.user)
+        assignment = serializer.save(assigned_by=user, reviewer=reviewer_user, reviewer_name=reviewer_name)
+        notify_work_assigned(assignment, user)
 
     def perform_update(self, serializer):
         instance = serializer.instance

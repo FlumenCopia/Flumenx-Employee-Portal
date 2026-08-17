@@ -162,6 +162,28 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
       const selectedDept = departments.find((d) => d.id === Number(departmentId));
       const targetDeptStr = selectedDept ? selectedDept.name : departmentStr || "Web Development";
 
+      if (!isEdit) {
+        const errors: Record<string, string> = {};
+        if (!fullName.trim()) {
+          errors.full_name = "Full name is required.";
+        }
+        if (!workEmail.trim()) {
+          errors.work_email = "Work email is required.";
+        }
+        if (!password || password.length < 8) {
+          errors.initial_password = "Initial password must be at least 8 characters long.";
+        }
+        if (!dynamicRoleId || Number.isNaN(Number(dynamicRoleId))) {
+          errors.dynamic_role_id = "Please select an assigned role.";
+        }
+        if (Object.keys(errors).length > 0) {
+          setFieldErrors(errors);
+          setError(Object.values(errors).join(" | "));
+          setLoading(false);
+          return;
+        }
+      }
+
       if (isEdit && user) {
         const updatePayload: Record<string, any> = {
           full_name: fullName.trim(),
@@ -200,8 +222,10 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
       onClose();
     } catch (err) {
       if (err instanceof ApiError) {
-        setFieldErrors(err.fields);
-        setError(err.message || "Failed to save user.");
+        const fields = err.fields || {};
+        setFieldErrors(fields);
+        const detailMsg = Object.values(fields).length > 0 ? Object.values(fields).join(" | ") : err.message;
+        setError(detailMsg || "Failed to save user.");
       } else {
         setError(err instanceof Error ? err.message : "An error occurred.");
       }
@@ -238,7 +262,9 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
                 required
                 className="fi"
               />
-              {fieldErrors.work_email && <small style={{ color: "#EF4444" }}>{fieldErrors.work_email}</small>}
+              {(fieldErrors.work_email || fieldErrors.email) && (
+                <small style={{ color: "#EF4444" }}>{fieldErrors.work_email || fieldErrors.email}</small>
+              )}
             </label>
 
             <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>

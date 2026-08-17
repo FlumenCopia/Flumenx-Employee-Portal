@@ -129,7 +129,7 @@ const teamLeadNav = [
   ["Command Center", "/team-lead/work?view=command-center", Sparkles],
   ["Task Board", "/team-lead/work?view=kanban", Kanban],
   ["Timeline & Phases", "/team-lead/work?view=timeline", Layers],
-  ["KPI Performance", "/admin/kpi", TrendingUp],
+  ["Team Work", "/team-lead/team-work", Users],
 ] as const satisfies readonly NavigationItem[];
 
 export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[]> = {

@@ -111,53 +111,60 @@ class Command(BaseCommand):
                     "sidebar_order": 3,
                 },
                 {
+                    "module_code": "TEAM_WORK",
+                    "title": "Team Work",
+                    "route_path": "/admin/team-work",
+                    "icon": "Users",
+                    "sidebar_order": 4,
+                },
+                {
                     "module_code": "KPI",
                     "title": "KPI Performance",
                     "route_path": "/admin/kpi",
                     "icon": "TrendingUp",
-                    "sidebar_order": 4,
+                    "sidebar_order": 5,
                 },
                 {
                     "module_code": "EMPLOYEES",
                     "title": "Employees",
                     "route_path": "/admin/employees",
                     "icon": "Users",
-                    "sidebar_order": 5,
+                    "sidebar_order": 6,
                 },
                 {
                     "module_code": "ATTENDANCE",
                     "title": "Attendance",
                     "route_path": "/admin/attendance",
                     "icon": "CalendarCheck",
-                    "sidebar_order": 6,
+                    "sidebar_order": 7,
                 },
                 {
                     "module_code": "LEAVES",
                     "title": "Leave Requests",
                     "route_path": "/admin/leaves",
                     "icon": "CalendarDays",
-                    "sidebar_order": 7,
+                    "sidebar_order": 8,
                 },
                 {
                     "module_code": "MEETINGS",
                     "title": "Meetings",
                     "route_path": "/admin/meetings",
                     "icon": "UserRound",
-                    "sidebar_order": 8,
+                    "sidebar_order": 9,
                 },
                 {
                     "module_code": "PAGE_MANAGEMENT",
                     "title": "Page Management",
                     "route_path": "/admin/pages",
                     "icon": "FileCode",
-                    "sidebar_order": 9,
+                    "sidebar_order": 10,
                 },
                 {
                     "module_code": "SETTINGS_ACCESS",
                     "title": "Settings & Access",
                     "route_path": "/admin/settings",
                     "icon": "Settings",
-                    "sidebar_order": 10,
+                    "sidebar_order": 11,
                 },
             ]
 
@@ -188,7 +195,7 @@ class Command(BaseCommand):
                 },
                 "TEAM_LEAD": {
                     p: (True, True, True, False)
-                    for p in ("DASHBOARD", "TASKS", "TIMELINE", "KPI", "MEETINGS")
+                    for p in ("DASHBOARD", "TASKS", "TIMELINE", "TEAM_WORK", "MEETINGS")
                 },
                 "EMPLOYEE": {
                     "DASHBOARD": (True, False, False, False),
