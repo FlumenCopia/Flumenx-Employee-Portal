@@ -29,6 +29,22 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
 
   useEffect(() => {
     if (!open) return;
+
+    setError("");
+    setFieldErrors({});
+
+    if (isEdit && role) {
+      setName(role.name || "");
+      setCode(role.code || "");
+      setDescription(role.description || "");
+      setIsSuperadminWildcard(Boolean(role.is_superadmin_wildcard));
+    } else {
+      setName("");
+      setCode("");
+      setDescription("");
+      setIsSuperadminWildcard(false);
+    }
+
     setMatrixLoading(true);
 
     if (isEdit && role) {

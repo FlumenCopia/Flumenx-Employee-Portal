@@ -360,6 +360,7 @@ export function SettingsAccessPage() {
       </div>
 
       <RoleFormModal
+        key={editingRole?.id ?? "new"}
         role={editingRole}
         open={roleModalOpen}
         onClose={() => setRoleModalOpen(false)}
