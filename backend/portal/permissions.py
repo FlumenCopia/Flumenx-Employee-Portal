@@ -80,7 +80,7 @@ def has_page_permission(user, module_code, action="view"):
 
 
 class HasPagePermission(BasePermission):
-    def __init__(self, module_code=None, action="view"):
+    def __init__(self, module_code=None, action=None):
         self.module_code = module_code
         self.action = action
 
@@ -89,15 +89,27 @@ class HasPagePermission(BasePermission):
         if not module_code:
             return True
         action = self.action
-        if request.method in SAFE_METHODS and action == "view":
-            pass
-        elif request.method == "POST" and action == "view":
-            action = "create"
-        elif request.method in ("PUT", "PATCH") and action == "view":
-            action = "edit"
-        elif request.method == "DELETE" and action == "view":
-            action = "delete"
+        if not action:
+            view_action = getattr(view, "action", None)
+            if view_action in ("list", "retrieve") or (request.method in SAFE_METHODS):
+                action = "view"
+            elif view_action == "create" or request.method == "POST":
+                action = "create"
+            elif view_action in ("update", "partial_update") or request.method in ("PUT", "PATCH"):
+                action = "edit"
+            elif view_action == "destroy" or request.method == "DELETE":
+                action = "delete"
+            else:
+                action = "view"
         return has_page_permission(request.user, module_code, action)
+
+class HasSettingsAccessPermission(HasPagePermission):
+    def __init__(self):
+        super().__init__("SETTINGS_ACCESS")
+
+class HasPageManagementPermission(HasPagePermission):
+    def __init__(self):
+        super().__init__("PAGE_MANAGEMENT")
 
 class IsPortalAdmin(HasPortalRole):
     allowed_roles = ("ADMIN",)
@@ -120,9 +132,13 @@ class IsAdminOrHR(BasePermission):
             return False
         if request.user.is_superuser:
             return True
-        if request.method in SAFE_METHODS:
+        if portal_role(request.user) in ("SUPER_ADMIN", "ADMIN", "HR"):
             return True
-        return portal_role(request.user) in ("SUPER_ADMIN", "ADMIN", "HR")
+        module_code = getattr(view, "module_code", None)
+        if module_code:
+            action = "view" if request.method in SAFE_METHODS else "edit"
+            return has_page_permission(request.user, module_code, action)
+        return False
 
 
 class IsWorkClientUser(BasePermission):
@@ -170,8 +186,6 @@ class IsWorkAssignmentUser(BasePermission):
             if role in WORK_CREATOR_ROLES:
                 return True
             if obj.reviewer_id and obj.reviewer_id == request.user.id:
-                return True
-            if obj.employee and obj.employee.user_id == request.user.id:
                 return True
             return False
 

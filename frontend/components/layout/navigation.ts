@@ -177,9 +177,38 @@ export function isRoleAllowedInWorkspace(portalRole: string | undefined, workspa
 
 export function normalizeWorkspaceRoute(routePath: string, workspaceRole: WorkspaceRole): string {
   if (!routePath) return `/${workspaceRole}/dashboard`;
-  if (routePath.startsWith("/admin/")) {
-    return routePath.replace(/^\/admin\//, `/${workspaceRole}/`);
+
+  const [pathname, search] = routePath.split("?");
+  const query = search ? `?${search}` : "";
+
+  if (pathname === "/settings" || pathname === "/admin/settings") {
+    return "/settings";
   }
+  if (pathname === "/team-work" || pathname === "/admin/team-work" || pathname === "/team-lead/team-work") {
+    return "/team-work";
+  }
+  if (pathname === "/pages" || pathname === "/admin/pages") {
+    return "/pages";
+  }
+  if (pathname === "/work" || pathname === "/admin/work") {
+    return `/work${query}`;
+  }
+  if (pathname === "/kpi" || pathname === "/admin/kpi") {
+    return `/kpi${query}`;
+  }
+  if (pathname === "/employees" || pathname === "/admin/employees") {
+    return `/employees${query}`;
+  }
+  if (pathname === "/attendance" || pathname === "/admin/attendance") {
+    return `/attendance${query}`;
+  }
+  if (pathname === "/leaves" || pathname === "/admin/leaves") {
+    return `/leaves${query}`;
+  }
+  if (pathname === "/meetings" || pathname === "/admin/meetings") {
+    return `/meetings${query}`;
+  }
+
   return routePath;
 }
 

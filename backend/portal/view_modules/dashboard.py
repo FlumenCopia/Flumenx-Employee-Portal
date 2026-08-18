@@ -33,7 +33,7 @@ def dashboard(request):
         "upcoming_meetings": MeetingSerializer(Meeting.objects.filter(date__gte=today)[:4], many=True).data,
         "announcements": AnnouncementSerializer(Announcement.objects.all()[:4], many=True).data,
     }
-    if role in ("ADMIN", "HR", "ACCOUNTANT"):
+    if role in ("SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTANT"):
         today_records = AttendanceRecord.objects.filter(attendance_date=today)
         employees = Employee.objects.aggregate(
             total=Count("id"),

@@ -91,6 +91,7 @@ def requested_employee_changes(serializer):
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):
+    module_code = "EMPLOYEES"
     serializer_class = EmployeeSerializer
     permission_classes = [IsAdminOrHR]
 

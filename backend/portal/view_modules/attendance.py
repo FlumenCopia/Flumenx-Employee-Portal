@@ -29,6 +29,7 @@ class AttendancePolicyViewSet(viewsets.ViewSet):
 
 
 class AttendanceRecordViewSet(viewsets.ModelViewSet):
+    module_code = "ATTENDANCE"
     serializer_class = AttendanceRecordSerializer
 
     def get_permissions(self):
@@ -38,7 +39,8 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = AttendanceRecord.objects.select_related("employee")
-        if portal_role(self.request.user) not in ("ADMIN", "HR"):
+        from portal.permissions import has_page_permission
+        if portal_role(self.request.user) not in ("ADMIN", "HR") and not has_page_permission(self.request.user, "ATTENDANCE", "view"):
             qs = qs.filter(employee__user=self.request.user)
         params = self.request.query_params
         if params.get("date"):
@@ -56,9 +58,6 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="check-in")
     def check_in(self, request):
-        role = portal_role(request.user)
-        if role not in ("EMPLOYEE", "BDE", "ACCOUNTANT"):
-            return Response({"detail": "Only employee workspace users can mark attendance."}, status=403)
         employee = getattr(request.user, "employee", None)
         if not employee:
             return Response({"detail": "Employee profile is required."}, status=400)
@@ -81,9 +80,6 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="check-out")
     def check_out(self, request):
-        role = portal_role(request.user)
-        if role not in ("EMPLOYEE", "BDE", "ACCOUNTANT"):
-            return Response({"detail": "Only employee workspace users can mark attendance."}, status=403)
         employee = getattr(request.user, "employee", None)
         if not employee:
             return Response({"detail": "Employee profile is required."}, status=400)

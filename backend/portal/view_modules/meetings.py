@@ -43,6 +43,7 @@ def notify_meeting_recipients(meeting, actor, title, category, action):
 
 
 class MeetingViewSet(viewsets.ModelViewSet):
+    module_code = "MEETINGS"
     serializer_class = MeetingSerializer
     permission_classes = [IsAdminOrHRWriteReadOnly]
 

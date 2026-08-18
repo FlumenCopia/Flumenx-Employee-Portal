@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from portal.models import Department, DynamicRole, Employee, PortalPage, RolePermission, UserRole
-from portal.permissions import IsSuperAdmin, portal_role, normalize_portal_role
+from portal.permissions import IsSuperAdmin, HasPagePermission, HasSettingsAccessPermission, HasPageManagementPermission, portal_role, normalize_portal_role
 from portal.serializer_modules.super_admin import (
     DepartmentSerializer,
     DynamicRoleSerializer,
@@ -40,7 +40,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
             return [IsAuthenticated()]
-        return [IsAuthenticated(), IsSuperAdmin()]
+        return [IsAuthenticated(), HasSettingsAccessPermission()]
 
     def get_queryset(self):
         user = self.request.user
@@ -62,7 +62,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
 class PortalPageViewSet(viewsets.ModelViewSet):
     queryset = PortalPage.objects.all().order_by("sidebar_order", "title")
     serializer_class = PortalPageSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, HasPageManagementPermission]
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -77,7 +77,7 @@ class PortalPageViewSet(viewsets.ModelViewSet):
 class DynamicRoleViewSet(viewsets.ModelViewSet):
     queryset = DynamicRole.objects.all().order_by("name")
     serializer_class = DynamicRoleSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, HasSettingsAccessPermission]
 
     def perform_create(self, serializer):
         if serializer.validated_data.get("is_superadmin_wildcard"):
@@ -118,7 +118,7 @@ class DynamicRoleViewSet(viewsets.ModelViewSet):
 
 
 class RolePermissionMatrixView(APIView):
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, HasSettingsAccessPermission]
 
     def get(self, request, role_id):
         role = DynamicRole.objects.filter(id=role_id).first()
@@ -184,7 +184,7 @@ class RolePermissionMatrixView(APIView):
 
 
 class SuperAdminUserViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, HasSettingsAccessPermission]
 
     def get_queryset(self):
         return User.objects.all().select_related("employee", "portal_profile__dynamic_role").order_by("-date_joined")

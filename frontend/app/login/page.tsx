@@ -28,9 +28,17 @@ export default function LoginPage() {
   useEffect(() => {
     let active = true;
 
+    const timer = setTimeout(() => {
+      if (active) {
+        clearCachedAuthUser();
+        setCheckingSession(false);
+      }
+    }, 3000);
+
     api<AuthUser>("/auth/me/")
       .then(user => {
         if (!active) return;
+        clearTimeout(timer);
         setCachedAuthUser(user);
         const dest = getWorkspaceDestination(user.portal_role);
         if (dest && dest !== "/login") {
@@ -40,11 +48,16 @@ export default function LoginPage() {
         }
       })
       .catch(() => {
-        if (active) setCheckingSession(false);
+        if (active) {
+          clearTimeout(timer);
+          clearCachedAuthUser();
+          setCheckingSession(false);
+        }
       });
 
     return () => {
       active = false;
+      clearTimeout(timer);
     };
   }, [router]);
 

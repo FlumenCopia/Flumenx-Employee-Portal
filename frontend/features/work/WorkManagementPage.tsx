@@ -131,11 +131,12 @@ function ProgressMeter({ value }: { value: number }) {
   return <div className="work-progress"><div><i style={{ width: `${width}%` }} /></div><span>{value}%</span></div>;
 }
 
-export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
+export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
   const currentShellUser = useShellUser();
-  const isEmployeeWorkspace = role === "employee";
-  const canManageAll = (["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD"].includes((currentShellUser?.portal_role || "").toUpperCase()) || ["admin", "hr", "team-lead"].includes(role)) && !isEmployeeWorkspace;
-  const canAddClient = (["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"].includes((currentShellUser?.portal_role || "").toUpperCase()) || ["admin", "hr"].includes(role)) && !isEmployeeWorkspace;
+  const effectiveRole = role || (currentShellUser ? (["SUPER_ADMIN", "ADMIN", "OPERATIONS", "OPERATIONS_HEAD"].includes(currentShellUser.portal_role.toUpperCase()) ? "admin" : currentShellUser.portal_role.toLowerCase() as WorkspaceRole) : "admin");
+  const isEmployeeWorkspace = effectiveRole === "employee";
+  const canManageAll = (["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD"].includes((currentShellUser?.portal_role || "").toUpperCase()) || ["admin", "hr", "team-lead"].includes(effectiveRole)) && !isEmployeeWorkspace;
+  const canAddClient = (["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"].includes((currentShellUser?.portal_role || "").toUpperCase()) || ["admin", "hr"].includes(effectiveRole)) && !isEmployeeWorkspace;
   const [summary, setSummary] = useState<WorkSummary>(EMPTY_SUMMARY);
   const [items, setItems] = useState<WorkAssignment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -589,7 +590,7 @@ export function WorkManagementPage({ role }: { role: WorkspaceRole }) {
         clients={clients}
         members={visibleEmployees}
         userRole={role}
-        currentUser={shellUser ? { id: shellUser.id, name: shellUser.first_name || shellUser.username, username: shellUser.username, role: shellUser.portal_role } : undefined}
+        currentUser={shellUser ? { id: shellUser.id, employeeId: shellUser.employee?.id, name: shellUser.first_name || shellUser.username, username: shellUser.username, role: shellUser.portal_role } : undefined}
         workSummary={summary}
         selectedClientName={selectedClient?.name}
         selectedClientId={filters.client}

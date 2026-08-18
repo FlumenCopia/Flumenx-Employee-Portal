@@ -154,7 +154,7 @@ export type Employee = {
 export type Leave = {
   id: number; employee?: number; employee_name?: string; employee_code?: string;
   leave_type: string; start_date: string; end_date: string; reason: string;
-  status: "Pending" | "Approved" | "Rejected"; days?: number;
+  status: "Pending" | "Approved" | "Rejected"; days?: number; admin_note?: string;
 };
 export type Meeting = { id: number; title: string; date: string; time: string; description: string; department: string; location: string };
 export type Announcement = { id: number; title: string; message: string; date: string; priority: "Normal" | "Important" | "Urgent" };

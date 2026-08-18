@@ -42,9 +42,7 @@ def active_employee_options_for_user(user):
         dept_q = Q(department=lead.department) if lead.department else Q()
         dept_ref_q = Q(department_ref=lead.department_ref) if lead.department_ref else Q()
         return qs.filter(
-            Q(team_lead=lead) |
-            Q(id=lead.id) |
-            (Q(team_lead__isnull=True) & (dept_q | dept_ref_q))
+            (Q(team_lead=lead) | (Q(team_lead__isnull=True) & (dept_q | dept_ref_q))) & ~Q(id=lead.id)
         ).distinct().order_by("name")
     emp = getattr(user, "employee", None)
     if emp:
@@ -206,6 +204,7 @@ class WorkDeliverableViewSet(viewsets.ModelViewSet):
 
 
 class WorkAssignmentViewSet(viewsets.ModelViewSet):
+    module_code = "TASKS"
     serializer_class = WorkAssignmentSerializer
     permission_classes = [IsWorkAssignmentUser]
 
@@ -279,6 +278,13 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
         notify_work_assigned(assignment, user)
 
     def perform_update(self, serializer):
+        user = self.request.user
+        role = str(portal_role(user)).upper()
+        if role == "TEAM_LEAD" and "employee" in serializer.validated_data:
+            assigned_emp = serializer.validated_data.get("employee")
+            allowed_qs = active_employee_options_for_user(user)
+            if assigned_emp and not allowed_qs.filter(id=assigned_emp.id).exists():
+                raise PermissionDenied("You can only assign tasks to members of your own team.")
         instance = serializer.instance
         reviewer_val = self.request.data.get("reviewer") or self.request.data.get("reviewer_id") or self.request.data.get("reviewer_name")
         kwargs = {}

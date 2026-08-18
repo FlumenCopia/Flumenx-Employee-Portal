@@ -25,33 +25,22 @@ export function SettingsAccessPage() {
   const [loadingDepts, setLoadingDepts] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [actionError, setActionError] = useState("");
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
-  const [roleModalOpen, setRoleModalOpen] = useState(false);
-  const [editingRole, setEditingRole] = useState<DynamicRole | null>(null);
-
-  const [deptModalOpen, setDeptModalOpen] = useState(false);
-  const [editingDept, setEditingDept] = useState<DepartmentItem | null>(null);
-
-  const [userModalOpen, setUserModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<SuperAdminUser | null>(null);
-
-  const [passModalOpen, setPassModalOpen] = useState(false);
-  const [passTargetUser, setPassTargetUser] = useState<SuperAdminUser | null>(null);
-
-  // Route Guard: Super Admin Only
-  useEffect(() => {
-    if (!user) return;
-    const isSuperAdmin = user.portal_role === "SUPER_ADMIN" || user.role === "SUPER_ADMIN";
-    if (!isSuperAdmin) {
-      router.replace("/admin/dashboard");
-    }
-  }, [user, router]);
+  const isSuperAdmin = Boolean(
+    user && (user.portal_role === "SUPER_ADMIN" || user.role === "SUPER_ADMIN")
+  );
 
   const loadRoles = () => {
     setLoadingRoles(true);
     api<DynamicRole[] | { results: DynamicRole[] }>("/portal/roles/")
       .then((data) => setRoles(Array.isArray(data) ? data : data?.results || []))
-      .catch(() => setRoles([]))
+      .catch((err) => {
+        setRoles([]);
+        if (err instanceof ApiError && err.status === 403) {
+          setPermissionDenied(true);
+        }
+      })
       .finally(() => setLoadingRoles(false));
   };
 
@@ -67,7 +56,12 @@ export function SettingsAccessPage() {
     setLoadingUsers(true);
     api<SuperAdminUser[] | { results: SuperAdminUser[] }>("/portal/super-admin/users/")
       .then((data) => setUsersList(Array.isArray(data) ? data : data?.results || []))
-      .catch(() => setUsersList([]))
+      .catch((err) => {
+        setUsersList([]);
+        if (err instanceof ApiError && err.status === 403) {
+          setPermissionDenied(true);
+        }
+      })
       .finally(() => setLoadingUsers(false));
   };
 
@@ -76,6 +70,18 @@ export function SettingsAccessPage() {
     loadDepartments();
     loadUsers();
   }, []);
+
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<DynamicRole | null>(null);
+
+  const [deptModalOpen, setDeptModalOpen] = useState(false);
+  const [editingDept, setEditingDept] = useState<DepartmentItem | null>(null);
+
+  const [userModalOpen, setUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<SuperAdminUser | null>(null);
+
+  const [passModalOpen, setPassModalOpen] = useState(false);
+  const [passTargetUser, setPassTargetUser] = useState<SuperAdminUser | null>(null);
 
   async function handleDeleteRole(role: DynamicRole) {
     if (!confirm(`Are you sure you want to delete role "${role.name}"?`)) return;
@@ -107,6 +113,24 @@ export function SettingsAccessPage() {
     }
   }
 
+  if (permissionDenied && !loadingRoles && !loadingUsers) {
+    return (
+      <div style={{ padding: "40px 20px", textAlign: "center" }}>
+        <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#FF594D" }}>Access Denied</h2>
+        <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "8px" }}>
+          You do not have permission to view Settings & Access.
+        </p>
+        <button
+          className="secondary-button"
+          onClick={() => router.push("/")}
+          style={{ marginTop: "16px" }}
+        >
+          Return to Workspace
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       <PageHeader
@@ -114,7 +138,7 @@ export function SettingsAccessPage() {
         subtitle="RBAC, Users & Roles"
       />
 
-      {actionError && <div className="toast error">{actionError}</div>}
+      {actionError && <div className="toast error" style={{ background: "rgba(223,125,110,0.15)", border: "1px solid var(--red)", color: "var(--red)", padding: "10px 14px", borderRadius: "6px" }}>{actionError}</div>}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: "16px", alignItems: "start" }}>
         {/* LEFT COLUMN: DYNAMIC ROLES & PERMISSIONS MATRIX */}
@@ -155,8 +179,6 @@ export function SettingsAccessPage() {
                       if (u.dynamic_role?.id === r.id) return true;
                       if (u.dynamic_role?.code && u.dynamic_role.code.toUpperCase() === r.code.toUpperCase()) return true;
                       if (u.legacy_portal_role && u.legacy_portal_role.toUpperCase() === r.code.toUpperCase()) return true;
-                      if (u.department && u.department.trim().toLowerCase() === r.code.trim().toLowerCase()) return true;
-                      if (u.department && u.department.trim().toLowerCase() === r.name.trim().toLowerCase()) return true;
                       return false;
                     });
                     return (
@@ -217,6 +239,17 @@ export function SettingsAccessPage() {
                             >
                               Edit
                             </button>
+                            {!r.is_system_role && r.code !== "SUPER_ADMIN" && (
+                              <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={() => handleDeleteRole(r)}
+                                style={{ padding: "0 8px", height: "30px", fontSize: "11px", color: "#FF594D", borderColor: "rgba(255,89,77,0.3)", borderRadius: "5px" }}
+                                title="Delete Role"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -262,56 +295,54 @@ export function SettingsAccessPage() {
                 </thead>
                 <tbody>
                   {usersList.map((u) => {
-                    const roleLabel = (u.dynamic_role?.name || u.legacy_portal_role || "TEAM MEMBER").toUpperCase();
-                    const initials = u.full_name ? u.full_name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() : "U";
+                    const roleLabel = u.dynamic_role?.name || u.legacy_portal_role || "Employee";
                     return (
                       <tr key={u.user_id} style={{ borderBottom: "1px solid rgba(70, 150, 105, 0.12)" }}>
-                        <td style={{ padding: "10px 10px 10px 0" }}>
+                        <td style={{ padding: "10px 10px 10px 0", verticalAlign: "top" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                             <div
                               style={{
-                                width: "28px",
-                                height: "28px",
+                                width: "30px",
+                                height: "30px",
                                 borderRadius: "50%",
                                 background: "#063D28",
                                 color: "#00E889",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
+                                display: "grid",
+                                placeItems: "center",
                                 fontWeight: 700,
-                                fontSize: "10px",
-                                border: "1px solid rgba(0, 232, 137, 0.3)",
+                                fontSize: "12px",
+                                flexShrink: 0,
                               }}
                             >
-                              {initials}
+                              {(u.full_name || u.work_email).charAt(0).toUpperCase()}
                             </div>
                             <div style={{ display: "flex", flexDirection: "column" }}>
-                              <b style={{ fontSize: "13px", fontWeight: 600, color: "#F2F6F3" }}>{u.full_name}</b>
-                              <small style={{ fontSize: "10.5px", color: "#9CB8A8" }}>{u.work_email}</small>
+                              <b style={{ fontSize: "12.5px", fontWeight: 600, color: "#F2F6F3" }}>{u.full_name || u.work_email}</b>
+                              <small style={{ fontSize: "11px", color: "#9CB8A8" }}>{u.work_email}</small>
                             </div>
                           </div>
                         </td>
-                        <td style={{ padding: "10px" }}>
+                        <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
                           <span
                             style={{
-                              fontSize: "9.5px",
+                              fontSize: "10px",
                               fontWeight: 700,
                               letterSpacing: "0.04em",
-                              background: "#063D28",
+                              background: "rgba(0, 232, 137, 0.12)",
                               color: "#00E889",
-                              border: "1px solid rgba(0, 232, 137, 0.25)",
+                              border: "1px solid rgba(0, 232, 137, 0.22)",
                               padding: "2px 7px",
                               borderRadius: "4px",
-                              display: "inline-block",
+                              textTransform: "uppercase",
                             }}
                           >
                             {roleLabel}
                           </span>
                         </td>
-                        <td style={{ padding: "10px", color: "#9CB8A8", fontSize: "11.5px" }}>
+                        <td style={{ padding: "10px 10px", verticalAlign: "top", color: "#9CB8A8", fontSize: "11.5px" }}>
                           40h
                         </td>
-                        <td style={{ padding: "10px 0 10px 10px", textAlign: "right" }}>
+                        <td style={{ padding: "10px 0 10px 10px", textAlign: "right", verticalAlign: "top" }}>
                           <div style={{ display: "inline-flex", gap: "5px" }}>
                             <button
                               type="button"
@@ -364,7 +395,12 @@ export function SettingsAccessPage() {
         role={editingRole}
         open={roleModalOpen}
         onClose={() => setRoleModalOpen(false)}
-        onSuccess={loadRoles}
+        onSuccess={() => {
+          loadRoles();
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("flumenx:navigation_refresh"));
+          }
+        }}
       />
 
       <UserFormModal

@@ -12,6 +12,7 @@ from portal.services.kpi_service import KPIService
 
 
 class KPIDashboardView(APIView):
+    module_code = "KPI"
     permission_classes = [CanViewKPIDashboard]
 
     def get(self, request):
@@ -88,6 +89,7 @@ class MyKPIDetailView(APIView):
 
 
 class KPIRatingView(APIView):
+    module_code = "KPI"
     permission_classes = [CanManageKPIRating]
 
     def post(self, request):

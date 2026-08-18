@@ -8,7 +8,7 @@ import { FlumenxMark, Avatar } from "./icons";
 import { api, logout } from "@/lib/api";
 import { clearCachedAuthUser, getCachedAuthUser, loadAuthUser } from "@/lib/auth-cache";
 import type { AuthUser, Paginated, PortalNotification, WorkspaceRole } from "@/lib/types";
-import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, getWorkspaceDestination, isRoleAllowedInWorkspace, normalizeWorkspaceRoute, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
+import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, getWorkspaceDestination, getWorkspaceRole, isRoleAllowedInWorkspace, normalizeWorkspaceRoute, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
 
 
 const ShellUserContext = createContext<AuthUser | null>(null);
@@ -301,9 +301,9 @@ function LogoutModal({
     </div>
   );
 }
-export function Shell({ children, role = "admin" }: { children: ReactNode; role?: WorkspaceRole }) {
-  const workspaceRole = role;
+export function Shell({ children, role }: { children: ReactNode; role?: WorkspaceRole }) {
   const cachedUser = getCachedAuthUser();
+  const workspaceRole = role || getWorkspaceRole(cachedUser?.portal_role);
   const cachedUserMatchesRole = Boolean(cachedUser && isRoleAllowedInWorkspace(cachedUser.portal_role, workspaceRole));
   const path = usePathname(); const router = useRouter(); const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(Boolean(cachedUserMatchesRole));
@@ -326,10 +326,8 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
             item.title !== "Command Center" &&
             item.title !== "Command Center Dashboard" &&
             item.title !== "Timeline & Phases" &&
-            item.title !== "Employees" &&
             !item.route_path.includes("view=command-center") &&
-            !item.route_path.includes("view=timeline") &&
-            !item.route_path.includes("/employees")
+            !item.route_path.includes("view=timeline")
         );
         const mapped = filtered.map((item) => [
           item.title,

@@ -19,11 +19,15 @@ def leave_window(leave):
 
 
 class LeaveViewSet(viewsets.ModelViewSet):
+    module_code = "LEAVES"
     serializer_class = LeaveSerializer
+
+    MANAGEMENT_ROLES = ("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD")
 
     def get_queryset(self):
         qs = LeaveRequest.objects.select_related("employee", "employee__user")
-        if portal_role(self.request.user) in ("ADMIN", "HR"):
+        role = portal_role(self.request.user)
+        if role in self.MANAGEMENT_ROLES:
             return qs
         return qs.filter(employee__user=self.request.user)
 
@@ -32,7 +36,12 @@ class LeaveViewSet(viewsets.ModelViewSet):
         return Response({"count": self.get_queryset().filter(status="Pending").count()})
 
     def perform_create(self, serializer):
-        if portal_role(self.request.user) in ("ADMIN", "HR") and self.request.data.get("employee"):
+        from portal.permissions import has_page_permission
+        from rest_framework.exceptions import PermissionDenied
+        if not has_page_permission(self.request.user, "LEAVES", "create"):
+            raise PermissionDenied("You do not have permission to submit leave requests.")
+
+        if portal_role(self.request.user) in ("SUPER_ADMIN", "ADMIN", "HR") and self.request.data.get("employee"):
             leave = serializer.save(employee_id=self.request.data["employee"])
         else:
             employee = getattr(self.request.user, "employee", None)
@@ -47,8 +56,15 @@ class LeaveViewSet(viewsets.ModelViewSet):
             exclude_user=self.request.user,
         )
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAdminOrHR])
+    @action(detail=True, methods=["post"])
     def decide(self, request, pk=None):
+        from portal.permissions import has_page_permission
+        from rest_framework.exceptions import PermissionDenied
+
+        actor_role = portal_role(request.user)
+        if actor_role not in self.MANAGEMENT_ROLES or not has_page_permission(request.user, "LEAVES", "edit"):
+            raise PermissionDenied("You do not have permission to approve or reject leave requests.")
+
         leave = self.get_object()
         decision = request.data.get("status")
         if decision not in ("Approved", "Rejected"):
@@ -58,7 +74,6 @@ class LeaveViewSet(viewsets.ModelViewSet):
         leave.status = decision
         leave.admin_note = request.data.get("admin_note", "")
         leave.save()
-        actor_role = portal_role(request.user)
         notification_roles = ("HR",) if actor_role == "ADMIN" else ("ADMIN",)
         create_notifications(
             [leave.employee.user, *active_users_with_roles(notification_roles)],

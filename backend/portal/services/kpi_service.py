@@ -23,41 +23,48 @@ def get_kpi_grade(score: float) -> str:
 
 class KPIService:
     @staticmethod
-    def calculate_employee_kpi(employee: Employee, month: int, year: int) -> dict:
+    def calculate_employee_kpi(employee: Employee, month: int, year: int, preloaded_data: dict = None) -> dict:
         today = timezone.localdate()
 
-        # 1. Fetch relevant assignments
-        assignments = list(WorkAssignment.objects.filter(
-            employee=employee,
-            assigned_date__year=year,
-            assigned_date__month=month
-        ) | WorkAssignment.objects.filter(
-            employee=employee,
-            due_date__year=year,
-            due_date__month=month
-        ))
-        assignment_map = {wa.id: wa for wa in assignments}
-        assignments = list(assignment_map.values())
+        if preloaded_data is not None:
+            assignments = preloaded_data.get("assignments", [])
+            attendance_list = preloaded_data.get("attendance_records", [])
+            if employee.joining_date:
+                attendance_list = [r for r in attendance_list if r.attendance_date >= employee.joining_date]
+        else:
+            # 1. Fetch relevant assignments
+            assignments = list(WorkAssignment.objects.filter(
+                employee=employee,
+                assigned_date__year=year,
+                assigned_date__month=month
+            ) | WorkAssignment.objects.filter(
+                employee=employee,
+                due_date__year=year,
+                due_date__month=month
+            ))
+            assignment_map = {wa.id: wa for wa in assignments}
+            assignments = list(assignment_map.values())
+
+            # Factor 1: Attendance
+            attendance_records = AttendanceRecord.objects.filter(
+                employee=employee,
+                attendance_date__year=year,
+                attendance_date__month=month
+            )
+            if employee.joining_date:
+                attendance_records = attendance_records.filter(attendance_date__gte=employee.joining_date)
+            attendance_list = list(attendance_records)
+
         is_evaluated = bool(assignments)
 
         # -------------------------------------------------------------
         # Factor 1: Attendance (Max 2.0 pts)
         # -------------------------------------------------------------
-        attendance_records = AttendanceRecord.objects.filter(
-            employee=employee,
-            attendance_date__year=year,
-            attendance_date__month=month
-        )
-        if employee.joining_date:
-            attendance_records = attendance_records.filter(attendance_date__gte=employee.joining_date)
-
-        total_att_records = attendance_records.count()
-        present_count = attendance_records.filter(
-            attendance_status__in=["Present", "Present (Late)", "Present (Early Exit)", "Present (Late + Early Exit)"]
-        ).count()
-        half_day_count = attendance_records.filter(attendance_status="Half Day").count()
-        absent_count = attendance_records.filter(attendance_status="Absent").count()
-        leave_count = attendance_records.filter(attendance_status="Leave").count()
+        total_att_records = len(attendance_list)
+        present_count = len([r for r in attendance_list if r.attendance_status in ("Present", "Present (Late)", "Present (Early Exit)", "Present (Late + Early Exit)")])
+        half_day_count = len([r for r in attendance_list if r.attendance_status == "Half Day"])
+        absent_count = len([r for r in attendance_list if r.attendance_status == "Absent"])
+        leave_count = len([r for r in attendance_list if r.attendance_status == "Leave"])
 
         effective_present = present_count + (half_day_count * 0.5)
         eligible_att_days = max(0, total_att_records - leave_count)
@@ -264,12 +271,68 @@ class KPIService:
                 models.Q(department__icontains=search)
             )
 
+        emp_list = list(employees)
+
+        # Preload 6 months data in bulk
+        start_year, start_month = year, month
+        for _ in range(5):
+            start_month -= 1
+            if start_month <= 0:
+                start_month += 12
+                start_year -= 1
+
+        min_date = date(start_year, start_month, 1)
+        if month == 12:
+            max_date = date(year + 1, 1, 1)
+        else:
+            max_date = date(year, month + 1, 1)
+
+        all_assignments = list(WorkAssignment.objects.filter(
+            models.Q(assigned_date__gte=min_date, assigned_date__lt=max_date) |
+            models.Q(due_date__gte=min_date, due_date__lt=max_date)
+        ))
+        all_attendance = list(AttendanceRecord.objects.filter(
+            attendance_date__gte=min_date, attendance_date__lt=max_date
+        ))
+
+        assignments_by_emp_month = {}
+        for wa in all_assignments:
+            if not wa.employee_id:
+                continue
+            months_to_key = set()
+            if wa.assigned_date and min_date <= wa.assigned_date < max_date:
+                months_to_key.add((wa.employee_id, wa.assigned_date.year, wa.assigned_date.month))
+            if wa.due_date and min_date <= wa.due_date < max_date:
+                months_to_key.add((wa.employee_id, wa.due_date.year, wa.due_date.month))
+            for key in months_to_key:
+                if key not in assignments_by_emp_month:
+                    assignments_by_emp_month[key] = {}
+                assignments_by_emp_month[key][wa.id] = wa
+
+        attendance_by_emp_month = {}
+        for r in all_attendance:
+            if not r.employee_id:
+                continue
+            key = (r.employee_id, r.attendance_date.year, r.attendance_date.month)
+            if key not in attendance_by_emp_month:
+                attendance_by_emp_month[key] = []
+            attendance_by_emp_month[key].append(r)
+
+        def get_preloaded(emp_id, y, m):
+            key = (emp_id, y, m)
+            assign_map = assignments_by_emp_month.get(key, {})
+            att_list = attendance_by_emp_month.get(key, [])
+            return {
+                "assignments": list(assign_map.values()),
+                "attendance_records": att_list,
+            }
+
         kpi_list = []
         dept_scores = {}
         dept_counts = {}
 
-        for emp in employees:
-            kpi_data = cls.calculate_employee_kpi(emp, month, year)
+        for emp in emp_list:
+            kpi_data = cls.calculate_employee_kpi(emp, month, year, preloaded_data=get_preloaded(emp.id, month, year))
 
             # Apply filters
             if department and department.strip() and kpi_data["department"] != department.strip():
@@ -314,7 +377,7 @@ class KPIService:
 
         # Calculate monthly trend for past 6 months (overall company average)
         monthly_trend = []
-        all_active_employees = list(Employee.objects.filter(status="Active"))
+        all_active_employees = [e for e in emp_list if e.status == "Active"]
         for i in range(5, -1, -1):
             m = month - i
             y = year
@@ -323,7 +386,7 @@ class KPIService:
                 y -= 1
             scores = []
             if all_active_employees:
-                month_kpis = [cls.calculate_employee_kpi(e, m, y) for e in all_active_employees]
+                month_kpis = [cls.calculate_employee_kpi(e, m, y, preloaded_data=get_preloaded(e.id, m, y)) for e in all_active_employees]
                 scores = [item["final_score"] for item in month_kpis if item["is_evaluated"]]
             if scores:
                 month_avg = round(sum(scores) / len(scores), 1)

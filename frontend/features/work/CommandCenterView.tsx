@@ -153,7 +153,7 @@ export function CommandCenterView({
   clients: Client[];
   members?: WorkEmployeeOption[];
   userRole?: PortalRole | string;
-  currentUser?: { id?: number; name?: string; username?: string; role?: string };
+  currentUser?: { id?: number; employeeId?: number | null; name?: string; username?: string; role?: string };
   workSummary?: WorkSummary;
   selectedClientName?: string;
   selectedClientId?: string;
@@ -168,13 +168,11 @@ export function CommandCenterView({
   const [kpiInputs, setKpiInputs] = useState<Record<string, string>>({});
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
 
-  // Filter States matching screenshot
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPhaseFilter, setSelectedPhaseFilter] = useState("all");
-  const [selectedTypeFilter, setSelectedTypeFilter] = useState("all");
-  const [selectedMemberFilter, setSelectedMemberFilter] = useState("all");
-  const [selectedPriorityFilter, setSelectedPriorityFilter] = useState("all");
+  const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("all");
+  const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>("all");
+  const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusPillFilter, setStatusPillFilter] = useState<string>("all");
 
   const [openPhases, setOpenPhases] = useState<Record<string, boolean>>({
@@ -189,7 +187,7 @@ export function CommandCenterView({
 
   const isReviewerOrManager = (task: TaskItem | null): boolean => {
     if (!task) return false;
-    const roleUpper = (userRole || currentUser?.role || "").toUpperCase();
+    const roleUpper = (currentUser?.role || userRole || "").toUpperCase();
     if (["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "TEAM_LEAD"].includes(roleUpper)) {
       return true;
     }
@@ -209,11 +207,7 @@ export function CommandCenterView({
 
   const canUserChangeTaskStatus = (task: TaskItem | null): boolean => {
     if (!task) return false;
-    if (isReviewerOrManager(task)) return true;
-    if (currentUser?.id && String(task.assignee) === String(currentUser.id)) {
-      return true;
-    }
-    return false;
+    return isReviewerOrManager(task);
   };
 
   const canMoveSelectedTaskStatus = useMemo(() => {
@@ -912,7 +906,7 @@ export function CommandCenterView({
                                   cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
                                   opacity: canUserChangeTaskStatus(t) ? 1 : 0.6,
                                 }}
-                                title={!canUserChangeTaskStatus(t) ? "Status change restricted" : "Change status"}
+                                title={!canUserChangeTaskStatus(t) ? "Only Reviewer and Admins can change status" : "Change status"}
                               >
                                 {!ALL_WORK_STATUSES.some((st) => st.id === t.rawStatus) && t.rawStatus && (
                                   <option value={t.rawStatus} disabled>
@@ -924,7 +918,7 @@ export function CommandCenterView({
                                   const isAllowed = canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
                                   return (
                                     <option key={st.id} value={st.id} disabled={!isAllowed}>
-                                      {st.name}
+                                      {st.name} {isReviewerOnly && !isReviewerOrManager(t) ? "🔒" : ""}
                                     </option>
                                   );
                                 })}
