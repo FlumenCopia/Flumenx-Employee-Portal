@@ -193,11 +193,11 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
     const count = evaluatedEmployees.length;
     let work = 0, att = 0, onTime = 0, leave = 0, quality = 0;
     for (const emp of evaluatedEmployees) {
-      work += emp.components.work_completion.score;
-      att += emp.components.attendance.score;
-      onTime += emp.components.on_time_delivery.score;
-      leave += emp.components.leave_discipline.score;
-      quality += emp.components.work_quality.score;
+      work += emp.components.work_completion?.score || 0;
+      att += emp.components.attendance?.score || 0;
+      onTime += emp.components.on_time_delivery?.score || 0;
+      leave += emp.components.leave_discipline?.score || 0;
+      quality += emp.components.work_quality?.score || 0;
     }
     return {
       work_completion: Number((work / count).toFixed(1)),
@@ -210,11 +210,11 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
 
   const activeComponents = selectedEmployeeData
     ? {
-        work_completion: selectedEmployeeData.components.work_completion.score,
-        attendance: selectedEmployeeData.components.attendance.score,
-        on_time_delivery: selectedEmployeeData.components.on_time_delivery.score,
-        leave_discipline: selectedEmployeeData.components.leave_discipline.score,
-        work_quality: selectedEmployeeData.components.work_quality.score,
+        work_completion: selectedEmployeeData.components.work_completion?.score || 0,
+        attendance: selectedEmployeeData.components.attendance?.score || 0,
+        on_time_delivery: selectedEmployeeData.components.on_time_delivery?.score || 0,
+        leave_discipline: selectedEmployeeData.components.leave_discipline?.score || 0,
+        work_quality: selectedEmployeeData.components.work_quality?.score || 0,
       }
     : companyComponentAverages;
 

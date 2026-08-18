@@ -9,13 +9,13 @@ from portal.models import (
 
 
 def get_kpi_grade(score: float) -> str:
-    if score >= 95.0:
+    if score >= 9.5:
         return "Outstanding"
-    elif score >= 85.0:
+    elif score >= 8.5:
         return "Excellent"
-    elif score >= 75.0:
+    elif score >= 7.5:
         return "Good"
-    elif score >= 60.0:
+    elif score >= 6.0:
         return "Needs Improvement"
     else:
         return "Critical"
@@ -24,7 +24,9 @@ def get_kpi_grade(score: float) -> str:
 class KPIService:
     @staticmethod
     def calculate_employee_kpi(employee: Employee, month: int, year: int) -> dict:
-        # 1. Work Performance (50%)
+        today = timezone.localdate()
+
+        # 1. Fetch relevant assignments
         assignments = list(WorkAssignment.objects.filter(
             employee=employee,
             assigned_date__year=year,
@@ -34,30 +36,21 @@ class KPIService:
             due_date__year=year,
             due_date__month=month
         ))
-        # Deduplicate list of assignments
         assignment_map = {wa.id: wa for wa in assignments}
         assignments = list(assignment_map.values())
-
-        if assignments:
-            sum_assigned = sum(wa.assigned_quantity for wa in assignments if wa.assigned_quantity > 0)
-            sum_completed = sum(wa.completed_quantity for wa in assignments)
-            work_comp_ratio = (sum_completed / sum_assigned) if sum_assigned > 0 else 0.0
-        else:
-            sum_assigned = 0
-            sum_completed = 0
-            work_comp_ratio = 0.0
-
-        work_completion_ratio = min(1.0, max(0.0, work_comp_ratio))
-        work_completion_score = round(work_completion_ratio * 50.0, 2)
-        work_completion_pct = round(work_completion_ratio * 100.0, 1)
         is_evaluated = bool(assignments)
 
-        # 2. Attendance (20%)
+        # -------------------------------------------------------------
+        # Factor 1: Attendance (Max 2.0 pts)
+        # -------------------------------------------------------------
         attendance_records = AttendanceRecord.objects.filter(
             employee=employee,
             attendance_date__year=year,
             attendance_date__month=month
         )
+        if employee.joining_date:
+            attendance_records = attendance_records.filter(attendance_date__gte=employee.joining_date)
+
         total_att_records = attendance_records.count()
         present_count = attendance_records.filter(
             attendance_status__in=["Present", "Present (Late)", "Present (Early Exit)", "Present (Late + Early Exit)"]
@@ -67,90 +60,100 @@ class KPIService:
         leave_count = attendance_records.filter(attendance_status="Leave").count()
 
         effective_present = present_count + (half_day_count * 0.5)
-        effective_total = total_att_records - leave_count
+        eligible_att_days = max(0, total_att_records - leave_count)
 
-        if total_att_records > 0 and effective_total > 0:
-            att_ratio = min(1.0, max(0.0, effective_present / effective_total))
+        if total_att_records > 0 and eligible_att_days > 0:
+            att_ratio = min(1.0, max(0.0, effective_present / eligible_att_days))
         else:
-            att_ratio = 0.0
+            att_ratio = 1.0 if is_evaluated else 0.0
 
-        attendance_score = round(att_ratio * 20.0, 2)
+        attendance_score = round(att_ratio * 2.0, 2)
         attendance_pct = round(att_ratio * 100.0, 1)
 
-        # 3. On-Time Delivery (15%) - Align with Published / Completed workflow
-        due_assignments = [wa for wa in assignments if wa.due_date and wa.due_date.year == year and wa.due_date.month == month]
-        if due_assignments:
+        # -------------------------------------------------------------
+        # Factor 2: On-Time Delivery (Max 3.0 pts)
+        # -------------------------------------------------------------
+        due_assignments = [wa for wa in assignments if wa.due_date]
+        evaluable_ontime_tasks = [
+            wa for wa in due_assignments
+            if wa.status in ("Published", "Completed") or wa.due_date <= today
+        ]
+
+        if evaluable_ontime_tasks:
             on_time_count = 0
-            for wa in due_assignments:
+            for wa in evaluable_ontime_tasks:
                 if wa.status in ("Published", "Completed"):
                     if wa.completed_at and wa.completed_at.date() <= wa.due_date:
                         on_time_count += 1
                     elif not wa.completed_at:
                         on_time_count += 1
-            ontime_ratio = min(1.0, max(0.0, on_time_count / len(due_assignments)))
+            ontime_ratio = min(1.0, max(0.0, on_time_count / len(evaluable_ontime_tasks)))
         else:
             on_time_count = 0
-            ontime_ratio = 0.0
+            ontime_ratio = 1.0 if is_evaluated else 0.0
 
-        ontime_score = round(ontime_ratio * 15.0, 2)
+        ontime_score = round(ontime_ratio * 3.0, 2)
         ontime_pct = round(ontime_ratio * 100.0, 1)
 
-        # 4. Work Quality (10%) - Auto-derived from reviewer workflow status (with manual rating override if set)
-        rating_obj = EmployeeKPIRating.objects.filter(
-            employee=employee, month=month, year=year
-        ).first()
+        # -------------------------------------------------------------
+        # Factor 3: Pending Work (Max 2.0 pts)
+        # -------------------------------------------------------------
+        eligible_due_tasks = [wa for wa in assignments if wa.due_date and wa.due_date <= today]
+        overdue_pending = [
+            wa for wa in eligible_due_tasks
+            if wa.status not in ("Published", "Completed")
+        ]
+        overdue_count = len(overdue_pending)
+        active_count = len([wa for wa in assignments if wa.status not in ("Published", "Completed")])
 
-        if rating_obj:
-            quality_rating = float(rating_obj.rating)
-            quality_score = round((quality_rating / 5.0) * 10.0, 2)
-            rating_notes = rating_obj.notes
-            rated_by_name = rating_obj.rated_by.get_full_name() or rating_obj.rated_by.username if rating_obj.rated_by else ""
+        if eligible_due_tasks:
+            pending_health_ratio = min(1.0, max(0.0, 1.0 - (overdue_count / len(eligible_due_tasks))))
         else:
-            rating_notes = ""
-            rated_by_name = ""
-            if assignments:
-                quality_weight_map = {
-                    "Published": 1.0,
-                    "Completed": 1.0,
-                    "Approved": 1.0,
-                    "In Review": 0.5,
-                    "In Progress": 0.25,
-                    "Ongoing": 0.25,
-                }
-                sum_q = sum(quality_weight_map.get(wa.status, 0.0) for wa in assignments)
-                q_ratio = min(1.0, max(0.0, sum_q / len(assignments)))
-            else:
-                q_ratio = 0.0
-            quality_score = round(q_ratio * 10.0, 2)
-            quality_rating = round(q_ratio * 5.0, 1)
+            pending_health_ratio = 1.0 if is_evaluated else 0.0
 
-        quality_pct = round((quality_score / 10.0) * 100.0, 1)
+        pending_score = round(pending_health_ratio * 2.0, 2)
+        pending_pct = round(pending_health_ratio * 100.0, 1)
 
-        # 5. Leave Discipline (5%)
-        leave_requests = LeaveRequest.objects.filter(
-            employee=employee,
-            start_date__year=year,
-            start_date__month=month
-        )
-        rejected_leaves = leave_requests.filter(status="Rejected").count()
-        approved_leaves = leave_requests.filter(status="Approved").count()
-        pending_leaves = leave_requests.filter(status="Pending").count()
+        # -------------------------------------------------------------
+        # Factor 4: Rework / Correction (Max 2.0 pts)
+        # -------------------------------------------------------------
+        correction_tasks = [wa for wa in assignments if wa.status in ("Changes Requested", "Rejected")]
+        correction_count = len(correction_tasks)
 
-        # Unapproved absences = absent count without approved leave
-        unapproved_absences = max(0, absent_count - approved_leaves)
+        if assignments:
+            rework_ratio = min(1.0, max(0.0, 1.0 - (correction_count / len(assignments))))
+        else:
+            rework_ratio = 1.0 if is_evaluated else 0.0
 
-        leave_deduction = (unapproved_absences * 1.0) + (rejected_leaves * 0.5)
-        leave_discipline_score = max(0.0, round(5.0 - leave_deduction, 2))
-        leave_discipline_pct = round((leave_discipline_score / 5.0) * 100.0, 1)
+        rework_score = round(rework_ratio * 2.0, 2)
+        rework_pct = round(rework_ratio * 100.0, 1)
 
-        # Final Score (100 Max)
-        final_score = round(
-            work_completion_score + attendance_score + ontime_score + quality_score + leave_discipline_score,
-            1
-        )
-        final_score = min(100.0, max(0.0, final_score))
-        score_out_of_10 = round(final_score / 10.0, 1)
-        grade = get_kpi_grade(final_score) if is_evaluated else "Not Evaluated"
+        # -------------------------------------------------------------
+        # Factor 5: Work Completion (Max 1.0 pt)
+        # -------------------------------------------------------------
+        if assignments:
+            sum_assigned = sum(wa.assigned_quantity for wa in assignments if wa.assigned_quantity > 0)
+            sum_completed = sum(wa.completed_quantity for wa in assignments)
+            work_comp_ratio = (sum_completed / sum_assigned) if sum_assigned > 0 else 0.0
+        else:
+            sum_assigned = 0
+            sum_completed = 0
+            work_comp_ratio = 0.0
+
+        completion_ratio = min(1.0, max(0.0, work_comp_ratio))
+        completion_score = round(completion_ratio * 1.0, 2)
+        completion_pct = round(completion_ratio * 100.0, 1)
+
+        # -------------------------------------------------------------
+        # Final Score (Directly out of 10.0)
+        # -------------------------------------------------------------
+        if is_evaluated:
+            raw_final = attendance_score + ontime_score + pending_score + rework_score + completion_score
+            final_score = round(min(10.0, max(0.0, raw_final)), 1)
+            grade = get_kpi_grade(final_score)
+        else:
+            final_score = 0.0
+            grade = "Not Evaluated"
 
         return {
             "employee_id": employee.id,
@@ -161,23 +164,16 @@ class KPIService:
             "month": month,
             "year": year,
             "final_score": final_score,
-            "score_out_of_10": score_out_of_10,
+            "score_out_of_10": final_score,
             "is_evaluated": is_evaluated,
             "grade": grade,
             "components": {
-                "work_completion": {
-                    "score": work_completion_score,
-                    "max_score": 50.0,
-                    "percentage": work_completion_pct,
-                    "assigned_quantity": sum_assigned,
-                    "completed_quantity": sum_completed,
-                    "total_assignments": len(assignments)
-                },
                 "attendance": {
                     "score": attendance_score,
-                    "max_score": 20.0,
+                    "max_score": 2.0,
                     "percentage": attendance_pct,
                     "total_days": total_att_records,
+                    "eligible_days": eligible_att_days,
                     "present_days": present_count,
                     "half_days": half_day_count,
                     "absent_days": absent_count,
@@ -185,27 +181,33 @@ class KPIService:
                 },
                 "on_time_delivery": {
                     "score": ontime_score,
-                    "max_score": 15.0,
+                    "max_score": 3.0,
                     "percentage": ontime_pct,
-                    "total_due": len(due_assignments) if due_assignments else 0,
-                    "on_time_count": on_time_count if due_assignments else 0
+                    "total_due": len(evaluable_ontime_tasks),
+                    "on_time_count": on_time_count
                 },
-                "work_quality": {
-                    "score": quality_score,
-                    "max_score": 10.0,
-                    "percentage": quality_pct,
-                    "quality_rating": quality_rating,
-                    "notes": rating_notes,
-                    "rated_by": rated_by_name
+                "pending_work": {
+                    "score": pending_score,
+                    "max_score": 2.0,
+                    "percentage": pending_pct,
+                    "overdue_count": overdue_count,
+                    "active_count": active_count,
+                    "total_due": len(eligible_due_tasks)
                 },
-                "leave_discipline": {
-                    "score": leave_discipline_score,
-                    "max_score": 5.0,
-                    "percentage": leave_discipline_pct,
-                    "approved_leaves": approved_leaves,
-                    "rejected_leaves": rejected_leaves,
-                    "pending_leaves": pending_leaves,
-                    "unapproved_absences": unapproved_absences
+                "rework": {
+                    "score": rework_score,
+                    "max_score": 2.0,
+                    "percentage": rework_pct,
+                    "correction_count": correction_count,
+                    "total_tasks": len(assignments)
+                },
+                "work_completion": {
+                    "score": completion_score,
+                    "max_score": 1.0,
+                    "percentage": completion_pct,
+                    "assigned_quantity": sum_assigned,
+                    "completed_quantity": sum_completed,
+                    "total_assignments": len(assignments)
                 }
             }
         }
@@ -232,7 +234,6 @@ class KPIService:
                 "score_out_of_10": data["score_out_of_10"],
                 "is_evaluated": data["is_evaluated"],
                 "grade": data["grade"],
-                "quality_rating": data["components"]["work_quality"]["quality_rating"],
                 "work_completion_pct": data["components"]["work_completion"]["percentage"],
                 "attendance_pct": data["components"]["attendance"]["percentage"]
             })
@@ -292,9 +293,9 @@ class KPIService:
         evaluated_count = len(evaluated_kpis)
         if evaluated_count > 0:
             avg_kpi = round(sum(item["final_score"] for item in evaluated_kpis) / evaluated_count, 1)
-            avg_kpi_out_of_10 = round(avg_kpi / 10.0, 1)
+            avg_kpi_out_of_10 = avg_kpi
             top_performer = max(evaluated_kpis, key=lambda x: x["final_score"])
-            critical_performers = [item for item in evaluated_kpis if item["grade"] == "Critical" or item["final_score"] < 60.0]
+            critical_performers = [item for item in evaluated_kpis if item["grade"] == "Critical" or item["final_score"] < 6.0]
         else:
             avg_kpi = 0.0
             avg_kpi_out_of_10 = 0.0
@@ -305,7 +306,7 @@ class KPIService:
             {
                 "department": dept,
                 "average_score": round(dept_scores[dept] / dept_counts[dept], 1),
-                "average_score_out_of_10": round((dept_scores[dept] / dept_counts[dept]) / 10.0, 1),
+                "average_score_out_of_10": round(dept_scores[dept] / dept_counts[dept], 1),
                 "employee_count": dept_counts[dept]
             }
             for dept in sorted(dept_scores.keys())
@@ -326,7 +327,7 @@ class KPIService:
                 scores = [item["final_score"] for item in month_kpis if item["is_evaluated"]]
             if scores:
                 month_avg = round(sum(scores) / len(scores), 1)
-                month_avg_out_of_10 = round(month_avg / 10.0, 1)
+                month_avg_out_of_10 = month_avg
             else:
                 month_avg = 0.0
                 month_avg_out_of_10 = 0.0
@@ -388,9 +389,9 @@ class KPIService:
         writer = csv.writer(output)
         writer.writerow([
             "Employee Code", "Name", "Department", "Designation",
-            "Month/Year", "Work Performance (50)", "Attendance (20)",
-            "On-Time Delivery (15)", "Work Quality (10)", "Leave Discipline (5)",
-            "KPI Score (10)", "Final Score (100)", "Grade"
+            "Month/Year", "Attendance (2.0)", "On-Time Delivery (3.0)",
+            "Pending Work (2.0)", "Rework/Correction (2.0)", "Work Completion (1.0)",
+            "KPI Score (10.0)", "Grade"
         ])
 
         for emp in data["employees"]:
@@ -401,12 +402,11 @@ class KPIService:
                 emp["department"],
                 emp["designation"],
                 f"{emp['month']:02d}/{emp['year']}",
-                comp["work_completion"]["score"],
                 comp["attendance"]["score"],
                 comp["on_time_delivery"]["score"],
-                comp["work_quality"]["score"],
-                comp["leave_discipline"]["score"],
-                emp["score_out_of_10"],
+                comp["pending_work"]["score"],
+                comp["rework"]["score"],
+                comp["work_completion"]["score"],
                 emp["final_score"],
                 emp["grade"]
             ])

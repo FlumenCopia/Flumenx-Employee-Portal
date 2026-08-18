@@ -230,12 +230,17 @@ export type KPIScoreComponent = {
   completed_quantity?: number;
   total_assignments?: number;
   total_days?: number;
+  eligible_days?: number;
   present_days?: number;
   half_days?: number;
   absent_days?: number;
   leave_days?: number;
   total_due?: number;
   on_time_count?: number;
+  overdue_count?: number;
+  active_count?: number;
+  correction_count?: number;
+  total_tasks?: number;
   approved_leaves?: number;
   rejected_leaves?: number;
   pending_leaves?: number;
@@ -253,7 +258,7 @@ export type KPIHistoryItem = {
   score_out_of_10: number;
   is_evaluated: boolean;
   grade: KPIGrade;
-  quality_rating: number;
+  quality_rating?: number;
   work_completion_pct: number;
   attendance_pct: number;
 };
@@ -271,11 +276,13 @@ export type KPIEmployeeData = {
   is_evaluated: boolean;
   grade: KPIGrade;
   components: {
-    work_completion: KPIScoreComponent;
     attendance: KPIScoreComponent;
     on_time_delivery: KPIScoreComponent;
-    leave_discipline: KPIScoreComponent;
-    work_quality: KPIScoreComponent;
+    pending_work: KPIScoreComponent;
+    rework: KPIScoreComponent;
+    work_completion: KPIScoreComponent;
+    work_quality?: KPIScoreComponent;
+    leave_discipline?: KPIScoreComponent;
     consistency?: KPIScoreComponent;
   };
   history?: KPIHistoryItem[];
