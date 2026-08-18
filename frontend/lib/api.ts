@@ -156,7 +156,10 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     return fetch(`${API_URL}${normalizedPath}`, { ...options, credentials: "include", headers });
   };
   let response = await request();
-  if (response.status === 401 && normalizedPath !== "/auth/refresh/" && normalizedPath !== "/auth/login/" && normalizedPath !== "/auth/csrf/") {
+  const isLoginPage = typeof window !== "undefined" && window.location.pathname === "/login";
+  const shouldSkipRefresh = isLoginPage && normalizedPath === "/auth/me/";
+
+  if (response.status === 401 && !shouldSkipRefresh && normalizedPath !== "/auth/refresh/" && normalizedPath !== "/auth/login/" && normalizedPath !== "/auth/csrf/") {
     const refreshed = await refreshAuth();
     if (refreshed) {
       response = await request();
@@ -182,7 +185,10 @@ export async function apiBlob(path: string, options: RequestInit = {}) {
   const normalizedPath = normalizeApiPath(path);
   const headers: HeadersInit = { ...options.headers };
   let response = await fetch(`${API_URL}${normalizedPath}`, { ...options, credentials: "include", headers });
-  if (response.status === 401 && normalizedPath !== "/auth/refresh/" && normalizedPath !== "/auth/login/" && normalizedPath !== "/auth/csrf/") {
+  const isLoginPage = typeof window !== "undefined" && window.location.pathname === "/login";
+  const shouldSkipRefresh = isLoginPage && normalizedPath === "/auth/me/";
+
+  if (response.status === 401 && !shouldSkipRefresh && normalizedPath !== "/auth/refresh/" && normalizedPath !== "/auth/login/" && normalizedPath !== "/auth/csrf/") {
     const refreshed = await refreshAuth();
     if (refreshed) {
       response = await fetch(`${API_URL}${normalizedPath}`, { ...options, credentials: "include", headers });

@@ -365,7 +365,7 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
 
   useEffect(() => {
     let active = true;
-    loadAuthUser(() => api<AuthUser>("/auth/me/"), true)
+    loadAuthUser(() => api<AuthUser>("/auth/me/"), false)
       .then(current => {
         if (!active) return;
         const destination = getWorkspaceDestination(current.portal_role);
@@ -373,7 +373,8 @@ export function Shell({ children, role = "admin" }: { children: ReactNode; role?
           router.replace(destination);
           return;
         }
-        setUser(current); setReady(true);
+        setUser(current);
+        setReady(true);
       })
       .catch(() => {
         clearCachedAuthUser();
