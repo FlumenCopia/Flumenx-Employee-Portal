@@ -239,7 +239,7 @@ export function UserAccountsPage() {
                         </button>
 
                         {item.is_active && (
-                          item.work_email.toLowerCase() === "anoop@flumenx.com" || item.username.toLowerCase() === "anoop" ? (
+                          item.work_email.toLowerCase() === "anoop@flumenx.com" || (item.username && item.username.toLowerCase() === "anoop") ? (
                             <button
                               type="button"
                               className="secondary-button"

@@ -64,6 +64,7 @@ export type RolePermissionMatrixResponse = {
 
 export type SuperAdminUser = {
   user_id: number;
+  username?: string;
   employee_id: number | null;
   full_name: string;
   work_email: string;
