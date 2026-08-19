@@ -899,6 +899,138 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
       </label>
     </div>
 
+    {/* DELIVERABLE ITEMS LIST (For Designers, Editors, etc.) */}
+    <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <b style={{ fontSize: "11.5px", color: "var(--neon)", letterSpacing: "0.5px" }}>DELIVERABLES / WORK ITEMS</b>
+          <span style={{ display: "block", fontSize: "10.5px", color: "var(--muted)" }}>
+            Add multiple items (e.g. 2 Posters for Client A, 1 Poster for Client B, Reels, Promos)
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setForm((current) => ({
+              ...current,
+              deliverables: [
+                ...current.deliverables,
+                {
+                  client: current.client || (clients.length > 0 ? String(clients[0].id) : ""),
+                  title: `${current.title.trim()} - Item ${current.deliverables.length + 1}`,
+                  brief: "",
+                  work_type: current.work_type || "design",
+                  due_date: current.due_date,
+                  status: "Assigned" as WorkStatus,
+                },
+              ],
+            }));
+          }}
+          style={{
+            padding: "5px 10px",
+            borderRadius: "6px",
+            background: "rgba(77, 255, 160, 0.12)",
+            color: "#4DFFA0",
+            border: "1px solid rgba(77, 255, 160, 0.3)",
+            fontSize: "11px",
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          + Add Deliverable Item
+        </button>
+      </div>
+
+      {form.deliverables.length === 0 && (
+        <div style={{ fontSize: "11px", color: "var(--muted)", fontStyle: "italic", padding: "6px 0" }}>
+          Single deliverable mode (Click "+ Add Deliverable Item" above to assign multiple posters/videos).
+        </div>
+      )}
+
+      {form.deliverables.map((item, idx) => (
+        <div
+          key={idx}
+          style={{
+            background: "rgba(8, 20, 15, 0.6)",
+            border: "1px solid var(--border)",
+            borderRadius: "8px",
+            padding: "10px 12px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--neon)" }}>
+              Item #{idx + 1}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setForm((current) => ({
+                  ...current,
+                  deliverables: current.deliverables.filter((_, i) => i !== idx),
+                }));
+              }}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#FF6B6B",
+                fontSize: "11px",
+                cursor: "pointer",
+              }}
+            >
+              ✕ Remove
+            </button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "10.5px", color: "var(--muted)" }}>
+              CLIENT FOR THIS ITEM
+              <select
+                value={item.client}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setForm((current) => {
+                    const next = [...current.deliverables];
+                    next[idx] = { ...next[idx], client: val };
+                    return { ...current, deliverables: next };
+                  });
+                }}
+                className="fs"
+                style={{ padding: "6px", fontSize: "11px" }}
+              >
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "10.5px", color: "var(--muted)" }}>
+              ITEM TITLE / DESCRIPTION
+              <input
+                type="text"
+                value={item.title}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setForm((current) => {
+                    const next = [...current.deliverables];
+                    next[idx] = { ...next[idx], title: val };
+                    return { ...current, deliverables: next };
+                  });
+                }}
+                placeholder="e.g. Poster 1 - Diwali Offer"
+                className="fi"
+                style={{ padding: "6px 8px", fontSize: "11px" }}
+              />
+            </label>
+          </div>
+        </div>
+      ))}
+    </div>
+
     {actionError && <div className="toast error">{actionError}</div>}
 
     {/* ACTIONS */}
