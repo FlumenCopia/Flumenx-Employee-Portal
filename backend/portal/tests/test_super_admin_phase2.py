@@ -198,11 +198,10 @@ class SuperAdminPhase2APITests(APITestCase):
         new_user.refresh_from_db()
         self.assertTrue(new_user.check_password("ResetPassword999!"))
 
-        # Deactivate user
+        # Delete user
         res_del = self.client.delete(f"/api/portal/super-admin/users/{created_user_id}/")
         self.assertEqual(res_del.status_code, status.HTTP_200_OK)
-        new_user.refresh_from_db()
-        self.assertFalse(new_user.is_active)
+        self.assertFalse(User.objects.filter(id=created_user_id).exists())
 
     # 6. DYNAMIC NAVIGATION API TESTS
     def test_dynamic_navigation_me(self):

@@ -6,7 +6,25 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from portal.models import Department, DynamicRole, Employee, PortalPage, RolePermission, UserRole
+from portal.models import (
+    Announcement,
+    AttendanceCorrection,
+    AttendanceRecord,
+    AuditLog,
+    ClientWorkShareLink,
+    Department,
+    DynamicRole,
+    Employee,
+    EmployeeKPIRating,
+    LeaveRequest,
+    Meeting,
+    Notification,
+    PortalPage,
+    RolePermission,
+    SalarySlip,
+    UserRole,
+    WorkAssignment,
+)
 from portal.permissions import IsSuperAdmin, HasPagePermission, HasSettingsAccessPermission, HasPageManagementPermission, portal_role, normalize_portal_role
 from portal.serializer_modules.super_admin import (
     DepartmentSerializer,
@@ -274,17 +292,61 @@ class SuperAdminUserViewSet(viewsets.ModelViewSet):
                 {"detail": "The primary superuser account cannot be deleted."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
         username = user.username
-        user.is_active = False
-        user.save()
-
         emp = getattr(user, "employee", None)
-        if emp:
-            emp.status = "Inactive"
-            emp.team_members.update(team_lead=None)
-            emp.save()
 
-        return Response({"detail": f"User {username} deactivated successfully."}, status=status.HTTP_200_OK)
+        try:
+            with transaction.atomic():
+                if emp:
+                    Employee.objects.filter(team_lead=emp).update(team_lead=None)
+                    WorkAssignment.objects.filter(employee=emp).update(employee=None)
+                    LeaveRequest.objects.filter(employee=emp).update(employee=None)
+                    SalarySlip.objects.filter(employee=emp).update(employee=None)
+                    AttendanceRecord.objects.filter(employee=emp).update(employee=None)
+                    AttendanceCorrection.objects.filter(employee=emp).update(employee=None)
+                    EmployeeKPIRating.objects.filter(employee=emp).update(employee=None)
+
+                WorkAssignment.objects.filter(reviewer=user).update(reviewer=None)
+                WorkAssignment.objects.filter(assigned_by=user).update(assigned_by=None)
+                WorkAssignment.objects.filter(reviewed_by=user).update(reviewed_by=None)
+                AttendanceCorrection.objects.filter(reviewed_by=user).update(reviewed_by=None)
+                EmployeeKPIRating.objects.filter(rated_by=user).update(rated_by=None)
+                ClientWorkShareLink.objects.filter(created_by=user).update(created_by=None)
+                Meeting.objects.filter(created_by=user).update(created_by=None)
+                Announcement.objects.filter(created_by=user).update(created_by=None)
+                Notification.objects.filter(user=user).update(user=None)
+                AuditLog.objects.filter(actor=user).update(actor=None)
+
+                try:
+                    from django.contrib.admin.models import LogEntry
+                    LogEntry.objects.filter(user=user).delete()
+                except Exception:
+                    pass
+
+                try:
+                    from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+                    tokens = OutstandingToken.objects.filter(user=user)
+                    BlacklistedToken.objects.filter(token__in=tokens).delete()
+                    tokens.delete()
+                except Exception:
+                    pass
+
+                if emp:
+                    emp.delete()
+                user.delete()
+
+            return Response({"detail": f"User {username} deleted successfully."}, status=status.HTTP_200_OK)
+        except Exception:
+            user.is_active = False
+            user.save()
+            if emp:
+                emp.status = "Inactive"
+                emp.save()
+            return Response(
+                {"detail": f"User {username} has dependent records and was deactivated successfully."},
+                status=status.HTTP_200_OK,
+            )
 
     @action(detail=True, methods=["post"], url_path="password")
     def reset_password(self, request, pk=None):
