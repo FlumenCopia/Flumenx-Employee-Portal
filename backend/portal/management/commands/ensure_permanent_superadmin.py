@@ -8,8 +8,8 @@ from portal.models import Department, DynamicRole, Employee, UserRole
 
 logger = logging.getLogger(__name__)
 
-PERMANENT_SUPERADMIN_EMAIL = "anoop@flumenx.com"
-PERMANENT_SUPERADMIN_USERNAME = "anoop@flumenx.com"
+PERMANENT_SUPERADMIN_EMAIL = os.getenv("PERMANENT_SUPERADMIN_EMAIL", "anoop@flumenx.com").strip().lower()
+PERMANENT_SUPERADMIN_USERNAME = PERMANENT_SUPERADMIN_EMAIL
 
 
 def run_ensure_permanent_superadmin(stdout=None, style=None, password_override=None):
