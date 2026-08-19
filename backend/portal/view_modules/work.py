@@ -392,32 +392,38 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
         relevant_q = q_design | q_marketing | q_web | q_video | (Q(employee__department__isnull=True) & q_deliverable_fallback)
 
         relevant_qs = client_qs.filter(relevant_q).distinct()
-        qty_agg = relevant_qs.aggregate(
+        dept_agg = relevant_qs.aggregate(
             tot_assigned=Sum("assigned_quantity"),
             tot_completed=Sum("completed_quantity"),
+            design_a=Sum("assigned_quantity", filter=q_design),
+            design_c=Sum("completed_quantity", filter=q_design),
+            marketing_a=Sum("assigned_quantity", filter=q_marketing),
+            marketing_c=Sum("completed_quantity", filter=q_marketing),
+            web_a=Sum("assigned_quantity", filter=q_web),
+            web_c=Sum("completed_quantity", filter=q_web),
+            video_a=Sum("assigned_quantity", filter=q_video),
+            video_c=Sum("completed_quantity", filter=q_video),
         )
-        tot_assigned = qty_agg["tot_assigned"] or 0
-        tot_completed = qty_agg["tot_completed"] or 0
+        tot_assigned = dept_agg["tot_assigned"] or 0
+        tot_completed = dept_agg["tot_completed"] or 0
 
         overall_pct = 0.0
         if tot_assigned > 0:
             raw_pct = (tot_completed / tot_assigned) * 100.0
             overall_pct = round(max(0.0, min(100.0, raw_pct)), 1)
 
-        def calc_category(q_sub):
-            c_qs = relevant_qs.filter(q_sub).distinct()
-            c_agg = c_qs.aggregate(a=Sum("assigned_quantity"), c=Sum("completed_quantity"))
-            a_val = c_agg["a"] or 0
-            c_val = c_agg["c"] or 0
+        def format_cat(a_val, c_val):
+            a_val = a_val or 0
+            c_val = c_val or 0
             has_w = a_val > 0
             pct_val = round(max(0.0, min(100.0, (c_val / a_val) * 100.0)), 1) if has_w else 0.0
             return {"assigned": a_val, "completed": c_val, "pct": pct_val, "has_work": has_w}
 
         dept_summary = {
-            "design": calc_category(q_design),
-            "marketing": calc_category(q_marketing),
-            "web": calc_category(q_web),
-            "video": calc_category(q_video),
+            "design": format_cat(dept_agg["design_a"], dept_agg["design_c"]),
+            "marketing": format_cat(dept_agg["marketing_a"], dept_agg["marketing_c"]),
+            "web": format_cat(dept_agg["web_a"], dept_agg["web_c"]),
+            "video": format_cat(dept_agg["video_a"], dept_agg["video_c"]),
         }
 
         return Response({
