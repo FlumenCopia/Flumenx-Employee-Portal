@@ -50,6 +50,7 @@ export interface TaskItem {
   due: string;
   hours: number;
   deliverable?: string | null;
+  deliverables?: any[];
   status: "backlog" | "assigned" | "progress" | "review" | "approved" | "published";
   priority: "p0" | "p1" | "p2";
   rawStatus?: WorkStatus;
@@ -320,6 +321,7 @@ export function CommandCenterView({
           reviewedByName: a.reviewed_by_name || "",
           clientName: a.client_name,
           clientId: a.client,
+          deliverables: a.deliverables || [],
         };
       });
       setTasks(converted);
@@ -919,6 +921,47 @@ export function CommandCenterView({
                             <div className="tc-title" style={{ fontWeight: 700, fontSize: "13px", color: "#E8F5EF", marginBottom: "6px" }}>{t.title}</div>
                             {t.desc && <div style={{ fontSize: "11px", color: "#89ACA0", marginBottom: "8px", lineHeight: "1.3" }}>{t.desc}</div>}
 
+                            {t.deliverables && t.deliverables.length > 0 && (
+                              <div style={{ margin: "6px 0 10px", padding: "6px 8px", background: "rgba(10, 26, 18, 0.7)", borderRadius: "6px", border: "1px solid rgba(77,255,160,0.15)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10.5px", color: "var(--neon)", fontWeight: 700, marginBottom: "4px" }}>
+                                  <span>Work Items ({t.deliverables.filter((d: any) => d.status === "Approved" || d.status === "Completed" || d.status === "Published").length}/{t.deliverables.length})</span>
+                                  <span style={{ fontSize: "9.5px", color: "var(--muted)" }}>Checklist</span>
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                                  {t.deliverables.slice(0, 3).map((d: any, dIdx: number) => {
+                                    const isDone = d.status === "Approved" || d.status === "Completed" || d.status === "Published";
+                                    const isCorrection = d.review_status === "CORRECTION_NEEDED";
+                                    const isOk = d.review_status === "OK";
+                                    return (
+                                      <div key={dIdx} style={{ fontSize: "10.5px", color: "var(--text)", display: "flex", alignItems: "center", gap: "5px" }}>
+                                        <span style={{ color: isDone ? "var(--neon)" : "var(--muted)" }}>
+                                          {isDone ? "✓" : "○"}
+                                        </span>
+                                        <span style={{ textDecoration: isDone ? "line-through" : "none", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>
+                                          {d.title} {d.client_name ? `(${d.client_name})` : ""}
+                                        </span>
+                                        {isCorrection && (
+                                          <span style={{ background: "rgba(255, 95, 109, 0.15)", color: "#FF5F6D", fontSize: "9px", padding: "1px 4px", borderRadius: "3px" }}>
+                                            Correction
+                                          </span>
+                                        )}
+                                        {isOk && (
+                                          <span style={{ background: "rgba(77, 255, 160, 0.15)", color: "#4DFFA0", fontSize: "9px", padding: "1px 4px", borderRadius: "3px" }}>
+                                            OK
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                  {t.deliverables.length > 3 && (
+                                    <span style={{ fontSize: "9.5px", color: "var(--muted)", fontStyle: "italic" }}>
+                                      +{t.deliverables.length - 3} more items...
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
                             <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px", background: "rgba(15,34,24,0.6)", borderRadius: "6px", marginBottom: "8px" }}>
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px" }}>
                                 <span style={{ color: "#89ACA0" }}>Assigned To:</span>
@@ -1308,6 +1351,151 @@ export function CommandCenterView({
                 })}
               </div>
             </div>
+
+            {/* WORK ITEMS CHECKLIST & ITEM-LEVEL QUALITY REVIEW SECTION */}
+            {selectedTask.deliverables && selectedTask.deliverables.length > 0 && (
+              <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+                  <span style={{ fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.06em", color: "var(--neon)", textTransform: "uppercase" }}>
+                    WORK ITEMS CHECKLIST ({selectedTask.deliverables.filter((d: any) => ["Approved", "Completed", "Published"].includes(d.status)).length} / {selectedTask.deliverables.length} COMPLETED)
+                  </span>
+                  <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>
+                    {Math.round((selectedTask.deliverables.filter((d: any) => ["Approved", "Completed", "Published"].includes(d.status)).length / selectedTask.deliverables.length) * 100)}%
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {selectedTask.deliverables.map((item: any, itemIdx: number) => {
+                    const isItemDone = ["Approved", "Completed", "Published"].includes(item.status);
+                    const isItemCorrection = item.review_status === "CORRECTION_NEEDED";
+                    const isItemOk = item.review_status === "OK";
+                    const canUserReviewItem = isReviewerOrManager(selectedTask) && (!currentUser || String(currentUser.id) !== selectedTask.assignee || ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"].includes((userRole || "").toUpperCase()));
+
+                    return (
+                      <div
+                        key={item.id || itemIdx}
+                        style={{
+                          background: "var(--panel)",
+                          border: isItemCorrection ? "1px solid rgba(255, 89, 77, 0.4)" : isItemOk ? "1px solid rgba(0, 232, 137, 0.3)" : "1px solid var(--border2)",
+                          borderRadius: "8px",
+                          padding: "10px 12px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "6px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={isItemDone}
+                              disabled={!canUserChangeTaskStatus(selectedTask)}
+                              onChange={async () => {
+                                const newStatus = isItemDone ? "In Progress" : "Completed";
+                                try {
+                                  await api(`/work-deliverables/${item.id}/`, {
+                                    method: "PATCH",
+                                    body: JSON.stringify({ status: newStatus }),
+                                  });
+                                  const updatedDeliverables = selectedTask.deliverables?.map((d: any) => d.id === item.id ? { ...d, status: newStatus } : d);
+                                  setSelectedTask((prev) => prev ? { ...prev, deliverables: updatedDeliverables } : null);
+                                } catch (e) {
+                                  setStatusError("Could not update item status.");
+                                }
+                              }}
+                              style={{ width: "16px", height: "16px", cursor: canUserChangeTaskStatus(selectedTask) ? "pointer" : "not-allowed" }}
+                            />
+                            <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
+                              <span style={{ fontSize: "12.5px", fontWeight: 700, color: "var(--text)", textDecoration: isItemDone ? "line-through" : "none" }}>
+                                {item.title}
+                              </span>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "10.5px", color: "var(--muted)" }}>
+                                {item.client_name && <span>Client: <strong>{item.client_name}</strong></span>}
+                                {item.work_type && <span>Type: {item.work_type}</span>}
+                                {item.due_date && <span>Due: {item.due_date}</span>}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            {isItemCorrection && (
+                              <span style={{ background: "rgba(255, 89, 77, 0.14)", color: "#FF594D", padding: "3px 8px", borderRadius: "4px", fontSize: "10.5px", fontWeight: 700 }}>
+                                ↩ Correction Needed
+                              </span>
+                            )}
+                            {isItemOk && (
+                              <span style={{ background: "rgba(0, 232, 137, 0.14)", color: "#00E889", padding: "3px 8px", borderRadius: "4px", fontSize: "10.5px", fontWeight: 700 }}>
+                                ✓ OK
+                              </span>
+                            )}
+                            {!isItemCorrection && !isItemOk && (
+                              <span style={{ background: "rgba(245, 166, 35, 0.14)", color: "#F5A623", padding: "3px 8px", borderRadius: "4px", fontSize: "10.5px", fontWeight: 600 }}>
+                                ⏳ Pending Review
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* CORRECTION NOTE DISPLAY */}
+                        {isItemCorrection && item.review_note && (
+                          <div style={{ background: "rgba(255, 89, 77, 0.08)", border: "1px solid rgba(255, 89, 77, 0.2)", borderRadius: "6px", padding: "6px 10px", fontSize: "11px", color: "#FF594D", marginTop: "2px" }}>
+                            ⚠️ Reviewer Note: "{item.review_note}"
+                          </div>
+                        )}
+
+                        {/* ITEM-LEVEL REVIEWER AUDIT BUTTONS */}
+                        {canUserReviewItem && (
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px", paddingTop: "6px", borderTop: "1px solid var(--border2)" }}>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await api(`/work-deliverables/${item.id}/item_review/`, {
+                                    method: "POST",
+                                    body: JSON.stringify({ review_status: "OK", review_note: "" }),
+                                  });
+                                  const updatedDeliverables = selectedTask.deliverables?.map((d: any) => d.id === item.id ? { ...d, review_status: "OK", review_note: "" } : d);
+                                  setSelectedTask((prev) => prev ? { ...prev, deliverables: updatedDeliverables } : null);
+                                } catch (e) {
+                                  setStatusError("Could not update item quality check.");
+                                }
+                              }}
+                              style={{ padding: "3px 8px", borderRadius: "4px", background: "rgba(0, 232, 137, 0.14)", color: "#00E889", border: "1px solid rgba(0, 232, 137, 0.3)", fontSize: "10.5px", fontWeight: 700, cursor: "pointer" }}
+                            >
+                              ✓ Mark OK
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const notePrompt = prompt(`Enter correction note for '${item.title}':`, item.review_note || "");
+                                if (notePrompt === null) return;
+                                if (!notePrompt.trim()) {
+                                  alert("A reviewer note is required when marking Correction Needed.");
+                                  return;
+                                }
+                                try {
+                                  await api(`/work-deliverables/${item.id}/item_review/`, {
+                                    method: "POST",
+                                    body: JSON.stringify({ review_status: "CORRECTION_NEEDED", review_note: notePrompt.trim() }),
+                                  });
+                                  const updatedDeliverables = selectedTask.deliverables?.map((d: any) => d.id === item.id ? { ...d, review_status: "CORRECTION_NEEDED", review_note: notePrompt.trim() } : d);
+                                  setSelectedTask((prev) => prev ? { ...prev, deliverables: updatedDeliverables, reviewStatus: "CORRECTION_NEEDED" } : null);
+                                } catch (e) {
+                                  setStatusError("Could not update item quality check.");
+                                }
+                              }}
+                              style={{ padding: "3px 8px", borderRadius: "4px", background: "rgba(255, 89, 77, 0.14)", color: "#FF594D", border: "1px solid rgba(255, 89, 77, 0.3)", fontSize: "10.5px", fontWeight: 700, cursor: "pointer" }}
+                            >
+                              ↩ Correction Needed
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* REVIEWER CHECK (QUALITY AUDIT) SECTION */}
             <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px 16px" }}>

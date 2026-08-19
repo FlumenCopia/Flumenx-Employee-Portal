@@ -202,9 +202,65 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        deliverables_data = self.initial_data.get("deliverables")
         if not validated_data.get("client"):
             validated_data["client"] = self.default_client()
-        return super().create(validated_data)
+        assignment = super().create(validated_data)
+        if deliverables_data and isinstance(deliverables_data, list):
+            for d in deliverables_data:
+                if isinstance(d, dict) and (d.get("title") or d.get("brief")):
+                    client_id = d.get("client") or d.get("client_id") or assignment.client_id
+                    WorkDeliverable.objects.create(
+                        assignment=assignment,
+                        client_id=client_id,
+                        title=d.get("title") or assignment.title,
+                        brief=d.get("brief", ""),
+                        work_type=d.get("work_type", "design"),
+                        due_date=d.get("due_date") or assignment.due_date,
+                        status=d.get("status", "Pending"),
+                        review_status=d.get("review_status", "PENDING_REVIEW"),
+                        review_note=d.get("review_note", ""),
+                    )
+            assignment.sync_from_deliverables()
+        return assignment
+
+    def update(self, instance, validated_data):
+        deliverables_data = self.initial_data.get("deliverables")
+        assignment = super().update(instance, validated_data)
+        if deliverables_data is not None and isinstance(deliverables_data, list):
+            existing_ids = []
+            for d in deliverables_data:
+                if isinstance(d, dict) and (d.get("title") or d.get("brief")):
+                    d_id = d.get("id")
+                    client_id = d.get("client") or d.get("client_id") or assignment.client_id
+                    if d_id:
+                        WorkDeliverable.objects.filter(id=d_id, assignment=assignment).update(
+                            client_id=client_id,
+                            title=d.get("title") or assignment.title,
+                            brief=d.get("brief", ""),
+                            work_type=d.get("work_type", "design"),
+                            due_date=d.get("due_date") or assignment.due_date,
+                            status=d.get("status", d.get("rawStatus", "Pending")),
+                            review_status=d.get("review_status", "PENDING_REVIEW"),
+                            review_note=d.get("review_note", ""),
+                        )
+                        existing_ids.append(d_id)
+                    else:
+                        new_d = WorkDeliverable.objects.create(
+                            assignment=assignment,
+                            client_id=client_id,
+                            title=d.get("title") or assignment.title,
+                            brief=d.get("brief", ""),
+                            work_type=d.get("work_type", "design"),
+                            due_date=d.get("due_date") or assignment.due_date,
+                            status=d.get("status", "Pending"),
+                            review_status=d.get("review_status", "PENDING_REVIEW"),
+                            review_note=d.get("review_note", ""),
+                        )
+                        existing_ids.append(new_d.id)
+            assignment.deliverables.exclude(id__in=existing_ids).delete()
+            assignment.sync_from_deliverables()
+        return assignment
 
     def get_deliverables(self, obj):
         return WorkDeliverableSerializer(obj.deliverables.all(), many=True, context=self.context).data
@@ -230,6 +286,8 @@ class WorkDeliverableSerializer(serializers.ModelSerializer):
             "work_type",
             "due_date",
             "status",
+            "review_status",
+            "review_note",
             "completed_at",
             "is_overdue",
             "created_at",

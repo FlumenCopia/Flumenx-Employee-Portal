@@ -287,9 +287,20 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
   function openCreate() {
     setEditing(null);
     const initialForm = defaultForm();
-    if (clients.length > 0) {
-      initialForm.client = String(clients[0].id);
+    const clientVal = clients.length > 0 ? String(clients[0].id) : "";
+    if (clientVal) {
+      initialForm.client = clientVal;
     }
+    initialForm.deliverables = [
+      {
+        client: clientVal,
+        title: "Item #1",
+        brief: "",
+        work_type: "design",
+        due_date: initialForm.due_date,
+        status: "Assigned" as WorkStatus,
+      },
+    ];
     setForm(initialForm);
     setFormErrors({});
     setActionError("");
@@ -443,39 +454,39 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     const cleanDesc = form.description ? form.description.trim() : "";
     const fullDesc = `${cleanDesc ? cleanDesc + "\n\n" : ""}${phaseTag} ${estTag}`.trim();
 
+    const firstClient = form.deliverables[0]?.client || form.client || (clients.length > 0 ? String(clients[0].id) : "");
+    const firstTitle = form.deliverables[0]?.title || "Work Assignment";
+    const resolvedTitle = form.title.trim()
+      ? form.title.trim()
+      : form.deliverables.length > 1
+        ? `${firstTitle} (+ ${form.deliverables.length - 1} items)`
+        : firstTitle;
+
     const payload = {
       employee: Number(form.employee),
-      title: form.title.trim(),
+      title: resolvedTitle,
       description: fullDesc,
       priority: form.priority,
       assigned_date: form.assigned_date || today(),
       due_date: form.due_date,
-      assigned_quantity: assignedQuantity,
+      assigned_quantity: form.deliverables.length || 1,
       completed_quantity: completedQuantity,
-      unit: "tasks",
+      unit: "items",
       reviewer: form.reviewer ? (isNaN(Number(form.reviewer)) ? form.reviewer : Number(form.reviewer)) : null,
-
+      deliverables: form.deliverables.map((d, i) => ({
+        ...d,
+        title: d.title.trim() || `Item #${i + 1}`,
+        client: d.client || firstClient,
+      })),
       ...(editing ? {} : { status: "Assigned" as WorkStatus }),
-      ...(effectiveClient ? { client: Number(effectiveClient) } : {}),
+      ...(firstClient ? { client: Number(firstClient) } : {}),
     };
 
     try {
-      const saved = await api<WorkAssignment>(editing ? `/work-assignments/${editing.id}/` : "/work-assignments/", {
+      await api<WorkAssignment>(editing ? `/work-assignments/${editing.id}/` : "/work-assignments/", {
         method: editing ? "PATCH" : "POST",
         body: JSON.stringify(payload),
       });
-      const savedClient = String(saved.client);
-      const deliverablesToSync: DeliverableFormState[] = form.deliverables.length > 0
-        ? form.deliverables.map(deliverable => ({ ...deliverable, client: deliverable.client || savedClient }))
-        : [{
-          client: savedClient,
-          title: form.title.trim(),
-          brief: form.description || "",
-          work_type: form.work_type || "design",
-          due_date: form.due_date,
-          status: "Assigned" as WorkStatus,
-        }];
-      await syncDeliverables(saved.id, deliverablesToSync);
       setModalOpen(false);
       setEditing(null);
       setForm(defaultForm());
@@ -713,16 +724,15 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
 
     {modalOpen && <Modal title={editing ? "Edit Task" : "New Task"} eyebrow={editing ? "FLUMENX / EDIT" : "FLUMENX / CREATE"} size="lg" onClose={() => !submitting && setModalOpen(false)}>
       <form className="modal-form" onSubmit={saveAssignment} style={{ display: "flex", flexDirection: "column", gap: "14px", maxHeight: "80vh", overflowY: "auto", paddingRight: "4px" }}>
-        {/* ROW 1: TASK TITLE & PRIORITY */}
+        {/* ROW 1: TASK BATCH TITLE (OPTIONAL) & PRIORITY */}
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "12px" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-            TASK TITLE *
+            WORK BATCH / CAMPAIGN TITLE (OPTIONAL)
             <input
               type="text"
               value={form.title}
               onChange={event => setForm(current => ({ ...current, title: event.target.value }))}
-              placeholder="e.g. Countdown creative series (12 posters)"
-              required
+              placeholder="Auto-generates from item titles if left blank"
               className="fi"
             />
             {formErrors.title && <small style={{ color: "#EF4444" }}>{formErrors.title}</small>}
@@ -743,50 +753,71 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
           </label>
         </div>
 
-        {/* ROW 2: CLIENT & TYPE */}
+        {/* ROW 2: ASSIGN TO & REVIEWER */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-            CLIENT / ACCOUNT *
+            ASSIGN TO *
             <select
-              value={form.client}
-              onChange={(event) => {
-                const val = event.target.value;
-                setForm((current) => ({ ...current, client: val }));
-              }}
+              value={form.employee}
+              onChange={event => changeEmployee(event.target.value)}
               required
+              disabled={optionsLoading}
               className="fs"
             >
               <option value="" disabled>
-                {optionsLoading ? "Loading clients..." : clients.length ? "Select Client" : "No clients available"}
+                {optionsLoading ? "Loading employees..." : visibleEmployees.length ? "Select employee" : "No active employees available for this department."}
               </option>
-              {clients.map((c) => (
-                <option key={c.id} value={String(c.id)}>
-                  {c.name}
+              {visibleEmployees.map(employee => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.display_name} — {employee.department}
                 </option>
               ))}
             </select>
-            {formErrors.client && <small style={{ color: "#EF4444" }}>{formErrors.client}</small>}
+            {formErrors.employee && <small style={{ color: "#EF4444" }}>{formErrors.employee}</small>}
           </label>
 
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-            TYPE
+            REVIEWER
             <select
-              value={form.work_type || "web_development"}
-              onChange={(event) => {
-                const val = event.target.value;
-                setForm((current) => ({
-                  ...current,
-                  work_type: val,
-                }));
-              }}
+              value={form.reviewer || ""}
+              onChange={event => setForm(current => ({ ...current, reviewer: event.target.value }))}
               className="fs"
             >
-              {dynamicWorkTypeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
+              <option value="">Select Reviewer (Default: Admin)</option>
+              {reviewers.map(r => (
+                <option key={r.id} value={r.id}>
+                  {r.display_name} ({r.username})
                 </option>
               ))}
             </select>
+          </label>
+        </div>
+
+        {/* ROW 3: DUE DATE & ESTIMATED HOURS */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+            BATCH DUE DATE *
+            <input
+              type="date"
+              value={form.due_date}
+              onChange={event => setForm(current => ({ ...current, due_date: event.target.value }))}
+              required
+              className="fi"
+            />
+            {formErrors.due_date && <small style={{ color: "#EF4444" }}>{formErrors.due_date}</small>}
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+            ESTIMATED HOURS
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={form.estimated_hours || "4"}
+              onChange={event => setForm(current => ({ ...current, estimated_hours: event.target.value }))}
+              placeholder="e.g. 4"
+              className="fi"
+            />
           </label>
         </div>
 
@@ -831,73 +862,236 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
           </div>
         )}
 
-        {/* ROW 3: ASSIGN TO & REVIEWER */}
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-      <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-        ASSIGN TO *
-        <select
-          value={form.employee}
-          onChange={event => changeEmployee(event.target.value)}
-          required
-          disabled={optionsLoading}
-          className="fs"
-        >
-          <option value="" disabled>
-            {optionsLoading ? "Loading employees..." : visibleEmployees.length ? "Select employee" : "No active employees available for this department."}
-          </option>
-          {visibleEmployees.map(employee => (
-            <option key={employee.id} value={employee.id}>
-              {employee.display_name} — {employee.department}
-            </option>
+        {/* DELIVERABLE ITEMS LIST BUILDER */}
+        <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <b style={{ fontSize: "12px", color: "var(--neon)", letterSpacing: "0.5px" }}>
+                WORK ITEMS / TASKS LIST ({form.deliverables.length})
+              </b>
+              <span style={{ display: "block", fontSize: "10.5px", color: "var(--muted)" }}>
+                Add as many tasks/posters/videos as needed (e.g. Item #1, Item #2, Item #3...)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const nextIndex = form.deliverables.length + 1;
+                setForm((current) => ({
+                  ...current,
+                  deliverables: [
+                    ...current.deliverables,
+                    {
+                      client: current.client || (clients.length > 0 ? String(clients[0].id) : ""),
+                      title: `Item #${nextIndex}`,
+                      brief: "",
+                      work_type: current.work_type || "design",
+                      due_date: current.due_date,
+                      status: "Assigned" as WorkStatus,
+                    },
+                  ],
+                }));
+              }}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "6px",
+                background: "rgba(77, 255, 160, 0.14)",
+                color: "#4DFFA0",
+                border: "1px solid rgba(77, 255, 160, 0.35)",
+                fontSize: "11.5px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              + Add Item #{form.deliverables.length + 1}
+            </button>
+          </div>
+
+          {form.deliverables.map((item, idx) => (
+            <div
+              key={idx}
+              style={{
+                background: "rgba(8, 20, 15, 0.75)",
+                border: "1px solid var(--border)",
+                borderRadius: "10px",
+                padding: "12px 14px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "11.5px", fontWeight: 700, color: "var(--neon)" }}>
+                  Item #{idx + 1}
+                </span>
+                {form.deliverables.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm((current) => ({
+                        ...current,
+                        deliverables: current.deliverables.filter((_, i) => i !== idx),
+                      }));
+                    }}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#FF6B6B",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                    }}
+                  >
+                    ✕ Remove Item #{idx + 1}
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "10px" }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "10.5px", color: "var(--muted)", fontWeight: 700 }}>
+                  CLIENT FOR ITEM #{idx + 1} *
+                  <select
+                    value={item.client}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setForm((current) => {
+                        const next = [...current.deliverables];
+                        next[idx] = { ...next[idx], client: val };
+                        return { ...current, deliverables: next };
+                      });
+                    }}
+                    className="fs"
+                    style={{ padding: "7px", fontSize: "11.5px" }}
+                  >
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "10.5px", color: "var(--muted)", fontWeight: 700 }}>
+                  ITEM TITLE / ASSET DESCRIPTION *
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setForm((current) => {
+                        const next = [...current.deliverables];
+                        next[idx] = { ...next[idx], title: val };
+                        return { ...current, deliverables: next };
+                      });
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const nextIndex = form.deliverables.length + 1;
+                        setForm((current) => ({
+                          ...current,
+                          deliverables: [
+                            ...current.deliverables,
+                            {
+                              client: current.client || (clients.length > 0 ? String(clients[0].id) : ""),
+                              title: `Item #${nextIndex}`,
+                              brief: "",
+                              work_type: current.work_type || "design",
+                              due_date: current.due_date,
+                              status: "Assigned" as WorkStatus,
+                            },
+                          ],
+                        }));
+                      }
+                    }}
+                    placeholder={`e.g. Poster ${idx + 1} - Diwali Offer / Reel 15s`}
+                    required
+                    className="fi"
+                    style={{ padding: "7px 10px", fontSize: "11.5px" }}
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "10.5px", color: "var(--muted)", fontWeight: 700 }}>
+                  WORK TYPE
+                  <select
+                    value={item.work_type || "design"}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setForm((current) => {
+                        const next = [...current.deliverables];
+                        next[idx] = { ...next[idx], work_type: val };
+                        return { ...current, deliverables: next };
+                      });
+                    }}
+                    className="fs"
+                    style={{ padding: "7px", fontSize: "11.5px" }}
+                  >
+                    {dynamicWorkTypeOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "10.5px", color: "var(--muted)", fontWeight: 700 }}>
+                  ITEM DUE DATE
+                  <input
+                    type="date"
+                    value={item.due_date || form.due_date}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setForm((current) => {
+                        const next = [...current.deliverables];
+                        next[idx] = { ...next[idx], due_date: val };
+                        return { ...current, deliverables: next };
+                      });
+                    }}
+                    className="fi"
+                    style={{ padding: "6px 8px", fontSize: "11.5px" }}
+                  />
+                </label>
+              </div>
+            </div>
           ))}
-        </select>
-        {formErrors.employee && <small style={{ color: "#EF4444" }}>{formErrors.employee}</small>}
-      </label>
 
-      <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-        REVIEWER
-        <select
-          value={form.reviewer || ""}
-          onChange={event => setForm(current => ({ ...current, reviewer: event.target.value }))}
-          className="fs"
-        >
-          <option value="">Select Reviewer (Default: Admin)</option>
-          {reviewers.map(r => (
-            <option key={r.id} value={r.id}>
-              {r.display_name} ({r.username})
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
-
-    {/* ROW 4: DUE DATE & ESTIMATED HOURS */}
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-      <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-        DUE DATE *
-        <input
-          type="date"
-          value={form.due_date}
-          onChange={event => setForm(current => ({ ...current, due_date: event.target.value }))}
-          required
-          className="fi"
-        />
-        {formErrors.due_date && <small style={{ color: "#EF4444" }}>{formErrors.due_date}</small>}
-      </label>
-
-      <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-        ESTIMATED HOURS
-        <input
-          type="number"
-          min="1"
-          step="1"
-          value={form.estimated_hours || "4"}
-          onChange={event => setForm(current => ({ ...current, estimated_hours: event.target.value }))}
-          placeholder="e.g. 4"
-          className="fi"
-        />
-      </label>
-    </div>
+          <button
+            type="button"
+            onClick={() => {
+              const nextIndex = form.deliverables.length + 1;
+              setForm((current) => ({
+                ...current,
+                deliverables: [
+                  ...current.deliverables,
+                  {
+                    client: current.client || (clients.length > 0 ? String(clients[0].id) : ""),
+                    title: `Item #${nextIndex}`,
+                    brief: "",
+                    work_type: current.work_type || "design",
+                    due_date: current.due_date,
+                    status: "Assigned" as WorkStatus,
+                  },
+                ],
+              }));
+            }}
+            style={{
+              padding: "8px 14px",
+              borderRadius: "8px",
+              background: "rgba(77, 255, 160, 0.08)",
+              color: "#4DFFA0",
+              border: "1px dashed rgba(77, 255, 160, 0.3)",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+              textAlign: "center",
+              marginTop: "4px",
+            }}
+          >
+            + Add Another Work Item (Item #{form.deliverables.length + 1})
+          </button>
+        </div>
 
     {actionError && <div className="toast error">{actionError}</div>}
 
