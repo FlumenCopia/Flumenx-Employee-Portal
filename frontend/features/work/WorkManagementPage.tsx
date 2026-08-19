@@ -24,13 +24,13 @@ type DeliverableFormState = {
   id?: number; client: string; title: string; brief: string; work_type: string; due_date: string; status: WorkStatus;
 };
 type WorkFilters = {
-  employee: string; client: string; status: string; priority: string; due_date: string; assigned_date: string; is_overdue: string;
+  employee: string; client: string; status: string; priority: string; due_date: string; assigned_date: string; is_overdue: string; review_status: string;
 };
 
-const EMPTY_SUMMARY: WorkSummary = { total: 0, pending: 0, in_progress: 0, blocked: 0, completed: 0, overdue: 0 };
+const EMPTY_SUMMARY: WorkSummary = { total: 0, pending: 0, in_progress: 0, blocked: 0, completed: 0, overdue: 0, review_pending: 0, review_ok: 0, review_correction: 0 };
 const PRIORITIES: WorkPriority[] = ["Low", "Normal", "High", "Urgent"];
 const STATUSES: WorkStatus[] = ["Assigned", "In Progress", "In Review", "Approved", "Published"];
-const EMPTY_FILTERS: WorkFilters = { employee: "", client: "", status: "", priority: "", due_date: "", assigned_date: "", is_overdue: "" };
+const EMPTY_FILTERS: WorkFilters = { employee: "", client: "", status: "", priority: "", due_date: "", assigned_date: "", is_overdue: "", review_status: "" };
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -558,6 +558,21 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     }
   };
 
+  const handleReviewCheck = async (id: number, reviewStatus: "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED", note?: string) => {
+    try {
+      const updated = await api<WorkAssignment>(`/work-assignments/${id}/review/`, {
+        method: "POST",
+        body: JSON.stringify({ review_status: reviewStatus, review_note: note || "" }),
+      });
+      setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      await loadWork(filters);
+    } catch (err) {
+      const msg = apiError(err, "Could not update reviewer check.");
+      setActionError(msg);
+      throw new Error(msg);
+    }
+  };
+
   const handleDeleteWork = async (id: number): Promise<boolean> => {
     try {
       await api(`/work-assignments/${id}/`, { method: "DELETE" });
@@ -569,7 +584,6 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
       return false;
     }
   };
-
 
   const shellUser = useShellUser();
 
@@ -596,6 +610,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
         selectedClientId={filters.client}
         onClientChange={(clientId) => updateFilters({ ...filters, client: clientId })}
         onStatusChange={handleStatusChange}
+        onReviewCheck={handleReviewCheck}
         onDeleteWork={canManageAll ? handleDeleteWork : undefined}
         initialTab={initialTab}
       />
@@ -696,7 +711,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
       </>
     )}
 
-    {modalOpen && <Modal title={editing ? "Edit Task" : "New Task"} onClose={() => !submitting && setModalOpen(false)}>
+    {modalOpen && <Modal title={editing ? "Edit Task" : "New Task"} eyebrow={editing ? "FLUMENX / EDIT" : "FLUMENX / CREATE"} size="lg" onClose={() => !submitting && setModalOpen(false)}>
       <form className="modal-form" onSubmit={saveAssignment} style={{ display: "flex", flexDirection: "column", gap: "14px", maxHeight: "80vh", overflowY: "auto", paddingRight: "4px" }}>
         {/* ROW 1: TASK TITLE & PRIORITY */}
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "12px" }}>

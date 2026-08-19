@@ -116,7 +116,6 @@ class ClientViewSet(viewsets.ModelViewSet):
     queryset = Client.objects.all()
 
 
-
 class WorkEmployeeOptionsView(APIView):
     def get(self, request):
         qs = active_employee_options_for_user(request.user)
@@ -145,7 +144,6 @@ class WorkDeliverableViewSet(viewsets.ModelViewSet):
         assignments = scoped_work_assignments_for_user(WorkAssignment.objects.all(), self.request.user)
         qs = qs.filter(assignment__in=assignments)
         return self.apply_filters(qs)
-
 
     def apply_filters(self, qs):
         params = self.request.query_params
@@ -229,6 +227,8 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
             qs = qs.filter(due_date=params["due_date"])
         if params.get("assigned_date"):
             qs = qs.filter(assigned_date=params["assigned_date"])
+        if params.get("review_status"):
+            qs = qs.filter(review_status=params["review_status"])
         overdue = params.get("is_overdue")
         if overdue is not None:
             if overdue.lower() in ("true", "1", "yes"):
@@ -285,58 +285,20 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
             allowed_qs = active_employee_options_for_user(user)
             if assigned_emp and not allowed_qs.filter(id=assigned_emp.id).exists():
                 raise PermissionDenied("You can only assign tasks to members of your own team.")
-        instance = serializer.instance
-        reviewer_val = self.request.data.get("reviewer") or self.request.data.get("reviewer_id") or self.request.data.get("reviewer_name")
-        kwargs = {}
-        if reviewer_val:
-            reviewer_user, reviewer_name = self.resolve_reviewer()
-            if reviewer_user:
-                kwargs["reviewer"] = reviewer_user
-            if reviewer_name:
-                kwargs["reviewer_name"] = reviewer_name
 
-        old_values = {
-            "employee_id": instance.employee_id,
-            "client_id": instance.client_id,
-            "title": instance.title,
-            "description": instance.description,
-            "priority": instance.priority,
-            "assigned_date": instance.assigned_date,
-            "due_date": instance.due_date,
-            "status": instance.status,
-            "progress": instance.progress,
-            "assigned_quantity": instance.assigned_quantity,
-            "completed_quantity": instance.completed_quantity,
-            "unit": instance.unit,
-            "completed_at": instance.completed_at,
-        }
-        assignment = serializer.save(**kwargs)
-        if old_values["status"] != assignment.status:
-            assignment.deliverables.all().update(status=assignment.status)
-            if assignment.has_deliverables():
-                assignment.sync_from_deliverables(save=True)
-            else:
-                assignment.sync_quantity_state()
-                assignment.save()
-        changed = any(getattr(assignment, field) != value for field, value in old_values.items())
-        if not changed:
-            return
-        if old_values["status"] != "Completed" and assignment.status in ("Completed", "Approved", "Published"):
-            notify_work_completed(assignment, self.request.user)
-            return
-        notify_work_updated(assignment, self.request.user)
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        self.check_object_permissions(request, instance)
-        try:
-            self.perform_destroy(instance)
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except (ProtectedError, IntegrityError):
-            return Response(
-                {"detail": "Cannot delete work assignment because related items exist."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        old_assignment = self.get_object()
+        old_status = old_assignment.status
+        old_progress = old_assignment.progress
+        assignment = serializer.save()
+        recipient = assignment_employee_user(assignment)
+        if assignment.status != old_status:
+            title = f"Work status updated: {assignment.status}"
+            message = f"Work {work_title(assignment)} status changed to {assignment.status}."
+            create_notifications([recipient], title, message, category="work_status", exclude_user=user)
+        elif assignment.progress != old_progress:
+            title = f"Work progress updated: {assignment.progress}%"
+            message = f"Work {work_title(assignment)} progress is now {assignment.progress}%."
+            create_notifications([recipient], title, message, category="work_progress", exclude_user=user)
 
     def perform_destroy(self, instance):
         recipient = assignment_employee_user(instance)
@@ -345,6 +307,54 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
         actor = self.request.user
         instance.delete()
         create_notifications([recipient], title, message, category="work_deleted", exclude_user=actor)
+
+    @action(detail=True, methods=["post"])
+    def review(self, request, pk=None):
+        assignment = self.get_object()
+        user = request.user
+        role = str(portal_role(user)).upper()
+
+        is_assigned_emp = assignment.employee and assignment.employee.user_id == user.id
+        is_rev_user = assignment.reviewer_id and assignment.reviewer_id == user.id
+        is_creator_mgmt = assignment.assigned_by_id and assignment.assigned_by_id == user.id and role in ("SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD")
+        is_mgmt = role in ("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD")
+        is_lead = role == "TEAM_LEAD" and assignment.employee and assignment.employee.team_lead_id and assignment.employee.team_lead.user_id == user.id
+
+        can_review = (is_rev_user or is_creator_mgmt or is_mgmt or is_lead or user.is_superuser) and not (is_assigned_emp and not (is_mgmt or user.is_superuser))
+
+        if not can_review:
+            raise PermissionDenied("You do not have permission to review or quality-audit this work assignment.")
+
+        rev_status = str(request.data.get("review_status", "")).upper()
+        note = str(request.data.get("review_note", "")).strip()
+
+        valid_review_statuses = ("PENDING_REVIEW", "OK", "CORRECTION_NEEDED")
+        if rev_status not in valid_review_statuses:
+            return Response({"detail": "Invalid review_status. Must be PENDING_REVIEW, OK, or CORRECTION_NEEDED."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if rev_status == "CORRECTION_NEEDED" and not note:
+            return Response({"detail": "A reviewer note is required when marking Correction Needed."}, status=status.HTTP_400_BAD_REQUEST)
+
+        assignment.review_status = rev_status
+        assignment.review_note = note
+        assignment.reviewed_by = user
+        assignment.reviewed_at = timezone.now()
+        assignment.save()
+
+        # Notify assigned employee
+        recipient = assignment_employee_user(assignment)
+        if recipient and recipient != user:
+            if rev_status == "CORRECTION_NEEDED":
+                title = f"Correction requested for {work_title(assignment)}"
+                msg_text = f"Reviewer Note: {note}" if note else f"Correction requested for {work_title(assignment)}."
+                create_notifications([recipient], title, msg_text, category="work_review", exclude_user=user)
+            elif rev_status == "OK":
+                title = f"{work_title(assignment)} was reviewed and marked OK."
+                msg_text = f"{work_title(assignment)} was reviewed by {user.first_name or user.username} and marked OK."
+                create_notifications([recipient], title, msg_text, category="work_review", exclude_user=user)
+
+        serializer = self.get_serializer(assignment)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["get"])
     def summary(self, request):
@@ -368,6 +378,9 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
             blocked=Count("id", filter=Q(status="Blocked")),
             completed=Count("id", filter=Q(status__in=["Completed", "Approved", "Published"])),
             overdue=Count("id", filter=Q(due_date__lt=today) & ~Q(status__in=["Completed", "Approved", "Published"])),
+            review_pending=Count("id", filter=Q(review_status="PENDING_REVIEW")),
+            review_ok=Count("id", filter=Q(review_status="OK")),
+            review_correction=Count("id", filter=Q(review_status="CORRECTION_NEEDED")),
         )
 
         q_design = Q(employee__department__iexact="Design") | Q(employee__department__icontains="graphic") | Q(employee__department__icontains="ui") | Q(employee__department__icontains="ux")
@@ -414,6 +427,9 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
             "blocked": counts["blocked"],
             "completed": counts["completed"],
             "overdue": counts["overdue"],
+            "review_pending": counts["review_pending"],
+            "review_ok": counts["review_ok"],
+            "review_correction": counts["review_correction"],
             "total_assigned_qty": tot_assigned,
             "total_completed_qty": tot_completed,
             "overall_progress": overall_pct,

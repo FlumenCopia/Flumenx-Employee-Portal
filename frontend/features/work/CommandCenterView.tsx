@@ -46,6 +46,11 @@ export interface TaskItem {
   status: "assigned" | "progress" | "review" | "approved" | "published";
   priority: "p0" | "p1" | "p2";
   rawStatus?: WorkStatus;
+  reviewStatus?: "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED";
+  reviewNote?: string;
+  reviewedBy?: number | null;
+  reviewedAt?: string | null;
+  reviewedByName?: string;
   clientName?: string;
   clientId?: number;
 }
@@ -146,6 +151,7 @@ export function CommandCenterView({
   selectedClientId,
   onClientChange,
   onStatusChange,
+  onReviewCheck,
   onDeleteWork,
   initialTab = "kanban",
 }: {
@@ -159,6 +165,7 @@ export function CommandCenterView({
   selectedClientId?: string;
   onClientChange?: (clientId: string) => void;
   onStatusChange?: (id: number, status: WorkStatus) => Promise<void> | void;
+  onReviewCheck?: (id: number, reviewStatus: "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED", note?: string) => Promise<unknown>;
   onDeleteWork?: (id: number) => Promise<boolean>;
   initialTab?: string;
 }) {
@@ -167,6 +174,14 @@ export function CommandCenterView({
   const [kpis, setKpis] = useState<DualKPI[]>(DEFAULT_KPIS);
   const [kpiInputs, setKpiInputs] = useState<Record<string, string>>({});
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
+  const [reviewNoteInput, setReviewNoteInput] = useState<string>("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (selectedTask) {
+      setReviewNoteInput(selectedTask.reviewNote || "");
+    }
+  }, [selectedTask]);
 
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("all");
@@ -284,6 +299,11 @@ export function CommandCenterView({
           status: statusMap[a.status] || "progress",
           priority: priorityMap[a.priority] || "p1",
           rawStatus: a.status,
+          reviewStatus: a.review_status || "PENDING_REVIEW",
+          reviewNote: a.review_note || "",
+          reviewedBy: a.reviewed_by,
+          reviewedAt: a.reviewed_at,
+          reviewedByName: a.reviewed_by_name || "",
           clientName: a.client_name,
           clientId: a.client,
         };
@@ -858,6 +878,21 @@ export function CommandCenterView({
                               <span className={`chip ${t.priority === "p0" ? "p-p0" : "p-p1"}`} style={{ padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
                                 {t.priority.toUpperCase()}
                               </span>
+                              {t.reviewStatus === "OK" && (
+                                <span style={{ background: "rgba(34, 197, 94, 0.2)", color: "#4ADE80", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                                  ✓ OK
+                                </span>
+                              )}
+                              {t.reviewStatus === "CORRECTION_NEEDED" && (
+                                <span style={{ background: "rgba(245, 158, 11, 0.2)", color: "#F59E0B", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                                  ↩ Correction Needed
+                                </span>
+                              )}
+                              {(!t.reviewStatus || t.reviewStatus === "PENDING_REVIEW") && (
+                                <span style={{ background: "rgba(148, 163, 184, 0.15)", color: "#94A3B8", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 600 }}>
+                                  ⏳ Pending Review
+                                </span>
+                              )}
                               <span className="tc-code" style={{ marginLeft: "auto", fontSize: "10px", color: "var(--muted)", fontFamily: "monospace" }}>{t.code}</span>
                             </div>
 
@@ -1104,110 +1139,99 @@ export function CommandCenterView({
         </div>
       )}
 
-      {/* TASK DETAIL MODAL (Exact match to Reference Screenshot) */}
+      {/* TASK DETAIL MODAL */}
       {selectedTask && (
-        <Modal title="" onClose={() => setSelectedTask(null)}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "4px" }}>
+        <Modal title={selectedTask.title} eyebrow="FLUMENX / TASK DETAILS" size="xl" onClose={() => setSelectedTask(null)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "4px 0" }}>
             
-            {/* TITLE & CODE */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <div style={{ fontSize: "17px", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.2px" }}>
-                {selectedTask.title}
-              </div>
-              <div style={{ fontSize: "11px", color: "#6B7280", fontFamily: "monospace", display: "flex", gap: "6px", alignItems: "center" }}>
-                <span>{selectedTask.code}</span>
+            {/* SUB-HEADER & CODE */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+              <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "monospace", display: "flex", gap: "6px", alignItems: "center" }}>
+                <span style={{ color: "var(--neon)", fontWeight: 700 }}>{selectedTask.code}</span>
                 <span>·</span>
                 <span>{PHASES.find((p) => p.id === selectedTask.phase)?.name || "AMPLIFY"}</span>
               </div>
-            </div>
 
-            {/* STATUS CHIPS */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ background: "rgba(34, 211, 238, 0.15)", color: "#22D3EE", padding: "3px 9px", borderRadius: "5px", fontSize: "10px", fontWeight: 800, textTransform: "uppercase" }}>
-                {CANONICAL_DEPARTMENTS[normalizeDepartment(selectedTask.type)]?.label || selectedTask.type}
-              </span>
-              <span style={{ background: "rgba(245, 158, 11, 0.15)", color: "#F59E0B", padding: "3px 9px", borderRadius: "5px", fontSize: "10px", fontWeight: 800, textTransform: "uppercase" }}>
-                {selectedTask.priority.toUpperCase()}
-              </span>
-              <span style={{ background: "rgba(100, 116, 139, 0.2)", color: "#94A3B8", padding: "3px 9px", borderRadius: "5px", fontSize: "10px", fontWeight: 800, textTransform: "uppercase" }}>
-                {selectedTask.status.toUpperCase()}
-              </span>
+              {/* STATUS & PRIORITY CHIPS */}
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                <span className="chip" style={{ background: "rgba(34, 211, 238, 0.14)", color: "#22D3EE" }}>
+                  {CANONICAL_DEPARTMENTS[normalizeDepartment(selectedTask.type)]?.label || selectedTask.type}
+                </span>
+                <span className="chip" style={{ background: "rgba(245, 158, 11, 0.14)", color: "#F59E0B" }}>
+                  {selectedTask.priority.toUpperCase()}
+                </span>
+                <span className="chip" style={{ background: "rgba(100, 116, 139, 0.2)", color: "#94A3B8" }}>
+                  {selectedTask.status.toUpperCase()}
+                </span>
+              </div>
             </div>
 
             {/* DESCRIPTION BOX */}
-            <div style={{ background: "rgba(18, 32, 26, 0.8)", border: "1px solid rgba(77, 255, 160, 0.1)", borderRadius: "8px", padding: "14px 16px", fontSize: "13px", color: "#A7C1B5", lineHeight: "1.5" }}>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px 16px", fontSize: "13px", color: "var(--text)", lineHeight: "1.5" }}>
               {selectedTask.desc || "Instant form, stall pricing visual, floor plan creative. Primary B2B lead engine."}
             </div>
 
             {/* METADATA GRID (2 COLUMNS) */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px", fontSize: "13px", padding: "4px 0" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px 20px", fontSize: "12px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px 16px" }}>
               <div style={{ display: "flex", gap: "6px" }}>
-                <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Assigned to—</span>
-                <span style={{ color: "#A7C1B5" }}>{selectedTask.assigneeName || "—"}</span>
+                <span style={{ color: "var(--muted)", fontWeight: 600 }}>Assigned to—</span>
+                <span style={{ color: "var(--text)", fontWeight: 600 }}>{selectedTask.assigneeName || "—"}</span>
               </div>
               <div style={{ display: "flex", gap: "6px" }}>
-                <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Estimated hours</span>
-                <span style={{ color: "#A7C1B5" }}>{selectedTask.hours || 6}h</span>
-              </div>
-
-              <div style={{ display: "flex", gap: "6px" }}>
-                <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Reviewer—</span>
-                <span style={{ color: "#A7C1B5" }}>{selectedTask.reviewer || "—"}</span>
-              </div>
-              <div style={{ display: "flex", gap: "6px" }}>
-                <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Phase</span>
-                <span style={{ color: "#A7C1B5" }}>{PHASES.find((p) => p.id === selectedTask.phase)?.name || "AMPLIFY"}</span>
+                <span style={{ color: "var(--muted)", fontWeight: 600 }}>Estimated hours—</span>
+                <span style={{ color: "var(--text)" }}>{selectedTask.hours || 6}h</span>
               </div>
 
               <div style={{ display: "flex", gap: "6px" }}>
-                <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Client—</span>
-                <span style={{ color: "#4DFFA0", fontWeight: 700 }}>{selectedTask.clientName || clients.find((c) => c.id === selectedTask.clientId)?.name || "—"}</span>
+                <span style={{ color: "var(--muted)", fontWeight: 600 }}>Reviewer—</span>
+                <span style={{ color: "var(--text)" }}>{selectedTask.reviewer || "—"}</span>
               </div>
               <div style={{ display: "flex", gap: "6px" }}>
-                <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Counts toward—</span>
-                <span style={{ color: "#A7C1B5" }}>—</span>
+                <span style={{ color: "var(--muted)", fontWeight: 600 }}>Phase—</span>
+                <span style={{ color: "var(--text)" }}>{PHASES.find((p) => p.id === selectedTask.phase)?.name || "AMPLIFY"}</span>
               </div>
 
               <div style={{ display: "flex", gap: "6px" }}>
-                <span style={{ color: "#FFFFFF", fontWeight: 600 }}>Due date</span>
-                <span style={{ color: "#A7C1B5" }}>{selectedTask.due || "—"}</span>
+                <span style={{ color: "var(--muted)", fontWeight: 600 }}>Client—</span>
+                <span style={{ color: "var(--neon)", fontWeight: 700 }}>{selectedTask.clientName || clients.find((c) => c.id === selectedTask.clientId)?.name || "—"}</span>
+              </div>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <span style={{ color: "var(--muted)", fontWeight: 600 }}>Due date—</span>
+                <span style={{ color: "var(--text)" }}>{selectedTask.due || "—"}</span>
               </div>
             </div>
 
-            {/* DIVIDER LINE */}
-            <div style={{ borderBottom: "1px solid rgba(77, 255, 160, 0.12)", margin: "4px 0" }} />
-
             {/* MOVE TO STATUS SECTION */}
-            <div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em", color: "#6B7280", textTransform: "uppercase" }}>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px 16px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", flexWrap: "wrap", gap: "6px" }}>
+                <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>
                   MOVE TO STATUS
                 </span>
                 {!canMoveSelectedTaskStatus && (
-                  <span style={{ fontSize: "10.5px", color: "#F59E0B", fontWeight: 600 }}>
-                    🔒 Status changes restricted — Only designated Reviewer ({selectedTask.reviewer || "Reviewer"}) or Admin/HR can move status
+                  <span style={{ fontSize: "11px", color: "var(--amber)", fontWeight: 600 }}>
+                    🔒 Restricted to designated Reviewer ({selectedTask.reviewer || "Reviewer"}) or Management
                   </span>
                 )}
               </div>
 
               {statusError && (
-                <div style={{ background: "rgba(239, 68, 68, 0.15)", color: "#F87171", border: "1px solid rgba(239, 68, 68, 0.3)", padding: "8px 12px", borderRadius: "6px", fontSize: "12px", marginBottom: "10px" }}>
+                <div style={{ background: "rgba(255, 89, 77, 0.12)", color: "var(--red)", border: "1px solid rgba(255, 89, 77, 0.28)", padding: "8px 12px", borderRadius: "6px", fontSize: "12px", marginBottom: "10px" }}>
                   {statusError}
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: "8px", overflowX: "auto", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 {!ALL_WORK_STATUSES.some((st) => st.id === selectedTask.rawStatus) && selectedTask.rawStatus && (
                   <button
                     type="button"
                     disabled
                     style={{
-                      padding: "7px 18px",
-                      borderRadius: "999px",
-                      fontSize: "12px",
+                      padding: "6px 14px",
+                      borderRadius: "6px",
+                      fontSize: "11px",
                       fontWeight: 700,
-                      background: "#00E676",
-                      color: "#051A10",
+                      background: "var(--neon)",
+                      color: "var(--bg)",
                       border: "none",
                       cursor: "not-allowed",
                       opacity: 0.8,
@@ -1230,18 +1254,18 @@ export function CommandCenterView({
                         await handleWorkStatusChange(selectedTask.id, st.id);
                       }}
                       style={{
-                        padding: "7px 18px",
-                        borderRadius: "999px",
-                        fontSize: "12px",
+                        padding: "6px 14px",
+                        borderRadius: "6px",
+                        fontSize: "11px",
                         fontWeight: 700,
-                        background: isCurrent ? "#00E676" : "rgba(20, 35, 28, 0.6)",
-                        color: isCurrent ? "#051A10" : "#8EA89D",
-                        border: isCurrent ? "none" : "1px solid rgba(77, 255, 160, 0.12)",
+                        background: isCurrent ? "var(--neon)" : "var(--panel2)",
+                        color: isCurrent ? "var(--bg)" : "var(--muted)",
+                        border: isCurrent ? "none" : "1px solid var(--border2)",
                         cursor: isAllowed ? "pointer" : "not-allowed",
-                        opacity: isAllowed ? 1 : 0.4,
+                        opacity: isAllowed ? 1 : 0.45,
                         transition: "all 0.15s ease",
                       }}
-                      title={!isAllowed ? `Requires Reviewer (${selectedTask.reviewer}) or Admin/HR permission` : `Move to ${st.name}`}
+                      title={!isAllowed ? `Requires Reviewer (${selectedTask.reviewer}) or Management permission` : `Move to ${st.name}`}
                     >
                       {st.name} {isCurrent ? "✓" : ""}
                     </button>
@@ -1250,12 +1274,114 @@ export function CommandCenterView({
               </div>
             </div>
 
+            {/* REVIEWER CHECK (QUALITY AUDIT) SECTION */}
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px 16px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", flexWrap: "wrap", gap: "6px" }}>
+                <span style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>
+                  REVIEWER CHECK (QUALITY AUDIT)
+                </span>
+                <span style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  letterSpacing: "0.05em",
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  textTransform: "uppercase",
+                  background: selectedTask.reviewStatus === "OK" ? "rgba(0, 232, 137, 0.12)" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "rgba(255, 89, 77, 0.12)" : "rgba(245, 166, 35, 0.12)",
+                  color: selectedTask.reviewStatus === "OK" ? "#00E889" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "#FF594D" : "#F5A623",
+                  border: selectedTask.reviewStatus === "OK" ? "1px solid rgba(0, 232, 137, 0.28)" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "1px solid rgba(255, 89, 77, 0.28)" : "1px solid rgba(245, 166, 35, 0.28)",
+                }}>
+                  {selectedTask.reviewStatus === "OK" ? "✓ OK" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "↩ Correction Needed" : "⏳ Pending Review"}
+                </span>
+              </div>
+
+              {selectedTask.reviewStatus === "CORRECTION_NEEDED" && (
+                <div style={{ background: "rgba(255, 89, 77, 0.08)", border: "1px solid rgba(255, 89, 77, 0.25)", borderRadius: "6px", padding: "12px", marginBottom: "12px" }}>
+                  <div style={{ fontWeight: 700, color: "#FF594D", fontSize: "11px", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: "4px" }}>
+                    ↩ CORRECTION NEEDED
+                  </div>
+                  <div style={{ fontSize: "12.5px", color: "var(--text)", marginBottom: "6px", lineHeight: "1.45" }}>
+                    "{selectedTask.reviewNote || "Correction requested."}"
+                  </div>
+                  <div style={{ fontSize: "11px", color: "var(--muted)" }}>
+                    Reviewed by <strong style={{ color: "#FF594D" }}>{selectedTask.reviewedByName || selectedTask.reviewer || "Reviewer"}</strong> {selectedTask.reviewedAt ? `• ${new Date(selectedTask.reviewedAt).toLocaleString()}` : ""}
+                  </div>
+                </div>
+              )}
+
+              {selectedTask.reviewStatus === "OK" && (
+                <div style={{ background: "rgba(0, 232, 137, 0.08)", border: "1px solid rgba(0, 232, 137, 0.25)", borderRadius: "6px", padding: "10px 12px", marginBottom: "12px", fontSize: "12px", color: "#00E889" }}>
+                  ✓ Quality audit passed — Marked OK by <strong>{selectedTask.reviewedByName || selectedTask.reviewer || "Reviewer"}</strong> {selectedTask.reviewedAt ? `on ${new Date(selectedTask.reviewedAt).toLocaleDateString()}` : ""}
+                </div>
+              )}
+
+              {isReviewerOrManager(selectedTask) && (!currentUser || String(currentUser.id) !== selectedTask.assignee || ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"].includes((userRole || "").toUpperCase())) ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: "6px" }}>
+                      REVIEWER NOTE / FEEDBACK
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={reviewNoteInput}
+                      onChange={(e) => setReviewNoteInput(e.target.value)}
+                      placeholder="Type reviewer feedback or correction details..."
+                      style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", background: "var(--panel)", border: "1px solid var(--border2)", color: "var(--text)", fontSize: "12px", resize: "vertical" }}
+                    />
+                  </div>
+
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      disabled={isSubmittingReview}
+                      onClick={async () => {
+                        if (!onReviewCheck || isSubmittingReview) return;
+                        setIsSubmittingReview(true);
+                        try {
+                          await onReviewCheck(Number(selectedTask.id), "OK", reviewNoteInput);
+                          setSelectedTask((prev) => prev ? { ...prev, reviewStatus: "OK", reviewNote: reviewNoteInput } : null);
+                        } finally {
+                          setIsSubmittingReview(false);
+                        }
+                      }}
+                      style={{ flex: 1, minWidth: "130px", height: "38px", borderRadius: "6px", background: "var(--neon)", color: "var(--bg)", fontWeight: 700, fontSize: "12px", border: "none", cursor: isSubmittingReview ? "not-allowed" : "pointer" }}
+                    >
+                      ✓ Mark as OK
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isSubmittingReview || !reviewNoteInput.trim()}
+                      onClick={async () => {
+                        if (!onReviewCheck || isSubmittingReview || !reviewNoteInput.trim()) return;
+                        setIsSubmittingReview(true);
+                        try {
+                          await onReviewCheck(Number(selectedTask.id), "CORRECTION_NEEDED", reviewNoteInput);
+                          setSelectedTask((prev) => prev ? { ...prev, reviewStatus: "CORRECTION_NEEDED", reviewNote: reviewNoteInput } : null);
+                        } finally {
+                          setIsSubmittingReview(false);
+                        }
+                      }}
+                      style={{ flex: 1, minWidth: "150px", height: "38px", borderRadius: "6px", background: "rgba(255, 89, 77, 0.12)", color: "#FF594D", border: "1px solid rgba(255, 89, 77, 0.3)", fontWeight: 700, fontSize: "12px", cursor: (isSubmittingReview || !reviewNoteInput.trim()) ? "not-allowed" : "pointer", opacity: reviewNoteInput.trim() ? 1 : 0.5 }}
+                      title={!reviewNoteInput.trim() ? "A reviewer note is required to request corrections" : "Request Correction"}
+                    >
+                      ↩ Correction Needed
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: "11.5px", color: "var(--muted)", fontStyle: "italic" }}>
+                  Quality audit is managed by assigned Reviewer ({selectedTask.reviewer || "Reviewer"}) or Management.
+                </div>
+              )}
+            </div>
+
             {/* FOOTER ACTIONS */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
               {canDeleteSelectedTask && (
                 <button
                   type="button"
-                  style={{ background: "rgba(185, 28, 28, 0.3)", color: "#F87171", border: "1px solid rgba(239, 68, 68, 0.25)", padding: "8px 20px", borderRadius: "8px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}
+                  style={{ background: "rgba(255, 89, 77, 0.12)", color: "#FF594D", border: "1px solid rgba(255, 89, 77, 0.3)", padding: "0 16px", height: "38px", borderRadius: "6px", fontWeight: 700, fontSize: "12px", cursor: "pointer" }}
                   onClick={async () => {
                     if (confirm("Delete this task?")) {
                       if (onDeleteWork) {
@@ -1273,20 +1399,12 @@ export function CommandCenterView({
               )}
               <button
                 type="button"
-                style={{ background: "rgba(30, 41, 59, 0.8)", color: "#E2E8F0", border: "1px solid rgba(255, 255, 255, 0.1)", padding: "8px 20px", borderRadius: "8px", fontWeight: 600, fontSize: "13px", cursor: "pointer" }}
+                className="secondary-button"
+                style={{ height: "38px" }}
                 onClick={() => setSelectedTask(null)}
               >
                 Close
               </button>
-              {canEditSelectedTask && (
-                <button
-                  type="button"
-                  style={{ background: "#00E676", color: "#051A10", border: "none", padding: "8px 22px", borderRadius: "8px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}
-                  onClick={() => setSelectedTask(null)}
-                >
-                  Edit
-                </button>
-              )}
             </div>
 
           </div>

@@ -33,6 +33,7 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
     reviewer = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(is_active=True), required=False, allow_null=True)
     reviewer_details = serializers.SerializerMethodField()
     assigned_by_name = serializers.SerializerMethodField()
+    reviewed_by_name = serializers.SerializerMethodField()
     is_overdue = serializers.SerializerMethodField()
     remaining_quantity = serializers.IntegerField(read_only=True)
     deliverables = serializers.SerializerMethodField()
@@ -63,12 +64,17 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
             "reviewer_name",
             "reviewer_details",
             "assigned_by_name",
+            "review_status",
+            "review_note",
+            "reviewed_by",
+            "reviewed_at",
+            "reviewed_by_name",
             "is_overdue",
             "deliverables",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["progress", "remaining_quantity", "completed_at", "created_at", "updated_at"]
+        read_only_fields = ["progress", "remaining_quantity", "completed_at", "reviewed_by", "reviewed_at", "created_at", "updated_at"]
         extra_kwargs = {"client": {"required": False, "allow_null": True}}
 
     @staticmethod
@@ -89,6 +95,12 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
             return "Admin"
         u = obj.assigned_by
         return u.first_name.strip() if u.first_name and u.first_name.strip() else u.username or "Admin"
+
+    def get_reviewed_by_name(self, obj):
+        if not obj.reviewed_by:
+            return ""
+        u = obj.reviewed_by
+        return u.first_name.strip() if u.first_name and u.first_name.strip() else u.username
 
     def get_is_overdue(self, obj):
         return obj.status != "Completed" and obj.due_date < timezone.localdate()

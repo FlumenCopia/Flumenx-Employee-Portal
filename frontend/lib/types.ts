@@ -177,6 +177,8 @@ export type WorkDeliverable = {
   due_date: string; status: WorkStatus; completed_at: string | null; is_overdue: boolean;
   created_at: string; updated_at: string;
 };
+export type ReviewStatus = "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED";
+
 export type WorkAssignment = {
   id: number; employee: number; employee_name: string; employee_department?: string; client: number; client_name: string;
   title: string; description: string; priority: WorkPriority; assigned_date: string; due_date: string;
@@ -185,6 +187,11 @@ export type WorkAssignment = {
   assigned_by: number | null; assigned_by_name: string;
   reviewer?: number | null; reviewer_name?: string;
   reviewer_details?: { id: number | null; name: string; username: string } | null;
+  review_status?: ReviewStatus;
+  review_note?: string;
+  reviewed_by?: number | null;
+  reviewed_at?: string | null;
+  reviewed_by_name?: string;
   is_overdue: boolean; deliverables: WorkDeliverable[]; created_at: string; updated_at: string;
 };
 
@@ -202,6 +209,9 @@ export type WorkSummary = {
   blocked: number;
   completed: number;
   overdue: number;
+  review_pending?: number;
+  review_ok?: number;
+  review_correction?: number;
   total_assigned_qty?: number;
   total_completed_qty?: number;
   overall_progress?: number;

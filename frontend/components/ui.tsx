@@ -3,11 +3,11 @@ import { MoreHorizontal } from "lucide-react";
 
 export function PageHeader({ eyebrow, title, subtitle, action }: { eyebrow?: string; title: string; subtitle?: string; action?: ReactNode }) {
   return (
-    <div className="page-header" style={{ marginBottom: "14px" }}>
+    <div className="page-header" style={{ marginBottom: "16px" }}>
       <div>
-        {eyebrow && <div className="eyebrow" style={{ fontSize: "9.5px", letterSpacing: "0.1em", color: "var(--neon)", fontWeight: 700, marginBottom: "4px" }}>{eyebrow}</div>}
-        <h1 style={{ fontSize: "21px", fontWeight: 700, color: "var(--text)", margin: 0, lineHeight: 1.2 }}>{title}</h1>
-        {subtitle && <p style={{ fontSize: "11.5px", color: "var(--muted)", margin: "3px 0 0 0" }}>{subtitle}</p>}
+        {eyebrow && <div className="eyebrow" style={{ fontSize: "10px", letterSpacing: "0.08em", color: "var(--neon)", fontWeight: 700, marginBottom: "4px" }}>{eyebrow}</div>}
+        <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text)", margin: 0, lineHeight: 1.25, letterSpacing: "-0.02em" }}>{title}</h1>
+        {subtitle && <p style={{ fontSize: "12px", color: "var(--muted)", margin: "4px 0 0 0", lineHeight: 1.45 }}>{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -35,7 +35,7 @@ export function Section({ title, kicker, children, action }: { title: string; ki
           {kicker && <span>{kicker}</span>}
           <h2>{title}</h2>
         </div>
-        {action || <button className="ghost-icon"><MoreHorizontal size={18} /></button>}
+        {action || <button type="button" className="ghost-icon" aria-label="More options"><MoreHorizontal size={18} /></button>}
       </div>
       {children}
     </section>
@@ -57,9 +57,9 @@ export function PrimaryButton({ children, type = "button", onClick, disabled }: 
 export function EmptyState({ title, text }: { title: string; text: string }) {
   return (
     <div className="empty-state">
-      <span>F</span>
-      <h3>{title}</h3>
-      <p>{text}</p>
+      <span style={{ fontSize: "36px", fontWeight: 800, color: "var(--neon)", display: "block", marginBottom: "12px" }}>F</span>
+      <h3 style={{ fontSize: "16px", fontWeight: 700, margin: "0 0 6px 0", color: "var(--text)" }}>{title}</h3>
+      <p style={{ fontSize: "12px", color: "var(--muted)", margin: 0, lineHeight: 1.5 }}>{text}</p>
     </div>
   );
 }

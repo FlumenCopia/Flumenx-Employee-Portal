@@ -193,6 +193,12 @@ class WorkAssignment(models.Model):
         ("Published", "Published"),
     ]
 
+    REVIEW_STATUSES = [
+        ("PENDING_REVIEW", "Pending Review"),
+        ("OK", "OK"),
+        ("CORRECTION_NEEDED", "Correction Needed"),
+    ]
+
     employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="work_assignments")
     client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name="work_assignments")
     title = models.CharField(max_length=180)
@@ -209,6 +215,10 @@ class WorkAssignment(models.Model):
     assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="assigned_work")
     reviewer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_work_assignments")
     reviewer_name = models.CharField(max_length=120, blank=True, default="")
+    review_status = models.CharField(max_length=30, choices=REVIEW_STATUSES, default="PENDING_REVIEW")
+    review_note = models.TextField(blank=True, default="")
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="quality_reviewed_work")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
