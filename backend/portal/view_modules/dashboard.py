@@ -52,7 +52,7 @@ def dashboard(request):
                 "leave_type": l.leave_type,
                 "start_date": str(l.start_date),
                 "end_date": str(l.end_date),
-                "days": l.days,
+                "days": (l.end_date - l.start_date).days + 1 if (l.start_date and l.end_date) else 1,
                 "reason": l.reason,
             }
             for l in pending_leaves_qs[:5]
