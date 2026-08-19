@@ -29,6 +29,13 @@ import type { WorkAssignment, Client, WorkEmployeeOption, WorkPriority, WorkStat
 import { api } from "@/lib/api";
 import { Modal } from "@/features/common/Modal";
 
+function isDateStrictlyPast(dateStr?: string): boolean {
+  if (!dateStr) return false;
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return dateStr < todayStr;
+}
+
 export interface TaskItem {
   id: string;
   code: string;
@@ -43,7 +50,7 @@ export interface TaskItem {
   due: string;
   hours: number;
   deliverable?: string | null;
-  status: "assigned" | "progress" | "review" | "approved" | "published";
+  status: "backlog" | "assigned" | "progress" | "review" | "approved" | "published";
   priority: "p0" | "p1" | "p2";
   rawStatus?: WorkStatus;
   reviewStatus?: "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED";
@@ -103,6 +110,7 @@ export const PHASES = [
 ];
 
 export const STATUSES: Array<{ id: TaskItem["status"]; name: string; color: string }> = [
+  { id: "backlog", name: "Backlog", color: "#FF6B6B" },
   { id: "assigned", name: "Assigned", color: "#3B82F6" },
   { id: "progress", name: "In Progress", color: "#F59E0B" },
   { id: "review", name: "In Review", color: "#A78BFA" },
@@ -111,6 +119,7 @@ export const STATUSES: Array<{ id: TaskItem["status"]; name: string; color: stri
 ];
 
 export const ALL_WORK_STATUSES: Array<{ id: WorkStatus; name: string; isReviewerOnly: boolean }> = [
+  { id: "Backlog", name: "Backlog", isReviewerOnly: false },
   { id: "Assigned", name: "Assigned", isReviewerOnly: false },
   { id: "In Progress", name: "In Progress", isReviewerOnly: false },
   { id: "In Review", name: "In Review", isReviewerOnly: false },
@@ -260,8 +269,9 @@ export function CommandCenterView({
     if (assignments && assignments.length > 0) {
       const converted: TaskItem[] = assignments.map((a) => {
         const statusMap: Record<string, TaskItem["status"]> = {
+          Backlog: "backlog",
           Assigned: "assigned",
-          Pending: "assigned",
+          Pending: "backlog",
           "In Progress": "progress",
           Ongoing: "progress",
           Blocked: "progress",
@@ -283,6 +293,10 @@ export function CommandCenterView({
           : a.employee_department;
         const detectedType = normalizeDepartment(rawWorkType);
 
+        const mappedStatus = statusMap[a.status] || "progress";
+        const isTaskOverdue = (a.is_overdue || isDateStrictlyPast(a.due_date)) && !["approved", "published"].includes(mappedStatus);
+        const finalStatus = (isTaskOverdue || a.status === "Backlog") && !["approved", "published"].includes(mappedStatus) ? "backlog" : mappedStatus;
+
         return {
           id: String(a.id),
           code: `EXP-${String(a.id).padStart(3, "0")}`,
@@ -296,7 +310,7 @@ export function CommandCenterView({
           reviewerId: a.reviewer,
           due: a.due_date,
           hours: 8,
-          status: statusMap[a.status] || "progress",
+          status: finalStatus,
           priority: priorityMap[a.priority] || "p1",
           rawStatus: a.status,
           reviewStatus: a.review_status || "PENDING_REVIEW",
@@ -345,7 +359,7 @@ export function CommandCenterView({
   const doneTasks = tasks.filter((t) => ["published", "approved"].includes(t.status)).length;
   const inProgressTasks = tasks.filter((t) => t.status === "progress").length;
   const reviewTasks = tasks.filter((t) => t.status === "review").length;
-  const lateTasks = tasks.filter((t) => new Date(t.due) < new Date() && !["published", "approved"].includes(t.status));
+  const lateTasks = tasks.filter((t) => isDateStrictlyPast(t.due) && !["published", "approved"].includes(t.status));
   const completionPct = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
   const totalBudget = DEFAULT_BUDGET.reduce((a, b) => a + b.total, 0);
@@ -390,8 +404,9 @@ export function CommandCenterView({
     setIsUpdatingStatus(true);
     setStatusError("");
     const statusMap: Record<string, TaskItem["status"]> = {
+      Backlog: "backlog",
       Assigned: "assigned",
-      Pending: "assigned",
+      Pending: "backlog",
       "In Progress": "progress",
       Ongoing: "progress",
       Blocked: "progress",
@@ -418,6 +433,7 @@ export function CommandCenterView({
 
   const moveTask = (id: string, newStatus: TaskItem["status"]) => {
     const reverseMap: Record<TaskItem["status"], WorkStatus> = {
+      backlog: "Backlog",
       assigned: "Assigned",
       progress: "In Progress",
       review: "In Review",
@@ -860,7 +876,7 @@ export function CommandCenterView({
                       <div style={{ textAlign: "center", padding: "24px 8px", color: "var(--muted)", fontSize: "11px" }}>No tasks</div>
                     ) : (
                       colTasks.map((t) => {
-                        const isOverdue = new Date(t.due) < new Date();
+                        const isOverdue = isDateStrictlyPast(t.due);
                         const canonKey = normalizeDepartment(t.type);
                         const typeInfo = CANONICAL_DEPARTMENTS[canonKey] || { label: t.type, badge: t.type, color: "#89ACA0" };
                         return (

@@ -33,7 +33,7 @@ export default function LoginPage() {
         clearCachedAuthUser();
         setCheckingSession(false);
       }
-    }, 3000);
+    }, 800);
 
     api<AuthUser>("/auth/me/")
       .then(user => {

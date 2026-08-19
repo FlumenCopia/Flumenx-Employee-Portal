@@ -376,7 +376,13 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
       })
       .catch(() => {
         clearCachedAuthUser();
-        if (active) router.replace("/login");
+        if (active) {
+          if (typeof window !== "undefined") {
+            window.location.replace("/login");
+          } else {
+            router.replace("/login");
+          }
+        }
       });
     return () => { active = false; };
   }, [workspaceRole, router]);

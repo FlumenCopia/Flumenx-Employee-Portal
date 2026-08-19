@@ -170,7 +170,7 @@ export type Client = {
   id: number; name: string; created_at: string; updated_at: string;
 };
 export type WorkPriority = "Low" | "Normal" | "High" | "Urgent";
-export type WorkStatus = "Assigned" | "In Progress" | "In Review" | "Approved" | "Published" | "Pending" | "Ongoing" | "Blocked" | "Changes Requested" | "Rejected" | "Completed";
+export type WorkStatus = "Backlog" | "Assigned" | "In Progress" | "In Review" | "Approved" | "Published" | "Pending" | "Ongoing" | "Blocked" | "Changes Requested" | "Rejected" | "Completed";
 export type WorkDeliverable = {
   id: number; assignment: number; assignment_title: string; employee_name: string;
   client: number; client_name: string; title: string; brief: string; work_type: string;

@@ -180,6 +180,7 @@ class WorkAssignment(models.Model):
         ("Urgent", "Urgent"),
     ]
     STATUSES = [
+        ("Backlog", "Backlog"),
         ("Assigned", "Assigned"),
         ("Pending", "Pending"),
         ("In Progress", "In Progress"),
@@ -276,6 +277,7 @@ class WorkAssignment(models.Model):
 
     def sync_quantity_state(self):
         weight_map = {
+            "Backlog": 0.0,
             "Assigned": 0.0,
             "Pending": 0.0,
             "In Progress": 0.25,
@@ -314,6 +316,7 @@ class WorkAssignment(models.Model):
         assigned = len(rows)
 
         weight_map = {
+            "Backlog": 0.0,
             "Assigned": 0.0,
             "Pending": 0.0,
             "In Progress": 0.25,

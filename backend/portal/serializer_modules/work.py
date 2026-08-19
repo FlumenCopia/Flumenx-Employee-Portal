@@ -143,7 +143,7 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
         attrs = super().validate(attrs)
         request = self.context.get("request")
         requested_status = attrs.get("status")
-        valid_statuses = ("Assigned", "Pending", "In Progress", "Ongoing", "Blocked", "In Review", "Changes Requested", "Rejected", "Approved", "Completed", "Published")
+        valid_statuses = ("Backlog", "Assigned", "Pending", "In Progress", "Ongoing", "Blocked", "In Review", "Changes Requested", "Rejected", "Approved", "Completed", "Published")
 
         if requested_status and requested_status not in valid_statuses:
             raise serializers.ValidationError({"status": f"Invalid status value '{requested_status}'."})
@@ -153,7 +153,7 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
             if not is_rev:
                 if requested_status in ("Approved", "Changes Requested", "Rejected", "Completed", "Published"):
                     raise PermissionDenied("Only the assigned Reviewer or Management can approve, reject, request changes, complete, or publish work.")
-                if requested_status not in ("Assigned", "Pending", "In Progress", "Ongoing", "Blocked", "In Review"):
+                if requested_status not in ("Backlog", "Assigned", "Pending", "In Progress", "Ongoing", "Blocked", "In Review"):
                     raise PermissionDenied("Assigned employee can only move work to In Review or update progress.")
                 if requested_status == "In Review" and self.instance.status in ("Approved", "Completed", "Published", "Rejected"):
                     raise PermissionDenied(f"Assigned employee cannot submit work for review when current status is '{self.instance.status}'.")
@@ -263,7 +263,7 @@ class WorkDeliverableSerializer(serializers.ModelSerializer):
             if protected:
                 raise PermissionDenied("Execution roles can update only deliverable status.")
             requested_status = attrs.get("status")
-            if requested_status not in ("Assigned", "Pending", "In Progress", "Ongoing", "Blocked", "In Review", "Approved", "Completed", "Published"):
+            if requested_status not in ("Backlog", "Assigned", "Pending", "In Progress", "Ongoing", "Blocked", "In Review", "Approved", "Completed", "Published"):
                 raise PermissionDenied("Execution roles can update only valid deliverable statuses.")
         elif not self.instance and role not in WORK_CREATOR_ROLES:
             raise PermissionDenied("Execution roles cannot create deliverables.")
