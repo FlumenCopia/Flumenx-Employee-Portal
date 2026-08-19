@@ -1,0 +1,9 @@
+{
+  "name": "flumenx-backend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "bash build.sh",
+    "vercel-build": "bash build.sh"
+  }
+}
