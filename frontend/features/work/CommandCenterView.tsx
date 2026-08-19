@@ -301,7 +301,7 @@ export function CommandCenterView({
           id: String(a.id),
           code: `EXP-${String(a.id).padStart(3, "0")}`,
           title: a.title,
-          desc: a.description || "",
+          desc: (a.description || "").replace(/\[PHASE:\s*[^\]]+\]/gi, "").replace(/\[EST_HOURS:\s*[^\]]+\]/gi, "").trim(),
           type: detectedType,
           phase: "ph1",
           assignee: String(a.employee),
@@ -1164,8 +1164,6 @@ export function CommandCenterView({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
               <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "monospace", display: "flex", gap: "6px", alignItems: "center" }}>
                 <span style={{ color: "var(--neon)", fontWeight: 700 }}>{selectedTask.code}</span>
-                <span>·</span>
-                <span>{PHASES.find((p) => p.id === selectedTask.phase)?.name || "AMPLIFY"}</span>
               </div>
 
               {/* STATUS & PRIORITY CHIPS */}
@@ -1183,9 +1181,11 @@ export function CommandCenterView({
             </div>
 
             {/* DESCRIPTION BOX */}
-            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px 16px", fontSize: "13px", color: "var(--text)", lineHeight: "1.5" }}>
-              {selectedTask.desc || "Instant form, stall pricing visual, floor plan creative. Primary B2B lead engine."}
-            </div>
+            {selectedTask.desc && (
+              <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px 16px", fontSize: "13px", color: "var(--text)", lineHeight: "1.5" }}>
+                {selectedTask.desc}
+              </div>
+            )}
 
             {/* METADATA GRID (2 COLUMNS) */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px 20px", fontSize: "12px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px 16px" }}>
@@ -1203,14 +1203,10 @@ export function CommandCenterView({
                 <span style={{ color: "var(--text)" }}>{selectedTask.reviewer || "—"}</span>
               </div>
               <div style={{ display: "flex", gap: "6px" }}>
-                <span style={{ color: "var(--muted)", fontWeight: 600 }}>Phase—</span>
-                <span style={{ color: "var(--text)" }}>{PHASES.find((p) => p.id === selectedTask.phase)?.name || "AMPLIFY"}</span>
-              </div>
-
-              <div style={{ display: "flex", gap: "6px" }}>
                 <span style={{ color: "var(--muted)", fontWeight: 600 }}>Client—</span>
                 <span style={{ color: "var(--neon)", fontWeight: 700 }}>{selectedTask.clientName || clients.find((c) => c.id === selectedTask.clientId)?.name || "—"}</span>
               </div>
+
               <div style={{ display: "flex", gap: "6px" }}>
                 <span style={{ color: "var(--muted)", fontWeight: 600 }}>Due date—</span>
                 <span style={{ color: "var(--text)" }}>{selectedTask.due || "—"}</span>
