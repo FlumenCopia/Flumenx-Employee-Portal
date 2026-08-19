@@ -941,3 +941,85 @@ body{font-size:13px;line-height:1.45}.sidebar nav a{font-size:13px;padding:12px 
     justify-content: center !important;
   }
 }
+
+/* Mobile & Tablet Notification Bell & Task Board Responsiveness Enhancements */
+.notification-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.notification-trigger {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.notification-badge {
+  position: absolute;
+  right: -2px;
+  top: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #FF5F6D;
+  color: #FFF;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--bg);
+  pointer-events: none;
+  z-index: 2;
+}
+
+@media (max-width: 640px) {
+  .notification-panel {
+    position: fixed !important;
+    top: 56px !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    max-width: calc(100vw - 24px) !important;
+    z-index: 10000 !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85) !important;
+    border-radius: 12px !important;
+  }
+
+  .notification-list {
+    max-height: 55vh !important;
+  }
+
+  .topbar {
+    padding: 0 10px !important;
+  }
+
+  .top-actions {
+    gap: 6px !important;
+  }
+
+  .topbar-user-name {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .kb {
+    padding-bottom: 16px !important;
+    gap: 12px !important;
+  }
+
+  .kb-col {
+    min-width: 275px !important;
+    max-width: 295px !important;
+    flex: 0 0 275px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .kb-col {
+    min-width: 84vw !important;
+    max-width: 88vw !important;
+    flex: 0 0 84vw !important;
+  }
+}

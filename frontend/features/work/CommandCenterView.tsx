@@ -776,11 +776,11 @@ export function CommandCenterView({
             </div>
 
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "8px", paddingTop: "8px", borderTop: "1px solid var(--border)" }}>
-              <div style={{ display: "flex", gap: "4px", overflowX: "auto" }}>
+              <div style={{ display: "flex", gap: "4px", overflowX: "auto", flexWrap: "nowrap", WebkitOverflowScrolling: "touch", paddingBottom: "2px" }}>
                 <button
                   type="button"
                   onClick={() => setSelectedTypeFilter("all")}
-                  style={{ padding: "4px 10px", borderRadius: "var(--rs)", fontSize: "10.5px", fontWeight: 700, background: selectedTypeFilter === "all" ? "var(--neon)" : "var(--panel2)", color: selectedTypeFilter === "all" ? "var(--bg)" : "var(--muted)" }}
+                  style={{ flexShrink: 0, whiteSpace: "nowrap", padding: "4px 10px", borderRadius: "var(--rs)", fontSize: "10.5px", fontWeight: 700, background: selectedTypeFilter === "all" ? "var(--neon)" : "var(--panel2)", color: selectedTypeFilter === "all" ? "var(--bg)" : "var(--muted)" }}
                 >
                   All Depts / Types
                 </button>
@@ -789,14 +789,14 @@ export function CommandCenterView({
                     key={pill.id}
                     type="button"
                     onClick={() => setSelectedTypeFilter(pill.id)}
-                    style={{ padding: "4px 10px", borderRadius: "var(--rs)", fontSize: "10.5px", fontWeight: 700, background: selectedTypeFilter === pill.id ? "var(--neon)" : "var(--panel2)", color: selectedTypeFilter === pill.id ? "var(--bg)" : "var(--muted)" }}
+                    style={{ flexShrink: 0, whiteSpace: "nowrap", padding: "4px 10px", borderRadius: "var(--rs)", fontSize: "10.5px", fontWeight: 700, background: selectedTypeFilter === pill.id ? "var(--neon)" : "var(--panel2)", color: selectedTypeFilter === pill.id ? "var(--bg)" : "var(--muted)" }}
                   >
                     {pill.name}
                   </button>
                 ))}
               </div>
 
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 <select
                   className="fs"
                   value={selectedMemberFilter}
@@ -826,11 +826,11 @@ export function CommandCenterView({
             </div>
 
             {/* Status Pills */}
-            <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingTop: "8px", borderTop: "1px solid var(--border)" }}>
+            <div style={{ display: "flex", gap: "6px", overflowX: "auto", flexWrap: "nowrap", WebkitOverflowScrolling: "touch", paddingTop: "8px", borderTop: "1px solid var(--border)", paddingBottom: "2px" }}>
               <button
                 type="button"
                 onClick={() => setStatusPillFilter("all")}
-                style={{ padding: "4px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: 700, background: statusPillFilter === "all" ? "var(--neon)" : "var(--panel2)", color: statusPillFilter === "all" ? "var(--bg)" : "var(--muted)" }}
+                style={{ flexShrink: 0, whiteSpace: "nowrap", padding: "4px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: 700, background: statusPillFilter === "all" ? "var(--neon)" : "var(--panel2)", color: statusPillFilter === "all" ? "var(--bg)" : "var(--muted)" }}
               >
                 All Board ({filteredTasks.length})
               </button>
@@ -841,9 +841,9 @@ export function CommandCenterView({
                     key={st.id}
                     type="button"
                     onClick={() => setStatusPillFilter(st.id)}
-                    style={{ padding: "4px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px", background: statusPillFilter === st.id ? "var(--neon)" : "var(--panel2)", color: statusPillFilter === st.id ? "var(--bg)" : "var(--muted)" }}
+                    style={{ flexShrink: 0, whiteSpace: "nowrap", padding: "4px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px", background: statusPillFilter === st.id ? "var(--neon)" : "var(--panel2)", color: statusPillFilter === st.id ? "var(--bg)" : "var(--muted)" }}
                   >
-                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: st.color }} />
+                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: st.color, flexShrink: 0 }} />
                     {st.name} ({count})
                   </button>
                 );
