@@ -50,6 +50,7 @@ export interface TaskItem {
   due: string;
   hours: number;
   deliverable?: string | null;
+  deliverables?: any[];
   status: "backlog" | "assigned" | "progress" | "review" | "approved" | "published";
   priority: "p0" | "p1" | "p2";
   rawStatus?: WorkStatus;
@@ -320,6 +321,7 @@ export function CommandCenterView({
           reviewedByName: a.reviewed_by_name || "",
           clientName: a.client_name,
           clientId: a.client,
+          deliverables: a.deliverables || [],
         };
       });
       setTasks(converted);
