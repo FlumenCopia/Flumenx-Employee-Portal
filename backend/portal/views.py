@@ -41,11 +41,15 @@ class FlumenxTokenSerializer(TokenObtainPairSerializer):
         email = attrs.get("email", "").strip().lower()
         password = attrs.get("password")
         invalid_credentials = _("No active account found with the given credentials")
-        matches = list(User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)))
-        if len(matches) != 1:
+        matches = list(User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)).order_by("-is_active", "-is_superuser", "id"))
+        if not matches:
             raise InvalidToken(invalid_credentials)
-        self.user = matches[0]
-        if not self.user.check_password(password) or not self.user.is_active:
+        self.user = None
+        for candidate in matches:
+            if candidate.is_active and candidate.check_password(password):
+                self.user = candidate
+                break
+        if not self.user:
             raise InvalidToken(invalid_credentials)
         refresh = self.get_token(self.user)
         return {

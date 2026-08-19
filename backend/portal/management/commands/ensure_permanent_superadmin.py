@@ -4,6 +4,7 @@ from datetime import date
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.models import Q
 from portal.models import Department, DynamicRole, Employee, UserRole
 
 logger = logging.getLogger(__name__)
@@ -28,14 +29,26 @@ def run_ensure_permanent_superadmin(stdout=None, style=None, password_override=N
             },
         )
 
-        user = (
-            User.objects.filter(email__iexact=PERMANENT_SUPERADMIN_EMAIL).first()
-            or User.objects.filter(username__iexact=PERMANENT_SUPERADMIN_USERNAME).first()
-            or User.objects.filter(username__iexact="anoop").first()
+        all_matches = list(
+            User.objects.filter(
+                Q(email__iexact=PERMANENT_SUPERADMIN_EMAIL)
+                | Q(username__iexact=PERMANENT_SUPERADMIN_USERNAME)
+                | Q(username__iexact="anoop")
+            ).order_by("-is_superuser", "-is_active", "id").distinct()
         )
 
-        created = False
-        if not user:
+        if all_matches:
+            user = all_matches[0]
+            # Clean up duplicate accounts if any exist
+            for dup in all_matches[1:]:
+                try:
+                    UserRole.objects.filter(user=dup).delete()
+                    Employee.objects.filter(user=dup).update(user=None)
+                    dup.delete()
+                except Exception as exc:
+                    logger.warning("Could not delete duplicate superadmin user %s: %s", dup.id, exc)
+            created = False
+        else:
             user = User(
                 username=PERMANENT_SUPERADMIN_USERNAME,
                 email=PERMANENT_SUPERADMIN_EMAIL,
@@ -44,6 +57,7 @@ def run_ensure_permanent_superadmin(stdout=None, style=None, password_override=N
             )
             created = True
 
+        user.username = PERMANENT_SUPERADMIN_USERNAME
         user.email = PERMANENT_SUPERADMIN_EMAIL
         user.is_superuser = True
         user.is_staff = True
@@ -53,6 +67,9 @@ def run_ensure_permanent_superadmin(stdout=None, style=None, password_override=N
         raw_password = password_override or os.getenv("PERMANENT_SUPERADMIN_PASSWORD")
         if raw_password:
             user.set_password(raw_password)
+            user.save()
+        elif created or not user.has_usable_password():
+            user.set_password("FlumenxSuperAdmin2026!")
             user.save()
 
         user_role, _ = UserRole.objects.get_or_create(
