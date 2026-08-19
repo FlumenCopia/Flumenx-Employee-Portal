@@ -899,24 +899,6 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
       </label>
     </div>
 
-    {/* ROW 5: COUNTS TOWARD */}
-    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px" }}>
-      <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-        COUNTS TOWARD (KPI QUANTITY) *
-        <input
-          type="number"
-          min="1"
-          step="1"
-          value={form.assigned_quantity || "1"}
-          onChange={event => setForm(current => ({ ...current, assigned_quantity: event.target.value }))}
-          placeholder="e.g. 1"
-          required
-          className="fi"
-        />
-        {formErrors.assigned_quantity && <small style={{ color: "#EF4444" }}>{formErrors.assigned_quantity}</small>}
-      </label>
-    </div>
-
     {actionError && <div className="toast error">{actionError}</div>}
 
     {/* ACTIONS */}
