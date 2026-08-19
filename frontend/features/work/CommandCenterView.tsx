@@ -401,6 +401,10 @@ export function CommandCenterView({
 
   const handleWorkStatusChange = async (id: string, newStatus: WorkStatus) => {
     if (!onStatusChange || isNaN(Number(id)) || isUpdatingStatus) return;
+    if (newStatus === "Backlog") {
+      setStatusError("Backlog status is automatically calculated for overdue tasks after midnight and cannot be set manually.");
+      return;
+    }
     setIsUpdatingStatus(true);
     setStatusError("");
     const statusMap: Record<string, TaskItem["status"]> = {
@@ -966,10 +970,11 @@ export function CommandCenterView({
                                 )}
                                 {ALL_WORK_STATUSES.map((st) => {
                                   const isReviewerOnly = st.isReviewerOnly;
-                                  const isAllowed = canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
+                                  const isBacklog = st.id === "Backlog";
+                                  const isAllowed = !isBacklog && canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
                                   return (
                                     <option key={st.id} value={st.id} disabled={!isAllowed}>
-                                      {st.name} {isReviewerOnly && !isReviewerOrManager(t) ? "🔒" : ""}
+                                      {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(t) ? "🔒" : ""}
                                     </option>
                                   );
                                 })}
@@ -1233,7 +1238,25 @@ export function CommandCenterView({
               )}
 
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                {!ALL_WORK_STATUSES.some((st) => st.id === selectedTask.rawStatus) && selectedTask.rawStatus && (
+                {selectedTask.rawStatus === "Backlog" && (
+                  <button
+                    type="button"
+                    disabled
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: "6px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      background: "rgba(255, 107, 107, 0.2)",
+                      color: "#FF6B6B",
+                      border: "1px solid rgba(255, 107, 107, 0.4)",
+                      cursor: "not-allowed",
+                    }}
+                  >
+                    Backlog (Automated Overdue) ✓
+                  </button>
+                )}
+                {!ALL_WORK_STATUSES.some((st) => st.id === selectedTask.rawStatus) && selectedTask.rawStatus && selectedTask.rawStatus !== "Backlog" && (
                   <button
                     type="button"
                     disabled
@@ -1252,7 +1275,7 @@ export function CommandCenterView({
                     {selectedTask.rawStatus} ✓
                   </button>
                 )}
-                {ALL_WORK_STATUSES.map((st) => {
+                {ALL_WORK_STATUSES.filter((st) => st.id !== "Backlog").map((st) => {
                   const isCurrent = selectedTask.rawStatus === st.id;
                   const isReviewerOnly = st.isReviewerOnly;
                   const isAllowed = canMoveSelectedTaskStatus && (!isReviewerOnly || isReviewerOrManager(selectedTask));

@@ -145,6 +145,9 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
         requested_status = attrs.get("status")
         valid_statuses = ("Backlog", "Assigned", "Pending", "In Progress", "Ongoing", "Blocked", "In Review", "Changes Requested", "Rejected", "Approved", "Completed", "Published")
 
+        if requested_status == "Backlog":
+            raise serializers.ValidationError({"status": "Backlog status is automatically calculated for overdue tasks after midnight and cannot be set manually."})
+
         if requested_status and requested_status not in valid_statuses:
             raise serializers.ValidationError({"status": f"Invalid status value '{requested_status}'."})
 
@@ -256,6 +259,9 @@ class WorkDeliverableSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
         role = self.actor_role()
+
+        if attrs.get("status") == "Backlog":
+            raise serializers.ValidationError({"status": "Backlog status is automatically calculated for overdue tasks after midnight and cannot be set manually."})
 
         if self.instance and role not in WORK_CREATOR_ROLES:
             allowed = {"status"}
