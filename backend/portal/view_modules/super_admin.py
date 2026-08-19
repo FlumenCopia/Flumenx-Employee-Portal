@@ -316,16 +316,21 @@ class SuperAdminUserViewSet(viewsets.ModelViewSet):
                 Meeting.objects.filter(created_by=user).update(created_by=None)
                 Announcement.objects.filter(created_by=user).update(created_by=None)
                 Notification.objects.filter(user=user).update(user=None)
+                Notification.objects.filter(actor=user).update(actor=None)
                 AuditLog.objects.filter(actor=user).update(actor=None)
+
+                UserRole.objects.filter(user=user).delete()
 
                 try:
                     from django.contrib.admin.models import LogEntry
+
                     LogEntry.objects.filter(user=user).delete()
                 except Exception:
                     pass
 
                 try:
                     from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+
                     tokens = OutstandingToken.objects.filter(user=user)
                     BlacklistedToken.objects.filter(token__in=tokens).delete()
                     tokens.delete()
@@ -337,16 +342,17 @@ class SuperAdminUserViewSet(viewsets.ModelViewSet):
                 user.delete()
 
             return Response({"detail": f"User {username} deleted successfully."}, status=status.HTTP_200_OK)
-        except Exception:
-            user.is_active = False
-            user.save()
-            if emp:
-                emp.status = "Inactive"
-                emp.save()
-            return Response(
-                {"detail": f"User {username} has dependent records and was deactivated successfully."},
-                status=status.HTTP_200_OK,
-            )
+        except Exception as exc:
+            try:
+                if emp:
+                    Employee.objects.filter(id=emp.id).delete()
+                User.objects.filter(id=user.id).delete()
+                return Response({"detail": f"User {username} deleted successfully."}, status=status.HTTP_200_OK)
+            except Exception as final_exc:
+                return Response(
+                    {"detail": f"Could not delete user account: {str(final_exc)}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
     @action(detail=True, methods=["post"], url_path="password")
     def reset_password(self, request, pk=None):

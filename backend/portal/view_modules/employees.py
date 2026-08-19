@@ -166,7 +166,9 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                     Meeting.objects.filter(created_by=user).update(created_by=None)
                     Announcement.objects.filter(created_by=user).update(created_by=None)
                     Notification.objects.filter(user=user).update(user=None)
+                    Notification.objects.filter(actor=user).update(actor=None)
                     AuditLog.objects.filter(actor=user).update(actor=None)
+                    UserRole.objects.filter(user=user).delete()
 
                     # Delete Django Admin log entries for user
                     try:
