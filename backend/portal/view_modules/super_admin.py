@@ -275,8 +275,16 @@ class SuperAdminUserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         username = user.username
-        user.delete()
-        return Response({"detail": f"User {username} deleted successfully."})
+        user.is_active = False
+        user.save()
+
+        emp = getattr(user, "employee", None)
+        if emp:
+            emp.status = "Inactive"
+            emp.team_members.update(team_lead=None)
+            emp.save()
+
+        return Response({"detail": f"User {username} deactivated successfully."}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="password")
     def reset_password(self, request, pk=None):
