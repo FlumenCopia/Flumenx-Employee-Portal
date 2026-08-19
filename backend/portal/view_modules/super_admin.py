@@ -223,32 +223,10 @@ class SuperAdminUserViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         user = self.get_object()
-        is_perm_sa = (
-            user.email.lower() == "anoop@flumenx.com"
-            or user.username.lower() in ("anoop@flumenx.com", "anoop")
-        )
         serializer = SuperAdminUserUpdateSerializer(data=request.data, partial=kwargs.get("partial", False))
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
-        if is_perm_sa:
-            if "status" in data and data["status"] == "Inactive":
-                return Response(
-                    {"detail": "The permanent Super Admin account (anoop@flumenx.com) cannot be deactivated."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            if "is_active" in data and not data["is_active"]:
-                return Response(
-                    {"detail": "The permanent Super Admin account (anoop@flumenx.com) cannot be deactivated."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            if "dynamic_role_id" in data and data["dynamic_role_id"]:
-                drole = DynamicRole.objects.filter(id=data["dynamic_role_id"]).first()
-                if drole and drole.code != "SUPER_ADMIN":
-                    return Response(
-                        {"detail": "The permanent Super Admin account role cannot be changed away from Super Admin."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
 
         emp = getattr(user, "employee", None)
 
@@ -299,14 +277,6 @@ class SuperAdminUserViewSet(viewsets.ModelViewSet):
                 else:
                     UserRole.objects.create(user=user, role=legacy_role, dynamic_role=drole)
 
-        if is_perm_sa:
-            user.is_superuser = True
-            user.is_staff = True
-            user.is_active = True
-            if emp:
-                emp.status = "Active"
-                emp.save()
-
         user.save()
         read_serializer = SuperAdminUserSerializer(user)
         return Response(read_serializer.data)
@@ -316,14 +286,6 @@ class SuperAdminUserViewSet(viewsets.ModelViewSet):
         if user.id == request.user.id:
             return Response(
                 {"detail": "You cannot delete your own account."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if (
-            user.email.lower() == "anoop@flumenx.com"
-            or user.username.lower() in ("anoop@flumenx.com", "anoop")
-        ):
-            return Response(
-                {"detail": "The permanent Super Admin account (anoop@flumenx.com) cannot be deleted."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if user.is_superuser and User.objects.filter(is_superuser=True).count() <= 1:

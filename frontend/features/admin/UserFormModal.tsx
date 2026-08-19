@@ -332,7 +332,7 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
             <select
               value={dynamicRoleId}
               onChange={(e) => setDynamicRoleId(Number(e.target.value))}
-              disabled={rolesLoading || Boolean(user && (user.work_email?.toLowerCase() === "anoop@flumenx.com" || user.username?.toLowerCase() === "anoop"))}
+              disabled={rolesLoading}
               required
               className="fs"
             >
@@ -356,7 +356,6 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
               <select
                 value={statusVal}
                 onChange={(e) => setStatusVal(e.target.value as any)}
-                disabled={Boolean(user && (user.work_email?.toLowerCase() === "anoop@flumenx.com" || user.username?.toLowerCase() === "anoop"))}
                 className="fs"
               >
                 <option value="Active">Active</option>
@@ -370,7 +369,7 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
         {error && <div className="toast error">{error}</div>}
 
         <div style={{ display: "flex", justifyContent: isEdit ? "space-between" : "flex-end", alignItems: "center", gap: "10px", marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
-          {isEdit && user && !(user.work_email?.toLowerCase() === "anoop@flumenx.com" || user.username?.toLowerCase() === "anoop") && (
+          {isEdit && user && (
             <button
               type="button"
               onClick={handleDeleteUser}

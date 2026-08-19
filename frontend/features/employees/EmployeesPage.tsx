@@ -223,29 +223,18 @@ return <>
                 <Pencil size={16} />
               </button>
 
-              {e.email.toLowerCase() === "anoop@flumenx.com" ? (
-                <button
-                  type="button"
-                  title="Permanent Super Admin account cannot be deleted"
-                  disabled
-                  style={{ opacity: 0.4, cursor: "not-allowed" }}
-                >
-                  <Trash2 size={16} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  title="Delete employee"
-                  onClick={(evt) => {
-                    evt.stopPropagation();
-                    setSelectedEmployee(e);
-                    setDeleteError("");
-                    setDeleteModalOpen(true);
-                  }}
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
+              <button
+                type="button"
+                title="Delete employee"
+                onClick={(evt) => {
+                  evt.stopPropagation();
+                  setSelectedEmployee(e);
+                  setDeleteError("");
+                  setDeleteModalOpen(true);
+                }}
+              >
+                <Trash2 size={16} />
+              </button>
             </div>
           </div>
         ))}
