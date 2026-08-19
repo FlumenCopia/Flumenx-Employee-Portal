@@ -57,10 +57,33 @@ def dashboard(request):
         employee = getattr(request.user, "employee", None)
         if not employee:
             return Response(base)
+        employee_work = WorkAssignment.objects.filter(employee=employee).select_related("client")
+        work_summary = employee_work.aggregate(
+            active=Count("id", filter=Q(status__in=["Assigned", "In Progress", "Ongoing", "Blocked", "In Review"])),
+            completed=Count("id", filter=Q(status__in=["Completed", "Approved", "Published"])),
+            overdue=Count("id", filter=Q(due_date__lt=today) & ~Q(status__in=["Completed", "Approved", "Published"])),
+        )
+        recent_tasks = [
+            {
+                "id": w.id,
+                "title": w.title,
+                "client_name": w.client.name if w.client else "—",
+                "due_date": str(w.due_date) if w.due_date else "—",
+                "status": w.status,
+                "priority": w.priority,
+            }
+            for w in employee_work.order_by("-id")[:5]
+        ]
         base.update({
             "profile": EmployeeSerializer(employee).data,
             "leaves": LeaveSerializer(employee.leaves.all()[:4], many=True).data,
             "salary_slips": SalarySlipSerializer(employee.salary_slips.all()[:4], many=True).data,
             "attendance": employee_attendance_dashboard(employee, today),
+            "work_stats": {
+                "active_tasks": work_summary["active"] or 0,
+                "completed_tasks": work_summary["completed"] or 0,
+                "overdue_tasks": work_summary["overdue"] or 0,
+            },
+            "recent_tasks": recent_tasks,
         })
     return Response(base)
