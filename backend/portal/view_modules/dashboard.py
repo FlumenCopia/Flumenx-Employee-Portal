@@ -43,12 +43,41 @@ def dashboard(request):
             pending=Count("id", filter=Q(status="Pending")),
             overdue=Count("id", filter=Q(due_date__lt=today) & ~Q(status="Completed")),
         )
+        pending_leaves_qs = LeaveRequest.objects.filter(status="Pending").select_related("employee")
+        pending_leave_items = [
+            {
+                "id": l.id,
+                "employee_name": l.employee.name if l.employee else "—",
+                "employee_code": l.employee.employee_code if l.employee else "—",
+                "leave_type": l.leave_type,
+                "start_date": str(l.start_date),
+                "end_date": str(l.end_date),
+                "days": l.days,
+                "reason": l.reason,
+            }
+            for l in pending_leaves_qs[:5]
+        ]
+        recent_work = WorkAssignment.objects.select_related("employee", "client").order_by("-id")[:5]
+        recent_work_items = [
+            {
+                "id": w.id,
+                "title": w.title,
+                "employee_name": w.employee.name if w.employee else "—",
+                "client_name": w.client.name if w.client else "—",
+                "due_date": str(w.due_date) if w.due_date else "—",
+                "status": w.status,
+                "priority": w.priority,
+            }
+            for w in recent_work
+        ]
         base.update({
             "total_employees": employees["total"],
             "active_employees": employees["active"],
             "pending_leaves": LeaveRequest.objects.filter(status="Pending").count(),
+            "pending_leave_items": pending_leave_items,
             "pending_work": work["pending"],
             "overdue_work": work["overdue"],
+            "recent_work_items": recent_work_items,
             "active_clients": Client.objects.count(),
             "salary_slips": SalarySlip.objects.count(),
             "attendance": attendance_summary(today_records, employees["active"]),
