@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Trash2, X } from "lucide-react";
 import { Leave, Paginated } from "@/lib/types";
 import { api } from "@/lib/api";
 import { Avatar } from "@/components/icons";
@@ -18,6 +18,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   const userPerms = (user as any)?.permissions?.LEAVES;
   const canCreate = userPerms?.can_create ?? true;
   const canEdit = userPerms?.can_edit ?? isManagement;
+  const canDelete = userPerms?.can_delete ?? isManagement;
 
   const [items, setItems] = useState<Leave[]>([]);
   const [page, setPage] = useState(1);
@@ -66,6 +67,24 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
       setMessage(`Leave request ${status.toLowerCase()}.`);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : `Could not ${status.toLowerCase()} leave request.`);
+    } finally {
+      setDecisionPendingId(null);
+    }
+  }
+
+  async function deleteLeave(id: number) {
+    if (decisionPendingId !== null) return;
+    if (!window.confirm("Are you sure you want to delete this leave request?")) return;
+    setDecisionPendingId(id);
+    setMessage("");
+    setActionError("");
+    try {
+      await api(`/leaves/${id}/`, { method: "DELETE" });
+      setItems(current => current.filter(x => x.id !== id));
+      setMessage("Leave request deleted successfully.");
+      setCount(c => Math.max(0, c - 1));
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not delete leave request.");
     } finally {
       setDecisionPendingId(null);
     }
@@ -159,9 +178,9 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
             <span className="truncate">{l.reason}</span>
             <Badge tone={l.status}>{l.status}</Badge>
             <span className="truncate" style={{ color: "var(--muted)", fontSize: "12px" }}>{l.admin_note || "-"}</span>
-            {!isEmployee && canEdit && (
-              <div className="decision-buttons">
-                {l.status === "Pending" && (
+            {!isEmployee && (canEdit || canDelete) && (
+              <div className="decision-buttons" style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                {canEdit && l.status === "Pending" && (
                   <>
                     <button className="approve" title="Approve Leave" disabled={decisionPendingId !== null} onClick={() => decide(l.id, "Approved")}>
                       <Check size={16} />
@@ -170,6 +189,11 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
                       <X size={16} />
                     </button>
                   </>
+                )}
+                {canDelete && (
+                  <button className="reject" title="Delete Leave Request" style={{ color: "#ff5f6d", borderColor: "rgba(255,95,109,0.3)" }} disabled={decisionPendingId !== null} onClick={() => deleteLeave(l.id)}>
+                    <Trash2 size={15} />
+                  </button>
                 )}
               </div>
             )}

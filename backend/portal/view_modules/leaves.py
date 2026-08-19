@@ -84,3 +84,14 @@ class LeaveViewSet(viewsets.ModelViewSet):
         )
         log_action(request.user, f"Leave {decision}", "LeaveRequest", leave.id)
         return Response(self.get_serializer(leave).data)
+
+    def perform_destroy(self, instance):
+        from portal.permissions import has_page_permission
+        from rest_framework.exceptions import PermissionDenied
+
+        actor_role = portal_role(self.request.user)
+        if actor_role not in self.MANAGEMENT_ROLES or not has_page_permission(self.request.user, "LEAVES", "delete"):
+            raise PermissionDenied("You do not have permission to delete leave requests.")
+
+        log_action(self.request.user, "Delete Leave", "LeaveRequest", instance.id)
+        instance.delete()
