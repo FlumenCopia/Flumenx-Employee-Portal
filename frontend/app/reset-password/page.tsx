@@ -59,8 +59,9 @@ function ResetPasswordForm() {
 
   return (
     <div className="login-form-side" style={{ maxWidth: "480px", margin: "0 auto", padding: "32px 24px" }}>
-      <div className="form-rail">SECURE ACCOUNT RESET / FLX-02</div>
-      <div className="mobile-brand" style={{ marginBottom: "20px" }}><FlumenxMark /></div>
+      <div style={{ textAlign: "center", marginBottom: "20px" }}>
+        <img src="/flumenx-logo.webp" alt="FLUMENX" style={{ height: "40px", width: "auto", objectFit: "contain" }} />
+      </div>
 
       {isLinkInvalid ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "16px", background: "#0F1A15", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "16px", padding: "24px" }}>

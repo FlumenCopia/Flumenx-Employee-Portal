@@ -117,12 +117,15 @@ export default function LoginPage() {
     <div className="simple-login-page">
       <div className="login-form-side">
         <form onSubmit={submit}>
-          <div style={{ textAlign: "center", marginBottom: "20px" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-              <FlumenxMark />
-              <b style={{ fontSize: "18px", letterSpacing: "1px", color: "var(--text)" }}>FLUMENX</b>
+          <div style={{ textAlign: "center", marginBottom: "24px" }}>
+            <div style={{ display: "inline-flex", justifyContent: "center", alignItems: "center", marginBottom: "8px" }}>
+              <img
+                src="/flumenx-logo.webp"
+                alt="FLUMENX - Make It Happen"
+                style={{ height: "46px", width: "auto", objectFit: "contain" }}
+              />
             </div>
-            <div style={{ fontSize: "9px", letterSpacing: "0.2em", color: "var(--neon)", fontWeight: 700 }}>
+            <div style={{ fontSize: "10px", letterSpacing: "0.22em", color: "var(--neon)", fontWeight: 700, textTransform: "uppercase" }}>
               EMPLOYEE PORTAL
             </div>
           </div>

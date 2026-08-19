@@ -1,5 +1,16 @@
 export function FlumenxMark({ small = false }: { small?: boolean }) {
-  return <div className={small ? "flumenx-mark small" : "flumenx-mark"}><span>F</span><b>LUMENX</b><i /></div>;
+  if (small) {
+    return (
+      <div className="flumenx-mark small" style={{ display: "inline-flex", alignItems: "center" }}>
+        <img src="/flumen-icon.png" alt="FLUMENX Logo" style={{ height: "24px", width: "auto", objectFit: "contain" }} />
+      </div>
+    );
+  }
+  return (
+    <div className="flumenx-mark" style={{ display: "inline-flex", alignItems: "center" }}>
+      <img src="/flumenx-logo.webp" alt="FLUMENX" style={{ height: "28px", width: "auto", objectFit: "contain" }} />
+    </div>
+  );
 }
 
 export function Avatar({ name, size = 38 }: { name: string; size?: number }) {
