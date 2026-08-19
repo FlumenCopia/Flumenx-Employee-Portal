@@ -50,7 +50,6 @@ export interface TaskItem {
   due: string;
   hours: number;
   deliverable?: string | null;
-  deliverables?: any[];
   status: "backlog" | "assigned" | "progress" | "review" | "approved" | "published";
   priority: "p0" | "p1" | "p2";
   rawStatus?: WorkStatus;
@@ -321,7 +320,6 @@ export function CommandCenterView({
           reviewedByName: a.reviewed_by_name || "",
           clientName: a.client_name,
           clientId: a.client,
-          deliverables: a.deliverables || [],
         };
       });
       setTasks(converted);
@@ -920,32 +918,6 @@ export function CommandCenterView({
 
                             <div className="tc-title" style={{ fontWeight: 700, fontSize: "13px", color: "#E8F5EF", marginBottom: "6px" }}>{t.title}</div>
                             {t.desc && <div style={{ fontSize: "11px", color: "#89ACA0", marginBottom: "8px", lineHeight: "1.3" }}>{t.desc}</div>}
-
-                            {t.deliverables && t.deliverables.length > 0 && (
-                              <div style={{ margin: "6px 0 10px", padding: "6px 8px", background: "rgba(10, 26, 18, 0.7)", borderRadius: "6px", border: "1px solid rgba(77,255,160,0.15)" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10.5px", color: "var(--neon)", fontWeight: 700, marginBottom: "4px" }}>
-                                  <span>Deliverables ({t.deliverables.filter((d: any) => d.status === "Approved" || d.status === "Completed" || d.status === "Published").length}/{t.deliverables.length})</span>
-                                  <span style={{ fontSize: "9.5px", color: "var(--muted)" }}>Multi-Item</span>
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                                  {t.deliverables.slice(0, 3).map((d: any, dIdx: number) => (
-                                    <div key={dIdx} style={{ fontSize: "10.5px", color: "var(--text)", display: "flex", alignItems: "center", gap: "4px" }}>
-                                      <span style={{ color: d.status === "Approved" || d.status === "Completed" || d.status === "Published" ? "var(--neon)" : "var(--muted)" }}>
-                                        {d.status === "Approved" || d.status === "Completed" || d.status === "Published" ? "✓" : "○"}
-                                      </span>
-                                      <span style={{ textDecoration: d.status === "Approved" || d.status === "Completed" || d.status === "Published" ? "line-through" : "none", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>
-                                        {d.title} {d.client_name ? `(${d.client_name})` : ""}
-                                      </span>
-                                    </div>
-                                  ))}
-                                  {t.deliverables.length > 3 && (
-                                    <span style={{ fontSize: "9.5px", color: "var(--muted)", fontStyle: "italic" }}>
-                                      +{t.deliverables.length - 3} more items...
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
 
                             <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px", background: "rgba(15,34,24,0.6)", borderRadius: "6px", marginBottom: "8px" }}>
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px" }}>
