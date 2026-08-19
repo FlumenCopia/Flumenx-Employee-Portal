@@ -1,0 +1,116 @@
+import logging
+import os
+from datetime import date
+from django.contrib.auth.models import User
+from django.core.management.base import BaseCommand
+from django.db import transaction
+from portal.models import Department, DynamicRole, Employee, UserRole
+
+logger = logging.getLogger(__name__)
+
+PERMANENT_SUPERADMIN_EMAIL = "anoop@flumenx.com"
+PERMANENT_SUPERADMIN_USERNAME = "anoop@flumenx.com"
+
+
+def run_ensure_permanent_superadmin(stdout=None, style=None, password_override=None):
+    """
+    Idempotent helper function to ensure exactly one protected Super Admin account
+    exists for anoop@flumenx.com.
+    """
+    with transaction.atomic():
+        super_role, _ = DynamicRole.objects.get_or_create(
+            code="SUPER_ADMIN",
+            defaults={
+                "name": "Super Admin",
+                "description": "System Administrator with full wildcard access",
+                "is_superadmin_wildcard": True,
+                "is_system_role": True,
+            },
+        )
+
+        user = (
+            User.objects.filter(email__iexact=PERMANENT_SUPERADMIN_EMAIL).first()
+            or User.objects.filter(username__iexact=PERMANENT_SUPERADMIN_USERNAME).first()
+            or User.objects.filter(username__iexact="anoop").first()
+        )
+
+        created = False
+        if not user:
+            user = User(
+                username=PERMANENT_SUPERADMIN_USERNAME,
+                email=PERMANENT_SUPERADMIN_EMAIL,
+                first_name="Anoop",
+                last_name="Krishna",
+            )
+            created = True
+
+        user.email = PERMANENT_SUPERADMIN_EMAIL
+        user.is_superuser = True
+        user.is_staff = True
+        user.is_active = True
+        user.save()
+
+        raw_password = password_override or os.getenv("PERMANENT_SUPERADMIN_PASSWORD")
+        if raw_password:
+            user.set_password(raw_password)
+            user.save()
+
+        user_role, _ = UserRole.objects.get_or_create(
+            user=user,
+            defaults={"role": "SUPER_ADMIN", "dynamic_role": super_role},
+        )
+        if user_role.role != "SUPER_ADMIN" or user_role.dynamic_role != super_role:
+            user_role.role = "SUPER_ADMIN"
+            user_role.dynamic_role = super_role
+            user_role.save()
+
+        emp = (
+            Employee.objects.filter(user=user).first()
+            or Employee.objects.filter(email__iexact=PERMANENT_SUPERADMIN_EMAIL).first()
+        )
+        if not emp:
+            emp_code = "EMP-0001" if not Employee.objects.filter(employee_code="EMP-0001").exists() else f"EMP-SA-{user.id}"
+            emp = Employee.objects.create(
+                user=user,
+                employee_code=emp_code,
+                name="Anoop Krishna",
+                email=PERMANENT_SUPERADMIN_EMAIL,
+                phone="9999999999",
+                department="Operations",
+                designation="Super Admin",
+                joining_date=date(2025, 1, 1),
+                status="Active",
+            )
+        else:
+            emp.user = user
+            if not emp.name:
+                emp.name = "Anoop Krishna"
+            emp.email = PERMANENT_SUPERADMIN_EMAIL
+            emp.status = "Active"
+            emp.save()
+
+        if stdout and style:
+            msg = f"Successfully {'created' if created else 'verified & updated'} permanent Super Admin account ({PERMANENT_SUPERADMIN_EMAIL})."
+            stdout.write(style.SUCCESS(msg))
+
+        return user
+
+
+class Command(BaseCommand):
+    help = "Ensure permanent protected Super Admin account exists for anoop@flumenx.com (Idempotent)"
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--password",
+            type=str,
+            help="Optional explicit password to set for anoop@flumenx.com",
+            default=None,
+        )
+
+    def handle(self, *args, **options):
+        self.stdout.write(f"Ensuring permanent Super Admin account ({PERMANENT_SUPERADMIN_EMAIL})...")
+        run_ensure_permanent_superadmin(
+            stdout=self.stdout,
+            style=self.style,
+            password_override=options.get("password"),
+        )

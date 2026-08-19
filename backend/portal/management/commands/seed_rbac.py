@@ -301,6 +301,10 @@ class Command(BaseCommand):
                     user_role.save(update_fields=["dynamic_role"])
                     updated_count += 1
 
+            from portal.management.commands.ensure_permanent_superadmin import run_ensure_permanent_superadmin
+
+            run_ensure_permanent_superadmin(stdout=self.stdout, style=self.style)
+
             self.stdout.write(
                 self.style.SUCCESS(f"Successfully seeded RBAC & Departments. Linked {updated_count} user roles & {linked_emp_count} employee department_refs.")
             )

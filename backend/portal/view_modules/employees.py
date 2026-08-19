@@ -147,6 +147,15 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if (
+            (user and (user.email.lower() == "anoop@flumenx.com" or user.username.lower() in ("anoop@flumenx.com", "anoop")))
+            or instance.email.lower() == "anoop@flumenx.com"
+        ):
+            return Response(
+                {"detail": "The permanent Super Admin account (anoop@flumenx.com) cannot be deleted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             with transaction.atomic():
                 Employee.objects.filter(team_lead=instance).update(team_lead=None)

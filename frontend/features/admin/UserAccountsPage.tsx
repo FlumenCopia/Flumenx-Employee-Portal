@@ -239,15 +239,27 @@ export function UserAccountsPage() {
                         </button>
 
                         {item.is_active && (
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            onClick={() => handleDeactivate(item)}
-                            style={{ padding: "5px 9px", fontSize: "11px", color: "#EF4444", borderColor: "rgba(239,68,68,0.3)" }}
-                            title="Deactivate Account"
-                          >
-                            <Trash2 size={13} /> Deactivate
-                          </button>
+                          item.work_email.toLowerCase() === "anoop@flumenx.com" || item.username.toLowerCase() === "anoop" ? (
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              disabled
+                              style={{ padding: "5px 9px", fontSize: "11px", color: "var(--muted)", opacity: 0.5, cursor: "not-allowed" }}
+                              title="Permanent Super Admin account cannot be deleted"
+                            >
+                              <Trash2 size={13} /> Protected
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() => handleDeactivate(item)}
+                              style={{ padding: "5px 9px", fontSize: "11px", color: "#EF4444", borderColor: "rgba(239,68,68,0.3)" }}
+                              title="Deactivate Account"
+                            >
+                              <Trash2 size={13} /> Deactivate
+                            </button>
+                          )
                         )}
                       </div>
                     </td>

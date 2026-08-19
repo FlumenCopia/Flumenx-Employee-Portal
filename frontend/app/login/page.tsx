@@ -170,7 +170,7 @@ export default function LoginPage() {
           <button type="submit" className="login-button" disabled={loading}>
             {loading ? "Signing in..." : "Login to FLUMENX"}<ArrowRight size={18} />
           </button>
-          <div className="demo-note"><span>SECURE ACCESS</span><p>Enter the email and password assigned to your employee account.</p></div>
+          <div className="demo-note"><span>SUPER ADMIN ACCESS</span><p>Primary Administrator: anoop@flumenx.com</p></div>
         </form>
       </div>
 
