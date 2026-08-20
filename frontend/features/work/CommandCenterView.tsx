@@ -459,11 +459,13 @@ export function CommandCenterView({
     try {
       await onStatusChange(Number(id), newStatus);
       const kanbanStatus = statusMap[newStatus] || "progress";
-      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, rawStatus: newStatus, status: kanbanStatus } : t)));
+      const todayStr = new Date().toISOString().split("T")[0];
+      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, rawStatus: newStatus, status: kanbanStatus, is_backlog: false, due: t.due < todayStr ? todayStr : t.due } : t)));
       if (selectedTask && selectedTask.id === id) {
         setSelectedTask(null);
       }
     } catch (err: any) {
+
       setStatusError(err?.message || "Could not update status.");
     } finally {
       setIsUpdatingStatus(false);
@@ -1732,11 +1734,28 @@ export function CommandCenterView({
                             await handleWorkStatusChange(gt.id, newWorkStatus);
                             setSelectedTaskGroup((prev) => {
                               if (!prev) return null;
+                              const kanbanStatusMap: Record<string, TaskItem["status"]> = {
+                                Backlog: "backlog",
+                                Assigned: "assigned",
+                                Pending: "assigned",
+                                "In Progress": "progress",
+                                Ongoing: "progress",
+                                Blocked: "progress",
+                                "In Review": "review",
+                                "Changes Requested": "progress",
+                                Rejected: "assigned",
+                                Approved: "approved",
+                                Completed: "published",
+                                Published: "published",
+                              };
+                              const targetKanbanStatus = kanbanStatusMap[newWorkStatus] || "progress";
                               return {
                                 ...prev,
-                                tasks: prev.tasks.map((t) => (t.id === gt.id ? { ...t, rawStatus: newWorkStatus, status: newWorkStatus === "Backlog" ? "backlog" : t.status } : t)),
+                                tasks: prev.tasks.map((t) => (t.id === gt.id ? { ...t, rawStatus: newWorkStatus, status: targetKanbanStatus, is_backlog: false } : t)),
                               };
                             });
+
+
                           }}
                           className="fs"
                           style={{

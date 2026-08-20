@@ -376,7 +376,16 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
         old_assignment = self.get_object()
         old_status = old_assignment.status
         old_progress = old_assignment.progress
+
+        new_status = serializer.validated_data.get("status")
+        if new_status and new_status not in ("Backlog", "Completed", "Approved", "Published"):
+            if old_assignment.assigned_date and old_assignment.assigned_date < timezone.localdate():
+                serializer.validated_data["assigned_date"] = timezone.localdate()
+        elif new_status == "Assigned":
+            serializer.validated_data["assigned_date"] = timezone.localdate()
+
         assignment = serializer.save()
+
         recipient = assignment_employee_user(assignment)
         if assignment.status != old_status:
             title = f"Work status updated: {assignment.status}"
