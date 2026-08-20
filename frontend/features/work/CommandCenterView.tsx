@@ -1041,46 +1041,49 @@ export function CommandCenterView({
                               <div style={{ marginTop: "8px", paddingTop: "6px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <span style={{ fontSize: "10.5px", color: "#89ACA0", fontWeight: 600 }}>Status:</span>
                                 <select
-                                  value={t.rawStatus || "Assigned"}
-                                  disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={async (e) => {
-                                    e.stopPropagation();
-                                    const newWorkStatus = e.target.value as WorkStatus;
-                                    e.target.blur();
-                                    if (!canUserChangeTaskStatus(t) || isUpdatingStatus) return;
-                                    await handleWorkStatusChange(t.id, newWorkStatus);
-                                  }}
-                                  className="fs"
-                                  style={{
-                                    padding: "2px 8px",
-                                    fontSize: "11px",
-                                    color: "#4DFFA0",
-                                    background: "#0F2218",
-                                    border: "1px solid rgba(77,255,160,0.2)",
-                                    borderRadius: "4px",
-                                    fontWeight: 600,
-                                    cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
-                                    opacity: canUserChangeTaskStatus(t) ? 1 : 0.6,
-                                  }}
-                                  title={!canUserChangeTaskStatus(t) ? "Only Reviewer and Admins can change status" : "Change status"}
-                                >
-                                  {!ALL_WORK_STATUSES.some((st) => st.id === t.rawStatus) && t.rawStatus && (
-                                    <option value={t.rawStatus} disabled>
-                                      {t.rawStatus}
-                                    </option>
-                                  )}
-                                  {ALL_WORK_STATUSES.map((st) => {
-                                    const isReviewerOnly = st.isReviewerOnly;
-                                    const isBacklog = st.id === "Backlog";
-                                    const isAllowed = !isBacklog && canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
-                                    return (
-                                      <option key={st.id} value={st.id} disabled={!isAllowed}>
-                                        {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(t) ? "🔒" : ""}
-                                      </option>
-                                    );
-                                  })}
-                                </select>
+                                   value={t.status === "backlog" ? "Backlog" : (t.rawStatus || "Assigned")}
+                                   disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
+                                   onClick={(e) => e.stopPropagation()}
+                                   onChange={async (e) => {
+                                     e.stopPropagation();
+                                     const newWorkStatus = e.target.value as WorkStatus;
+                                     e.target.blur();
+                                     if (!canUserChangeTaskStatus(t) || isUpdatingStatus) return;
+                                     await handleWorkStatusChange(t.id, newWorkStatus);
+                                   }}
+                                   className="fs"
+                                   style={{
+                                     padding: "2px 8px",
+                                     fontSize: "11px",
+                                     color: t.status === "backlog" ? "#FF6B6B" : "#4DFFA0",
+                                     background: t.status === "backlog" ? "#2B0F14" : "#0F2218",
+                                     border: t.status === "backlog" ? "1px solid rgba(255,107,107,0.3)" : "1px solid rgba(77,255,160,0.2)",
+                                     borderRadius: "4px",
+                                     fontWeight: 600,
+                                     cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
+                                     opacity: canUserChangeTaskStatus(t) ? 1 : 0.6,
+                                   }}
+                                   title={!canUserChangeTaskStatus(t) ? "Only Reviewer and Admins can change status" : "Change status"}
+                                 >
+                                   {t.status === "backlog" && (
+                                     <option value="Backlog">Backlog (Overdue)</option>
+                                   )}
+                                   {!ALL_WORK_STATUSES.some((st) => st.id === t.rawStatus) && t.rawStatus && t.status !== "backlog" && (
+                                     <option value={t.rawStatus} disabled>
+                                       {t.rawStatus}
+                                     </option>
+                                   )}
+                                   {ALL_WORK_STATUSES.map((st) => {
+                                     const isReviewerOnly = st.isReviewerOnly;
+                                     const isBacklog = st.id === "Backlog";
+                                     const isAllowed = !isBacklog && canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
+                                     return (
+                                       <option key={st.id} value={st.id} disabled={!isAllowed}>
+                                         {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(t) ? "🔒" : ""}
+                                       </option>
+                                     );
+                                   })}
+                                 </select>
                               </div>
                             </div>
                           );
@@ -1725,8 +1728,9 @@ export function CommandCenterView({
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Status:</span>
                         <select
-                          value={gt.rawStatus || "Assigned"}
+                          value={gt.status === "backlog" ? "Backlog" : (gt.rawStatus || "Assigned")}
                           disabled={!canUserChangeTaskStatus(gt) || isUpdatingStatus}
+
                           onChange={async (e) => {
                             const newWorkStatus = e.target.value as WorkStatus;
                             e.target.blur();
