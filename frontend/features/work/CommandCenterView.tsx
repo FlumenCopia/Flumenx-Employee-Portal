@@ -117,7 +117,7 @@ export const STATUSES: Array<{ id: TaskItem["status"]; name: string; color: stri
   { id: "progress", name: "In Progress", color: "#F59E0B" },
   { id: "review", name: "In Review", color: "#A78BFA" },
   { id: "approved", name: "Approved", color: "#22D3EE" },
-  { id: "published", name: "Published", color: "#4DFFA0" },
+  { id: "published", name: "Published", color: "#cba86e" },
 ];
 
 export const ALL_WORK_STATUSES: Array<{ id: WorkStatus; name: string; isReviewerOnly: boolean }> = [
@@ -130,7 +130,7 @@ export const ALL_WORK_STATUSES: Array<{ id: WorkStatus; name: string; isReviewer
 ];
 
 export const TASK_TYPES: Record<string, { id: string; name: string; color: string }> = {
-  web_development: { id: "web_development", name: "Web Development", color: "#4DFFA0" },
+  web_development: { id: "web_development", name: "Web Development", color: "#cba86e" },
   video_editing: { id: "video_editing", name: "Video Editing", color: "#F472B6" },
   design: { id: "design", name: "Design", color: "#F59E0B" },
   digital_marketing: { id: "digital_marketing", name: "Digital Marketing", color: "#22D3EE" },
@@ -138,7 +138,7 @@ export const TASK_TYPES: Record<string, { id: string; name: string; color: strin
   operations: { id: "operations", name: "Operations", color: "#3B82F6" },
   hr: { id: "hr", name: "HR", color: "#EC4899" },
   // Fallbacks for legacy keys
-  it: { id: "web_development", name: "Web Development", color: "#4DFFA0" },
+  it: { id: "web_development", name: "Web Development", color: "#cba86e" },
   video: { id: "video_editing", name: "Video Editing", color: "#F472B6" },
   ads: { id: "digital_marketing", name: "Digital Marketing", color: "#22D3EE" },
   content: { id: "digital_marketing", name: "Digital Marketing", color: "#22D3EE" },
@@ -686,14 +686,14 @@ export function CommandCenterView({
                 gap: "8px",
                 padding: "12px 16px",
                 borderRadius: "8px",
-                background: "rgba(15, 34, 24, 0.75)",
-                border: "1px solid rgba(77, 255, 160, 0.2)",
-                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
+                background: "var(--panel2)",
+                border: "1px solid var(--border2)",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
               }}
             >
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 700, color: "#E8F5EF", letterSpacing: "0.2px" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", letterSpacing: "0.2px" }}>
                     {trackerTitle}
                   </span>
                   {onClientChange && (
@@ -701,9 +701,9 @@ export function CommandCenterView({
                       value={selectedClientId || ""}
                       onChange={(e) => onClientChange(e.target.value)}
                       style={{
-                        background: "rgba(255, 255, 255, 0.08)",
-                        color: "#4DFFA0",
-                        border: "1px solid rgba(77, 255, 160, 0.35)",
+                        background: "#ffffff",
+                        color: "#1a1b1e",
+                        border: "1px solid #dad7ce",
                         borderRadius: "6px",
                         padding: "4px 10px",
                         fontSize: "11px",
@@ -712,18 +712,18 @@ export function CommandCenterView({
                         outline: "none",
                       }}
                     >
-                      <option value="" style={{ background: "var(--panel)", color: "var(--text)" }}>
+                      <option value="" style={{ background: "#ffffff", color: "#1a1b1e" }}>
                         All Clients
                       </option>
                       {clients.map((c) => (
-                        <option key={c.id} value={String(c.id)} style={{ background: "var(--panel)", color: "var(--text)" }}>
+                        <option key={c.id} value={String(c.id)} style={{ background: "#ffffff", color: "#1a1b1e" }}>
                           {c.name}
                         </option>
                       ))}
                     </select>
                   )}
                 </div>
-                <span style={{ fontSize: "14px", fontWeight: 800, color: "#4DFFA0", fontFamily: "monospace" }}>
+                <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--goldD)", fontFamily: "monospace" }}>
                   {Math.round(overallProgressPct)}%
                 </span>
               </div>
@@ -732,7 +732,7 @@ export function CommandCenterView({
                 style={{
                   height: "7px",
                   width: "100%",
-                  background: "rgba(255, 255, 255, 0.08)",
+                  background: "#e8e6e1",
                   borderRadius: "99px",
                   overflow: "hidden",
                 }}
@@ -741,10 +741,10 @@ export function CommandCenterView({
                   style={{
                     height: "100%",
                     width: `${Math.max(0, Math.min(100, overallProgressPct))}%`,
-                    background: "linear-gradient(90deg, #22c55e 0%, #4DFFA0 100%)",
+                    background: "linear-gradient(90deg, #cba86e 0%, #a8874e 100%)",
                     borderRadius: "99px",
                     transition: "width 0.4s ease",
-                    boxShadow: "0 0 8px rgba(77, 255, 160, 0.4)",
+                    boxShadow: "0 0 8px rgba(203, 168, 110, 0.4)",
                   }}
                 />
               </div>
@@ -756,7 +756,7 @@ export function CommandCenterView({
                     gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
                     gap: "10px 14px",
                     paddingTop: "8px",
-                    borderTop: "1px solid rgba(77, 255, 160, 0.12)",
+                    borderTop: "1px solid var(--line)",
                     marginTop: "2px",
                   }}
                 >
@@ -772,18 +772,18 @@ export function CommandCenterView({
                     return (
                       <div key={key} style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10.5px" }}>
-                          <span style={{ color: "#A7C1B5", fontWeight: 600 }}>{label}</span>
-                          <span style={{ fontSize: "10px", fontWeight: 700, color: hasWork ? "#4DFFA0" : "#6B7280", fontFamily: "monospace" }}>
+                          <span style={{ color: "var(--muted)", fontWeight: 600 }}>{label}</span>
+                          <span style={{ fontSize: "10px", fontWeight: 700, color: hasWork ? "var(--goldD)" : "var(--muted)", fontFamily: "monospace" }}>
                             {hasWork ? `${Math.round(pct)}%` : "No work"}
                           </span>
                         </div>
-                        <div style={{ height: "4px", width: "100%", background: "rgba(255, 255, 255, 0.08)", borderRadius: "99px", overflow: "hidden" }}>
+                        <div style={{ height: "4px", width: "100%", background: "#e8e6e1", borderRadius: "99px", overflow: "hidden" }}>
                           {hasWork ? (
                             <div
                               style={{
                                 height: "100%",
                                 width: `${Math.max(0, Math.min(100, pct))}%`,
-                                background: "#4DFFA0",
+                                background: "#cba86e",
                                 borderRadius: "99px",
                                 transition: "width 0.4s ease",
                               }}
@@ -1027,27 +1027,27 @@ export function CommandCenterView({
                               </div>
 
                               <div className="tc-title" style={{ fontWeight: 700, fontSize: "13px", color: "#E8F5EF", marginBottom: "6px" }}>{t.title}</div>
-                              {t.desc && <div style={{ fontSize: "11px", color: "#89ACA0", marginBottom: "8px", lineHeight: "1.3" }}>{t.desc}</div>}
+                              {t.desc && <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "8px", lineHeight: "1.3" }}>{t.desc}</div>}
 
-                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px", background: "rgba(15,34,24,0.6)", borderRadius: "6px", marginBottom: "8px" }}>
+                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px", background: "var(--panel2)", borderRadius: "6px", marginBottom: "8px" }}>
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px" }}>
-                                  <span style={{ color: "#89ACA0" }}>Assigned To:</span>
-                                  <span style={{ color: "#4DFFA0", fontWeight: 700 }}>{t.assigneeName || "Unassigned"}</span>
+                                  <span style={{ color: "var(--muted)" }}>Assigned To:</span>
+                                  <span style={{ color: "var(--goldD)", fontWeight: 700 }}>{t.assigneeName || "Unassigned"}</span>
                                 </div>
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10.5px" }}>
-                                  <span style={{ color: "#89ACA0" }}>Reviewer:</span>
+                                  <span style={{ color: "var(--muted)" }}>Reviewer:</span>
                                   <span style={{ color: "#A78BFA", fontWeight: 600 }}>{t.reviewer || "Admin"}</span>
                                 </div>
                               </div>
 
-                              <div className="tc-meta" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px", color: "#89ACA0" }}>
-                                <div className={`tc-due ${isOverdue ? "late" : ""}`} style={{ color: isOverdue ? "#FF6B6B" : "#89ACA0", fontSize: "11px", fontWeight: isOverdue ? 700 : 400 }}>
+                              <div className="tc-meta" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)" }}>
+                                <div className={`tc-due ${isOverdue ? "late" : ""}`} style={{ color: isOverdue ? "#FF6B6B" : "var(--muted)", fontSize: "11px", fontWeight: isOverdue ? 700 : 400 }}>
                                   📅 {isOverdue ? "Overdue: " : "Due: "}{t.due}
                                 </div>
                               </div>
 
                               <div style={{ marginTop: "8px", paddingTop: "6px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: "10.5px", color: "#89ACA0", fontWeight: 600 }}>Status:</span>
+                                <span style={{ fontSize: "10.5px", color: "var(--muted)", fontWeight: 600 }}>Status:</span>
                                 <select
                                    value={t.status === "backlog" ? "Backlog" : (t.rawStatus || "Assigned")}
                                    disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
@@ -1063,9 +1063,9 @@ export function CommandCenterView({
                                    style={{
                                      padding: "2px 8px",
                                      fontSize: "11px",
-                                     color: t.status === "backlog" ? "#FF6B6B" : "#4DFFA0",
-                                     background: t.status === "backlog" ? "#2B0F14" : "#0F2218",
-                                     border: t.status === "backlog" ? "1px solid rgba(255,107,107,0.3)" : "1px solid rgba(77,255,160,0.2)",
+                                     color: t.status === "backlog" ? "#FF6B6B" : "#1a1b1e",
+                                     background: t.status === "backlog" ? "#fef2f2" : "#ffffff",
+                                     border: t.status === "backlog" ? "1px solid rgba(255,107,107,0.3)" : "1px solid #dad7ce",
                                      borderRadius: "4px",
                                      fontWeight: 600,
                                      cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
@@ -1122,7 +1122,7 @@ export function CommandCenterView({
                               }}
                             >
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-                                <span className="chip" style={{ background: "rgba(77, 255, 160, 0.15)", color: "#4DFFA0", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: 800 }}>
+                                <span className="chip" style={{ background: "rgba(203, 168, 110, 0.15)", color: "var(--goldD)", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: 800 }}>
                                   {clientName}
                                 </span>
                                 <span style={{ background: "#3B82F6", color: "#FFFFFF", padding: "2px 8px", borderRadius: "12px", fontSize: "10.5px", fontWeight: 800 }}>
@@ -1130,30 +1130,30 @@ export function CommandCenterView({
                                 </span>
                               </div>
 
-                              <div style={{ fontSize: "12.5px", fontWeight: 700, color: "#E8F5EF", marginBottom: "6px" }}>
+                              <div style={{ fontSize: "12.5px", fontWeight: 700, color: "var(--text)", marginBottom: "6px" }}>
                                 📁 {tasksInGroup.length} Work Assignments Batch
                               </div>
 
-                              <div style={{ fontSize: "11px", color: "#89ACA0", marginBottom: "8px", display: "flex", flexDirection: "column", gap: "3px", background: "rgba(15,34,24,0.4)", padding: "6px 8px", borderRadius: "6px" }}>
+                              <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "8px", display: "flex", flexDirection: "column", gap: "3px", background: "var(--panel2)", padding: "6px 8px", borderRadius: "6px" }}>
                                 {tasksInGroup.slice(0, 3).map((gt) => (
                                   <div key={gt.id} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                     • {gt.title}
                                   </div>
                                 ))}
                                 {tasksInGroup.length > 3 && (
-                                  <div style={{ fontSize: "10px", color: "var(--neon)", fontWeight: 700, marginTop: "2px" }}>
+                                  <div style={{ fontSize: "10px", color: "var(--amber)", fontWeight: 700, marginTop: "2px" }}>
                                     +{tasksInGroup.length - 3} more task(s)...
                                   </div>
                                 )}
                               </div>
 
-                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px", background: "rgba(15,34,24,0.6)", borderRadius: "6px", marginBottom: "6px" }}>
+                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px", background: "var(--panel2)", borderRadius: "6px", marginBottom: "6px" }}>
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px" }}>
-                                  <span style={{ color: "#89ACA0" }}>Assigned To:</span>
-                                  <span style={{ color: "#4DFFA0", fontWeight: 700 }}>{assigneeName}</span>
+                                  <span style={{ color: "var(--muted)" }}>Assigned To:</span>
+                                  <span style={{ color: "var(--goldD)", fontWeight: 700 }}>{assigneeName}</span>
                                 </div>
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10.5px" }}>
-                                  <span style={{ color: "#89ACA0" }}>Reviewer:</span>
+                                  <span style={{ color: "var(--muted)" }}>Reviewer:</span>
                                   <span style={{ color: "#A78BFA", fontWeight: 600 }}>{reviewerName}</span>
                                 </div>
                               </div>
@@ -1506,9 +1506,9 @@ export function CommandCenterView({
                   padding: "4px 10px",
                   borderRadius: "6px",
                   textTransform: "uppercase",
-                  background: selectedTask.reviewStatus === "OK" ? "rgba(0, 232, 137, 0.12)" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "rgba(255, 89, 77, 0.12)" : "rgba(245, 166, 35, 0.12)",
-                  color: selectedTask.reviewStatus === "OK" ? "#00E889" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "#FF594D" : "#F5A623",
-                  border: selectedTask.reviewStatus === "OK" ? "1px solid rgba(0, 232, 137, 0.28)" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "1px solid rgba(255, 89, 77, 0.28)" : "1px solid rgba(245, 166, 35, 0.28)",
+                  background: selectedTask.reviewStatus === "OK" ? "rgba(203, 168, 110, 0.12)" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "rgba(255, 89, 77, 0.12)" : "rgba(245, 166, 35, 0.12)",
+                  color: selectedTask.reviewStatus === "OK" ? "var(--goldD)" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "#FF594D" : "#F5A623",
+                  border: selectedTask.reviewStatus === "OK" ? "1px solid rgba(203, 168, 110, 0.28)" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "1px solid rgba(255, 89, 77, 0.28)" : "1px solid rgba(245, 166, 35, 0.28)",
                 }}>
                   {selectedTask.reviewStatus === "OK" ? "✓ OK" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "↩ Correction Needed" : "⏳ Pending Review"}
                 </span>
@@ -1529,7 +1529,7 @@ export function CommandCenterView({
               )}
 
               {selectedTask.reviewStatus === "OK" && (
-                <div style={{ background: "rgba(0, 232, 137, 0.08)", border: "1px solid rgba(0, 232, 137, 0.25)", borderRadius: "6px", padding: "10px 12px", marginBottom: "12px", fontSize: "12px", color: "#00E889" }}>
+                <div style={{ background: "rgba(203, 168, 110, 0.08)", border: "1px solid rgba(203, 168, 110, 0.25)", borderRadius: "6px", padding: "10px 12px", marginBottom: "12px", fontSize: "12px", color: "var(--goldD)" }}>
                   ✓ Quality audit passed — Marked OK by <strong>{selectedTask.reviewedByName || selectedTask.reviewer || "Reviewer"}</strong> {selectedTask.reviewedAt ? `on ${new Date(selectedTask.reviewedAt).toLocaleDateString()}` : ""}
                 </div>
               )}
@@ -1773,9 +1773,9 @@ export function CommandCenterView({
                           style={{
                             padding: "3px 8px",
                             fontSize: "11px",
-                            color: "#4DFFA0",
-                            background: "#0F2218",
-                            border: "1px solid rgba(77,255,160,0.2)",
+                            color: "var(--text)",
+                            background: "#ffffff",
+                            border: "1px solid #dad7ce",
                             borderRadius: "4px",
                             fontWeight: 600,
                             cursor: canUserChangeTaskStatus(gt) ? "pointer" : "not-allowed",
@@ -1787,7 +1787,7 @@ export function CommandCenterView({
                             const isReviewerOnly = st.isReviewerOnly;
                             const isAllowed = !isBacklog && canUserChangeTaskStatus(gt) && (!isReviewerOnly || isReviewerOrManager(gt));
                             return (
-                              <option key={st.id} value={st.id} disabled={!isAllowed} style={{ background: "var(--panel2)", color: isAllowed ? "var(--text)" : "var(--muted)" }}>
+                              <option key={st.id} value={st.id} disabled={!isAllowed} style={{ background: "#ffffff", color: isAllowed ? "#1a1b1e" : "#8a8e99" }}>
                                 {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(gt) ? "🔒" : ""}
                               </option>
                             );
@@ -1823,16 +1823,16 @@ export function CommandCenterView({
                             style={{
                               padding: "3px 8px",
                               fontSize: "11px",
-                              color: (pendingCorrectionTaskId === gt.id || gt.reviewStatus === "CORRECTION_NEEDED") ? "#F59E0B" : gt.reviewStatus === "OK" ? "#4ADE80" : "#94A3B8",
-                              background: "#0F2218",
-                              border: "1px solid rgba(77,255,160,0.2)",
+                              color: (pendingCorrectionTaskId === gt.id || gt.reviewStatus === "CORRECTION_NEEDED") ? "#F59E0B" : gt.reviewStatus === "OK" ? "var(--goldD)" : "#94A3B8",
+                              background: "#ffffff",
+                              border: "1px solid #dad7ce",
                               borderRadius: "4px",
                               fontWeight: 600,
                             }}
                           >
-                            <option value="PENDING_REVIEW" style={{ background: "var(--panel2)" }}>⏳ Pending Review</option>
-                            <option value="OK" style={{ background: "var(--panel2)" }}>✓ OK / Approved</option>
-                            <option value="CORRECTION_NEEDED" style={{ background: "var(--panel2)" }}>↩ Correction Needed</option>
+                            <option value="PENDING_REVIEW" style={{ background: "#ffffff", color: "#1a1b1e" }}>⏳ Pending Review</option>
+                            <option value="OK" style={{ background: "#ffffff", color: "#1a1b1e" }}>✓ OK / Approved</option>
+                            <option value="CORRECTION_NEEDED" style={{ background: "#ffffff", color: "#1a1b1e" }}>↩ Correction Needed</option>
                           </select>
                         </div>
                       )}

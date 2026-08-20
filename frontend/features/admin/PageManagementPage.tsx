@@ -129,10 +129,10 @@ export function PageManagementPage() {
                 {filteredPages.map((item) => (
                   <tr key={item.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                     <td style={{ padding: "12px", fontWeight: 700, color: "var(--muted)" }}>#{item.sidebar_order}</td>
-                    <td style={{ padding: "12px", fontWeight: 600, color: "#F3F4F6" }}>{item.title}</td>
+                    <td style={{ padding: "12px", fontWeight: 600, color: "var(--text)" }}>{item.title}</td>
                     <td style={{ padding: "12px", fontFamily: "monospace", color: "var(--muted)" }}>{item.route_path}</td>
                     <td style={{ padding: "12px" }}>
-                      <span style={{ fontSize: "10px", fontWeight: 700, background: "rgba(77,255,160,0.1)", color: "var(--brand)", padding: "3px 8px", borderRadius: "6px" }}>
+                      <span style={{ fontSize: "10px", fontWeight: 700, background: "rgba(203,168,110,0.12)", color: "var(--goldD)", padding: "3px 8px", borderRadius: "6px" }}>
                         {item.module_code}
                       </span>
                     </td>

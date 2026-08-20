@@ -393,7 +393,7 @@ export function AdminDashboard({ basePath = "/admin" }: { basePath?: "/admin" | 
                           {l.employee_code}
                         </span>
                       </div>
-                      <span style={{ fontSize: "11.5px", color: "#4DFFA0", fontWeight: 600 }}>
+                      <span style={{ fontSize: "11.5px", color: "var(--amber)", fontWeight: 600 }}>
                         {l.leave_type} Leave • {l.days} day{l.days === 1 ? "" : "s"} ({l.start_date} to {l.end_date})
                       </span>
                       {l.reason && (

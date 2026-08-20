@@ -156,8 +156,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
           <span>Duration</span>
           <span>Reason</span>
           <span>Status</span>
-          <span>Manager Note</span>
-          {!isEmployee && canEdit && <span />}
+          {!isEmployee && (canEdit || canDelete) && <span />}
         </div>
         {!loading && !error && items.map(l => (
           <div className="table-row" key={l.id}>
@@ -177,7 +176,6 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
             <span>{l.days} day{l.days === 1 ? "" : "s"}</span>
             <span className="truncate">{l.reason}</span>
             <Badge tone={l.status}>{l.status}</Badge>
-            <span className="truncate" style={{ color: "var(--muted)", fontSize: "12px" }}>{l.admin_note || "-"}</span>
             {!isEmployee && (canEdit || canDelete) && (
               <div className="decision-buttons" style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                 {canEdit && l.status === "Pending" && (

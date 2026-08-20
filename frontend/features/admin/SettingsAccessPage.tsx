@@ -142,13 +142,13 @@ export function SettingsAccessPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: "16px", alignItems: "start" }}>
         {/* LEFT COLUMN: DYNAMIC ROLES & PERMISSIONS MATRIX */}
-        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "16px", background: "#0C2117", border: "1px solid rgba(70, 150, 105, 0.22)", borderRadius: "8px" }}>
+        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "16px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
             <div>
-              <b style={{ fontSize: "15px", fontWeight: 700, color: "#F2F6F3", display: "flex", alignItems: "center", gap: "8px" }}>
+              <b style={{ fontSize: "15px", fontWeight: 700, color: "var(--text)", display: "flex", alignItems: "center", gap: "8px" }}>
                 Dynamic Roles & Permissions Matrix
               </b>
-              <p style={{ fontSize: "11.5px", color: "#9CB8A8", margin: "2px 0 0 0" }}>Edit permissions granted to each role</p>
+              <p style={{ fontSize: "11.5px", color: "var(--muted)", margin: "2px 0 0 0" }}>Edit permissions granted to each role</p>
             </div>
             <PrimaryButton
               onClick={() => {
@@ -262,13 +262,13 @@ export function SettingsAccessPage() {
         </div>
 
         {/* RIGHT COLUMN: USER ACCOUNTS & ACCESS */}
-        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "16px", background: "#0C2117", border: "1px solid rgba(70, 150, 105, 0.22)", borderRadius: "8px" }}>
+        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "16px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
             <div>
-              <b style={{ fontSize: "15px", fontWeight: 700, color: "#F2F6F3", display: "flex", alignItems: "center", gap: "8px" }}>
+              <b style={{ fontSize: "15px", fontWeight: 700, color: "var(--text)", display: "flex", alignItems: "center", gap: "8px" }}>
                 User Accounts & Access
               </b>
-              <p style={{ fontSize: "11.5px", color: "#9CB8A8", margin: "2px 0 0 0" }}>Manage user roles & passwords</p>
+              <p style={{ fontSize: "11.5px", color: "var(--muted)", margin: "2px 0 0 0" }}>Manage user roles & passwords</p>
             </div>
             <PrimaryButton
               onClick={() => {

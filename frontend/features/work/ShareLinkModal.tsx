@@ -154,10 +154,10 @@ export function ShareLinkModal({
               <select
                 value={scope}
                 onChange={(e) => setScope(e.target.value as any)}
-                className="w-full text-xs bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200"
+                className="w-full text-xs bg-white border border-[#dad7ce] rounded-lg p-2 text-[#1a1b1e]"
               >
-                <option value="client">All Work for {clientName}</option>
-                <option value="assignment">Single Specific Assignment</option>
+                <option value="client" className="bg-white text-[#1a1b1e]">All Work for {clientName}</option>
+                <option value="assignment" className="bg-white text-[#1a1b1e]">Single Specific Assignment</option>
               </select>
             </div>
 
@@ -167,12 +167,12 @@ export function ShareLinkModal({
                 <select
                   value={selectedAssignmentId}
                   onChange={(e) => setSelectedAssignmentId(e.target.value)}
-                  className="w-full text-xs bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200"
+                  className="w-full text-xs bg-white border border-[#dad7ce] rounded-lg p-2 text-[#1a1b1e]"
                   required
                 >
-                  <option value="">Choose assignment...</option>
+                  <option value="" className="bg-white text-[#1a1b1e]">Choose assignment...</option>
                   {assignments.map((a) => (
-                    <option key={a.id} value={a.id}>{a.title} ({a.status})</option>
+                    <option key={a.id} value={a.id} className="bg-white text-[#1a1b1e]">{a.title} ({a.status})</option>
                   ))}
                 </select>
               </div>
@@ -183,12 +183,12 @@ export function ShareLinkModal({
               <select
                 value={daysValid}
                 onChange={(e) => setDaysValid(Number(e.target.value))}
-                className="w-full text-xs bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200"
+                className="w-full text-xs bg-white border border-[#dad7ce] rounded-lg p-2 text-[#1a1b1e]"
               >
-                <option value={7}>7 Days</option>
-                <option value={14}>14 Days</option>
-                <option value={30}>30 Days (Default)</option>
-                <option value={90}>90 Days</option>
+                <option value={7} className="bg-white text-[#1a1b1e]">7 Days</option>
+                <option value={14} className="bg-white text-[#1a1b1e]">14 Days</option>
+                <option value={30} className="bg-white text-[#1a1b1e]">30 Days (Default)</option>
+                <option value={90} className="bg-white text-[#1a1b1e]">90 Days</option>
               </select>
             </div>
           </div>
@@ -200,7 +200,7 @@ export function ShareLinkModal({
               placeholder="e.g. Phase 1 deliverables successfully completed and awaiting review."
               value={publicUpdate}
               onChange={(e) => setPublicUpdate(e.target.value)}
-              className="w-full text-xs bg-slate-900 border border-slate-800 rounded-lg p-2 text-slate-200"
+              className="w-full text-xs bg-white border border-[#dad7ce] rounded-lg p-2 text-[#1a1b1e]"
             />
           </div>
 

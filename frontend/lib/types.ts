@@ -98,7 +98,7 @@ export interface CanonicalDepartmentInfo {
 }
 
 export const CANONICAL_DEPARTMENTS: Record<CanonicalDepartmentKey, CanonicalDepartmentInfo> = {
-  web_development: { key: "web_development", label: "Web Development", badge: "Web Development", color: "#4DFFA0" },
+  web_development: { key: "web_development", label: "Web Development", badge: "Web Development", color: "#cba86e" },
   video_editing: { key: "video_editing", label: "Video Editing", badge: "Video Editing", color: "#F472B6" },
   design: { key: "design", label: "Design", badge: "Design", color: "#F59E0B" },
   digital_marketing: { key: "digital_marketing", label: "Digital Marketing", badge: "Digital Marketing", color: "#22D3EE" },

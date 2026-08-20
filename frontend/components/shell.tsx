@@ -537,7 +537,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
         <div className="sidebar-foot">
           {workspaceRole === "employee" || workspaceRole === "bdo" || workspaceRole === "team-lead" ? (
             <div
-              className="mini-profile cursor-pointer hover:bg-[rgba(77,255,160,0.08)] transition-colors rounded-xl p-2 mb-2"
+              className="mini-profile cursor-pointer hover:bg-[rgba(203,168,110,0.12)] transition-colors rounded-xl p-2 mb-2"
               onClick={() => {
                 setOpen(false);
                 router.push(`/${workspaceRole}/profile`);
@@ -572,7 +572,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
           <div className="topbar-word">FLUMENX / <span>{roleLabel.toUpperCase()}</span></div>
           <div className="top-actions">
             <NotificationBell user={user} />
-            <span className="topbar-user-name">
+            <span className="topbar-user-name font-medium text-[#1a1b1e] bg-[#ffffff] border border-[#dad7ce] px-2.5 py-1 rounded-lg text-xs shadow-sm">
               {user?.employee?.name || user?.first_name || user?.username || name}
             </span>
             {canCreateTask && (
