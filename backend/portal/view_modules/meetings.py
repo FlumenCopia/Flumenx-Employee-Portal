@@ -20,12 +20,7 @@ def intended_meeting_users(meeting):
 
 
 def meeting_management_recipients(actor):
-    actor_role = portal_role(actor)
-    if actor_role == "ADMIN":
-        return active_users_with_roles(("HR",))
-    if actor_role == "HR":
-        return active_users_with_roles(("ADMIN",))
-    return User.objects.none()
+    return active_users_with_roles(("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT", "TEAM_LEAD"))
 
 
 def meeting_time(meeting):
@@ -48,11 +43,13 @@ class MeetingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrHRWriteReadOnly]
 
     def get_queryset(self):
-        qs = Meeting.objects.all()
-        if portal_role(self.request.user) in ("ADMIN", "HR"):
+        qs = Meeting.objects.all().order_by("-date", "-time")
+        role = portal_role(self.request.user)
+        # All management, leadership, and admin roles see ALL company & department meetings
+        if role in ("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT", "TEAM_LEAD", "BDE") or getattr(self.request.user, "is_superuser", False):
             return qs
         department = getattr(getattr(self.request.user, "employee", None), "department", "")
-        return qs.filter(Q(department="All Employees") | Q(department=department))
+        return qs.filter(Q(department="All Employees") | Q(department="") | Q(department=department) | Q(created_by=self.request.user))
 
     def perform_create(self, serializer):
         meeting = serializer.save(created_by=self.request.user)

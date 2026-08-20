@@ -63,7 +63,7 @@ class LeaveViewSet(viewsets.ModelViewSet):
         from rest_framework.exceptions import PermissionDenied
 
         actor_role = portal_role(request.user)
-        if actor_role not in self.MANAGEMENT_ROLES or not has_page_permission(request.user, "LEAVES", "edit"):
+        if actor_role not in self.MANAGEMENT_ROLES and not has_page_permission(request.user, "LEAVES", "edit"):
             raise PermissionDenied("You do not have permission to approve or reject leave requests.")
 
         leave = self.get_object()
@@ -91,7 +91,7 @@ class LeaveViewSet(viewsets.ModelViewSet):
         from rest_framework.exceptions import PermissionDenied
 
         actor_role = portal_role(self.request.user)
-        if actor_role not in self.MANAGEMENT_ROLES or not has_page_permission(self.request.user, "LEAVES", "delete"):
+        if actor_role not in self.MANAGEMENT_ROLES and not has_page_permission(self.request.user, "LEAVES", "delete"):
             raise PermissionDenied("You do not have permission to delete leave requests.")
 
         log_action(self.request.user, "Delete Leave", "LeaveRequest", instance.id)
