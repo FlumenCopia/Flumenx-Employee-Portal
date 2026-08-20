@@ -198,13 +198,19 @@ export function CommandCenterView({
   const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
   const [pendingCorrectionTaskId, setPendingCorrectionTaskId] = useState<string | null>(null);
   const [pendingCorrectionNote, setPendingCorrectionNote] = useState<string>("");
-  const [isBannerDismissed, setIsBannerDismissed] = useState<boolean>(false);
+  const [isBannerDismissed, setIsBannerDismissed] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("flumenx_overdue_banner_dismissed") === "true";
+    }
+    return false;
+  });
 
   useEffect(() => {
     if (selectedTask) {
       setReviewNoteInput(selectedTask.reviewNote || "");
     }
   }, [selectedTask]);
+
 
 
 
@@ -902,7 +908,12 @@ export function CommandCenterView({
               </div>
               <button
                 type="button"
-                onClick={() => setIsBannerDismissed(true)}
+                onClick={() => {
+                  setIsBannerDismissed(true);
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem("flumenx_overdue_banner_dismissed", "true");
+                  }
+                }}
                 style={{
                   background: "rgba(239, 68, 68, 0.15)",
                   color: "#DC2626",
@@ -922,6 +933,7 @@ export function CommandCenterView({
                 <span>Close</span>
                 <span>✕</span>
               </button>
+
             </div>
           )}
 
