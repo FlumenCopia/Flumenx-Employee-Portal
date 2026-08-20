@@ -129,12 +129,96 @@ export function EmployeeAttendancePage() {
 
   return <>
     <PageHeader eyebrow="MY WORKSPACE / ATTENDANCE" title="Your attendance." subtitle="A transparent view of your time, status, and monthly rhythm." action={<button className="secondary-button" disabled={!record} onClick={()=>setCorrection(true)}>Request correction</button>} />
+    
+    {/* Office Timing & Half Day Policy Banner */}
+    <div style={{ background: "var(--panel)", border: "1px solid var(--border2)", borderRadius: "12px", padding: "14px 18px", marginBottom: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "rgba(203,168,110,0.15)", border: "1px solid rgba(203,168,110,0.3)", color: "var(--goldD)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+          <Clock3 size={18} />
+        </div>
+        <div>
+          <b style={{ fontSize: "13px", color: "var(--text)", display: "block" }}>Attendance Timing & Cutoff Policy</b>
+          <span style={{ fontSize: "11px", color: "var(--muted)" }}>
+            Office start time is <b>09:30 AM</b> (5-min grace period until <b>09:35 AM</b>). Check-ins after <b>09:35 AM</b> are automatically recorded as <b>Half Day Leave</b> for management review and accountant salary calculations.
+          </span>
+        </div>
+      </div>
+    </div>
+
     {message&&<div className="toast success"><CheckCircle2 size={18}/>{message}</div>}
     {refreshError&&<div className="toast error">{refreshError}</div>}
     {recordsError && <EmptyState title="Could not load attendance" text={recordsError} />}
+    
     <div className="attendance-hero">
-      <div className="clock-panel"><span>TODAY - {new Date().toLocaleDateString("en-IN",{weekday:"long",day:"2-digit",month:"long"}).toUpperCase()}</span><strong>{new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}</strong><p><Building2 size={14}/> Enter the office to mark today's attendance</p><div className="clock-actions"><button onClick={enterOffice} disabled={actionPending}>{actionPending ? <Clock3 size={18}/> : <LogIn size={18}/>} {actionPending ? "Recording..." : "Enter the office"}</button></div></div>
-      <div className="today-record"><div className="record-head"><span>TODAY'S RECORD</span>{record ? <Badge tone={statusTone(record)}>{record.attendance_status}</Badge> : <Badge>No attendance recorded</Badge>}</div>{record ? <div className="record-times"><div><LogIn/><span>OFFICE ENTRY</span><b>{displayTime(record.check_in_time)}</b><small>{record.check_in_status || "Not recorded"}</small></div><div><Clock3/><span>STATUS</span><b>{record.attendance_status}</b><small>Office entry only</small></div></div> : <EmptyState title="No attendance recorded today" text="No office entry record exists for today." />}</div>
+      <div className="clock-panel" style={{ background: "linear-gradient(135deg, #cba86e 0%, #a8874e 100%)", borderRadius: "14px", padding: "22px", color: "#ffffff", boxShadow: "0 4px 15px rgba(203,168,110,0.25)" }}>
+        <span style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          MARK TODAY'S ATTENDANCE • {new Date().toLocaleDateString("en-IN",{weekday:"long",day:"2-digit",month:"long"}).toUpperCase()}
+        </span>
+        <strong style={{ fontSize: "42px", fontWeight: 900, display: "block", margin: "8px 0" }}>
+          {new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"})}
+        </strong>
+        <p style={{ fontSize: "12px", display: "flex", alignItems: "center", gap: "6px", margin: "0 0 16px 0", opacity: 0.9 }}>
+          <Building2 size={14}/> Click below to mark your office attendance
+        </p>
+        <div className="clock-actions" style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={enterOffice}
+            disabled={actionPending || Boolean(record?.check_in_time)}
+            style={{
+              background: record?.check_in_time ? "rgba(255,255,255,0.2)" : "#ffffff",
+              color: record?.check_in_time ? "#ffffff" : "#1a1b1e",
+              border: 0,
+              borderRadius: "8px",
+              padding: "10px 18px",
+              fontWeight: 700,
+              fontSize: "12.5px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              cursor: record?.check_in_time ? "not-allowed" : "pointer",
+              boxShadow: record?.check_in_time ? "none" : "0 2px 8px rgba(0,0,0,0.15)"
+            }}
+          >
+            {actionPending ? <Clock3 size={18}/> : <LogIn size={18}/>}
+            {actionPending ? "Recording..." : record?.check_in_time ? "Attendance Marked Today" : "Enter Office (Mark Attendance)"}
+          </button>
+        </div>
+      </div>
+
+      <div className="today-record">
+        <div className="record-head">
+          <span>TODAY'S RECORD</span>
+          {record ? (
+            <Badge tone={statusTone(record)}>
+              {record.is_late ? "Half Day (Late Arrival)" : record.attendance_status}
+            </Badge>
+          ) : (
+            <Badge>No attendance recorded</Badge>
+          )}
+        </div>
+        {record ? (
+          <div className="record-times">
+            <div>
+              <LogIn/>
+              <span>OFFICE ENTRY</span>
+              <b>{displayTime(record.check_in_time)}</b>
+              <small style={{ color: record.is_late ? "var(--danger)" : "var(--muted)", fontWeight: record.is_late ? 700 : 400 }}>
+                {record.is_late ? `Late (+${record.late_minutes} min)` : record.check_in_status || "On Time"}
+              </small>
+            </div>
+            <div>
+              <Clock3/>
+              <span>STATUS</span>
+              <b style={{ color: record.is_late ? "#a8874e" : "var(--text)" }}>
+                {record.is_late ? "Half Day" : record.attendance_status}
+              </b>
+              <small>{record.is_late ? "Checked in after 09:35 AM" : "Recorded"}</small>
+            </div>
+          </div>
+        ) : (
+          <EmptyState title="No attendance recorded today" text="Click 'Enter Office' on the clock panel to record your attendance for today." />
+        )}
+      </div>
     </div>
     {summaryError && <EmptyState title="Could not load summary" text={summaryError} />}
     <div className="stats-grid">
