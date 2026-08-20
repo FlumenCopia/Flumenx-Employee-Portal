@@ -88,6 +88,14 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
   const [search, setSearch] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
 
+  const getEmployeeKPIHref = (empId: number) => {
+    const cleanBase = (basePath || "/admin").replace(/\/+$/, "");
+    if (cleanBase.endsWith("/kpi")) {
+      return `${cleanBase}/${empId}`;
+    }
+    return `${cleanBase}/kpi/${empId}`;
+  };
+
   // Table Sorting & Pagination State
   const [sortBy, setSortBy] = useState<"score_desc" | "score_asc" | "name" | "dept">("score_desc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -586,7 +594,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                 </div>
               </div>
               <Link
-                href={`${basePath}/kpi/${selectedEmployeeData.employee_id}`}
+                href={getEmployeeKPIHref(selectedEmployeeData.employee_id)}
                 className="px-4 py-2.5 text-xs font-semibold text-emerald-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-500/20"
               >
                 View Full Details <ChevronRight size={14} />
@@ -918,7 +926,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <Link
-                        href={`${basePath}/kpi/${emp.employee_id}`}
+                        href={getEmployeeKPIHref(emp.employee_id)}
                         className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-semibold text-xs hover:underline"
                       >
                         View Details <ChevronRight size={13} />

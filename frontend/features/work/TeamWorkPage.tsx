@@ -394,15 +394,15 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
       </div>
 
       {/* 3. COMPACT TOOLBAR (PREFERRED ORDER: SEARCH, EMPLOYEE, STATUS, DEPT, CLIENT) */}
-      <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 12px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--panel2)", border: "1px solid var(--border)", borderRadius: "var(--r-sm)", padding: "0 10px", minWidth: "200px", flex: 1 }}>
-          <Search size={14} style={{ color: "var(--muted)" }} />
+      <div style={{ background: "#ffffff", border: "1px solid #e8e6e1", borderRadius: "16px", padding: "10px 14px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#ffffff", border: "1px solid #dad7ce", borderRadius: "10px", padding: "0 12px", minWidth: "220px", flex: 1 }}>
+          <Search size={15} style={{ color: "#cba86e" }} />
           <input
             type="text"
             placeholder="Search employee or task..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ background: "transparent", border: 0, outline: 0, color: "var(--text)", fontSize: "12px", width: "100%", padding: "7px 0" }}
+            style={{ background: "transparent", border: 0, outline: 0, color: "#1a1b1e", fontSize: "12.5px", width: "100%", padding: "8px 0", fontWeight: 500 }}
           />
         </div>
 
@@ -410,11 +410,11 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
           aria-label="Filter by employee"
           value={selectedEmployee}
           onChange={(e) => setSelectedEmployee(e.target.value)}
-          style={{ background: "var(--panel2)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: "var(--r-sm)", padding: "6px 10px", fontSize: "12px", fontWeight: 600, outline: "none", cursor: "pointer" }}
+          style={{ background: "#ffffff", border: "1px solid #dad7ce", color: "#1a1b1e", borderRadius: "10px", padding: "8px 12px", fontSize: "12px", fontWeight: 600, outline: "none", cursor: "pointer" }}
         >
-          <option value="all">All Team Members</option>
+          <option value="all" style={{ background: "#ffffff", color: "#1a1b1e" }}>All Team Members</option>
           {teamMembers.map((m) => (
-            <option key={m.id} value={String(m.id)}>{m.display_name} — {m.department}</option>
+            <option key={m.id} value={String(m.id)} style={{ background: "#ffffff", color: "#1a1b1e" }}>{m.display_name} — {m.department}</option>
           ))}
         </select>
 
@@ -422,25 +422,25 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
           aria-label="Filter by status"
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
-          style={{ background: "var(--panel2)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: "var(--r-sm)", padding: "6px 10px", fontSize: "12px", fontWeight: 600, outline: "none", cursor: "pointer" }}
+          style={{ background: "#ffffff", border: "1px solid #dad7ce", color: "#1a1b1e", borderRadius: "10px", padding: "8px 12px", fontSize: "12px", fontWeight: 600, outline: "none", cursor: "pointer" }}
         >
-          <option value="all">All Statuses</option>
-          <option value="Assigned">Assigned</option>
-          <option value="In Progress">In Progress</option>
-          <option value="In Review">In Review</option>
-          <option value="Approved">Approved</option>
-          <option value="Published">Published</option>
+          <option value="all" style={{ background: "#ffffff", color: "#1a1b1e" }}>All Statuses</option>
+          <option value="Assigned" style={{ background: "#ffffff", color: "#1a1b1e" }}>Assigned</option>
+          <option value="In Progress" style={{ background: "#ffffff", color: "#1a1b1e" }}>In Progress</option>
+          <option value="In Review" style={{ background: "#ffffff", color: "#1a1b1e" }}>In Review</option>
+          <option value="Approved" style={{ background: "#ffffff", color: "#1a1b1e" }}>Approved</option>
+          <option value="Published" style={{ background: "#ffffff", color: "#1a1b1e" }}>Published</option>
         </select>
 
         <select
           aria-label="Filter by department"
           value={selectedDepartment}
           onChange={(e) => setSelectedDepartment(e.target.value)}
-          style={{ background: "var(--panel2)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: "var(--r-sm)", padding: "6px 10px", fontSize: "12px", fontWeight: 600, outline: "none", cursor: "pointer" }}
+          style={{ background: "#ffffff", border: "1px solid #dad7ce", color: "#1a1b1e", borderRadius: "10px", padding: "8px 12px", fontSize: "12px", fontWeight: 600, outline: "none", cursor: "pointer" }}
         >
-          <option value="all">All Departments</option>
+          <option value="all" style={{ background: "#ffffff", color: "#1a1b1e" }}>All Departments</option>
           {departmentOptions.map((d) => (
-            <option key={d} value={d}>{d}</option>
+            <option key={d} value={d} style={{ background: "#ffffff", color: "#1a1b1e" }}>{d}</option>
           ))}
         </select>
 
@@ -448,11 +448,11 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
           aria-label="Filter by client"
           value={selectedClient}
           onChange={(e) => setSelectedClient(e.target.value)}
-          style={{ background: "var(--panel2)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: "var(--r-sm)", padding: "6px 10px", fontSize: "12px", fontWeight: 600, outline: "none", cursor: "pointer" }}
+          style={{ background: "#ffffff", border: "1px solid #dad7ce", color: "#1a1b1e", borderRadius: "10px", padding: "8px 12px", fontSize: "12px", fontWeight: 600, outline: "none", cursor: "pointer" }}
         >
-          <option value="all">All Clients</option>
+          <option value="all" style={{ background: "#ffffff", color: "#1a1b1e" }}>All Clients</option>
           {clients.map((c) => (
-            <option key={c.id} value={c.name}>{c.name}</option>
+            <option key={c.id} value={c.name} style={{ background: "#ffffff", color: "#1a1b1e" }}>{c.name}</option>
           ))}
         </select>
 

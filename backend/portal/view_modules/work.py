@@ -410,7 +410,7 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
         is_mgmt = role in ("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD")
         is_lead = role == "TEAM_LEAD" and assignment.employee and assignment.employee.team_lead_id and assignment.employee.team_lead.user_id == user.id
 
-        can_review = (is_rev_user or is_creator_mgmt or is_mgmt or is_lead or user.is_superuser) and not (is_assigned_emp and not (is_mgmt or user.is_superuser))
+        can_review = is_rev_user or is_creator_mgmt or is_mgmt or is_lead or user.is_superuser
 
         if not can_review:
             raise PermissionDenied("You do not have permission to review or quality-audit this work assignment.")

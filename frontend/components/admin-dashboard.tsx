@@ -13,6 +13,7 @@ import {
   Clock3,
   Kanban,
   Plus,
+  Sparkles,
   UserCheck,
   Users,
   X,
@@ -121,11 +122,52 @@ export function AdminDashboard({ basePath = "/admin" }: { basePath?: "/admin" | 
 
   return (
     <>
-      <PageHeader
-        eyebrow={`COMMAND CENTRE - ${today.toUpperCase()}`}
-        title="Good morning."
-        subtitle="Executive management dashboard — workspace metrics, leave approvals, and active tasks."
-      />
+      {/* RWEN CMS MIDNIGHT SLATE WELCOME HERO BANNER */}
+      <div
+        style={{
+          background: "#1b1c20",
+          borderRadius: "16px",
+          padding: "24px 28px",
+          color: "#faf9f5",
+          marginBottom: "20px",
+          position: "relative",
+          overflow: "hidden",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+        }}
+      >
+        <div style={{ position: "relative", zIndex: 2 }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "4px 12px",
+              borderRadius: "999px",
+              background: "#25272d",
+              border: "1px solid #3a3d46",
+              color: "#cba86e",
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              marginBottom: "12px",
+            }}
+          >
+            <Sparkles size={13} /> FLUMENX PORTAL ACTIVE
+          </div>
+          <h1 style={{ fontSize: "26px", fontWeight: 700, fontFamily: "serif, system-ui", margin: "0 0 6px", color: "#ffffff", letterSpacing: "-0.01em" }}>
+            Welcome back, Flumenx Admin!
+          </h1>
+          <p style={{ margin: 0, fontSize: "13px", color: "#9fa3af", maxWidth: "600px", lineHeight: "1.5" }}>
+            Manage executive workspace metrics, assigned project deliverables, team capacity, and client consultation workflows.
+          </p>
+        </div>
+
+        {/* Decorative Building Watermark */}
+        <div style={{ position: "absolute", right: "20px", bottom: "-10px", opacity: 0.08, pointerEvents: "none", zIndex: 1 }}>
+          <Building2 size={160} color="#ffffff" />
+        </div>
+      </div>
 
       {dashboardError && <EmptyState title="Could not load dashboard" text={dashboardError} />}
 
@@ -140,61 +182,107 @@ export function AdminDashboard({ basePath = "/admin" }: { basePath?: "/admin" | 
         </div>
       )}
 
-      {/* QUICK COMMAND ACTION BAR */}
+      {/* RWEN QUICK MANAGEMENT ACTIONS BAR */}
       <div
         style={{
-          background: "var(--panel)",
-          border: "1px solid var(--border)",
-          borderRadius: "14px",
-          padding: "14px 18px",
+          background: "#ffffff",
+          border: "1px solid #e8e6e1",
+          borderRadius: "16px",
+          padding: "16px 20px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           flexWrap: "wrap",
           gap: "12px",
-          marginBottom: "16px",
+          marginBottom: "20px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <span
             style={{
-              width: "10px",
-              height: "10px",
+              width: "8px",
+              height: "8px",
               borderRadius: "50%",
-              background: "var(--neon)",
-              boxShadow: "0 0 10px var(--neon)",
+              background: "#10b981",
+              boxShadow: "0 0 8px #10b981",
             }}
           />
-          <b style={{ fontSize: "13px", color: "var(--text)" }}>FLUMENX WORKSPACE PULSE</b>
-          <span style={{ fontSize: "11px", color: "var(--muted)" }}>• Real-time Operations</span>
+          <b style={{ fontSize: "12px", color: "#1a1b1e", fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+            QUICK MANAGEMENT ACTIONS:
+          </b>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
           <Link
             href={`${basePath}/work?createTask=true`}
-            className="primary-button"
-            style={{ padding: "7px 12px", fontSize: "11.5px", gap: "5px" }}
+            style={{
+              background: "#cba86e",
+              color: "#111215",
+              fontWeight: 700,
+              fontSize: "12px",
+              padding: "8px 16px",
+              borderRadius: "12px",
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: "0 2px 6px rgba(203,168,110,0.3)",
+            }}
           >
             <Plus size={14} /> New Task
           </Link>
           <Link
             href={`${basePath}/leaves`}
-            className="secondary-button"
-            style={{ padding: "7px 12px", fontSize: "11.5px", gap: "5px" }}
+            style={{
+              background: "#f0f4f8",
+              color: "#3e4756",
+              fontWeight: 600,
+              fontSize: "12px",
+              padding: "8px 16px",
+              borderRadius: "12px",
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              border: "1px solid #e2e8f0",
+            }}
           >
             <CalendarDays size={14} /> Review Leaves
           </Link>
           <Link
             href={`${basePath}/employees`}
-            className="secondary-button"
-            style={{ padding: "7px 12px", fontSize: "11.5px", gap: "5px" }}
+            style={{
+              background: "#f0f4f8",
+              color: "#3e4756",
+              fontWeight: 600,
+              fontSize: "12px",
+              padding: "8px 16px",
+              borderRadius: "12px",
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              border: "1px solid #e2e8f0",
+            }}
           >
             <Users size={14} /> Directory
           </Link>
           <Link
             href={`${basePath}/attendance`}
-            className="secondary-button"
-            style={{ padding: "7px 12px", fontSize: "11.5px", gap: "5px" }}
+            style={{
+              background: "#f0f4f8",
+              color: "#3e4756",
+              fontWeight: 600,
+              fontSize: "12px",
+              padding: "8px 16px",
+              borderRadius: "12px",
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              border: "1px solid #e2e8f0",
+            }}
           >
             <UserCheck size={14} /> Attendance Log
           </Link>

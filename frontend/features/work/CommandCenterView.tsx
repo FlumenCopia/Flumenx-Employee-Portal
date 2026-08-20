@@ -241,6 +241,14 @@ export function CommandCenterView({
     if (currentUser?.id && task.reviewerId && Number(task.reviewerId) === Number(currentUser.id)) {
       return true;
     }
+    if (currentUser?.employeeId && task.reviewerId && Number(task.reviewerId) === Number(currentUser.employeeId)) {
+      return true;
+    }
+    if (task.reviewer) {
+      const revLower = task.reviewer.toLowerCase().trim();
+      if (currentUser?.name && revLower.includes(currentUser.name.toLowerCase().trim())) return true;
+      if (currentUser?.username && revLower.includes(currentUser.username.toLowerCase().trim())) return true;
+    }
     return false;
   };
 
@@ -1284,7 +1292,7 @@ export function CommandCenterView({
                       <b style={{ color: "var(--text)", fontSize: "13px" }}>{t.title}</b>
                     </div>
                   </div>
-                  {canManageAll && (
+                  {(canManageAll || isReviewerOrManager(t)) && (
                     <div style={{ display: "flex", gap: "6px" }}>
                       <button type="button" onClick={() => moveTask(t.id, "approved")} className="btn btn-p" style={{ padding: "4px 10px", fontSize: "11px" }}>✓ Approve</button>
                       <button type="button" onClick={() => moveTask(t.id, "progress")} className="btn btn-d" style={{ padding: "4px 10px", fontSize: "11px" }}>← Revise</button>
