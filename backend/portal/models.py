@@ -365,16 +365,8 @@ class WorkAssignment(models.Model):
             else:
                 self.status = "Assigned"
 
-        rev_statuses = {row.review_status for row in rows}
-        if "CORRECTION_NEEDED" in rev_statuses:
-            self.review_status = "CORRECTION_NEEDED"
-        elif rows and all(r.review_status == "OK" for r in rows):
-            self.review_status = "OK"
-        else:
-            self.review_status = "PENDING_REVIEW"
-
         if save:
-            self.save(update_fields=["assigned_quantity", "completed_quantity", "unit", "progress", "status", "review_status", "completed_at", "updated_at"])
+            self.save(update_fields=["assigned_quantity", "completed_quantity", "unit", "progress", "status", "completed_at", "updated_at"])
 
 
 
@@ -411,7 +403,6 @@ class WorkAssignment(models.Model):
 
 class WorkDeliverable(models.Model):
     STATUSES = WorkAssignment.STATUSES
-    REVIEW_STATUSES = WorkAssignment.REVIEW_STATUSES
 
     assignment = models.ForeignKey(WorkAssignment, on_delete=models.CASCADE, related_name="deliverables")
     client = models.ForeignKey(Client, on_delete=models.PROTECT, related_name="work_deliverables")
@@ -420,8 +411,6 @@ class WorkDeliverable(models.Model):
     work_type = models.CharField(max_length=80)
     due_date = models.DateField()
     status = models.CharField(max_length=20, choices=STATUSES, default="Assigned")
-    review_status = models.CharField(max_length=30, choices=REVIEW_STATUSES, default="PENDING_REVIEW")
-    review_note = models.TextField(blank=True, default="")
     completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

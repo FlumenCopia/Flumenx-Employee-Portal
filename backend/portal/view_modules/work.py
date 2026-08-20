@@ -200,54 +200,6 @@ class WorkDeliverableViewSet(viewsets.ModelViewSet):
         instance.delete()
         notify_work_updated(assignment, actor)
 
-    @action(detail=True, methods=["post"])
-    def item_review(self, request, pk=None):
-        deliverable = self.get_object()
-        assignment = deliverable.assignment
-        user = request.user
-        role = str(portal_role(user)).upper()
-
-        is_assigned_emp = assignment.employee and assignment.employee.user_id and assignment.employee.user_id == user.id
-        is_rev_user = assignment.reviewer_id and assignment.reviewer_id == user.id
-        is_creator_mgmt = assignment.assigned_by_id and assignment.assigned_by_id == user.id
-        is_mgmt = role in ("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD")
-        is_lead = role == "TEAM_LEAD" and assignment.employee and assignment.employee.team_lead_id and assignment.employee.team_lead.user_id == user.id
-
-        can_review = (is_rev_user or is_creator_mgmt or is_mgmt or is_lead or user.is_superuser) and not (is_assigned_emp and not (is_mgmt or user.is_superuser))
-
-        if not can_review:
-            raise PermissionDenied("You do not have permission to review this deliverable item.")
-
-        rev_status = str(request.data.get("review_status", "")).upper()
-        note = str(request.data.get("review_note", "")).strip()
-
-        valid_statuses = ("PENDING_REVIEW", "OK", "CORRECTION_NEEDED")
-        if rev_status not in valid_statuses:
-            return Response({"detail": "Invalid review_status. Must be PENDING_REVIEW, OK, or CORRECTION_NEEDED."}, status=status.HTTP_400_BAD_REQUEST)
-
-        if rev_status == "CORRECTION_NEEDED" and not note:
-            return Response({"detail": "A review note is required when marking Correction Needed."}, status=status.HTTP_400_BAD_REQUEST)
-
-        deliverable.review_status = rev_status
-        deliverable.review_note = note
-        deliverable.save()
-
-        assignment.sync_from_deliverables(save=True)
-
-        recipient = assignment_employee_user(assignment)
-        if recipient and recipient != user:
-            if rev_status == "CORRECTION_NEEDED":
-                title = f"Correction requested for '{deliverable.title}'"
-                msg_text = f"Reviewer Note for '{deliverable.title}': {note}"
-                create_notifications([recipient], title, msg_text, category="work_review", exclude_user=user)
-            elif rev_status == "OK":
-                title = f"'{deliverable.title}' marked OK"
-                msg_text = f"'{deliverable.title}' was reviewed by {user.first_name or user.username} and marked OK."
-                create_notifications([recipient], title, msg_text, category="work_review", exclude_user=user)
-
-        serializer = self.get_serializer(deliverable)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
 
 class WorkAssignmentViewSet(viewsets.ModelViewSet):
     module_code = "TASKS"
