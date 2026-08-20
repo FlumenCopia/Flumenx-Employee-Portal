@@ -17,7 +17,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
+  const [checkingSession, setCheckingSession] = useState(false);
 
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
@@ -28,36 +28,23 @@ export default function LoginPage() {
   useEffect(() => {
     let active = true;
 
-    const timer = setTimeout(() => {
-      if (active) {
-        clearCachedAuthUser();
-        setCheckingSession(false);
-      }
-    }, 800);
-
     api<AuthUser>("/auth/me/")
       .then(user => {
         if (!active) return;
-        clearTimeout(timer);
         setCachedAuthUser(user);
         const dest = getWorkspaceDestination(user.portal_role);
         if (dest && dest !== "/login") {
           router.replace(dest);
-        } else {
-          setCheckingSession(false);
         }
       })
       .catch(() => {
         if (active) {
-          clearTimeout(timer);
           clearCachedAuthUser();
-          setCheckingSession(false);
         }
       });
 
     return () => {
       active = false;
-      clearTimeout(timer);
     };
   }, [router]);
 
@@ -109,41 +96,48 @@ export default function LoginPage() {
     }
   }
 
-  if (checkingSession) {
-    return <div className="route-loader"><span>F</span><p>Checking workspace session</p></div>;
-  }
-
   return (
     <div className="simple-login-page">
       <div className="login-form-side">
         <form onSubmit={submit}>
           <div style={{ textAlign: "center", marginBottom: "24px" }}>
-            <div style={{ display: "inline-flex", justifyContent: "center", alignItems: "center", marginBottom: "8px" }}>
+            <div style={{ display: "inline-flex", justifyContent: "center", alignItems: "center", marginBottom: "10px" }}>
               <img
                 src="/flumenx-logo.webp"
                 alt="FLUMENX - Make It Happen"
-                style={{ height: "46px", width: "auto", objectFit: "contain" }}
+                style={{ height: "52px", width: "auto", objectFit: "contain" }}
               />
             </div>
-            <div style={{ fontSize: "10px", letterSpacing: "0.22em", color: "var(--neon)", fontWeight: 700, textTransform: "uppercase" }}>
+            <div style={{ fontSize: "11px", letterSpacing: "0.22em", color: "#a8874e", fontWeight: 800, textTransform: "uppercase" }}>
               EMPLOYEE PORTAL
             </div>
           </div>
 
-          <h2>Welcome <i>back.</i></h2>
-          <p className="form-subtitle">Use your work account to sign in to your workspace.</p>
+          <h2 style={{ fontSize: "26px", fontWeight: 800, color: "#1a1b1e", letterSpacing: "-0.02em", marginBottom: "6px" }}>
+            Welcome <i style={{ color: "#a8874e", fontStyle: "normal" }}>back.</i>
+          </h2>
+          <p className="form-subtitle" style={{ fontSize: "13.5px", color: "#5c606b", marginBottom: "24px" }}>
+            Sign in with your work account to access your workspace.
+          </p>
 
-          <label>
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12.5px", fontWeight: 700, color: "#1a1b1e", marginBottom: "18px" }}>
             Work email
-            <div className="input-wrap">
-              <Mail size={18} />
-              <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="name@company.com" required />
+            <div className="input-wrap" style={{ background: "#ffffff", border: "1px solid #dad7ce", borderRadius: "10px", padding: "10px 14px", minHeight: "46px" }}>
+              <Mail size={18} style={{ color: "#a8874e" }} />
+              <input
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                type="email"
+                placeholder="name@company.com"
+                required
+                style={{ fontSize: "13.5px", fontWeight: 600, color: "#1a1b1e" }}
+              />
             </div>
             {fieldErrors.username && <span className="form-field-error">{fieldErrors.username}</span>}
           </label>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.04em", color: "#aaa" }}>Password</span>
+            <span style={{ fontSize: "12.5px", fontWeight: 700, letterSpacing: "0.02em", color: "#1a1b1e" }}>Password</span>
             <button
               type="button"
               onClick={() => {
@@ -152,23 +146,52 @@ export default function LoginPage() {
                 setForgotMessage("");
                 setForgotError("");
               }}
-              style={{ background: "none", border: "none", color: "var(--neon)", fontSize: "11px", fontWeight: 600, cursor: "pointer", padding: 0 }}
+              style={{ background: "none", border: "none", color: "#a8874e", fontSize: "12.5px", fontWeight: 700, cursor: "pointer", padding: 0 }}
             >
               Forgot password?
             </button>
           </div>
-          <label style={{ marginBottom: "16px" }}>
-            <div className="input-wrap" style={{ marginTop: 0 }}>
-              <LockKeyhole size={18} />
-              <input value={password} onChange={e => setPassword(e.target.value)} type={show ? "text" : "password"} required />
-              <button type="button" onClick={() => setShow(!show)}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+          <label style={{ marginBottom: "20px" }}>
+            <div className="input-wrap" style={{ marginTop: 0, background: "#ffffff", border: "1px solid #dad7ce", borderRadius: "10px", padding: "10px 14px", minHeight: "46px" }}>
+              <LockKeyhole size={18} style={{ color: "#a8874e" }} />
+              <input
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                type={show ? "text" : "password"}
+                required
+                style={{ fontSize: "13.5px", fontWeight: 600, color: "#1a1b1e" }}
+              />
+              <button
+                type="button"
+                onClick={() => setShow((prev) => !prev)}
+                style={{ background: "none", border: "none", color: "#6b707d", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}
+              >
+                {show ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
             {fieldErrors.password && <span className="form-field-error">{fieldErrors.password}</span>}
           </label>
 
-          {error && <div className="form-error">{error}</div>}
-          <button type="submit" className="login-button" disabled={loading}>
-            {loading ? "Signing in..." : "Login to FLUMENX"}<ArrowRight size={18} />
+          {error && <div className="form-error" style={{ marginBottom: "16px", fontSize: "12.5px" }}>{error}</div>}
+          <button
+            type="submit"
+            className="login-button"
+            disabled={loading}
+            style={{
+              minHeight: "48px",
+              fontSize: "14px",
+              fontWeight: 800,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              background: "linear-gradient(135deg, #cba86e 0%, #a8874e 100%)",
+              color: "#ffffff",
+              border: "1px solid #a8874e",
+              borderRadius: "10px",
+              boxShadow: "0 4px 16px rgba(203,168,110,0.3)",
+              cursor: "pointer",
+            }}
+          >
+            {loading ? "Signing in..." : "Login to FLUMENX"} <ArrowRight size={18} />
           </button>
         </form>
       </div>

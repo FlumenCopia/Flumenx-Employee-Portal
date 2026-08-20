@@ -220,11 +220,11 @@ body{background:var(--bg)}
 .simple-login-page{background:var(--bg)}
 .simple-login-page:before{background-image:linear-gradient(rgba(203,168,110,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(203,168,110,.04) 1px,transparent 1px)}
 .simple-login-page:after{border-color:rgba(203,168,110,.16);box-shadow:0 0 90px rgba(203,168,110,.08)}
-.simple-login-page .login-form-side{background:var(--card);border:1px solid var(--border2);border-radius:var(--r);box-shadow:0 28px 90px rgba(0,0,0,.45)}
+.simple-login-page .login-form-side{background:#ffffff;border:1px solid #dad7ce;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.02)}
 .simple-login-page .login-form-side:before{color:var(--text)}
-.simple-login-page .login-form-side:after{color:var(--neon)}
-.simple-login-page .login-button{background:var(--neon);border-color:var(--neon);color:var(--bg)}
-.simple-login-page .login-button:hover{background:#b88d4d;box-shadow:0 12px 40px rgba(203,168,110,.2)}
+.simple-login-page .login-form-side:after{color:var(--goldD)}
+.simple-login-page .login-button{background:linear-gradient(135deg,#cba86e 0%,#a8874e 100%)!important;border-color:#a8874e!important;color:#ffffff!important}
+.simple-login-page .login-button:hover{background:linear-gradient(135deg,#b88d4d 0%,#967540 100%)!important;box-shadow:0 12px 40px rgba(203,168,110,.35)!important}
 .demo-note{border-left-color:var(--neon)}
 .form-subtitle,.demo-note p,.signup-success p{color:var(--muted)}
 .profile-cover{background-color:var(--card2);background-image:linear-gradient(30deg,rgba(203,168,110,.12) 1px,transparent 1px),linear-gradient(150deg,rgba(203,168,110,.12) 1px,transparent 1px)}
