@@ -189,10 +189,17 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
         employee = attrs.get("employee", getattr(self.instance, "employee", None))
         self.validate_employee_scope(employee)
 
-
-
+        if self.instance and requested_status and requested_status != "Backlog":
+            is_backlog_instance = (self.instance.assigned_date and self.instance.assigned_date < timezone.localdate()) or self.instance.status == "Backlog"
+            if is_backlog_instance or requested_status == "Assigned":
+                today_date = timezone.localdate()
+                attrs["assigned_date"] = today_date
+                current_due = attrs.get("due_date", self.instance.due_date)
+                if not current_due or current_due < today_date:
+                    attrs["due_date"] = today_date
 
         values = {
+
             "employee": employee,
             "client": attrs.get("client", getattr(self.instance, "client", None)) or self.default_client(),
             "title": attrs.get("title", getattr(self.instance, "title", "")),
