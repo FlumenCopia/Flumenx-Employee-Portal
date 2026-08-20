@@ -149,8 +149,12 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
             return
         if not self.instance:
             raise PermissionDenied("Only management and Team Leads can create work assignments.")
-        if getattr(request.user, "employee", None) != target_emp:
+        user_emp = getattr(request.user, "employee", None)
+        if not user_emp and request.user and request.user.is_authenticated:
+            user_emp = Employee.objects.filter(user=request.user).first()
+        if user_emp != target_emp:
             raise PermissionDenied("Execution roles can access only their own assignments.")
+
 
 
     def validate(self, attrs):

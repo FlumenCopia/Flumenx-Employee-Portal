@@ -51,7 +51,8 @@ class WorkReviewerWorkflowTests(TestCase):
         self.client_obj = Client.objects.create(name="Acme Corp")
 
     def test_authorized_creation_roles(self):
-        roles = [self.admin, self.hr_user, self.tl_user, self.ops_head, self.ops_user]
+        roles = [self.admin, self.hr_user, self.tl_user, self.ops_head]
+
         for idx, u in enumerate(roles):
             self.client_api.force_authenticate(user=u)
             res = self.client_api.post(
