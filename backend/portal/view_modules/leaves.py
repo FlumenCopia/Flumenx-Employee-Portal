@@ -23,11 +23,12 @@ class LeaveViewSet(viewsets.ModelViewSet):
     serializer_class = LeaveSerializer
 
     MANAGEMENT_ROLES = ("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD")
+    VIEW_ALL_ROLES = ("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT")
 
     def get_queryset(self):
         qs = LeaveRequest.objects.select_related("employee", "employee__user")
         role = portal_role(self.request.user)
-        if role in self.MANAGEMENT_ROLES:
+        if role in self.VIEW_ALL_ROLES:
             return qs
         return qs.filter(employee__user=self.request.user)
 

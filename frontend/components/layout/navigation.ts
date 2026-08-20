@@ -109,6 +109,7 @@ const accountantNav = [
   ["Command Center", "/admin/work?view=command-center", Sparkles],
   ["Task Board", "/admin/work?view=kanban", Kanban],
   ["Attendance", "/accountant/attendance", CalendarCheck],
+  ["Leave Requests", "/accountant/leaves", CalendarDays],
 ] as const satisfies readonly NavigationItem[];
 
 const bdoNav = [
