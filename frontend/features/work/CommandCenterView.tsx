@@ -993,61 +993,70 @@ export function CommandCenterView({
                           const t = tasksInGroup[0];
                           const isOverdue = isDateStrictlyPast(t.due);
                           const canonKey = normalizeDepartment(t.type);
-                          const typeInfo = CANONICAL_DEPARTMENTS[canonKey] || { label: t.type, badge: t.type, color: "#89ACA0" };
+                          const typeInfo = CANONICAL_DEPARTMENTS[canonKey] || { label: t.type, badge: t.type, color: "#a8874e" };
                           renderedItems.push(
                             <div
                               key={t.id}
                               className="tcard"
                               onClick={() => setSelectedTask(t)}
-                              style={{ padding: "12px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px", cursor: "pointer", marginBottom: "8px" }}
+                              style={{
+                                padding: "16px",
+                                background: "var(--panel)",
+                                border: "1px solid var(--border2)",
+                                borderRadius: "12px",
+                                cursor: "pointer",
+                                marginBottom: "12px",
+                                boxShadow: "0 1px 4px rgba(0,0,0,0.03), 0 4px 12px rgba(0,0,0,0.015)",
+                                transition: "all 0.2s ease",
+                              }}
                             >
-                              <div className="tc-top" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
-                                <span className="chip" style={{ background: typeInfo.color + "20", color: typeInfo.color, padding: "2px 8px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                              <div className="tc-top" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
+                                <span className="chip" style={{ background: "rgba(203, 168, 110, 0.14)", color: "#a8874e", border: "1px solid rgba(203, 168, 110, 0.25)", padding: "3px 9px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, textTransform: "uppercase" }}>
                                   {typeInfo.label}
                                 </span>
-                                <span className={`chip ${t.priority === "p0" ? "p-p0" : "p-p1"}`} style={{ padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                                <span className={`chip ${t.priority === "p0" ? "p-p0" : "p-p1"}`} style={{ background: t.priority === "p0" ? "#fef2f2" : "#f9f8f4", color: t.priority === "p0" ? "#c62828" : "#5c606b", border: t.priority === "p0" ? "1px solid rgba(198, 40, 40, 0.25)" : "1px solid #dad7ce", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
                                   {t.priority.toUpperCase()}
                                 </span>
                                 {t.reviewStatus === "OK" && (
-                                  <span style={{ background: "rgba(34, 197, 94, 0.2)", color: "#4ADE80", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                                  <span style={{ background: "#f0fdf4", color: "#2e7d32", border: "1px solid rgba(46, 125, 50, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
                                     ✓ OK
                                   </span>
                                 )}
                                 {t.reviewStatus === "CORRECTION_NEEDED" && (
-                                  <span style={{ background: "rgba(245, 158, 11, 0.2)", color: "#F59E0B", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                                  <span style={{ background: "#fef2f2", color: "#c62828", border: "1px solid rgba(198, 40, 40, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
                                     ↩ Correction Needed
                                   </span>
                                 )}
                                 {(!t.reviewStatus || t.reviewStatus === "PENDING_REVIEW") && (
-                                  <span style={{ background: "rgba(148, 163, 184, 0.15)", color: "#94A3B8", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 600 }}>
+                                  <span style={{ background: "rgba(203, 168, 110, 0.12)", color: "#a8874e", border: "1px solid rgba(203, 168, 110, 0.3)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700 }}>
                                     ⏳ Pending Review
                                   </span>
                                 )}
-                                <span className="tc-code" style={{ marginLeft: "auto", fontSize: "10px", color: "var(--muted)", fontFamily: "monospace" }}>{t.code}</span>
+                                <span className="tc-code" style={{ marginLeft: "auto", fontSize: "11px", color: "#8a8e99", fontFamily: "monospace", fontWeight: 700 }}>{t.code}</span>
                               </div>
 
-                              <div className="tc-title" style={{ fontWeight: 700, fontSize: "13px", color: "#E8F5EF", marginBottom: "6px" }}>{t.title}</div>
-                              {t.desc && <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "8px", lineHeight: "1.3" }}>{t.desc}</div>}
+                              <div className="tc-title" style={{ fontWeight: 800, fontSize: "15px", color: "#1a1b1e", marginBottom: "8px", lineHeight: "1.4" }}>{t.title}</div>
+                              {t.desc && <div style={{ fontSize: "12.5px", color: "#5c606b", marginBottom: "12px", lineHeight: "1.45" }}>{t.desc}</div>}
 
-                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px", background: "var(--panel2)", borderRadius: "6px", marginBottom: "8px" }}>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px" }}>
-                                  <span style={{ color: "var(--muted)" }}>Assigned To:</span>
-                                  <span style={{ color: "var(--goldD)", fontWeight: 700 }}>{t.assigneeName || "Unassigned"}</span>
+                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", background: "#f9f8f4", border: "1px solid #e8e6e1", borderRadius: "8px", marginBottom: "12px" }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
+                                  <span style={{ color: "#6b707d" }}>Assigned To:</span>
+                                  <b style={{ color: "#1a1b1e", fontWeight: 700, fontSize: "12.5px" }}>{t.assigneeName || "Unassigned"}</b>
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10.5px" }}>
-                                  <span style={{ color: "var(--muted)" }}>Reviewer:</span>
-                                  <span style={{ color: "#A78BFA", fontWeight: 600 }}>{t.reviewer || "Admin"}</span>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
+                                  <span style={{ color: "#6b707d" }}>Reviewer:</span>
+                                  <b style={{ color: "#1a1b1e", fontWeight: 700, fontSize: "12.5px" }}>{t.reviewer || "Admin"}</b>
                                 </div>
                               </div>
 
-                              <div className="tc-meta" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)" }}>
-                                <div className={`tc-due ${isOverdue ? "late" : ""}`} style={{ color: isOverdue ? "#FF6B6B" : "var(--muted)", fontSize: "11px", fontWeight: isOverdue ? 700 : 400 }}>
+                              <div className="tc-meta" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px", color: "#6b707d" }}>
+                                <div className={`tc-due ${isOverdue ? "late" : ""}`} style={{ color: isOverdue ? "#c62828" : "#5c606b", fontSize: "12px", fontWeight: isOverdue ? 800 : 600 }}>
                                   📅 {isOverdue ? "Overdue: " : "Due: "}{t.due}
                                 </div>
                               </div>
 
-                              <div style={{ marginTop: "8px", paddingTop: "6px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: "10.5px", color: "var(--muted)", fontWeight: 600 }}>Status:</span>
+                              <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px solid #e8e6e1", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontSize: "12px", color: "#6b707d", fontWeight: 600 }}>Status:</span>
                                 <select
                                    value={t.status === "backlog" ? "Backlog" : (t.rawStatus || "Assigned")}
                                    disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
@@ -1061,13 +1070,13 @@ export function CommandCenterView({
                                    }}
                                    className="fs"
                                    style={{
-                                     padding: "2px 8px",
-                                     fontSize: "11px",
-                                     color: t.status === "backlog" ? "#FF6B6B" : "#1a1b1e",
+                                     padding: "5px 12px",
+                                     fontSize: "12.5px",
+                                     color: t.status === "backlog" ? "#c62828" : "#1a1b1e",
                                      background: t.status === "backlog" ? "#fef2f2" : "#ffffff",
-                                     border: t.status === "backlog" ? "1px solid rgba(255,107,107,0.3)" : "1px solid #dad7ce",
-                                     borderRadius: "4px",
-                                     fontWeight: 600,
+                                     border: t.status === "backlog" ? "1px solid rgba(198,40,40,0.3)" : "1px solid #dad7ce",
+                                     borderRadius: "8px",
+                                     fontWeight: 700,
                                      cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
                                      opacity: canUserChangeTaskStatus(t) ? 1 : 0.6,
                                    }}
@@ -1112,53 +1121,53 @@ export function CommandCenterView({
                               className="tcard tcard-grouped"
                               onClick={() => setSelectedTaskGroup(groupData)}
                               style={{
-                                padding: "12px",
+                                padding: "16px",
                                 background: "var(--panel)",
-                                border: "1.5px solid var(--neon)",
-                                borderRadius: "8px",
+                                border: "1.5px solid var(--goldD)",
+                                borderRadius: "12px",
                                 cursor: "pointer",
-                                marginBottom: "8px",
-                                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                                marginBottom: "12px",
+                                boxShadow: "0 2px 8px rgba(203,168,110,0.15)",
                               }}
                             >
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-                                <span className="chip" style={{ background: "rgba(203, 168, 110, 0.15)", color: "var(--goldD)", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: 800 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+                                <span className="chip" style={{ background: "rgba(203, 168, 110, 0.15)", color: "#a8874e", border: "1px solid rgba(203, 168, 110, 0.3)", padding: "3px 10px", borderRadius: "6px", fontSize: "11.5px", fontWeight: 800 }}>
                                   {clientName}
                                 </span>
-                                <span style={{ background: "#3B82F6", color: "#FFFFFF", padding: "2px 8px", borderRadius: "12px", fontSize: "10.5px", fontWeight: 800 }}>
+                                <span style={{ background: "linear-gradient(135deg,#cba86e,#a8874e)", color: "#FFFFFF", padding: "3px 10px", borderRadius: "12px", fontSize: "11.5px", fontWeight: 800 }}>
                                   {tasksInGroup.length} Tasks
                                 </span>
                               </div>
 
-                              <div style={{ fontSize: "12.5px", fontWeight: 700, color: "var(--text)", marginBottom: "6px" }}>
+                              <div style={{ fontSize: "14px", fontWeight: 800, color: "#1a1b1e", marginBottom: "8px" }}>
                                 📁 {tasksInGroup.length} Work Assignments Batch
                               </div>
 
-                              <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "8px", display: "flex", flexDirection: "column", gap: "3px", background: "var(--panel2)", padding: "6px 8px", borderRadius: "6px" }}>
+                              <div style={{ fontSize: "12px", color: "#5c606b", marginBottom: "10px", display: "flex", flexDirection: "column", gap: "4px", background: "#f9f8f4", border: "1px solid #e8e6e1", padding: "9px 11px", borderRadius: "8px" }}>
                                 {tasksInGroup.slice(0, 3).map((gt) => (
-                                  <div key={gt.id} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  <div key={gt.id} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#1a1b1e" }}>
                                     • {gt.title}
                                   </div>
                                 ))}
                                 {tasksInGroup.length > 3 && (
-                                  <div style={{ fontSize: "10px", color: "var(--amber)", fontWeight: 700, marginTop: "2px" }}>
+                                  <div style={{ fontSize: "11px", color: "#a8874e", fontWeight: 800, marginTop: "2px" }}>
                                     +{tasksInGroup.length - 3} more task(s)...
                                   </div>
                                 )}
                               </div>
 
-                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px", background: "var(--panel2)", borderRadius: "6px", marginBottom: "6px" }}>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px" }}>
-                                  <span style={{ color: "var(--muted)" }}>Assigned To:</span>
-                                  <span style={{ color: "var(--goldD)", fontWeight: 700 }}>{assigneeName}</span>
+                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", background: "#f9f8f4", border: "1px solid #e8e6e1", borderRadius: "8px", marginBottom: "10px" }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
+                                  <span style={{ color: "#6b707d" }}>Assigned To:</span>
+                                  <b style={{ color: "#1a1b1e", fontWeight: 700, fontSize: "12.5px" }}>{assigneeName}</b>
                                 </div>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10.5px" }}>
-                                  <span style={{ color: "var(--muted)" }}>Reviewer:</span>
-                                  <span style={{ color: "#A78BFA", fontWeight: 600 }}>{reviewerName}</span>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
+                                  <span style={{ color: "#6b707d" }}>Reviewer:</span>
+                                  <b style={{ color: "#1a1b1e", fontWeight: 700, fontSize: "12.5px" }}>{reviewerName}</b>
                                 </div>
                               </div>
 
-                              <div style={{ fontSize: "10.5px", color: "var(--neon)", fontWeight: 700, textAlign: "right" }}>
+                              <div style={{ fontSize: "12px", color: "#a8874e", fontWeight: 800, textAlign: "right" }}>
                                 Click to view all {tasksInGroup.length} tasks ➔
                               </div>
                             </div>
