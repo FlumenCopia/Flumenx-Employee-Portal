@@ -506,7 +506,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
 
   const name = user?.first_name || workspaceFallbackNames[workspaceRole];
   const roleLabel = workspaceLabels[workspaceRole];
-  if (!ready || revalidatingBfCache || (navLoading && dynamicNav === null)) return <div className="route-loader"><span>F</span><p>Verifying workspace session</p></div>;
+  if (!ready && !user) return <div className="route-loader"><span>F</span><p>Verifying workspace session</p></div>;
 
   const canCreateTask = (() => {
     if (!user) return false;

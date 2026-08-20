@@ -72,9 +72,9 @@ export function EmployeeKPIDetailPage({
 
   if (loading && !data) {
     return (
-      <div className="route-loader">
-        <span>F</span>
-        <p>Loading KPI performance metrics...</p>
+      <div className="page flex flex-col items-center justify-center min-h-[300px] text-[#6b707d] gap-3">
+        <RefreshCw size={24} className="animate-spin text-[#cba86e]" />
+        <span className="text-xs font-semibold uppercase tracking-wider">Loading KPI performance metrics...</span>
       </div>
     );
   }
