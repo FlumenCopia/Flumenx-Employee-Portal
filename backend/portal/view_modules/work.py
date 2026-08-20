@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q, ProtectedError, Sum
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from portal.models import Client, Employee, WorkAssignment, WorkDeliverable
-from portal.permissions import IsWorkAssignmentUser, IsWorkClientUser, portal_role
+from portal.permissions import IsWorkAssignmentUser, IsWorkClientUser, portal_role, WORK_CREATOR_ROLES
 from portal.serializers import ClientSerializer, WorkAssignmentSerializer, WorkDeliverableSerializer
 from portal.services.notifications import create_notifications
 
@@ -264,6 +264,93 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
         emp = getattr(self.request.user, "employee", None)
         name = emp.name if emp else (self.request.user.first_name or self.request.user.username or "Admin")
         return self.request.user, name
+
+    @action(detail=False, methods=["post"], url_path="bulk-create")
+    def bulk_create(self, request):
+        user = request.user
+        role = str(portal_role(user)).upper()
+        if role not in WORK_CREATOR_ROLES and not user.is_superuser and not user.is_staff:
+            raise PermissionDenied("Only management and authorized roles can create work assignments.")
+
+        data = request.data
+        tasks_data = data.get("tasks", [])
+        if not isinstance(tasks_data, list) or len(tasks_data) == 0:
+            return Response({"error": "At least one task row must be provided under 'tasks'."}, status=status.HTTP_400_BAD_REQUEST)
+
+        client_val = data.get("client") or data.get("client_id")
+        employee_val = data.get("employee") or data.get("employee_id")
+        work_type = data.get("work_type") or data.get("department") or "web_development"
+        priority = data.get("priority") or "Normal"
+
+        if not client_val:
+            return Response({"client": ["Client is required."]}, status=status.HTTP_400_BAD_REQUEST)
+        if not employee_val:
+            return Response({"employee": ["Assigned employee is required."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        client_obj = Client.objects.filter(id=client_val).first() if str(client_val).isdigit() else Client.objects.filter(name__iexact=str(client_val).strip()).first()
+        if not client_obj:
+            return Response({"client": [f"Invalid client ID or name '{client_val}'."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        emp_obj = Employee.objects.filter(id=employee_val).first() if str(employee_val).isdigit() else Employee.objects.filter(name__iexact=str(employee_val).strip()).first()
+        if not emp_obj:
+            return Response({"employee": [f"Invalid employee ID or name '{employee_val}'."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        if role == "TEAM_LEAD":
+            allowed_qs = active_employee_options_for_user(user)
+            if not allowed_qs.filter(id=emp_obj.id).exists():
+                raise PermissionDenied("You can only assign tasks to members of your own team.")
+
+        reviewer_user, reviewer_name = self.resolve_reviewer()
+
+        created_assignments = []
+        validation_errors = []
+
+        with transaction.atomic():
+            for idx, task_item in enumerate(tasks_data):
+                title = (task_item.get("title") or "").strip()
+                due_date = task_item.get("due_date")
+                desc = (task_item.get("description") or data.get("description") or "").strip()
+
+                if not title:
+                    validation_errors.append({"row": idx + 1, "title": ["Task title is required."]})
+                    continue
+
+                if not due_date:
+                    validation_errors.append({"row": idx + 1, "due_date": ["Due date is required."]})
+                    continue
+
+                assigned_date = task_item.get("assigned_date") or data.get("assigned_date") or timezone.localdate()
+
+                assignment_data = {
+                    "client": client_obj.id,
+                    "employee": emp_obj.id,
+                    "title": title,
+                    "description": desc,
+                    "work_type": work_type,
+                    "priority": priority,
+                    "assigned_date": assigned_date,
+                    "due_date": due_date,
+                    "status": "Assigned",
+                    "assigned_quantity": 1,
+                    "unit": "Task",
+                }
+
+                serializer = self.get_serializer(data=assignment_data)
+                if not serializer.is_valid():
+                    validation_errors.append({"row": idx + 1, "errors": serializer.errors})
+                else:
+                    assignment = serializer.save(assigned_by=user, reviewer=reviewer_user, reviewer_name=reviewer_name)
+                    notify_work_assigned(assignment, user)
+                    created_assignments.append(assignment)
+
+            if validation_errors:
+                transaction.set_rollback(True)
+                return Response({
+                    "error": "Validation failed for one or more tasks.",
+                    "details": validation_errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(self.get_serializer(created_assignments, many=True).data, status=status.HTTP_201_CREATED)
 
     def perform_create(self, serializer):
         user = self.request.user

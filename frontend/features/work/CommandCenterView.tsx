@@ -24,7 +24,9 @@ import {
   UserCheck,
   Users,
   Zap,
+  Trash2,
 } from "lucide-react";
+
 import type { WorkAssignment, Client, WorkEmployeeOption, WorkPriority, WorkStatus, PortalRole, DepartmentItem, WorkSummary } from "@/lib/types";
 import { api } from "@/lib/api";
 import { Modal } from "@/features/common/Modal";
@@ -149,6 +151,14 @@ const DEFAULT_KPIS: DualKPI[] = [];
 const DEFAULT_BUDGET: BudgetItem[] = [];
 const DEFAULT_SEED_TASKS: TaskItem[] = [];
 
+export interface TaskGroup {
+  key: string;
+  clientName: string;
+  assigneeName: string;
+  reviewerName: string;
+  tasks: TaskItem[];
+}
+
 export function CommandCenterView({
   assignments,
   clients,
@@ -183,14 +193,19 @@ export function CommandCenterView({
   const [kpis, setKpis] = useState<DualKPI[]>(DEFAULT_KPIS);
   const [kpiInputs, setKpiInputs] = useState<Record<string, string>>({});
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
+  const [selectedTaskGroup, setSelectedTaskGroup] = useState<TaskGroup | null>(null);
   const [reviewNoteInput, setReviewNoteInput] = useState<string>("");
   const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
+  const [pendingCorrectionTaskId, setPendingCorrectionTaskId] = useState<string | null>(null);
+  const [pendingCorrectionNote, setPendingCorrectionNote] = useState<string>("");
 
   useEffect(() => {
     if (selectedTask) {
       setReviewNoteInput(selectedTask.reviewNote || "");
     }
   }, [selectedTask]);
+
+
 
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState<string>("all");
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("all");
@@ -212,7 +227,7 @@ export function CommandCenterView({
   const isReviewerOrManager = (task: TaskItem | null): boolean => {
     if (!task) return false;
     const roleUpper = (currentUser?.role || userRole || "").toUpperCase();
-    if (["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "TEAM_LEAD"].includes(roleUpper)) {
+    if (["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "TEAM_LEAD", "BDE"].includes(roleUpper)) {
       return true;
     }
     if (currentUser?.id && task.reviewerId && Number(task.reviewerId) === Number(currentUser.id)) {
@@ -231,12 +246,20 @@ export function CommandCenterView({
 
   const canUserChangeTaskStatus = (task: TaskItem | null): boolean => {
     if (!task) return false;
-    return isReviewerOrManager(task);
+    if (isReviewerOrManager(task)) return true;
+    if (currentUser?.id && task.assignee && String(task.assignee) === String(currentUser.id)) {
+      return true;
+    }
+    if (currentUser?.employeeId && task.assignee && String(task.assignee) === String(currentUser.employeeId)) {
+      return true;
+    }
+    return false;
   };
 
   const canMoveSelectedTaskStatus = useMemo(() => {
     return canUserChangeTaskStatus(selectedTask);
   }, [userRole, selectedTask, currentUser]);
+
 
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
 
@@ -271,7 +294,7 @@ export function CommandCenterView({
         const statusMap: Record<string, TaskItem["status"]> = {
           Backlog: "backlog",
           Assigned: "assigned",
-          Pending: "backlog",
+          Pending: "assigned",
           "In Progress": "progress",
           Ongoing: "progress",
           Blocked: "progress",
@@ -294,8 +317,11 @@ export function CommandCenterView({
         const detectedType = normalizeDepartment(rawWorkType);
 
         const mappedStatus = statusMap[a.status] || "progress";
-        const isTaskOverdue = (a.is_overdue || isDateStrictlyPast(a.due_date)) && !["approved", "published"].includes(mappedStatus);
-        const finalStatus = (isTaskOverdue || a.status === "Backlog") && !["approved", "published"].includes(mappedStatus) ? "backlog" : mappedStatus;
+        const isAssignedDatePast = a.assigned_date ? isDateStrictlyPast(a.assigned_date) : false;
+        const isFinished = ["approved", "published"].includes(mappedStatus);
+        const isBacklogTask = (a.is_backlog || a.status === "Backlog" || (isAssignedDatePast && !isFinished));
+        const finalStatus = isBacklogTask ? "backlog" : mappedStatus;
+
 
         return {
           id: String(a.id),
@@ -410,7 +436,7 @@ export function CommandCenterView({
     const statusMap: Record<string, TaskItem["status"]> = {
       Backlog: "backlog",
       Assigned: "assigned",
-      Pending: "backlog",
+      Pending: "assigned",
       "In Progress": "progress",
       Ongoing: "progress",
       Blocked: "progress",
@@ -421,6 +447,7 @@ export function CommandCenterView({
       Completed: "published",
       Published: "published",
     };
+
     try {
       await onStatusChange(Number(id), newStatus);
       const kanbanStatus = statusMap[newStatus] || "progress";
@@ -855,7 +882,45 @@ export function CommandCenterView({
             </div>
           </div>
 
+          {/* EMPLOYEE BACKLOG REMINDER BANNER */}
+
+          {tasks.filter(t => t.status === "backlog").length > 0 && (
+            <div style={{
+              background: "rgba(239, 68, 68, 0.08)",
+              border: "1px solid rgba(239, 68, 68, 0.25)",
+              borderRadius: "var(--r-sm)",
+              padding: "10px 14px",
+              marginTop: "12px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12.5px", fontWeight: 700, color: "#DC2626" }}>
+                <span>⚠️ {tasks.filter(t => t.status === "backlog").length} overdue task(s) need your attention — Check Backlog</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStatusPillFilter("Backlog")}
+                style={{
+                  background: "#DC2626",
+                  color: "#FFFFFF",
+                  border: 0,
+                  borderRadius: "var(--r-sm)",
+                  padding: "5px 12px",
+                  fontSize: "11.5px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Check Backlog
+              </button>
+            </div>
+          )}
+
           {selectedMember && filteredTasks.length === 0 && (
+
             <div style={{ border: "1px solid var(--border)", background: "var(--panel2)", color: "var(--muted)", padding: "12px 14px", fontSize: "12px", fontWeight: 700 }}>
               No assignments found for this employee.
             </div>
@@ -876,116 +941,203 @@ export function CommandCenterView({
                   </div>
 
                   <div className="kb-body">
-                    {colTasks.length === 0 ? (
-                      <div style={{ textAlign: "center", padding: "24px 8px", color: "var(--muted)", fontSize: "11px" }}>No tasks</div>
-                    ) : (
-                      colTasks.map((t) => {
-                        const isOverdue = isDateStrictlyPast(t.due);
-                        const canonKey = normalizeDepartment(t.type);
-                        const typeInfo = CANONICAL_DEPARTMENTS[canonKey] || { label: t.type, badge: t.type, color: "#89ACA0" };
-                        return (
-                          <div
-                            key={t.id}
-                            className="tcard"
-                            onClick={() => setSelectedTask(t)}
-                            style={{ padding: "12px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px", cursor: "pointer" }}
-                          >
+                    {(() => {
+                      if (colTasks.length === 0) {
+                        return <div style={{ textAlign: "center", padding: "24px 8px", color: "var(--muted)", fontSize: "11px" }}>No tasks</div>;
+                      }
 
-                            <div className="tc-top" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
-                              <span className="chip" style={{ background: typeInfo.color + "20", color: typeInfo.color, padding: "2px 8px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
-                                {typeInfo.label}
-                              </span>
-                              <span className={`chip ${t.priority === "p0" ? "p-p0" : "p-p1"}`} style={{ padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
-                                {t.priority.toUpperCase()}
-                              </span>
-                              {t.reviewStatus === "OK" && (
-                                <span style={{ background: "rgba(34, 197, 94, 0.2)", color: "#4ADE80", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
-                                  ✓ OK
+                      const groupsMap = new Map<string, TaskItem[]>();
+                      colTasks.forEach((t) => {
+                        const cName = t.clientName || "General";
+                        const aName = t.assigneeName || "Unassigned";
+                        const key = `${cName}__${aName}`;
+                        if (!groupsMap.has(key)) {
+                          groupsMap.set(key, []);
+                        }
+                        groupsMap.get(key)!.push(t);
+                      });
+
+                      const renderedItems: React.ReactNode[] = [];
+
+                      groupsMap.forEach((tasksInGroup, key) => {
+                        if (tasksInGroup.length === 1) {
+                          const t = tasksInGroup[0];
+                          const isOverdue = isDateStrictlyPast(t.due);
+                          const canonKey = normalizeDepartment(t.type);
+                          const typeInfo = CANONICAL_DEPARTMENTS[canonKey] || { label: t.type, badge: t.type, color: "#89ACA0" };
+                          renderedItems.push(
+                            <div
+                              key={t.id}
+                              className="tcard"
+                              onClick={() => setSelectedTask(t)}
+                              style={{ padding: "12px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px", cursor: "pointer", marginBottom: "8px" }}
+                            >
+                              <div className="tc-top" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+                                <span className="chip" style={{ background: typeInfo.color + "20", color: typeInfo.color, padding: "2px 8px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                                  {typeInfo.label}
                                 </span>
-                              )}
-                              {t.reviewStatus === "CORRECTION_NEEDED" && (
-                                <span style={{ background: "rgba(245, 158, 11, 0.2)", color: "#F59E0B", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
-                                  ↩ Correction Needed
+                                <span className={`chip ${t.priority === "p0" ? "p-p0" : "p-p1"}`} style={{ padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                                  {t.priority.toUpperCase()}
                                 </span>
-                              )}
-                              {(!t.reviewStatus || t.reviewStatus === "PENDING_REVIEW") && (
-                                <span style={{ background: "rgba(148, 163, 184, 0.15)", color: "#94A3B8", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 600 }}>
-                                  ⏳ Pending Review
-                                </span>
-                              )}
-                              <span className="tc-code" style={{ marginLeft: "auto", fontSize: "10px", color: "var(--muted)", fontFamily: "monospace" }}>{t.code}</span>
-                            </div>
-
-                            <div className="tc-title" style={{ fontWeight: 700, fontSize: "13px", color: "#E8F5EF", marginBottom: "6px" }}>{t.title}</div>
-                            {t.desc && <div style={{ fontSize: "11px", color: "#89ACA0", marginBottom: "8px", lineHeight: "1.3" }}>{t.desc}</div>}
-
-                            <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px", background: "rgba(15,34,24,0.6)", borderRadius: "6px", marginBottom: "8px" }}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px" }}>
-                                <span style={{ color: "#89ACA0" }}>Assigned To:</span>
-                                <span style={{ color: "#4DFFA0", fontWeight: 700 }}>{t.assigneeName || "Unassigned"}</span>
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10.5px" }}>
-                                <span style={{ color: "#89ACA0" }}>Reviewer:</span>
-                                <span style={{ color: "#A78BFA", fontWeight: 600 }}>{t.reviewer || "Admin"}</span>
-                              </div>
-                            </div>
-
-                            <div className="tc-meta" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px", color: "#89ACA0" }}>
-                              <div className={`tc-due ${isOverdue ? "late" : ""}`} style={{ color: isOverdue ? "#FF6B6B" : "#89ACA0", fontSize: "11px", fontWeight: isOverdue ? 700 : 400 }}>
-                                📅 {isOverdue ? "Overdue: " : "Due: "}{t.due}
-                              </div>
-                            </div>
-
-                            <div style={{ marginTop: "8px", paddingTop: "6px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <span style={{ fontSize: "10.5px", color: "#89ACA0", fontWeight: 600 }}>Status:</span>
-                              <select
-                                value={t.rawStatus || "Assigned"}
-                                disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={async (e) => {
-                                  e.stopPropagation();
-                                  const newWorkStatus = e.target.value as WorkStatus;
-                                  e.target.blur();
-                                  if (!canUserChangeTaskStatus(t) || isUpdatingStatus) return;
-                                  await handleWorkStatusChange(t.id, newWorkStatus);
-                                }}
-                                className="fs"
-                                style={{
-                                  padding: "2px 8px",
-                                  fontSize: "11px",
-                                  color: "#4DFFA0",
-                                  background: "#0F2218",
-                                  border: "1px solid rgba(77,255,160,0.2)",
-                                  borderRadius: "4px",
-                                  fontWeight: 600,
-                                  cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
-                                  opacity: canUserChangeTaskStatus(t) ? 1 : 0.6,
-                                }}
-                                title={!canUserChangeTaskStatus(t) ? "Only Reviewer and Admins can change status" : "Change status"}
-                              >
-                                {!ALL_WORK_STATUSES.some((st) => st.id === t.rawStatus) && t.rawStatus && (
-                                  <option value={t.rawStatus} disabled>
-                                    {t.rawStatus}
-                                  </option>
+                                {t.reviewStatus === "OK" && (
+                                  <span style={{ background: "rgba(34, 197, 94, 0.2)", color: "#4ADE80", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                                    ✓ OK
+                                  </span>
                                 )}
-                                {ALL_WORK_STATUSES.map((st) => {
-                                  const isReviewerOnly = st.isReviewerOnly;
-                                  const isBacklog = st.id === "Backlog";
-                                  const isAllowed = !isBacklog && canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
-                                  return (
-                                    <option key={st.id} value={st.id} disabled={!isAllowed}>
-                                      {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(t) ? "🔒" : ""}
-                                    </option>
-                                  );
-                                })}
-                              </select>
-                            </div>
-                          </div>
+                                {t.reviewStatus === "CORRECTION_NEEDED" && (
+                                  <span style={{ background: "rgba(245, 158, 11, 0.2)", color: "#F59E0B", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                                    ↩ Correction Needed
+                                  </span>
+                                )}
+                                {(!t.reviewStatus || t.reviewStatus === "PENDING_REVIEW") && (
+                                  <span style={{ background: "rgba(148, 163, 184, 0.15)", color: "#94A3B8", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 600 }}>
+                                    ⏳ Pending Review
+                                  </span>
+                                )}
+                                <span className="tc-code" style={{ marginLeft: "auto", fontSize: "10px", color: "var(--muted)", fontFamily: "monospace" }}>{t.code}</span>
+                              </div>
 
-                        );
-                      })
-                    )}
+                              <div className="tc-title" style={{ fontWeight: 700, fontSize: "13px", color: "#E8F5EF", marginBottom: "6px" }}>{t.title}</div>
+                              {t.desc && <div style={{ fontSize: "11px", color: "#89ACA0", marginBottom: "8px", lineHeight: "1.3" }}>{t.desc}</div>}
+
+                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px", background: "rgba(15,34,24,0.6)", borderRadius: "6px", marginBottom: "8px" }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px" }}>
+                                  <span style={{ color: "#89ACA0" }}>Assigned To:</span>
+                                  <span style={{ color: "#4DFFA0", fontWeight: 700 }}>{t.assigneeName || "Unassigned"}</span>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10.5px" }}>
+                                  <span style={{ color: "#89ACA0" }}>Reviewer:</span>
+                                  <span style={{ color: "#A78BFA", fontWeight: 600 }}>{t.reviewer || "Admin"}</span>
+                                </div>
+                              </div>
+
+                              <div className="tc-meta" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px", color: "#89ACA0" }}>
+                                <div className={`tc-due ${isOverdue ? "late" : ""}`} style={{ color: isOverdue ? "#FF6B6B" : "#89ACA0", fontSize: "11px", fontWeight: isOverdue ? 700 : 400 }}>
+                                  📅 {isOverdue ? "Overdue: " : "Due: "}{t.due}
+                                </div>
+                              </div>
+
+                              <div style={{ marginTop: "8px", paddingTop: "6px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontSize: "10.5px", color: "#89ACA0", fontWeight: 600 }}>Status:</span>
+                                <select
+                                  value={t.rawStatus || "Assigned"}
+                                  disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={async (e) => {
+                                    e.stopPropagation();
+                                    const newWorkStatus = e.target.value as WorkStatus;
+                                    e.target.blur();
+                                    if (!canUserChangeTaskStatus(t) || isUpdatingStatus) return;
+                                    await handleWorkStatusChange(t.id, newWorkStatus);
+                                  }}
+                                  className="fs"
+                                  style={{
+                                    padding: "2px 8px",
+                                    fontSize: "11px",
+                                    color: "#4DFFA0",
+                                    background: "#0F2218",
+                                    border: "1px solid rgba(77,255,160,0.2)",
+                                    borderRadius: "4px",
+                                    fontWeight: 600,
+                                    cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
+                                    opacity: canUserChangeTaskStatus(t) ? 1 : 0.6,
+                                  }}
+                                  title={!canUserChangeTaskStatus(t) ? "Only Reviewer and Admins can change status" : "Change status"}
+                                >
+                                  {!ALL_WORK_STATUSES.some((st) => st.id === t.rawStatus) && t.rawStatus && (
+                                    <option value={t.rawStatus} disabled>
+                                      {t.rawStatus}
+                                    </option>
+                                  )}
+                                  {ALL_WORK_STATUSES.map((st) => {
+                                    const isReviewerOnly = st.isReviewerOnly;
+                                    const isBacklog = st.id === "Backlog";
+                                    const isAllowed = !isBacklog && canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
+                                    return (
+                                      <option key={st.id} value={st.id} disabled={!isAllowed}>
+                                        {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(t) ? "🔒" : ""}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          const [clientName, assigneeName] = key.split("__");
+                          const reviewerName = tasksInGroup[0].reviewer || "Admin";
+                          const groupData: TaskGroup = {
+                            key,
+                            clientName,
+                            assigneeName,
+                            reviewerName,
+                            tasks: tasksInGroup,
+                          };
+
+                          renderedItems.push(
+                            <div
+                              key={`group_${key}`}
+                              className="tcard tcard-grouped"
+                              onClick={() => setSelectedTaskGroup(groupData)}
+                              style={{
+                                padding: "12px",
+                                background: "var(--panel)",
+                                border: "1.5px solid var(--neon)",
+                                borderRadius: "8px",
+                                cursor: "pointer",
+                                marginBottom: "8px",
+                                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                                <span className="chip" style={{ background: "rgba(77, 255, 160, 0.15)", color: "#4DFFA0", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: 800 }}>
+                                  {clientName}
+                                </span>
+                                <span style={{ background: "#3B82F6", color: "#FFFFFF", padding: "2px 8px", borderRadius: "12px", fontSize: "10.5px", fontWeight: 800 }}>
+                                  {tasksInGroup.length} Tasks
+                                </span>
+                              </div>
+
+                              <div style={{ fontSize: "12.5px", fontWeight: 700, color: "#E8F5EF", marginBottom: "6px" }}>
+                                📁 {tasksInGroup.length} Work Assignments Batch
+                              </div>
+
+                              <div style={{ fontSize: "11px", color: "#89ACA0", marginBottom: "8px", display: "flex", flexDirection: "column", gap: "3px", background: "rgba(15,34,24,0.4)", padding: "6px 8px", borderRadius: "6px" }}>
+                                {tasksInGroup.slice(0, 3).map((gt) => (
+                                  <div key={gt.id} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                    • {gt.title}
+                                  </div>
+                                ))}
+                                {tasksInGroup.length > 3 && (
+                                  <div style={{ fontSize: "10px", color: "var(--neon)", fontWeight: 700, marginTop: "2px" }}>
+                                    +{tasksInGroup.length - 3} more task(s)...
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "8px", background: "rgba(15,34,24,0.6)", borderRadius: "6px", marginBottom: "6px" }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px" }}>
+                                  <span style={{ color: "#89ACA0" }}>Assigned To:</span>
+                                  <span style={{ color: "#4DFFA0", fontWeight: 700 }}>{assigneeName}</span>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10.5px" }}>
+                                  <span style={{ color: "#89ACA0" }}>Reviewer:</span>
+                                  <span style={{ color: "#A78BFA", fontWeight: 600 }}>{reviewerName}</span>
+                                </div>
+                              </div>
+
+                              <div style={{ fontSize: "10.5px", color: "var(--neon)", fontWeight: 700, textAlign: "right" }}>
+                                Click to view all {tasksInGroup.length} tasks ➔
+                              </div>
+                            </div>
+                          );
+                        }
+                      });
+
+                      return renderedItems;
+                    })()}
                   </div>
+
                 </div>
               );
             })}
@@ -1350,7 +1502,7 @@ export function CommandCenterView({
                 </div>
               )}
 
-              {isReviewerOrManager(selectedTask) && (!currentUser || String(currentUser.id) !== selectedTask.assignee || ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"].includes((userRole || "").toUpperCase())) ? (
+              {isReviewerOrManager(selectedTask) ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                   <div>
                     <label style={{ fontSize: "11px", fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: "6px" }}>
@@ -1409,6 +1561,7 @@ export function CommandCenterView({
                   Quality audit is managed by assigned Reviewer ({selectedTask.reviewer || "Reviewer"}) or Management.
                 </div>
               )}
+
             </div>
 
             {/* FOOTER ACTIONS */}
@@ -1445,6 +1598,382 @@ export function CommandCenterView({
           </div>
         </Modal>
       )}
+
+      {/* GROUPED TASKS DRILL-DOWN MODAL */}
+      {selectedTaskGroup && (
+        <Modal
+          title={`Grouped Work Tasks — ${selectedTaskGroup.clientName}`}
+          eyebrow="FLUMENX / BATCH WORK ASSIGNMENTS"
+          size="xl"
+          onClose={() => setSelectedTaskGroup(null)}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "4px 0" }}>
+            {/* GROUP HEADER METADATA BANNER */}
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", padding: "12px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px" }}>
+              <div>
+                <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>Client: {selectedTaskGroup.clientName}</div>
+                <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>
+                  Assigned To: <strong style={{ color: "var(--neon)" }}>{selectedTaskGroup.assigneeName}</strong> | Reviewer: <strong style={{ color: "#A78BFA" }}>{selectedTaskGroup.reviewerName}</strong>
+                </div>
+              </div>
+              <span style={{ background: "#3B82F6", color: "#FFFFFF", padding: "4px 12px", borderRadius: "16px", fontSize: "12px", fontWeight: 800 }}>
+                {selectedTaskGroup.tasks.length} Independent Tasks
+              </span>
+            </div>
+
+            {/* TASK LIST */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "60vh", overflowY: "auto", paddingRight: "4px" }}>
+              {selectedTaskGroup.tasks.map((gt, idx) => {
+                const isOverdue = isDateStrictlyPast(gt.due);
+                const canonKey = normalizeDepartment(gt.type);
+                const typeInfo = CANONICAL_DEPARTMENTS[canonKey] || { label: gt.type, badge: gt.type, color: "#89ACA0" };
+                return (
+                  <div
+                    key={gt.id}
+                    style={{
+                      padding: "14px 16px",
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "8px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "14px" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)" }}>#{idx + 1}</span>
+                          <span style={{ fontSize: "11px", fontFamily: "monospace", color: "var(--muted)" }}>{gt.code}</span>
+                          <span className="chip" style={{ background: typeInfo.color + "20", color: typeInfo.color, padding: "2px 8px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                            {typeInfo.label}
+                          </span>
+                          <span className={`chip ${gt.priority === "p0" ? "p-p0" : "p-p1"}`} style={{ padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                            {gt.priority.toUpperCase()}
+                          </span>
+                          {gt.reviewStatus === "OK" && (
+                            <span style={{ background: "rgba(34, 197, 94, 0.2)", color: "#4ADE80", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                              ✓ OK
+                            </span>
+                          )}
+                          {gt.reviewStatus === "CORRECTION_NEEDED" && (
+                            <span style={{ background: "rgba(245, 158, 11, 0.2)", color: "#F59E0B", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 700 }}>
+                              ↩ Correction Needed
+                            </span>
+                          )}
+                          {(!gt.reviewStatus || gt.reviewStatus === "PENDING_REVIEW") && (
+                            <span style={{ background: "rgba(148, 163, 184, 0.15)", color: "#94A3B8", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 600 }}>
+                              ⏳ Pending Review
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: "13.5px", fontWeight: 700, color: "var(--text)", marginBottom: "4px" }}>{gt.title}</div>
+                        {gt.desc && <div style={{ fontSize: "11.5px", color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{gt.desc}</div>}
+                      </div>
+
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontSize: "11.5px", color: isOverdue ? "#FF6B6B" : "var(--muted)", fontWeight: isOverdue ? 700 : 500 }}>
+                          📅 {isOverdue ? "Overdue: " : "Due: "}{gt.due}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedTaskGroup(null);
+                            setSelectedTask(gt);
+                          }}
+                          style={{
+                            background: "transparent",
+                            border: 0,
+                            color: "var(--neon)",
+                            fontWeight: 700,
+                            fontSize: "11.5px",
+                            cursor: "pointer",
+                            marginTop: "6px",
+                            padding: 0,
+                          }}
+                        >
+                          Manage Details ➔
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* DIRECT ROW ACTIONS: STATUS, REVIEWER CHECK & DELETE */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "8px", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
+                      {/* Status Selector */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Status:</span>
+                        <select
+                          value={gt.rawStatus || "Assigned"}
+                          disabled={!canUserChangeTaskStatus(gt) || isUpdatingStatus}
+                          onChange={async (e) => {
+                            const newWorkStatus = e.target.value as WorkStatus;
+                            e.target.blur();
+                            if (!canUserChangeTaskStatus(gt) || isUpdatingStatus) return;
+                            await handleWorkStatusChange(gt.id, newWorkStatus);
+                            setSelectedTaskGroup((prev) => {
+                              if (!prev) return null;
+                              return {
+                                ...prev,
+                                tasks: prev.tasks.map((t) => (t.id === gt.id ? { ...t, rawStatus: newWorkStatus, status: newWorkStatus === "Backlog" ? "backlog" : t.status } : t)),
+                              };
+                            });
+                          }}
+                          className="fs"
+                          style={{
+                            padding: "3px 8px",
+                            fontSize: "11px",
+                            color: "#4DFFA0",
+                            background: "#0F2218",
+                            border: "1px solid rgba(77,255,160,0.2)",
+                            borderRadius: "4px",
+                            fontWeight: 600,
+                            cursor: canUserChangeTaskStatus(gt) ? "pointer" : "not-allowed",
+                            opacity: canUserChangeTaskStatus(gt) ? 1 : 0.6,
+                          }}
+                        >
+                          {ALL_WORK_STATUSES.map((st) => {
+                            const isBacklog = st.id === "Backlog";
+                            const isReviewerOnly = st.isReviewerOnly;
+                            const isAllowed = !isBacklog && canUserChangeTaskStatus(gt) && (!isReviewerOnly || isReviewerOrManager(gt));
+                            return (
+                              <option key={st.id} value={st.id} disabled={!isAllowed} style={{ background: "var(--panel2)", color: isAllowed ? "var(--text)" : "var(--muted)" }}>
+                                {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(gt) ? "🔒" : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      {/* Reviewer Check Selector */}
+                      {isReviewerOrManager(gt) && onReviewCheck && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Reviewer Check:</span>
+                          <select
+                            value={pendingCorrectionTaskId === gt.id ? "CORRECTION_NEEDED" : (gt.reviewStatus || "PENDING_REVIEW")}
+                            onChange={async (e) => {
+                              const newRev = e.target.value as "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED";
+                              e.target.blur();
+                              if (newRev === "CORRECTION_NEEDED") {
+                                setPendingCorrectionTaskId(gt.id);
+                                setPendingCorrectionNote(gt.reviewNote || "");
+                              } else {
+                                if (pendingCorrectionTaskId === gt.id) setPendingCorrectionTaskId(null);
+                                await onReviewCheck(Number(gt.id), newRev, "");
+                                setSelectedTaskGroup((prev) => {
+                                  if (!prev) return null;
+                                  return {
+                                    ...prev,
+                                    tasks: prev.tasks.map((t) => (t.id === gt.id ? { ...t, reviewStatus: newRev, reviewNote: "" } : t)),
+                                  };
+                                });
+                              }
+                            }}
+                            className="fs"
+                            style={{
+                              padding: "3px 8px",
+                              fontSize: "11px",
+                              color: (pendingCorrectionTaskId === gt.id || gt.reviewStatus === "CORRECTION_NEEDED") ? "#F59E0B" : gt.reviewStatus === "OK" ? "#4ADE80" : "#94A3B8",
+                              background: "#0F2218",
+                              border: "1px solid rgba(77,255,160,0.2)",
+                              borderRadius: "4px",
+                              fontWeight: 600,
+                            }}
+                          >
+                            <option value="PENDING_REVIEW" style={{ background: "var(--panel2)" }}>⏳ Pending Review</option>
+                            <option value="OK" style={{ background: "var(--panel2)" }}>✓ OK / Approved</option>
+                            <option value="CORRECTION_NEEDED" style={{ background: "var(--panel2)" }}>↩ Correction Needed</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Delete Task Button */}
+                      {canManageAll && onDeleteWork && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (confirm(`Delete task "${gt.title}"?`)) {
+                              const ok = await onDeleteWork(Number(gt.id));
+                              if (ok) {
+                                setTasks((prev) => prev.filter((t) => t.id !== gt.id));
+                                setSelectedTaskGroup((prev) => {
+                                  if (!prev) return null;
+                                  const updatedTasks = prev.tasks.filter((t) => t.id !== gt.id);
+                                  if (updatedTasks.length === 0) return null;
+                                  return { ...prev, tasks: updatedTasks };
+                                });
+                              }
+                            }
+                          }}
+                          style={{
+                            marginLeft: "auto",
+                            background: "rgba(239, 68, 68, 0.12)",
+                            color: "#EF4444",
+                            border: "1px solid rgba(239, 68, 68, 0.3)",
+                            padding: "3px 10px",
+                            borderRadius: "4px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "5px",
+                          }}
+                        >
+                          <Trash2 size={12} />
+                          <span>Delete</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* PENDING CORRECTION INPUT BOX WITH SAVE & CLOSE BUTTONS */}
+                    {pendingCorrectionTaskId === gt.id && (
+                      <div style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.35)", borderRadius: "6px", padding: "10px 12px", marginTop: "6px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: 700, color: "#F59E0B", letterSpacing: "0.04em", textTransform: "uppercase", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span>↩ ADD CORRECTION DETAILS</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPendingCorrectionTaskId(null);
+                              setPendingCorrectionNote("");
+                            }}
+                            style={{ background: "transparent", border: 0, color: "var(--muted)", fontSize: "14px", fontWeight: 700, cursor: "pointer", padding: "0 4px" }}
+                            title="Close / Cancel correction"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <input
+                          type="text"
+                          autoFocus
+                          value={pendingCorrectionNote}
+                          placeholder="Type required correction details for assigned employee..."
+                          onChange={(e) => setPendingCorrectionNote(e.target.value)}
+                          onKeyDown={async (e) => {
+                            if (e.key === "Enter" && pendingCorrectionNote.trim()) {
+                              e.preventDefault();
+                              const noteToSave = pendingCorrectionNote.trim();
+                              if (!onReviewCheck) return;
+                              await onReviewCheck(Number(gt.id), "CORRECTION_NEEDED", noteToSave);
+                              setSelectedTaskGroup((prev) => {
+                                if (!prev) return null;
+                                return {
+                                  ...prev,
+                                  tasks: prev.tasks.map((t) => (t.id === gt.id ? { ...t, reviewStatus: "CORRECTION_NEEDED", reviewNote: noteToSave } : t)),
+                                };
+                              });
+                              setPendingCorrectionTaskId(null);
+                              setPendingCorrectionNote("");
+                            }
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            borderRadius: "4px",
+                            background: "var(--panel)",
+                            border: "1px solid rgba(245, 158, 11, 0.5)",
+                            color: "var(--text)",
+                            fontSize: "12px",
+                            outline: "none",
+                          }}
+                        />
+
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPendingCorrectionTaskId(null);
+                              setPendingCorrectionNote("");
+                            }}
+                            style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--muted)", padding: "4px 12px", borderRadius: "4px", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}
+                          >
+                            Close
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={!pendingCorrectionNote.trim()}
+                            onClick={async () => {
+                              const noteToSave = pendingCorrectionNote.trim();
+                              if (!noteToSave || !onReviewCheck) return;
+                              await onReviewCheck(Number(gt.id), "CORRECTION_NEEDED", noteToSave);
+                              setSelectedTaskGroup((prev) => {
+                                if (!prev) return null;
+                                return {
+                                  ...prev,
+                                  tasks: prev.tasks.map((t) => (t.id === gt.id ? { ...t, reviewStatus: "CORRECTION_NEEDED", reviewNote: noteToSave } : t)),
+                                };
+                              });
+                              setPendingCorrectionTaskId(null);
+                              setPendingCorrectionNote("");
+                            }}
+                            style={{
+                              background: "#F59E0B",
+                              color: "#000",
+                              border: "none",
+                              padding: "4px 14px",
+                              borderRadius: "4px",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              opacity: pendingCorrectionNote.trim() ? 1 : 0.5,
+                            }}
+                          >
+                            Save Correction ✓
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SAVED CORRECTION DISPLAY */}
+                    {gt.reviewStatus === "CORRECTION_NEEDED" && pendingCorrectionTaskId !== gt.id && (
+                      <div style={{ background: "rgba(245, 158, 11, 0.08)", border: "1px solid rgba(245, 158, 11, 0.28)", borderRadius: "6px", padding: "10px 12px", marginTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 700, color: "#F59E0B", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                            ↩ CORRECTION DETAILS
+                          </span>
+                          {isReviewerOrManager(gt) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPendingCorrectionTaskId(gt.id);
+                                setPendingCorrectionNote(gt.reviewNote || "");
+                              }}
+                              style={{ background: "transparent", border: 0, color: "#F59E0B", fontSize: "11px", fontWeight: 700, cursor: "pointer", textDecoration: "underline", padding: 0 }}
+                            >
+                              Edit Note ✏️
+                            </button>
+                          )}
+                        </div>
+                        <div style={{ fontSize: "12px", color: "var(--text)", fontStyle: "italic", lineHeight: "1.4" }}>
+                          "{gt.reviewNote || "Correction requested."}"
+                        </div>
+                      </div>
+                    )}
+
+
+
+                  </div>
+
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
+              <button
+                type="button"
+                className="secondary-button"
+                style={{ height: "38px" }}
+                onClick={() => setSelectedTaskGroup(null)}
+              >
+                Close Batch View
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
 
 
     </div>

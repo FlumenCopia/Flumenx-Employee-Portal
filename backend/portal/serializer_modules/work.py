@@ -35,6 +35,8 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
     assigned_by_name = serializers.SerializerMethodField()
     reviewed_by_name = serializers.SerializerMethodField()
     is_overdue = serializers.SerializerMethodField()
+    is_backlog = serializers.SerializerMethodField()
+
     remaining_quantity = serializers.IntegerField(read_only=True)
     deliverables = serializers.SerializerMethodField()
 
@@ -70,12 +72,14 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
             "reviewed_at",
             "reviewed_by_name",
             "is_overdue",
+            "is_backlog",
             "deliverables",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["progress", "remaining_quantity", "completed_at", "reviewed_by", "reviewed_at", "created_at", "updated_at"]
         extra_kwargs = {"client": {"required": False, "allow_null": True}}
+
 
     @staticmethod
     def default_client():
@@ -104,6 +108,14 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
 
     def get_is_overdue(self, obj):
         return obj.status != "Completed" and obj.due_date < timezone.localdate()
+
+    def get_is_backlog(self, obj):
+        if obj.status in ("Completed", "Approved", "Published"):
+            return False
+        if obj.status == "Backlog":
+            return True
+        return bool(obj.assigned_date and obj.assigned_date < timezone.localdate())
+
 
     def actor_role(self):
         request = self.context.get("request")

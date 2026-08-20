@@ -192,7 +192,8 @@ export type WorkAssignment = {
   reviewed_by?: number | null;
   reviewed_at?: string | null;
   reviewed_by_name?: string;
-  is_overdue: boolean; deliverables: WorkDeliverable[]; created_at: string; updated_at: string;
+  is_overdue: boolean; is_backlog?: boolean; deliverables: WorkDeliverable[]; created_at: string; updated_at: string;
+
 };
 
 export type DeptCategoryProgress = {
