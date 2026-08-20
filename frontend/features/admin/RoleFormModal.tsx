@@ -251,62 +251,62 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
           {matrixLoading && <div style={{ padding: "20px", textAlign: "center", color: "var(--muted)", fontSize: "13px" }}>Loading permission matrix...</div>}
 
           {!matrixLoading && (
-            <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "10px", background: "var(--panel2)" }}>
+            <div style={{ overflowX: "auto", border: "1px solid var(--border2)", borderRadius: "10px", background: "#ffffff" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", textAlign: "left" }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)", background: "rgba(255,255,255,0.02)" }}>
-                    <th style={{ padding: "10px 14px", color: "var(--muted)", fontWeight: 700, fontSize: "11px" }}>PAGE / FEATURE</th>
-                    <th style={{ padding: "10px 14px", textAlign: "center", cursor: "pointer", color: "var(--muted)", fontWeight: 700, fontSize: "11px" }} onClick={() => toggleColumn("can_view")}>
-                      VIEW <br /><small style={{ color: "var(--brand)", fontWeight: 500 }}>Toggle All</small>
+                  <tr style={{ borderBottom: "1px solid #e8e6e1", background: "#f9f8f4" }}>
+                    <th style={{ padding: "12px 14px", color: "#5c606b", fontWeight: 800, fontSize: "11px", letterSpacing: "0.05em" }}>PAGE / FEATURE</th>
+                    <th style={{ padding: "12px 14px", textAlign: "center", cursor: "pointer", color: "#5c606b", fontWeight: 800, fontSize: "11px" }} onClick={() => toggleColumn("can_view")}>
+                      VIEW <br /><small style={{ color: "#a8874e", fontWeight: 700 }}>Toggle All</small>
                     </th>
-                    <th style={{ padding: "10px 14px", textAlign: "center", cursor: "pointer", color: "var(--muted)", fontWeight: 700, fontSize: "11px" }} onClick={() => toggleColumn("can_create")}>
-                      CREATE <br /><small style={{ color: "var(--brand)", fontWeight: 500 }}>Toggle All</small>
+                    <th style={{ padding: "12px 14px", textAlign: "center", cursor: "pointer", color: "#5c606b", fontWeight: 800, fontSize: "11px" }} onClick={() => toggleColumn("can_create")}>
+                      CREATE <br /><small style={{ color: "#a8874e", fontWeight: 700 }}>Toggle All</small>
                     </th>
-                    <th style={{ padding: "10px 14px", textAlign: "center", cursor: "pointer", color: "var(--muted)", fontWeight: 700, fontSize: "11px" }} onClick={() => toggleColumn("can_edit")}>
-                      EDIT <br /><small style={{ color: "var(--brand)", fontWeight: 500 }}>Toggle All</small>
+                    <th style={{ padding: "12px 14px", textAlign: "center", cursor: "pointer", color: "#5c606b", fontWeight: 800, fontSize: "11px" }} onClick={() => toggleColumn("can_edit")}>
+                      EDIT <br /><small style={{ color: "#a8874e", fontWeight: 700 }}>Toggle All</small>
                     </th>
-                    <th style={{ padding: "10px 14px", textAlign: "center", cursor: "pointer", color: "var(--muted)", fontWeight: 700, fontSize: "11px" }} onClick={() => toggleColumn("can_delete")}>
-                      DELETE <br /><small style={{ color: "var(--brand)", fontWeight: 500 }}>Toggle All</small>
+                    <th style={{ padding: "12px 14px", textAlign: "center", cursor: "pointer", color: "#5c606b", fontWeight: 800, fontSize: "11px" }} onClick={() => toggleColumn("can_delete")}>
+                      DELETE <br /><small style={{ color: "#a8874e", fontWeight: 700 }}>Toggle All</small>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {matrixItems.map((item) => (
-                    <tr key={item.page_id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                      <td style={{ padding: "10px 14px" }}>
-                        <div style={{ fontWeight: 600, color: "#F3F4F6" }}>{item.page_title}</div>
-                        <div style={{ fontSize: "10.5px", color: "var(--muted)", fontFamily: "monospace" }}>{item.route_path}</div>
+                    <tr key={item.page_id} style={{ borderBottom: "1px solid #e8e6e1" }}>
+                      <td style={{ padding: "12px 14px" }}>
+                        <div style={{ fontWeight: 700, color: "#1a1b1e", fontSize: "13px" }}>{item.page_title}</div>
+                        <div style={{ fontSize: "11px", color: "#5c606b", fontFamily: "monospace", fontWeight: 600, marginTop: "2px" }}>{item.route_path}</div>
                       </td>
-                      <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                      <td style={{ padding: "12px 14px", textAlign: "center" }}>
                         <input
                           type="checkbox"
                           checked={item.can_view}
                           onChange={() => togglePermission(item.page_id, "can_view")}
-                          style={{ width: "16px", height: "16px", accentColor: "var(--brand)", cursor: "pointer" }}
+                          style={{ width: "16px", height: "16px", accentColor: "#a8874e", cursor: "pointer" }}
                         />
                       </td>
-                      <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                      <td style={{ padding: "12px 14px", textAlign: "center" }}>
                         <input
                           type="checkbox"
                           checked={item.can_create}
                           onChange={() => togglePermission(item.page_id, "can_create")}
-                          style={{ width: "16px", height: "16px", accentColor: "var(--brand)", cursor: "pointer" }}
+                          style={{ width: "16px", height: "16px", accentColor: "#a8874e", cursor: "pointer" }}
                         />
                       </td>
-                      <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                      <td style={{ padding: "12px 14px", textAlign: "center" }}>
                         <input
                           type="checkbox"
                           checked={item.can_edit}
                           onChange={() => togglePermission(item.page_id, "can_edit")}
-                          style={{ width: "16px", height: "16px", accentColor: "var(--brand)", cursor: "pointer" }}
+                          style={{ width: "16px", height: "16px", accentColor: "#a8874e", cursor: "pointer" }}
                         />
                       </td>
-                      <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                      <td style={{ padding: "12px 14px", textAlign: "center" }}>
                         <input
                           type="checkbox"
                           checked={item.can_delete}
                           onChange={() => togglePermission(item.page_id, "can_delete")}
-                          style={{ width: "16px", height: "16px", accentColor: "var(--brand)", cursor: "pointer" }}
+                          style={{ width: "16px", height: "16px", accentColor: "#a8874e", cursor: "pointer" }}
                         />
                       </td>
                     </tr>
