@@ -326,8 +326,12 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
             item.title !== "Command Center" &&
             item.title !== "Command Center Dashboard" &&
             item.title !== "Timeline & Phases" &&
+            item.title !== "Employees" &&
+            item.title !== "Page Management" &&
             !item.route_path.includes("view=command-center") &&
-            !item.route_path.includes("view=timeline")
+            !item.route_path.includes("view=timeline") &&
+            !item.route_path.includes("/employees") &&
+            !item.route_path.includes("/pages")
         );
         const mapped = filtered.map((item) => [
           item.title,
@@ -491,7 +495,14 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
     }
   };
 
-  const nav = dynamicNav !== null ? dynamicNav : getFilteredNavigation(workspaceRole);
+  const rawNav = dynamicNav !== null ? dynamicNav : getFilteredNavigation(workspaceRole);
+  const nav = rawNav.filter(
+    ([label, href]) =>
+      label !== "Employees" &&
+      label !== "Page Management" &&
+      !href.includes("/employees") &&
+      !href.includes("/pages")
+  );
 
   const name = user?.first_name || workspaceFallbackNames[workspaceRole];
   const roleLabel = workspaceLabels[workspaceRole];

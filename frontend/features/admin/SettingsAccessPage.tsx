@@ -166,7 +166,7 @@ export function SettingsAccessPage() {
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px", textAlign: "left" }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid rgba(70, 150, 105, 0.22)", color: "#5F8872", fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.08em" }}>
+                  <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--muted)", fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.08em" }}>
                     <th style={{ padding: "8px 10px 8px 0" }}>ROLE</th>
                     <th style={{ padding: "8px 10px" }}>ASSIGNED MEMBERS</th>
                     <th style={{ padding: "8px 10px" }}>PERMISSIONS</th>
@@ -182,11 +182,11 @@ export function SettingsAccessPage() {
                       return false;
                     });
                     return (
-                      <tr key={r.id} style={{ borderBottom: "1px solid rgba(70, 150, 105, 0.12)" }}>
+                      <tr key={r.id} style={{ borderBottom: "1px solid var(--line)" }}>
                         <td style={{ padding: "10px 10px 10px 0", verticalAlign: "top" }}>
                           <div style={{ display: "flex", flexDirection: "column" }}>
-                            <b style={{ fontSize: "13px", fontWeight: 600, color: "#F2F6F3" }}>{r.name}</b>
-                            <small style={{ fontSize: "10px", color: "#5F8872", fontFamily: "monospace" }}>{r.code.toLowerCase()}</small>
+                            <b style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>{r.name}</b>
+                            <small style={{ fontSize: "10px", color: "var(--muted)", fontFamily: "monospace" }}>{r.code.toLowerCase()}</small>
                           </div>
                         </td>
                         <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
@@ -199,9 +199,9 @@ export function SettingsAccessPage() {
                                     fontSize: "9.5px",
                                     fontWeight: 700,
                                     letterSpacing: "0.04em",
-                                    background: "#063D28",
-                                    color: "#00E889",
-                                    border: "1px solid rgba(0, 232, 137, 0.25)",
+                                    background: "rgba(203, 168, 110, 0.12)",
+                                    color: "var(--neon)",
+                                    border: "1px solid rgba(203, 168, 110, 0.25)",
                                     padding: "2px 7px",
                                     borderRadius: "4px",
                                     textTransform: "uppercase",
@@ -211,17 +211,17 @@ export function SettingsAccessPage() {
                                 </span>
                               ))
                             ) : (
-                              <span style={{ fontSize: "11px", color: "#5F8872" }}>None</span>
+                              <span style={{ fontSize: "11px", color: "var(--muted)" }}>None</span>
                             )}
                           </div>
                         </td>
                         <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
                           {r.is_superadmin_wildcard || r.code === "SUPER_ADMIN" ? (
-                            <span style={{ fontSize: "11px", color: "#00E889", fontWeight: 600 }}>
+                            <span style={{ fontSize: "11px", color: "var(--neon)", fontWeight: 600 }}>
                               ★ Full access (* wildcards)
                             </span>
                           ) : (
-                            <span style={{ fontSize: "11px", color: "#9CB8A8" }}>
+                            <span style={{ fontSize: "11px", color: "var(--muted)" }}>
                               {r.permissions_count ?? 0} permissions granted
                             </span>
                           )}
@@ -286,7 +286,7 @@ export function SettingsAccessPage() {
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px", textAlign: "left" }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid rgba(70, 150, 105, 0.22)", color: "#5F8872", fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.08em" }}>
+                  <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--muted)", fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.08em" }}>
                     <th style={{ padding: "8px 10px 8px 0" }}>MEMBER</th>
                     <th style={{ padding: "8px 10px" }}>ROLE</th>
                     <th style={{ padding: "8px 10px" }}>CAP</th>
@@ -297,7 +297,7 @@ export function SettingsAccessPage() {
                   {usersList.map((u) => {
                     const roleLabel = u.dynamic_role?.name || u.legacy_portal_role || "Employee";
                     return (
-                      <tr key={u.user_id} style={{ borderBottom: "1px solid rgba(70, 150, 105, 0.12)" }}>
+                      <tr key={u.user_id} style={{ borderBottom: "1px solid var(--line)" }}>
                         <td style={{ padding: "10px 10px 10px 0", verticalAlign: "top" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                             <div
@@ -305,8 +305,8 @@ export function SettingsAccessPage() {
                                 width: "30px",
                                 height: "30px",
                                 borderRadius: "50%",
-                                background: "#063D28",
-                                color: "#00E889",
+                                background: "rgba(203, 168, 110, 0.15)",
+                                color: "var(--neon)",
                                 display: "grid",
                                 placeItems: "center",
                                 fontWeight: 700,
@@ -317,8 +317,8 @@ export function SettingsAccessPage() {
                               {(u.full_name || u.work_email).charAt(0).toUpperCase()}
                             </div>
                             <div style={{ display: "flex", flexDirection: "column" }}>
-                              <b style={{ fontSize: "12.5px", fontWeight: 600, color: "#F2F6F3" }}>{u.full_name || u.work_email}</b>
-                              <small style={{ fontSize: "11px", color: "#9CB8A8" }}>{u.work_email}</small>
+                              <b style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--text)" }}>{u.full_name || u.work_email}</b>
+                              <small style={{ fontSize: "11px", color: "var(--muted)" }}>{u.work_email}</small>
                             </div>
                           </div>
                         </td>
@@ -328,9 +328,9 @@ export function SettingsAccessPage() {
                               fontSize: "10px",
                               fontWeight: 700,
                               letterSpacing: "0.04em",
-                              background: "rgba(0, 232, 137, 0.12)",
-                              color: "#00E889",
-                              border: "1px solid rgba(0, 232, 137, 0.22)",
+                              background: "rgba(203, 168, 110, 0.12)",
+                              color: "var(--neon)",
+                              border: "1px solid rgba(203, 168, 110, 0.22)",
                               padding: "2px 7px",
                               borderRadius: "4px",
                               textTransform: "uppercase",
@@ -339,7 +339,7 @@ export function SettingsAccessPage() {
                             {roleLabel}
                           </span>
                         </td>
-                        <td style={{ padding: "10px 10px", verticalAlign: "top", color: "#9CB8A8", fontSize: "11.5px" }}>
+                        <td style={{ padding: "10px 10px", verticalAlign: "top", color: "var(--muted)", fontSize: "11.5px" }}>
                           40h
                         </td>
                         <td style={{ padding: "10px 0 10px 10px", textAlign: "right", verticalAlign: "top" }}>

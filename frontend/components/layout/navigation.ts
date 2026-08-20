@@ -76,7 +76,6 @@ const adminNav = [
   ["Task Board", "/admin/work?view=kanban", Kanban],
   ["Timeline & Phases", "/admin/work?view=timeline", Layers],
   ["KPI Performance", "/admin/kpi", TrendingUp],
-  ["Employees", "/admin/employees", Users],
   ["Attendance", "/admin/attendance", CalendarCheck],
   ["Leave requests", "/admin/leaves", CalendarDays],
   ["Meetings", "/admin/meetings", UserRound],
@@ -100,7 +99,6 @@ const hrNav = [
   ["Task Board", "/hr/work?view=kanban", Kanban],
   ["Timeline & Phases", "/hr/work?view=timeline", Layers],
   ["KPI Performance", "/hr/kpi", TrendingUp],
-  ["Employees", "/hr/employees", Users],
   ["Attendance", "/hr/attendance", CalendarCheck],
   ["Leave requests", "/hr/leaves", CalendarDays],
   ["Meetings", "/hr/meetings", UserRound],
@@ -149,7 +147,8 @@ export const getFilteredNavigation = (role: WorkspaceRole): readonly NavigationI
       label !== "Command Center" &&
       label !== "Command Center Dashboard" &&
       label !== "Timeline & Phases" &&
-      label !== "Employees"
+      label !== "Employees" &&
+      label !== "Page Management"
   );
 };
 

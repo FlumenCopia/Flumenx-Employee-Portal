@@ -184,7 +184,7 @@ export default function LoginPage() {
               Enter the work email address linked to your account. We will send you a secure link to reset your password.
             </p>
             {forgotMessage ? (
-              <div style={{ padding: "12px 14px", background: "rgba(77, 255, 160, 0.1)", border: "1px solid rgba(77, 255, 160, 0.3)", borderRadius: "8px", color: "var(--neon)", fontSize: "12px", lineHeight: 1.4 }}>
+              <div style={{ padding: "12px 14px", background: "rgba(203, 168, 110, 0.08)", border: "1px solid rgba(203, 168, 110, 0.25)", borderRadius: "8px", color: "var(--neon)", fontSize: "12px", lineHeight: 1.4 }}>
                 {forgotMessage}
               </div>
             ) : (

@@ -230,7 +230,7 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
         </label>
 
         {role?.code === "SUPER_ADMIN" && (
-          <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "12px", background: "rgba(77, 255, 160, 0.08)", padding: "10px 14px", borderRadius: "8px", border: "1px solid rgba(77, 255, 160, 0.2)", cursor: "pointer" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "12px", background: "rgba(203, 168, 110, 0.08)", padding: "10px 14px", borderRadius: "8px", border: "1px solid rgba(203, 168, 110, 0.2)", cursor: "pointer" }}>
             <input
               type="checkbox"
               checked={isSuperadminWildcard}

@@ -64,12 +64,12 @@ function ResetPasswordForm() {
       </div>
 
       {isLinkInvalid ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px", background: "#0F1A15", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "16px", padding: "24px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px", background: "var(--panel)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "16px", padding: "24px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "#EF4444" }}>
             <AlertTriangle size={20} />
             <b style={{ fontSize: "15px" }}>Invalid Reset Link</b>
           </div>
-          <p style={{ fontSize: "13px", color: "#A7C1B5", lineHeight: 1.5 }}>
+          <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.5 }}>
             This password reset link is incomplete, invalid, or has expired. Please request a new link from the login page.
           </p>
           <button
@@ -82,12 +82,12 @@ function ResetPasswordForm() {
           </button>
         </div>
       ) : success ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px", background: "#0F1A15", border: "1px solid rgba(77, 255, 160, 0.3)", borderRadius: "16px", padding: "24px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "#4DFFA0" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px", background: "rgba(203, 168, 110, 0.08)", border: "1px solid rgba(203, 168, 110, 0.25)", borderRadius: "16px", padding: "24px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "var(--neon)" }}>
             <CheckCircle2 size={22} />
             <b style={{ fontSize: "16px" }}>Password Reset Complete</b>
           </div>
-          <p style={{ fontSize: "13px", color: "#A7C1B5", lineHeight: 1.5 }}>
+          <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.5 }}>
             Your FLUMENX account password has been updated successfully. You can now log in using your new credentials.
           </p>
           <button
@@ -159,8 +159,8 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="simple-login-page" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#05110B" }}>
-      <Suspense fallback={<div style={{ color: "#4DFFA0", fontSize: "14px" }}>Loading password reset form...</div>}>
+    <div className="simple-login-page" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
+      <Suspense fallback={<div style={{ color: "var(--neon)", fontSize: "14px" }}>Loading password reset form...</div>}>
         <ResetPasswordForm />
       </Suspense>
     </div>

@@ -712,11 +712,11 @@ export function CommandCenterView({
                         outline: "none",
                       }}
                     >
-                      <option value="" style={{ background: "#0F2218", color: "#E8F5EF" }}>
+                      <option value="" style={{ background: "var(--panel)", color: "var(--text)" }}>
                         All Clients
                       </option>
                       {clients.map((c) => (
-                        <option key={c.id} value={String(c.id)} style={{ background: "#0F2218", color: "#E8F5EF" }}>
+                        <option key={c.id} value={String(c.id)} style={{ background: "var(--panel)", color: "var(--text)" }}>
                           {c.name}
                         </option>
                       ))}
