@@ -139,7 +139,8 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
 
     def validate_employee_scope(self, employee):
         request = self.context.get("request")
-        if not request or not employee:
+        target_emp = employee or (self.instance.employee if self.instance else None)
+        if not request or not target_emp:
             return
         if self.is_reviewer_or_manager(self.instance):
             return
@@ -148,8 +149,9 @@ class WorkAssignmentSerializer(serializers.ModelSerializer):
             return
         if not self.instance:
             raise PermissionDenied("Only management and Team Leads can create work assignments.")
-        if getattr(request.user, "employee", None) != employee:
+        if getattr(request.user, "employee", None) != target_emp:
             raise PermissionDenied("Execution roles can access only their own assignments.")
+
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

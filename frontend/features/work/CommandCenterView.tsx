@@ -198,12 +198,14 @@ export function CommandCenterView({
   const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
   const [pendingCorrectionTaskId, setPendingCorrectionTaskId] = useState<string | null>(null);
   const [pendingCorrectionNote, setPendingCorrectionNote] = useState<string>("");
+  const [isBannerDismissed, setIsBannerDismissed] = useState<boolean>(false);
 
   useEffect(() => {
     if (selectedTask) {
       setReviewNoteInput(selectedTask.reviewNote || "");
     }
   }, [selectedTask]);
+
 
 
 
@@ -883,8 +885,7 @@ export function CommandCenterView({
           </div>
 
           {/* EMPLOYEE BACKLOG REMINDER BANNER */}
-
-          {tasks.filter(t => t.status === "backlog").length > 0 && (
+          {!isBannerDismissed && tasks.filter(t => t.status === "backlog").length > 0 && (
             <div style={{
               background: "rgba(239, 68, 68, 0.08)",
               border: "1px solid rgba(239, 68, 68, 0.25)",
@@ -896,28 +897,34 @@ export function CommandCenterView({
               justifyContent: "space-between",
               gap: "12px",
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12.5px", fontWeight: 700, color: "#DC2626" }}>
-                <span>⚠️ {tasks.filter(t => t.status === "backlog").length} overdue task(s) need your attention — Check Backlog</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: 700, color: "#DC2626" }}>
+                <span>⚠️ {tasks.filter(t => t.status === "backlog").length === 1 ? "1 task is overdue" : `${tasks.filter(t => t.status === "backlog").length} tasks are overdue`}</span>
               </div>
               <button
                 type="button"
-                onClick={() => setStatusPillFilter("Backlog")}
+                onClick={() => setIsBannerDismissed(true)}
                 style={{
-                  background: "#DC2626",
-                  color: "#FFFFFF",
-                  border: 0,
+                  background: "rgba(239, 68, 68, 0.15)",
+                  color: "#DC2626",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
                   borderRadius: "var(--r-sm)",
-                  padding: "5px 12px",
-                  fontSize: "11.5px",
+                  padding: "4px 10px",
+                  fontSize: "12px",
                   fontWeight: 700,
                   cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
                   whiteSpace: "nowrap",
                 }}
+                title="Close reminder banner"
               >
-                Check Backlog
+                <span>Close</span>
+                <span>✕</span>
               </button>
             </div>
           )}
+
 
           {selectedMember && filteredTasks.length === 0 && (
 
