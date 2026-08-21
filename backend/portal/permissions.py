@@ -111,6 +111,22 @@ class HasPageManagementPermission(HasPagePermission):
     def __init__(self):
         super().__init__("PAGE_MANAGEMENT")
 
+class HasPageOrSettingsPermission(BasePermission):
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_superuser or portal_role(request.user) == "SUPER_ADMIN":
+            return True
+        if request.method in SAFE_METHODS:
+            return (
+                has_page_permission(request.user, "PAGE_MANAGEMENT", "view") or
+                has_page_permission(request.user, "SETTINGS_ACCESS", "view")
+            )
+        return (
+            has_page_permission(request.user, "PAGE_MANAGEMENT", "edit") or
+            has_page_permission(request.user, "SETTINGS_ACCESS", "edit")
+        )
+
 class IsPortalAdmin(HasPortalRole):
     allowed_roles = ("ADMIN",)
 

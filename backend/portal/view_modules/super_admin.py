@@ -25,7 +25,7 @@ from portal.models import (
     UserRole,
     WorkAssignment,
 )
-from portal.permissions import IsSuperAdmin, HasPagePermission, HasSettingsAccessPermission, HasPageManagementPermission, portal_role, normalize_portal_role
+from portal.permissions import IsSuperAdmin, HasPagePermission, HasSettingsAccessPermission, HasPageManagementPermission, HasPageOrSettingsPermission, portal_role, normalize_portal_role
 from portal.serializer_modules.super_admin import (
     DepartmentSerializer,
     DynamicRoleSerializer,
@@ -80,7 +80,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
 class PortalPageViewSet(viewsets.ModelViewSet):
     queryset = PortalPage.objects.all().order_by("sidebar_order", "title")
     serializer_class = PortalPageSerializer
-    permission_classes = [IsAuthenticated, HasPageManagementPermission]
+    permission_classes = [IsAuthenticated, HasPageOrSettingsPermission]
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
