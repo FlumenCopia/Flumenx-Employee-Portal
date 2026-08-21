@@ -548,7 +548,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
             Employee Portal
           </div>
         </div>
-        <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label === "Leave requests" && pendingLeaveCount > 0 && <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>}</Link>)}</nav>
+        <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label.toLowerCase().includes("leave") && pendingLeaveCount > 0 && <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>}</Link>)}</nav>
         <div className="sidebar-foot">
           {workspaceRole === "employee" || workspaceRole === "bdo" || workspaceRole === "team-lead" ? (
             <div
