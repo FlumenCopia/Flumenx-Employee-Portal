@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Bell, CalendarDays, CheckCheck, ChevronDown, FileCheck2, LogOut, Megaphone, Menu, RotateCw, UserRound, X } from "lucide-react";
+import { Bell, CalendarCheck, CalendarDays, CheckCheck, ChevronDown, FileCheck2, LogOut, Megaphone, Menu, RotateCw, UserRound, X } from "lucide-react";
 import { FlumenxMark, Avatar } from "./icons";
 import { api, logout } from "@/lib/api";
 import { clearCachedAuthUser, getCachedAuthUser, loadAuthUser } from "@/lib/auth-cache";
