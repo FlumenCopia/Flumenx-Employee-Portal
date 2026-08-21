@@ -124,10 +124,12 @@ export default function LoginPage() {
       {splashActive && (
         <div className={`g3-splash-overlay ${splashHiding ? "hiding" : ""}`}>
           <div className="g3-splash-container">
-            <div className="g3-brand-title">
-              FLUMEn<span>X</span>
-            </div>
-            <div className="g3-brand-tagline">MAKE IT HAPPEN</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/flumenx-mark-only.png"
+              alt="FLUMENX"
+              className="g3-splash-logo-img"
+            />
 
             <div className="g3-expand-line-track">
               <div className="g3-expand-line-fill" style={{ width: `${counter}%` }} />
