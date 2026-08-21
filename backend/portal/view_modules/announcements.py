@@ -7,6 +7,7 @@ from .helpers import log_action
 
 
 class AnnouncementViewSet(viewsets.ModelViewSet):
+    module_code = "ANNOUNCEMENTS"
     serializer_class = AnnouncementSerializer
     permission_classes = [IsAdminOrHRWriteReadOnly]
     queryset = Announcement.objects.all()

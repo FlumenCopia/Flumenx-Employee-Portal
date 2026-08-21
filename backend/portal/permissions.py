@@ -146,12 +146,16 @@ class IsWorkClientUser(BasePermission):
     write_roles = ("SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD")
 
     def has_permission(self, request, view):
-        if not request.user.is_authenticated:
+        if not request.user or not request.user.is_authenticated:
             return False
+        if request.user.is_superuser or request.user.is_staff:
+            return True
         role = portal_role(request.user)
         if request.method in SAFE_METHODS:
             return True
-        return role in self.write_roles
+        if role in self.write_roles or is_work_creator(request.user):
+            return True
+        return has_page_permission(request.user, "CLIENTS", "create") or has_page_permission(request.user, "WORK_BOARD", "create")
 
 WORK_CREATOR_ROLES = ("SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD")
 
@@ -206,8 +210,20 @@ class IsWorkAssignmentUser(BasePermission):
         return True
 
 
-class IsAdminOrAccountant(HasPortalRole):
-    allowed_roles = ("ADMIN", "ACCOUNTANT")
+class IsAdminOrAccountant(BasePermission):
+    allowed_roles = ("SUPER_ADMIN", "ADMIN", "ACCOUNTANT")
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_superuser or request.user.is_staff:
+            return True
+        role = portal_role(request.user)
+        if role in self.allowed_roles:
+            return True
+        module_code = getattr(view, "module_code", "SALARY_SLIPS")
+        action = "view" if request.method in SAFE_METHODS else "edit"
+        return has_page_permission(request.user, module_code, action)
 
 class IsManagementReadOnly(BasePermission):
     def has_permission(self, request, view):
@@ -215,16 +231,24 @@ class IsManagementReadOnly(BasePermission):
             return False
         role = portal_role(request.user)
         if request.method in SAFE_METHODS:
-            return role in ("SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTANT")
+            return role in ("SUPER_ADMIN", "ADMIN", "HR", "ACCOUNTANT") or has_page_permission(request.user, getattr(view, "module_code", "DASHBOARD"), "view")
         return role in ("SUPER_ADMIN", "ADMIN")
 
 class IsAdminOrHRWriteReadOnly(BasePermission):
     def has_permission(self, request, view):
-        if not request.user.is_authenticated:
+        if not request.user or not request.user.is_authenticated:
             return False
+        if request.user.is_superuser or request.user.is_staff:
+            return True
         if request.method in SAFE_METHODS:
             return True
-        return portal_role(request.user) in ("SUPER_ADMIN", "ADMIN", "HR")
+        role = portal_role(request.user)
+        if role in ("SUPER_ADMIN", "ADMIN", "HR"):
+            return True
+        module_code = getattr(view, "module_code", None)
+        if module_code:
+            return has_page_permission(request.user, module_code, "create") or has_page_permission(request.user, module_code, "edit")
+        return False
 
 class IsAdminOrReadOnly(BasePermission):
     def has_permission(self, request, view):

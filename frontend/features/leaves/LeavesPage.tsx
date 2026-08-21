@@ -12,13 +12,13 @@ import { useShellUser } from "@/components/shell";
 export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   const user = useShellUser();
   const userRole = (user?.portal_role || user?.role || "EMPLOYEE").toUpperCase();
-  const isViewAllRole = ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT"].includes(userRole);
-  const canDecide = ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"].includes(userRole);
+  const userPerms = (user as any)?.permissions?.LEAVES;
+  const isViewAllRole = ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT"].includes(userRole) || Boolean(userPerms?.can_view);
+  const canDecide = ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"].includes(userRole) || Boolean(userPerms?.can_edit);
   const isEmployee = propEmployee !== undefined ? propEmployee : !isViewAllRole;
 
-  const userPerms = (user as any)?.permissions?.LEAVES;
-  const canCreate = userPerms?.can_create ?? isEmployee;
-  const canEdit = canDecide && (userPerms?.can_edit ?? true);
+  const canCreate = userPerms?.can_create ?? true;
+  const canEdit = canDecide;
   const canDelete = canDecide && (userPerms?.can_delete ?? true);
 
   const [items, setItems] = useState<Leave[]>([]);
