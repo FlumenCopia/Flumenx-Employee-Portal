@@ -146,6 +146,7 @@ function ProgressMeter({ value }: { value: number }) {
 export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
   const currentShellUser = useShellUser();
   const effectiveRole = role || (currentShellUser ? (["SUPER_ADMIN", "ADMIN", "OPERATIONS", "OPERATIONS_HEAD"].includes(currentShellUser.portal_role.toUpperCase()) ? "admin" : currentShellUser.portal_role.toLowerCase() as WorkspaceRole) : "admin");
+  const isEmployeeWorkspace = effectiveRole === "employee";
   const userRoleStr = (currentShellUser?.portal_role || "").toUpperCase();
   const isTeamLeadOrCreator = ["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD"].includes(userRoleStr) || userRoleStr.endsWith("_TEAM_LEAD") || userRoleStr.endsWith("TEAM_LEAD") || userRoleStr.includes("LEAD");
   const workPerms = (currentShellUser as any)?.permissions?.WORK_BOARD || (currentShellUser as any)?.permissions?.["*"];
