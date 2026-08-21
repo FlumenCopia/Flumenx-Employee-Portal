@@ -105,7 +105,7 @@ export default function LoginPage() {
               <img
                 src="/flumenx-logo.webp"
                 alt="FLUMENX - Make It Happen"
-                style={{ height: "52px", width: "auto", objectFit: "contain" }}
+                style={{ height: "44px", width: "auto", objectFit: "contain" }}
               />
             </div>
             <div style={{ fontSize: "11px", letterSpacing: "0.22em", color: "#a8874e", fontWeight: 800, textTransform: "uppercase" }}>
