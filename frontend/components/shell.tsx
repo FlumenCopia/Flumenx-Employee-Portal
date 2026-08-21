@@ -496,7 +496,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   };
 
   const isAdmin = user ? ["SUPER_ADMIN", "ADMIN", "OPERATIONS", "OPERATIONS_HEAD"].includes((user.portal_role || "").toUpperCase()) : workspaceRole === "admin";
-  const rawNav = isAdmin ? (dynamicNav !== null ? dynamicNav : getFilteredNavigation(workspaceRole)) : [
+  const rawNav: readonly (readonly [string, string, any])[] = isAdmin ? (dynamicNav !== null ? dynamicNav : getFilteredNavigation(workspaceRole)) : [
     ["Attendance", "/attendance", CalendarCheck],
     ["Leave Requests", "/leaves", CalendarDays],
   ];
@@ -504,6 +504,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
     ([label, href]) =>
       label !== "Employees" &&
       label !== "Page Management" &&
+      typeof href === "string" &&
       !href.includes("/employees") &&
       !href.includes("/pages")
   );
