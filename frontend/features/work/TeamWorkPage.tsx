@@ -46,13 +46,16 @@ function getStatusBadgeStyle(status: string) {
 
 function getPriorityBadgeStyle(priority: string) {
   const p = (priority || "").toLowerCase();
-  if (p === "urgent" || p === "high" || p === "p0") {
-    return { background: "rgba(255, 89, 77, 0.15)", color: "var(--red)", border: "1px solid rgba(255, 89, 77, 0.35)" };
+  if (p === "p0" || p === "critical" || p === "urgent") {
+    return { background: "rgba(239, 68, 68, 0.12)", color: "#DC2626", border: "1px solid rgba(239, 68, 68, 0.3)" };
   }
-  if (p === "normal" || p === "p1") {
-    return { background: "rgba(74, 158, 255, 0.15)", color: "#4A9EFF", border: "1px solid rgba(74, 158, 255, 0.35)" };
+  if (p === "p1" || p === "high") {
+    return { background: "rgba(245, 158, 11, 0.12)", color: "#D97706", border: "1px solid rgba(245, 158, 11, 0.3)" };
   }
-  return { background: "rgba(156, 184, 168, 0.12)", color: "var(--muted)", border: "1px solid var(--border)" };
+  if (p === "p2" || p === "normal") {
+    return { background: "rgba(37, 99, 235, 0.12)", color: "#2563EB", border: "1px solid rgba(37, 99, 235, 0.3)" };
+  }
+  return { background: "rgba(100, 116, 139, 0.12)", color: "#475569", border: "1px solid rgba(100, 116, 139, 0.28)" };
 }
 
 function checkIsCorrection(status: string): boolean {
