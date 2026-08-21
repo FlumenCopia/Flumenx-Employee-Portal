@@ -13,9 +13,9 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   const user = useShellUser();
   const userRole = (user?.portal_role || user?.role || "EMPLOYEE").toUpperCase();
   const userPerms = (user as any)?.permissions?.LEAVES;
-  const isViewAllRole = ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT"].includes(userRole) || Boolean(userPerms?.can_view);
-  const canDecide = ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"].includes(userRole) || Boolean(userPerms?.can_edit);
-  const isEmployee = propEmployee !== undefined ? propEmployee : !isViewAllRole;
+  const isManagementRole = ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT"].includes(userRole);
+  const canDecide = isManagementRole || Boolean(userPerms?.can_edit);
+  const isEmployee = propEmployee !== undefined ? propEmployee : !isManagementRole;
 
   const canCreate = userPerms?.can_create ?? true;
   const canEdit = canDecide;
@@ -127,7 +127,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
       eyebrow={isEmployee ? "TIME OFF / MY LEAVE" : "PEOPLE / LEAVE REQUESTS"}
       title={isEmployee ? "Time away." : "Leave requests."}
       subtitle={isEmployee ? "Plan time off and follow every request." : "Review requests with context and care."}
-      action={isEmployee && canCreate ? <PrimaryButton onClick={() => setModal(true)}>+ Request Leave</PrimaryButton> : undefined}
+      action={canCreate ? <PrimaryButton onClick={() => setModal(true)}>+ Request Leave</PrimaryButton> : undefined}
     />
     {message && <div className="toast success"><Check size={18} /> {message}</div>}
     {actionError && <div className="toast error">{actionError}</div>}
