@@ -84,9 +84,15 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
               p.page_title !== "Timeline & Phases" &&
               p.page_title !== "Timeline" &&
               p.page_title !== "Employees" &&
+              p.page_title !== "Attendance" &&
+              p.page_title !== "Leave Requests" &&
+              p.module_code !== "ATTENDANCE" &&
+              p.module_code !== "LEAVES" &&
               !p.route_path.includes("view=command-center") &&
               !p.route_path.includes("view=timeline") &&
-              !p.route_path.includes("/employees")
+              !p.route_path.includes("/employees") &&
+              !p.route_path.includes("/attendance") &&
+              !p.route_path.includes("/leaves")
           );
           setMatrixItems(filtered);
         })
@@ -105,9 +111,15 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
                 p?.title !== "Timeline & Phases" &&
                 p?.title !== "Timeline" &&
                 p?.title !== "Employees" &&
+                p?.title !== "Attendance" &&
+                p?.title !== "Leave Requests" &&
+                p?.module_code !== "ATTENDANCE" &&
+                p?.module_code !== "LEAVES" &&
                 !p?.route_path?.includes("view=command-center") &&
                 !p?.route_path?.includes("view=timeline") &&
-                !p?.route_path?.includes("/employees")
+                !p?.route_path?.includes("/employees") &&
+                !p?.route_path?.includes("/attendance") &&
+                !p?.route_path?.includes("/leaves")
             )
             .map((p) => ({
               page_id: p.id,
