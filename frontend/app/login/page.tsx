@@ -221,19 +221,24 @@ export default function LoginPage() {
             className="login-button"
             disabled={loading}
           >
-            {loading ? "Signing in..." : "Login to FLUMENX"} <ArrowRight size={18} />
+            {loading ? "Signing in..." : "Login"} <ArrowRight size={18} />
           </button>
         </form>
+
+        {/* FLUMENX LOGO (ONLY DISPLAYED ON MOBILE PHONES BELOW LOGIN FORM) */}
+        <div className="mobile-login-logo">
+          <FlumenxMark height={32} />
+        </div>
       </div>
 
       {/* LOGIN FOOTER */}
-      <footer style={{ marginTop: "24px", textAlign: "center", color: "rgba(226, 232, 240, 0.7)", fontSize: "11.5px", fontWeight: 600, zIndex: 2 }}>
+      <footer style={{ marginTop: "20px", textAlign: "center", color: "#64748B", fontSize: "11.5px", fontWeight: 600, zIndex: 2 }}>
         <div style={{ display: "flex", justifyContent: "center", gap: "14px", flexWrap: "wrap", marginBottom: "6px" }}>
-          <span style={{ color: "rgba(226, 232, 240, 0.85)" }}>Privacy Policy</span>
+          <span style={{ color: "#475569" }}>Privacy Policy</span>
           <span>•</span>
-          <span style={{ color: "rgba(226, 232, 240, 0.85)" }}>Terms of Service</span>
+          <span style={{ color: "#475569" }}>Terms of Service</span>
           <span>•</span>
-          <span style={{ color: "rgba(226, 232, 240, 0.85)" }}>Help &amp; Support</span>
+          <span style={{ color: "#475569" }}>Help &amp; Support</span>
         </div>
         <div>© {new Date().getFullYear()} FLUMENX • Enterprise Employee Portal. All rights reserved.</div>
       </footer>

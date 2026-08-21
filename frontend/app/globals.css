@@ -1420,7 +1420,7 @@ body{font-size:13px;line-height:1.45}.sidebar nav a{font-size:13px;padding:12px 
 
 }
 
-/* Executive Simple Login Page System */
+/* Executive Light Minimal Login Page System */
 .simple-login-page {
   min-height: 100vh !important;
   min-height: 100dvh !important;
@@ -1429,7 +1429,9 @@ body{font-size:13px;line-height:1.45}.sidebar nav a{font-size:13px;padding:12px 
   align-items: center !important;
   justify-content: center !important;
   padding: 32px 16px !important;
-  background: linear-gradient(135deg, #0B1714 0%, #13231F 50%, #08120F 100%) !important;
+  background: #F8FAF9 !important;
+  background-image: radial-gradient(circle at 50% 30%, rgba(8, 122, 91, 0.08), transparent 60%), linear-gradient(rgba(203,213,225,0.35) 1px, transparent 1px), linear-gradient(90deg, rgba(203,213,225,0.35) 1px, transparent 1px) !important;
+  background-size: 100% 100%, 32px 32px, 32px 32px !important;
   position: relative !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
@@ -1439,7 +1441,6 @@ body{font-size:13px;line-height:1.45}.sidebar nav a{font-size:13px;padding:12px 
   content: "";
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle at 50% 40%, rgba(8, 122, 91, 0.25), transparent 65%);
   pointer-events: none;
 }
 
@@ -1447,17 +1448,32 @@ body{font-size:13px;line-height:1.45}.sidebar nav a{font-size:13px;padding:12px 
   width: min(430px, 100%) !important;
   margin: auto !important;
   background: #FFFFFF !important;
-  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border: 1px solid #CBD5E1 !important;
   border-radius: 18px !important;
   padding: 36px 30px !important;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
   position: relative !important;
   z-index: 2 !important;
 }
 
+.mobile-login-logo {
+  display: none !important;
+}
+
+@media (max-width: 640px) {
+  .mobile-login-logo {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-top: 22px !important;
+    padding-top: 16px !important;
+    border-top: 1px solid #F1F5F9 !important;
+  }
+}
+
 @media (max-width: 480px) {
   .simple-login-page {
-    padding: 24px 14px !important;
+    padding: 20px 12px !important;
   }
   .simple-login-page .login-form-side {
     padding: 28px 20px !important;
