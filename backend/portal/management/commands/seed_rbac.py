@@ -301,6 +301,40 @@ class Command(BaseCommand):
                     user_role.save(update_fields=["dynamic_role"])
                     updated_count += 1
 
+            # Seed Permanent Superadmin from environment variables if specified
+            import os
+            from django.contrib.auth import get_user_model
+            admin_email = os.getenv("PERMANENT_SUPERADMIN_EMAIL")
+            admin_password = os.getenv("PERMANENT_SUPERADMIN_PASSWORD")
+            if admin_email and admin_password:
+                User = get_user_model()
+                admin_user = User.objects.filter(email__iexact=admin_email).first()
+                if not admin_user:
+                    admin_user = User.objects.filter(username__iexact=admin_email).first()
+                if not admin_user:
+                    admin_user = User.objects.create(
+                        username=admin_email,
+                        email=admin_email,
+                        is_staff=True,
+                        is_superuser=True,
+                        is_active=True,
+                    )
+                admin_user.set_password(admin_password)
+                admin_user.is_staff = True
+                admin_user.is_superuser = True
+                admin_user.is_active = True
+                admin_user.save()
+
+                super_drole = created_roles.get("SUPER_ADMIN")
+                user_role_obj, _ = UserRole.objects.get_or_create(
+                    user=admin_user,
+                    defaults={"role": "SUPER_ADMIN", "dynamic_role": super_drole}
+                )
+                if not user_role_obj.dynamic_role:
+                    user_role_obj.dynamic_role = super_drole
+                    user_role_obj.save(update_fields=["dynamic_role"])
+                self.stdout.write(f"Permanent Superadmin '{admin_email}' synced.")
+
             self.stdout.write(
                 self.style.SUCCESS(f"Successfully seeded RBAC & Departments. Linked {updated_count} user roles & {linked_emp_count} employee department_refs.")
             )

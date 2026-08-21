@@ -11,7 +11,10 @@ if env_file.exists():
         line = line.strip()
         if line and not line.startswith("#") and "=" in line:
             key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip())
+            val = value.strip()
+            if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                val = val[1:-1]
+            os.environ.setdefault(key.strip(), val)
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "hive-demo-secret-key-change-in-production")
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
@@ -95,26 +98,39 @@ if database_url:
                 "CONN_MAX_AGE": 60,
             }
         }
-elif DB_ENGINE == "mysql" or os.getenv("MYSQL_DATABASE"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": os.getenv("MYSQL_DATABASE", "flumenx_portal"),
-            "USER": os.getenv("MYSQL_USER", "root"),
-            "PASSWORD": os.getenv("MYSQL_PASSWORD", ""),
-            "HOST": os.getenv("MYSQL_HOST", "127.0.0.1"),
-            "PORT": os.getenv("MYSQL_PORT", "3306"),
-            "OPTIONS": {
-                "charset": "utf8mb4",
-                "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-                "ssl": False,
-            },
-            "TEST": {
-                "NAME": "test_flumenx_portal",
-            },
-            "CONN_MAX_AGE": 60,
+elif DB_ENGINE == "mysql":
+    mysql_host = os.getenv("MYSQL_HOST", "127.0.0.1")
+    mysql_port = int(os.getenv("MYSQL_PORT", "3306"))
+    use_mysql = True
+    try:
+        import socket
+        with socket.create_connection((mysql_host, mysql_port), timeout=1.0):
+            pass
+    except Exception:
+        use_mysql = False
+
+    if use_mysql:
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.mysql",
+                "NAME": os.getenv("MYSQL_DATABASE", "flumenx_portal"),
+                "USER": os.getenv("MYSQL_USER", "root"),
+                "PASSWORD": os.getenv("MYSQL_PASSWORD", ""),
+                "HOST": mysql_host,
+                "PORT": str(mysql_port),
+                "OPTIONS": {
+                    "charset": "utf8mb4",
+                    "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+                    "ssl": False,
+                },
+                "TEST": {
+                    "NAME": "test_flumenx_portal",
+                },
+                "CONN_MAX_AGE": 60,
+            }
         }
-    }
+    else:
+        DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 else:
     DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 
@@ -129,6 +145,7 @@ TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "static"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

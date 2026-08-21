@@ -510,11 +510,14 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
 
   const canCreateTask = (() => {
     if (!user) return false;
+    if ((user as any).is_superuser) return true;
     const role = (user.portal_role || "").toUpperCase();
     const creatorRoles = ["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD"];
-    if (!creatorRoles.includes(role)) return false;
-    if (workspaceRole === "employee" || workspaceRole === "accountant") return false;
-    return true;
+    const isCreatorRole = creatorRoles.includes(role) || role.endsWith("_TEAM_LEAD") || role.endsWith("TEAM_LEAD") || role.includes("LEAD");
+    const workPerms = (user as any)?.permissions?.WORK_BOARD || (user as any)?.permissions?.["*"];
+    const hasDynamicCreate = workPerms ? Boolean(workPerms.can_create) : false;
+
+    return isCreatorRole || hasDynamicCreate;
   })();
 
   const handleNewTaskClick = () => {

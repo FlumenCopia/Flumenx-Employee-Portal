@@ -155,6 +155,16 @@ class IsWorkClientUser(BasePermission):
 
 WORK_CREATOR_ROLES = ("SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD")
 
+def is_work_creator(user):
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+        return True
+    role = str(portal_role(user)).upper()
+    if role in WORK_CREATOR_ROLES or role.endswith("_TEAM_LEAD") or role.endswith("TEAM_LEAD") or "LEAD" in role:
+        return True
+    return has_page_permission(user, "WORK_BOARD", "create")
+
 class IsWorkAssignmentUser(BasePermission):
     allowed_roles = ("SUPER_ADMIN", "ADMIN", "HR", "BDE", "TEAM_LEAD", "EMPLOYEE", "OPERATIONS_HEAD", "OPERATIONS", "MEMBER")
 
@@ -163,9 +173,8 @@ class IsWorkAssignmentUser(BasePermission):
             return False
         if request.user.is_superuser or request.user.is_staff:
             return True
-        role = str(portal_role(request.user)).upper()
         if request.method == "POST":
-            return role in WORK_CREATOR_ROLES
+            return is_work_creator(request.user)
         return True
 
     def has_object_permission(self, request, view, obj):

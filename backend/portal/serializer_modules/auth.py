@@ -13,10 +13,11 @@ class ProfileSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     portal_role = serializers.SerializerMethodField()
     employee = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "role", "portal_role", "employee"]
+        fields = ["id", "username", "email", "first_name", "role", "portal_role", "employee", "permissions"]
 
     def get_role(self, obj):
         portal_role = self.get_portal_role(obj)
@@ -24,6 +25,27 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     def get_portal_role(self, obj):
         return portal_role(obj)
+
+    def get_permissions(self, obj):
+        from portal.models import RolePermission
+        from portal.permissions import portal_role
+        role_str = portal_role(obj)
+        if getattr(obj, "is_superuser", False) or role_str == "SUPER_ADMIN":
+            return {"*": {"can_view": True, "can_create": True, "can_edit": True, "can_delete": True}}
+        profile = getattr(obj, "portal_profile", None)
+        drole = getattr(profile, "dynamic_role", None) if profile else None
+        if not drole:
+            return {}
+        perms = RolePermission.objects.filter(role=drole, page__is_active=True).select_related("page")
+        res = {}
+        for p in perms:
+            res[p.page.module_code] = {
+                "can_view": p.can_view,
+                "can_create": p.can_create,
+                "can_edit": p.can_edit,
+                "can_delete": p.can_delete,
+            }
+        return res
 
     def get_employee(self, obj):
         try:
