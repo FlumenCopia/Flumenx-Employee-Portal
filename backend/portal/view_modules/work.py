@@ -58,10 +58,10 @@ def scoped_work_assignments_for_user(qs, user):
     role = str(portal_role(user)).upper()
     if role in ("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"):
         return qs
-    if role == "TEAM_LEAD":
+    if role == "TEAM_LEAD" or role.endswith("_TEAM_LEAD") or role.endswith("TEAM_LEAD") or "LEAD" in role or has_page_permission(user, "WORK_BOARD", "create"):
         lead = getattr(user, "employee", None)
         if not lead:
-            return qs.none()
+            return qs.filter(Q(reviewer=user) | Q(assigned_by=user)).distinct()
         dept_q = Q(department=lead.department) if lead.department else Q()
         dept_ref_q = Q(department_ref=lead.department_ref) if lead.department_ref else Q()
         team_members = Employee.objects.filter(
@@ -76,8 +76,8 @@ def scoped_work_assignments_for_user(qs, user):
         ).distinct()
     employee = getattr(user, "employee", None)
     if employee:
-        return qs.filter(Q(employee=employee) | Q(reviewer=user)).distinct()
-    return qs.filter(Q(reviewer=user)).distinct()
+        return qs.filter(Q(employee=employee) | Q(reviewer=user) | Q(assigned_by=user)).distinct()
+    return qs.filter(Q(reviewer=user) | Q(assigned_by=user)).distinct()
 
 
 def notify_work_assigned(assignment, actor):

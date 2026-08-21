@@ -173,7 +173,8 @@ class IsWorkAssignmentUser(BasePermission):
             return False
         if request.user.is_superuser or request.user.is_staff:
             return True
-        if request.method == "POST":
+        action = getattr(view, "action", None)
+        if request.method == "POST" and action not in ("review", "submit_for_review"):
             return is_work_creator(request.user)
         return True
 
