@@ -182,23 +182,17 @@ class IsWorkAssignmentUser(BasePermission):
             return False
         if request.user.is_superuser or request.user.is_staff:
             return True
-        role = str(portal_role(request.user)).upper()
-
-        if request.method == "DELETE":
-            if role in WORK_CREATOR_ROLES:
-                return True
-            if obj.reviewer_id and obj.reviewer_id == request.user.id:
-                return True
-            return False
-
-        if request.method in ("PUT", "PATCH"):
-            if role in WORK_CREATOR_ROLES:
-                return True
-            if obj.reviewer_id and obj.reviewer_id == request.user.id:
-                return True
-            return False
-
-        return True
+        if is_work_creator(request.user):
+            return True
+        reviewer_id = getattr(obj, "reviewer_id", None) or getattr(getattr(obj, "assignment", None), "reviewer_id", None)
+        if reviewer_id and reviewer_id == request.user.id:
+            return True
+        emp = getattr(obj, "employee", None) or getattr(getattr(obj, "assignment", None), "employee", None)
+        if emp and emp.user_id == request.user.id:
+            return True
+        if request.method in SAFE_METHODS:
+            return True
+        return False
 
 
 class IsAdminOrAccountant(HasPortalRole):
