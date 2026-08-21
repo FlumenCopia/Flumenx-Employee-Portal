@@ -405,12 +405,20 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
         role = str(portal_role(user)).upper()
 
         is_assigned_emp = assignment.employee and assignment.employee.user_id == user.id
-        is_rev_user = assignment.reviewer_id and assignment.reviewer_id == user.id
-        is_creator_mgmt = assignment.assigned_by_id and assignment.assigned_by_id == user.id and role in ("SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD")
-        is_mgmt = role in ("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD")
-        is_lead = role == "TEAM_LEAD" and assignment.employee and assignment.employee.team_lead_id and assignment.employee.team_lead.user_id == user.id
+        is_rev_user = bool(assignment.reviewer_id and assignment.reviewer_id == user.id)
+        if not is_rev_user and assignment.reviewer_name:
+            user_full_name = f"{user.first_name} {user.last_name}".strip() or user.username
+            emp_name = user.employee.name if hasattr(user, "employee") and user.employee else ""
+            if (user_full_name and user_full_name.lower() in assignment.reviewer_name.lower()) or (emp_name and emp_name.lower() in assignment.reviewer_name.lower()):
+                is_rev_user = True
 
-        can_review = is_rev_user or is_creator_mgmt or is_mgmt or is_lead or user.is_superuser
+        is_creator = assignment.assigned_by_id and assignment.assigned_by_id == user.id
+        is_creator_mgmt = is_creator and (is_work_creator(user) or role in ("SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD"))
+        is_mgmt = role in ("SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD")
+        is_lead = (role == "TEAM_LEAD" or role.endswith("_TEAM_LEAD") or role.endswith("TEAM_LEAD") or "LEAD" in role) and assignment.employee and assignment.employee.team_lead_id and assignment.employee.team_lead.user_id == user.id
+        is_creator_or_lead = is_work_creator(user)
+
+        can_review = is_rev_user or is_creator or is_creator_mgmt or is_mgmt or is_lead or is_creator_or_lead or user.is_superuser or user.is_staff or has_page_permission(user, "WORK_BOARD", "edit")
 
         if not can_review:
             raise PermissionDenied("You do not have permission to review or quality-audit this work assignment.")
