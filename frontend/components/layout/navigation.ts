@@ -141,13 +141,7 @@ export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[
 };
 
 export const getFilteredNavigation = (role: WorkspaceRole): readonly NavigationItem[] => {
-  if (role !== "admin") {
-    return [
-      ["Attendance", "/attendance", CalendarCheck],
-      ["Leave Requests", "/leaves", CalendarDays],
-    ] as const satisfies readonly NavigationItem[];
-  }
-  const items = workspaceNavigation[role];
+  const items = workspaceNavigation[role] || workspaceNavigation.employee;
   return items.filter(
     ([label]) =>
       label !== "Overview" &&

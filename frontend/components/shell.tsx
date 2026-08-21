@@ -495,12 +495,8 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
     }
   };
 
-  const isAdmin = user ? ["SUPER_ADMIN", "ADMIN", "OPERATIONS", "OPERATIONS_HEAD"].includes((user.portal_role || "").toUpperCase()) : workspaceRole === "admin";
-  const rawNav: readonly (readonly [string, string, any])[] = isAdmin ? (dynamicNav !== null ? dynamicNav : getFilteredNavigation(workspaceRole)) : [
-    ["Attendance", "/attendance", CalendarCheck],
-    ["Leave Requests", "/leaves", CalendarDays],
-  ];
-  const nav = rawNav.filter(
+  const baseNav: readonly (readonly [string, string, any])[] = dynamicNav !== null ? dynamicNav : getFilteredNavigation(workspaceRole);
+  const filteredNav = baseNav.filter(
     ([label, href]) =>
       label !== "Employees" &&
       label !== "Page Management" &&
@@ -508,6 +504,19 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
       !href.includes("/employees") &&
       !href.includes("/pages")
   );
+
+  const hasAttendance = filteredNav.some(([label, href]) => label.toLowerCase().includes("attendance") || (typeof href === "string" && href.includes("/attendance")));
+  const hasLeaves = filteredNav.some(([label, href]) => label.toLowerCase().includes("leave") || (typeof href === "string" && href.includes("/leaves")));
+
+  const fixedItems: (readonly [string, string, any])[] = [];
+  if (!hasAttendance) {
+    fixedItems.push(["Attendance", "/attendance", CalendarCheck]);
+  }
+  if (!hasLeaves) {
+    fixedItems.push(["Leave Requests", "/leaves", CalendarDays]);
+  }
+
+  const nav = [...filteredNav, ...fixedItems];
 
   const name = user?.first_name || workspaceFallbackNames[workspaceRole];
   const roleLabel = workspaceLabels[workspaceRole];
