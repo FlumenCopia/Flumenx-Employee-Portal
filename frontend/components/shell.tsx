@@ -531,8 +531,15 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
     <ShellUserContext.Provider value={user}>
     <div className="app-shell">
       <aside className={`sidebar ${open ? "open" : ""}`}>
-        <div className="side-brand"><FlumenxMark /><button className="mobile-close" onClick={() => setOpen(false)} aria-label="Close navigation sidebar"><X /></button></div>
-        <div className="workspace"><div className="workspace-icon">FX</div><div><b>FLUMENX HQ</b><span>Core workspace</span></div><ChevronDown size={14} /></div>
+        <div className="side-brand" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px", paddingBottom: "14px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "12px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+            <FlumenxMark />
+            <button className="mobile-close" onClick={() => setOpen(false)} aria-label="Close navigation sidebar"><X /></button>
+          </div>
+          <div className="sub-brand" style={{ paddingLeft: "2px", marginTop: "4px" }}>
+            Employee Portal
+          </div>
+        </div>
         <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label === "Leave requests" && pendingLeaveCount > 0 && <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>}</Link>)}</nav>
         <div className="sidebar-foot">
           {workspaceRole === "employee" || workspaceRole === "bdo" || workspaceRole === "team-lead" ? (

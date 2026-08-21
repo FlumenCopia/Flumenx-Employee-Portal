@@ -89,13 +89,13 @@ class Command(BaseCommand):
                 created_roles[rdata["code"]] = role_obj
 
             pages_data = [
-                {
-                    "module_code": "DASHBOARD",
-                    "title": "Command Center Dashboard",
-                    "route_path": "/work?view=command-center",
-                    "icon": "Sparkles",
-                    "sidebar_order": 1,
-                },
+                # {
+                #     "module_code": "DASHBOARD",
+                #     "title": "Command Center Dashboard",
+                #     "route_path": "/work?view=command-center",
+                #     "icon": "Sparkles",
+                #     "sidebar_order": 1,
+                # },
                 {
                     "module_code": "TASKS",
                     "title": "Task Board",
@@ -103,13 +103,13 @@ class Command(BaseCommand):
                     "icon": "Kanban",
                     "sidebar_order": 2,
                 },
-                {
-                    "module_code": "TIMELINE",
-                    "title": "Timeline & Phases",
-                    "route_path": "/work?view=timeline",
-                    "icon": "Layers",
-                    "sidebar_order": 3,
-                },
+                # {
+                #     "module_code": "TIMELINE",
+                #     "title": "Timeline & Phases",
+                #     "route_path": "/work?view=timeline",
+                #     "icon": "Layers",
+                #     "sidebar_order": 3,
+                # },
                 {
                     "module_code": "TEAM_WORK",
                     "title": "Team Work",
@@ -124,13 +124,13 @@ class Command(BaseCommand):
                     "icon": "TrendingUp",
                     "sidebar_order": 5,
                 },
-                {
-                    "module_code": "EMPLOYEES",
-                    "title": "Employees",
-                    "route_path": "/employees",
-                    "icon": "Users",
-                    "sidebar_order": 6,
-                },
+                # {
+                #     "module_code": "EMPLOYEES",
+                #     "title": "Employees",
+                #     "route_path": "/employees",
+                #     "icon": "Users",
+                #     "sidebar_order": 6,
+                # },
                 {
                     "module_code": "ATTENDANCE",
                     "title": "Attendance",
