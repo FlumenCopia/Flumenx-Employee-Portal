@@ -377,6 +377,14 @@ class WorkAssignmentViewSet(viewsets.ModelViewSet):
         old_status = old_assignment.status
         old_progress = old_assignment.progress
 
+        new_status = serializer.validated_data.get("status")
+        if new_status and new_status != old_status:
+            is_rev = old_assignment.reviewer_id and old_assignment.reviewer_id == user.id
+            is_creator = old_assignment.assigned_by_id and old_assignment.assigned_by_id == user.id
+            is_mgmt = is_work_creator(user) or user.is_superuser or user.is_staff or has_page_permission(user, "WORK_BOARD", "edit")
+            if not (is_rev or is_creator or is_mgmt):
+                raise PermissionDenied("Only the designated reviewer, creator, or management can change the task status.")
+
         assignment = serializer.save()
 
 

@@ -280,10 +280,14 @@ export function CommandCenterView({
 
   const isReviewerOrManager = (task: TaskItem | null): boolean => {
     if (!task) return false;
+    if ((currentUser as any)?.is_superuser) return true;
     const roleUpper = (currentUser?.role || userRole || "").toUpperCase();
-    if (["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "TEAM_LEAD", "BDE"].includes(roleUpper)) {
+    if (["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "TEAM_LEAD", "BDE"].includes(roleUpper) || roleUpper.endsWith("_TEAM_LEAD") || roleUpper.endsWith("TEAM_LEAD") || roleUpper.includes("LEAD")) {
       return true;
     }
+    const workPerms = (currentUser as any)?.permissions?.WORK_BOARD || (currentUser as any)?.permissions?.["*"];
+    if (workPerms?.can_edit || workPerms?.can_create) return true;
+
     if (currentUser?.id && task.reviewerId && Number(task.reviewerId) === Number(currentUser.id)) {
       return true;
     }
@@ -308,14 +312,7 @@ export function CommandCenterView({
 
   const canUserChangeTaskStatus = (task: TaskItem | null): boolean => {
     if (!task) return false;
-    if (isReviewerOrManager(task)) return true;
-    if (currentUser?.id && task.assignee && String(task.assignee) === String(currentUser.id)) {
-      return true;
-    }
-    if (currentUser?.employeeId && task.assignee && String(task.assignee) === String(currentUser.employeeId)) {
-      return true;
-    }
-    return false;
+    return isReviewerOrManager(task);
   };
 
   const canMoveSelectedTaskStatus = useMemo(() => {
