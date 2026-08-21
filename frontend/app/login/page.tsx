@@ -220,28 +220,23 @@ export default function LoginPage() {
             type="submit"
             className="login-button"
             disabled={loading}
-            style={{
-              minHeight: "48px",
-              fontSize: "14px",
-              fontWeight: 800,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              background: "linear-gradient(135deg, #087A5B 0%, #066349 100%)",
-              color: "#ffffff",
-              border: "1px solid #066349",
-              borderRadius: "10px",
-              boxShadow: "0 4px 16px rgba(8,122,91,0.35)",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px"
-            }}
           >
             {loading ? "Signing in..." : "Login to FLUMENX"} <ArrowRight size={18} />
           </button>
         </form>
       </div>
+
+      {/* LOGIN FOOTER */}
+      <footer style={{ marginTop: "24px", textAlign: "center", color: "rgba(226, 232, 240, 0.7)", fontSize: "11.5px", fontWeight: 600, zIndex: 2 }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: "14px", flexWrap: "wrap", marginBottom: "6px" }}>
+          <span style={{ color: "rgba(226, 232, 240, 0.85)" }}>Privacy Policy</span>
+          <span>•</span>
+          <span style={{ color: "rgba(226, 232, 240, 0.85)" }}>Terms of Service</span>
+          <span>•</span>
+          <span style={{ color: "rgba(226, 232, 240, 0.85)" }}>Help &amp; Support</span>
+        </div>
+        <div>© {new Date().getFullYear()} FLUMENX • Enterprise Employee Portal. All rights reserved.</div>
+      </footer>
 
       {forgotModalOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0, 0, 0, 0.75)", backdropFilter: "blur(4px)", padding: "16px" }}>
