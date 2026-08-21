@@ -17,13 +17,36 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(false);
 
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotMessage, setForgotMessage] = useState("");
   const [forgotError, setForgotError] = useState("");
+
+  const [splashActive, setSplashActive] = useState(true);
+  const [splashHiding, setSplashHiding] = useState(false);
+  const [counter, setCounter] = useState(0);
+
+  useEffect(() => {
+    let current = 0;
+    const interval = setInterval(() => {
+      current += Math.floor(Math.random() * 7) + 4;
+      if (current >= 100) {
+        current = 100;
+        clearInterval(interval);
+        setTimeout(() => {
+          setSplashHiding(true);
+        }, 200);
+        setTimeout(() => {
+          setSplashActive(false);
+        }, 950);
+      }
+      setCounter(current);
+    }, 55);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -98,17 +121,35 @@ export default function LoginPage() {
 
   return (
     <div className="simple-login-page">
+      {splashActive && (
+        <div className={`g3-splash-overlay ${splashHiding ? "hiding" : ""}`}>
+          <div className="g3-splash-container">
+            <div className="g3-brand-title">
+              FLUMEn<span>X</span>
+            </div>
+            <div className="g3-brand-tagline">MAKE IT HAPPEN</div>
+
+            <div className="g3-expand-line-track">
+              <div className="g3-expand-line-fill" style={{ width: `${counter}%` }} />
+            </div>
+
+            <div className="g3-bottom-meta">
+              <div className="g3-meta-label">
+                <i /> INITIALIZING WORKSPACE
+              </div>
+              <div className="g3-meta-counter">
+                {String(counter).padStart(2, "0")}
+                <span>%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="login-form-side">
         <form onSubmit={submit}>
-          <div style={{ textAlign: "center", marginBottom: "24px" }}>
-            <div style={{ display: "inline-flex", justifyContent: "center", alignItems: "center", marginBottom: "10px" }}>
-              <img
-                src="/flumenx-logo.webp"
-                alt="FLUMENX - Make It Happen"
-                style={{ height: "44px", width: "auto", objectFit: "contain" }}
-              />
-            </div>
-            <div style={{ fontSize: "11px", letterSpacing: "0.22em", color: "#a8874e", fontWeight: 800, textTransform: "uppercase" }}>
+          <div style={{ textAlign: "center", marginBottom: "20px" }}>
+            <div style={{ fontSize: "11px", letterSpacing: "0.22em", color: "#059669", fontWeight: 800, textTransform: "uppercase" }}>
               EMPLOYEE PORTAL
             </div>
           </div>
