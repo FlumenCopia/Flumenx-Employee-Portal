@@ -220,6 +220,25 @@ export default function LoginPage() {
             type="submit"
             className="login-button"
             disabled={loading}
+            style={{
+              background: "#087A5B",
+              color: "#FFFFFF",
+              border: "1px solid #066349",
+              borderRadius: "10px",
+              height: "48px",
+              minHeight: "48px",
+              width: "100%",
+              fontSize: "14px",
+              fontWeight: 800,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              boxShadow: "0 4px 14px rgba(8, 122, 91, 0.35)",
+            }}
           >
             {loading ? "Signing in..." : "Login"} <ArrowRight size={18} />
           </button>
