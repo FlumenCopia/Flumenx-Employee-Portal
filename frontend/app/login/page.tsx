@@ -150,37 +150,37 @@ export default function LoginPage() {
 
       <div className="login-form-side">
         <form onSubmit={submit}>
-          <div style={{ textAlign: "center", marginBottom: "20px" }}>
-            <div style={{ fontSize: "11px", letterSpacing: "0.22em", color: "#059669", fontWeight: 800, textTransform: "uppercase" }}>
-              EMPLOYEE PORTAL
+          <div style={{ textAlign: "center", marginBottom: "18px" }}>
+            <div style={{ fontSize: "11px", letterSpacing: "0.22em", color: "#087A5B", fontWeight: 800, textTransform: "uppercase" }}>
+              FLUMENX / EMPLOYEE PORTAL
             </div>
           </div>
 
-          <h2 style={{ fontSize: "26px", fontWeight: 800, color: "#1a1b1e", letterSpacing: "-0.02em", marginBottom: "6px" }}>
-            Welcome <i style={{ color: "#a8874e", fontStyle: "normal" }}>back.</i>
+          <h2 style={{ fontSize: "28px", fontWeight: 800, color: "#18231F", letterSpacing: "-0.02em", marginBottom: "6px", textAlign: "center" }}>
+            Welcome <span style={{ color: "#087A5B" }}>back.</span>
           </h2>
-          <p className="form-subtitle" style={{ fontSize: "13.5px", color: "#5c606b", marginBottom: "24px" }}>
+          <p className="form-subtitle" style={{ fontSize: "13.5px", color: "#64748B", marginBottom: "26px", textAlign: "center", fontWeight: 500, lineHeight: "1.4" }}>
             Sign in with your work account to access your workspace.
           </p>
 
-          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12.5px", fontWeight: 700, color: "#1a1b1e", marginBottom: "18px" }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", fontWeight: 700, color: "#18231F", marginBottom: "18px" }}>
             Work email
-            <div className="input-wrap" style={{ background: "#ffffff", border: "1px solid #dad7ce", borderRadius: "10px", padding: "10px 14px", minHeight: "46px" }}>
-              <Mail size={18} style={{ color: "#a8874e" }} />
+            <div className="input-wrap" style={{ background: "#ffffff", border: "1.5px solid #CBD5E1", borderRadius: "10px", padding: "10px 14px", minHeight: "46px" }}>
+              <Mail size={18} style={{ color: "#087A5B" }} />
               <input
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 type="email"
                 placeholder="name@company.com"
                 required
-                style={{ fontSize: "13.5px", fontWeight: 600, color: "#1a1b1e" }}
+                style={{ fontSize: "13.5px", fontWeight: 600, color: "#18231F" }}
               />
             </div>
             {fieldErrors.username && <span className="form-field-error">{fieldErrors.username}</span>}
           </label>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-            <span style={{ fontSize: "12.5px", fontWeight: 700, letterSpacing: "0.02em", color: "#1a1b1e" }}>Password</span>
+            <span style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.02em", color: "#18231F" }}>Password</span>
             <button
               type="button"
               onClick={() => {
@@ -189,25 +189,25 @@ export default function LoginPage() {
                 setForgotMessage("");
                 setForgotError("");
               }}
-              style={{ background: "none", border: "none", color: "#a8874e", fontSize: "12.5px", fontWeight: 700, cursor: "pointer", padding: 0 }}
+              style={{ background: "none", border: "none", color: "#087A5B", fontSize: "12.5px", fontWeight: 800, cursor: "pointer", padding: 0 }}
             >
               Forgot password?
             </button>
           </div>
-          <label style={{ marginBottom: "20px" }}>
-            <div className="input-wrap" style={{ marginTop: 0, background: "#ffffff", border: "1px solid #dad7ce", borderRadius: "10px", padding: "10px 14px", minHeight: "46px" }}>
-              <LockKeyhole size={18} style={{ color: "#a8874e" }} />
+          <label style={{ marginBottom: "22px" }}>
+            <div className="input-wrap" style={{ marginTop: 0, background: "#ffffff", border: "1.5px solid #CBD5E1", borderRadius: "10px", padding: "10px 14px", minHeight: "46px" }}>
+              <LockKeyhole size={18} style={{ color: "#087A5B" }} />
               <input
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 type={show ? "text" : "password"}
                 required
-                style={{ fontSize: "13.5px", fontWeight: 600, color: "#1a1b1e" }}
+                style={{ fontSize: "13.5px", fontWeight: 600, color: "#18231F" }}
               />
               <button
                 type="button"
                 onClick={() => setShow((prev) => !prev)}
-                style={{ background: "none", border: "none", color: "#6b707d", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}
+                style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", display: "flex", alignItems: "center", padding: 0 }}
               >
                 {show ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -215,7 +215,7 @@ export default function LoginPage() {
             {fieldErrors.password && <span className="form-field-error">{fieldErrors.password}</span>}
           </label>
 
-          {error && <div className="form-error" style={{ marginBottom: "16px", fontSize: "12.5px" }}>{error}</div>}
+          {error && <div className="form-error" style={{ marginBottom: "16px", fontSize: "12.5px", fontWeight: 700 }}>{error}</div>}
           <button
             type="submit"
             className="login-button"
@@ -226,12 +226,16 @@ export default function LoginPage() {
               fontWeight: 800,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
-              background: "linear-gradient(135deg, #cba86e 0%, #a8874e 100%)",
+              background: "linear-gradient(135deg, #087A5B 0%, #066349 100%)",
               color: "#ffffff",
-              border: "1px solid #a8874e",
+              border: "1px solid #066349",
               borderRadius: "10px",
-              boxShadow: "0 4px 16px rgba(203,168,110,0.3)",
+              boxShadow: "0 4px 16px rgba(8,122,91,0.35)",
               cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px"
             }}
           >
             {loading ? "Signing in..." : "Login to FLUMENX"} <ArrowRight size={18} />
