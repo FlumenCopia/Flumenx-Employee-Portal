@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from portal.models import Client, Employee, WorkAssignment, WorkDeliverable
-from portal.permissions import IsWorkAssignmentUser, IsWorkClientUser, portal_role, WORK_CREATOR_ROLES
+from portal.permissions import IsWorkAssignmentUser, IsWorkClientUser, portal_role, WORK_CREATOR_ROLES, is_work_creator, has_page_permission
 from portal.serializers import ClientSerializer, WorkAssignmentSerializer, WorkDeliverableSerializer
 from portal.services.notifications import create_notifications
 
