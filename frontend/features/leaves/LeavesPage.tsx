@@ -15,7 +15,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   const userPerms = (user as any)?.permissions?.LEAVES;
   const isManagementRole = ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT"].includes(userRole);
   const canDecide = isManagementRole || Boolean(userPerms?.can_edit);
-  const isEmployee = propEmployee !== undefined ? propEmployee : !isManagementRole;
+  const isEmployee = propEmployee !== undefined ? propEmployee : (!isManagementRole || userRole === "EMPLOYEE" || userRole.includes("MEMBER") || userRole.includes("TEAM_MEMBER"));
 
   const canCreate = userPerms?.can_create ?? true;
   const canEdit = canDecide;
