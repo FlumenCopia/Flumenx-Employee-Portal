@@ -495,7 +495,11 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
     }
   };
 
-  const rawNav = dynamicNav !== null ? dynamicNav : getFilteredNavigation(workspaceRole);
+  const isAdmin = user ? ["SUPER_ADMIN", "ADMIN", "OPERATIONS", "OPERATIONS_HEAD"].includes((user.portal_role || "").toUpperCase()) : workspaceRole === "admin";
+  const rawNav = isAdmin ? (dynamicNav !== null ? dynamicNav : getFilteredNavigation(workspaceRole)) : [
+    ["Attendance", "/attendance", CalendarCheck],
+    ["Leave Requests", "/leaves", CalendarDays],
+  ];
   const nav = rawNav.filter(
     ([label, href]) =>
       label !== "Employees" &&
