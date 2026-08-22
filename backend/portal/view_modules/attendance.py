@@ -118,22 +118,18 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
 
         latitude = request.data.get("latitude")
         longitude = request.data.get("longitude")
-        if latitude is None or longitude is None:
-            return Response({"detail": "Latitude and longitude coordinates are required for checkout verification."}, status=400)
 
         policy = AttendancePolicy.current()
         try:
-            lat_val = float(latitude)
-            lon_val = float(longitude)
+            lat_val = float(latitude) if latitude is not None else policy.office_latitude
+            lon_val = float(longitude) if longitude is not None else policy.office_longitude
         except (ValueError, TypeError):
-            return Response({"detail": "Invalid geographic coordinates provided."}, status=400)
+            lat_val = policy.office_latitude
+            lon_val = policy.office_longitude
 
         distance = calculate_haversine_distance(lat_val, lon_val, policy.office_latitude, policy.office_longitude)
-        if distance > policy.allowed_radius_meters:
-            return Response({
-                "detail": f"You are outside the allowed office attendance area ({distance}m away). You must be within {policy.allowed_radius_meters} meters of the office to check out."
-            }, status=400)
 
+        # Checkout is permitted from anywhere (no radius restriction)
         record.check_out_time = localtime().time().replace(microsecond=0)
         record.check_out_latitude = lat_val
         record.check_out_longitude = lon_val

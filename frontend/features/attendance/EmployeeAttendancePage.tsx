@@ -162,8 +162,9 @@ export function EmployeeAttendancePage() {
         const allowedRadius = policy?.allowed_radius_meters || 200;
         const distance = calculateHaversine(userLat, userLng, officeLat, officeLng);
 
-        if (distance > allowedRadius) {
-          setErrorMessage(`You are outside the allowed office attendance area (${distance}m away). You must be within ${allowedRadius} meters of the office to mark attendance.`);
+        // Location radius check applies ONLY for Check-In (Checkout permitted from anywhere)
+        if (actionType === "check-in" && distance > allowedRadius) {
+          setErrorMessage(`You are outside the allowed office attendance area (${distance}m away). You must be within ${allowedRadius} meters of the office to check in.`);
           setActionPending(false);
           return;
         }
