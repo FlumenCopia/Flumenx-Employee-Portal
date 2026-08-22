@@ -43,12 +43,31 @@ class LeaveViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have permission to submit leave requests.")
 
         if portal_role(self.request.user) in ("SUPER_ADMIN", "ADMIN", "HR") and self.request.data.get("employee"):
-            leave = serializer.save(employee_id=self.request.data["employee"])
+            target_emp_id = self.request.data["employee"]
         else:
             employee = getattr(self.request.user, "employee", None)
             if not employee:
                 raise serializers.ValidationError({"detail": "Employee profile is required."})
-            leave = serializer.save(employee=employee)
+            target_emp_id = employee.id
+
+        start_date = serializer.validated_data.get("start_date")
+        end_date = serializer.validated_data.get("end_date")
+
+        if start_date and end_date and start_date > end_date:
+            raise serializers.ValidationError({"end_date": "End date cannot be before start date."})
+
+        # Overlapping leave check
+        if start_date and end_date:
+            overlapping = LeaveRequest.objects.filter(
+                employee_id=target_emp_id,
+                status__in=["Pending", "Approved"],
+                start_date__lte=end_date,
+                end_date__gte=start_date,
+            )
+            if overlapping.exists():
+                raise serializers.ValidationError({"start_date": "You already have an active or pending leave request covering this date range."})
+
+        leave = serializer.save(employee_id=target_emp_id)
         create_notifications(
             active_users_with_roles(("ADMIN", "HR")),
             "Leave request submitted",
@@ -67,6 +86,11 @@ class LeaveViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have permission to approve or reject leave requests.")
 
         leave = self.get_object()
+
+        # Prevent self-approval of leave requests
+        if leave.employee and leave.employee.user == request.user and not request.user.is_superuser:
+            raise PermissionDenied("You cannot approve or reject your own leave request.")
+
         decision = request.data.get("status")
         if decision not in ("Approved", "Rejected"):
             return Response({"detail": "Status must be Approved or Rejected."}, status=status.HTTP_400_BAD_REQUEST)

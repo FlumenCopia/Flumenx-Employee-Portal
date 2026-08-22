@@ -22,7 +22,14 @@ class AttendanceCorrectionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], permission_classes=[IsAdminOrHR])
     def decide(self, request, pk=None):
+        from rest_framework.exceptions import PermissionDenied
+
         correction = self.get_object()
+
+        # Self-approval guard
+        if correction.employee and correction.employee.user == request.user and not request.user.is_superuser:
+            raise PermissionDenied("You cannot approve your own attendance correction request.")
+
         decision = request.data.get("status")
         if decision not in ("Approved", "Rejected"):
             return Response({"detail": "Status must be Approved or Rejected."}, status=400)
