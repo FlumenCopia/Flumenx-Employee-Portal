@@ -165,6 +165,9 @@ export type AttendanceRecord = {
   check_in_status: "On Time" | "Grace Period" | "Late" | ""; attendance_status: string;
   is_late: boolean; late_minutes: number; is_early_exit: boolean; early_exit_minutes: number;
   working_hours: string; source: string; location_verified: boolean;
+  latitude?: number | null; longitude?: number | null; check_in_distance_meters?: number | null;
+  check_out_latitude?: number | null; check_out_longitude?: number | null; check_out_distance_meters?: number | null;
+  photo?: string | null;
 };
 export type Client = {
   id: number; name: string; created_at: string; updated_at: string;

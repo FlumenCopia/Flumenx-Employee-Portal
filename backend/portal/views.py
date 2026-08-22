@@ -44,13 +44,10 @@ class FlumenxTokenSerializer(TokenObtainPairSerializer):
         matches = list(User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)).order_by("-is_active", "-is_superuser", "id"))
         if not matches:
             raise InvalidToken(invalid_credentials)
-        self.user = None
-        for candidate in matches:
-            if candidate.is_active and candidate.check_password(password):
-                self.user = candidate
-                break
-        if not self.user:
+        valid_candidates = [candidate for candidate in matches if candidate.is_active and candidate.check_password(password)]
+        if len(valid_candidates) != 1:
             raise InvalidToken(invalid_credentials)
+        self.user = valid_candidates[0]
         refresh = self.get_token(self.user)
         return {
             "refresh": str(refresh),

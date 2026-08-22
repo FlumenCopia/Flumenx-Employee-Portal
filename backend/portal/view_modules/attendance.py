@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from portal.models import AttendancePolicy, AttendanceRecord, Employee
 from portal.permissions import IsAdminOrHR, portal_role
 from portal.serializers import AttendancePolicySerializer, AttendanceRecordSerializer
+from portal.services.location import calculate_haversine_distance
 from .helpers import attendance_summary, log_action
 
 
@@ -39,10 +40,9 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = AttendanceRecord.objects.select_related("employee")
-        from portal.permissions import has_page_permission
-        if portal_role(self.request.user) not in ("ADMIN", "HR") and not has_page_permission(self.request.user, "ATTENDANCE", "view"):
-            qs = qs.filter(employee__user=self.request.user)
         params = self.request.query_params
+        if params.get("my_attendance") == "true" or (portal_role(self.request.user) not in ("ADMIN", "SUPER_ADMIN", "HR", "ACCOUNTANT") and params.get("all") != "true" and not params.get("employee") and not params.get("date")):
+            qs = qs.filter(employee__user=self.request.user)
         if params.get("date"):
             qs = qs.filter(attendance_date=params["date"])
         if params.get("month"):
@@ -61,6 +61,29 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         employee = getattr(request.user, "employee", None)
         if not employee:
             return Response({"detail": "Employee profile is required."}, status=400)
+
+        latitude = request.data.get("latitude")
+        longitude = request.data.get("longitude")
+        if latitude is None or longitude is None:
+            return Response({"detail": "Latitude and longitude coordinates are required for attendance verification."}, status=400)
+
+        photo = request.FILES.get("photo")
+        if not photo:
+            return Response({"detail": "Live camera photo verification is required to mark attendance."}, status=400)
+
+        policy = AttendancePolicy.current()
+        try:
+            lat_val = float(latitude)
+            lon_val = float(longitude)
+        except (ValueError, TypeError):
+            return Response({"detail": "Invalid geographic coordinates provided."}, status=400)
+
+        distance = calculate_haversine_distance(lat_val, lon_val, policy.office_latitude, policy.office_longitude)
+        if distance > policy.allowed_radius_meters:
+            return Response({
+                "detail": f"You are outside the allowed office attendance area ({distance}m away). You must be within {policy.allowed_radius_meters} meters of the office."
+            }, status=400)
+
         now = localtime()
         record, created = AttendanceRecord.objects.get_or_create(
             employee=employee, attendance_date=localdate(),
@@ -68,12 +91,15 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         )
         if not created and record.check_in_time:
             return Response({"detail": "Already checked in.", "record": self.get_serializer(record).data}, status=409)
+
         record.check_in_time = now.time().replace(microsecond=0)
         record.source = "Manual"
         record.qr_reference = ""
-        record.latitude = None
-        record.longitude = None
-        record.location_verified = False
+        record.latitude = lat_val
+        record.longitude = lon_val
+        record.check_in_distance_meters = distance
+        record.photo = photo
+        record.location_verified = True
         record.save()
         log_action(request.user, "Attendance office entry", "AttendanceRecord", record.id)
         return Response(self.get_serializer(record).data, status=201)
@@ -83,12 +109,35 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         employee = getattr(request.user, "employee", None)
         if not employee:
             return Response({"detail": "Employee profile is required."}, status=400)
+
         record = AttendanceRecord.objects.filter(employee=employee, attendance_date=localdate()).first()
         if not record or not record.check_in_time:
             return Response({"detail": "Check-in is required before checkout."}, status=400)
         if record.check_out_time:
             return Response({"detail": "Already checked out.", "record": self.get_serializer(record).data}, status=409)
+
+        latitude = request.data.get("latitude")
+        longitude = request.data.get("longitude")
+        if latitude is None or longitude is None:
+            return Response({"detail": "Latitude and longitude coordinates are required for checkout verification."}, status=400)
+
+        policy = AttendancePolicy.current()
+        try:
+            lat_val = float(latitude)
+            lon_val = float(longitude)
+        except (ValueError, TypeError):
+            return Response({"detail": "Invalid geographic coordinates provided."}, status=400)
+
+        distance = calculate_haversine_distance(lat_val, lon_val, policy.office_latitude, policy.office_longitude)
+        if distance > policy.allowed_radius_meters:
+            return Response({
+                "detail": f"You are outside the allowed office attendance area ({distance}m away). You must be within {policy.allowed_radius_meters} meters of the office to check out."
+            }, status=400)
+
         record.check_out_time = localtime().time().replace(microsecond=0)
+        record.check_out_latitude = lat_val
+        record.check_out_longitude = lon_val
+        record.check_out_distance_meters = distance
         record.save()
         log_action(request.user, "Attendance check-out", "AttendanceRecord", record.id)
         return Response(self.get_serializer(record).data)
@@ -99,7 +148,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         qs = self.get_queryset()
         if not request.query_params.get("date") and not request.query_params.get("month"):
             qs = qs.filter(attendance_date=today)
-        total = Employee.objects.filter(status="Active").count() if portal_role(request.user) in ("ADMIN", "HR") else None
+        total = Employee.objects.filter(status="Active").count() if portal_role(request.user) in ("ADMIN", "SUPER_ADMIN", "HR", "ACCOUNTANT") else None
         return Response(attendance_summary(qs, total))
 
     @action(detail=False, methods=["get"], url_path="monthly-statistics")
@@ -110,7 +159,7 @@ class AttendanceRecordViewSet(viewsets.ModelViewSet):
         if not request.query_params.get("month"):
             qs = qs.filter(attendance_date__year=year, attendance_date__month=month_number)
 
-        total = Employee.objects.filter(status="Active").count() if portal_role(request.user) in ("ADMIN", "HR") else None
+        total = Employee.objects.filter(status="Active").count() if portal_role(request.user) in ("ADMIN", "SUPER_ADMIN", "HR", "ACCOUNTANT") else None
         days = []
         daily_counts = qs.values("attendance_date").annotate(
             total=Count("id"),

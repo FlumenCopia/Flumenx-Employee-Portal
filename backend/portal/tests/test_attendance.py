@@ -51,14 +51,28 @@ class AttendancePolicyTests(TestCase):
         self.assertFalse(self.record(time(9, 30), time(18, 30)).is_early_exit)
         self.assertEqual(self.record(time(9, 30), time(17, 45)).early_exit_minutes, 45)
 
-    def test_check_in_records_office_entry_without_location_or_qr(self):
+    def test_check_in_records_office_entry_with_valid_location_and_photo(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
         client = APIClient()
         token = str(RefreshToken.for_user(self.user).access_token)
         client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-        accepted = client.post("/api/attendance/check-in/", {}, format="json")
+        photo = SimpleUploadedFile("selfie.jpg", b"fake-photo-content", content_type="image/jpeg")
+        payload = {"latitude": "8.521310", "longitude": "76.978630", "photo": photo}
+        accepted = client.post("/api/attendance/check-in/", payload, format="multipart")
         self.assertEqual(accepted.status_code, 201)
-        self.assertFalse(accepted.data["location_verified"])
+        self.assertTrue(accepted.data["location_verified"])
         self.assertEqual(accepted.data["source"], "Manual")
+
+    def test_check_in_outside_100m_fails(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        client = APIClient()
+        token = str(RefreshToken.for_user(self.user).access_token)
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        photo = SimpleUploadedFile("selfie.jpg", b"fake-photo-content", content_type="image/jpeg")
+        payload = {"latitude": "12.971599", "longitude": "77.594566", "photo": photo} # Bangalore (far from Trivandrum office)
+        rejected = client.post("/api/attendance/check-in/", payload, format="multipart")
+        self.assertEqual(rejected.status_code, 400)
+        self.assertIn("outside the allowed office attendance area", rejected.data["detail"])
 
     def test_check_out_works_for_half_day_record(self):
         client = APIClient()
@@ -70,8 +84,9 @@ class AttendancePolicyTests(TestCase):
             check_in_time=time(9, 36),
         )
         self.assertEqual(record.attendance_status, "Half Day")
+        payload = {"latitude": "8.521310", "longitude": "76.978630"}
         with patch("portal.view_modules.attendance.localtime", return_value=datetime(2026, 1, 1, 18, 30)):
-            response = client.post("/api/attendance/check-out/", {}, format="json")
+            response = client.post("/api/attendance/check-out/", payload, format="multipart")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["attendance_status"], "Half Day")
         self.assertEqual(float(response.data["working_hours"]), 8.9)

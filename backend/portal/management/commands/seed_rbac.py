@@ -17,62 +17,6 @@ class Command(BaseCommand):
                     "is_superadmin_wildcard": True,
                     "is_system_role": True,
                 },
-                {
-                    "code": "ADMIN",
-                    "name": "Administrator",
-                    "description": "Full portal management access",
-                    "is_superadmin_wildcard": False,
-                    "is_system_role": True,
-                },
-                {
-                    "code": "HR",
-                    "name": "Human Resources",
-                    "description": "Employee, recruitment, attendance, and leave management",
-                    "is_superadmin_wildcard": False,
-                    "is_system_role": True,
-                },
-                {
-                    "code": "ACCOUNTANT",
-                    "name": "Accountant",
-                    "description": "Financial, salary slip, and attendance view access",
-                    "is_superadmin_wildcard": False,
-                    "is_system_role": True,
-                },
-                {
-                    "code": "BDE",
-                    "name": "Business Development",
-                    "description": "Client & task management access",
-                    "is_superadmin_wildcard": False,
-                    "is_system_role": True,
-                },
-                {
-                    "code": "TEAM_LEAD",
-                    "name": "Team Lead",
-                    "description": "Team & project execution management",
-                    "is_superadmin_wildcard": False,
-                    "is_system_role": True,
-                },
-                {
-                    "code": "EMPLOYEE",
-                    "name": "Employee",
-                    "description": "Standard employee access",
-                    "is_superadmin_wildcard": False,
-                    "is_system_role": True,
-                },
-                {
-                    "code": "OPERATIONS",
-                    "name": "Operations",
-                    "description": "Operations execution & task management",
-                    "is_superadmin_wildcard": False,
-                    "is_system_role": True,
-                },
-                {
-                    "code": "OPERATIONS_HEAD",
-                    "name": "Operations Head",
-                    "description": "Operations head & KPI management",
-                    "is_superadmin_wildcard": False,
-                    "is_system_role": True,
-                },
             ]
 
             created_roles = {}

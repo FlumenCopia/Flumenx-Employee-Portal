@@ -565,11 +565,12 @@ class AttendancePolicy(models.Model):
     office_start_time = models.TimeField(default="09:30")
     grace_period_minutes = models.PositiveSmallIntegerField(default=5)
     office_end_time = models.TimeField(default="18:30")
+    early_checkout_half_day_cutoff = models.TimeField(default="18:00")
     half_day_hours = models.DecimalField(max_digits=4, decimal_places=2, default=4)
     full_day_hours = models.DecimalField(max_digits=4, decimal_places=2, default=8)
-    office_latitude = models.DecimalField(max_digits=9, decimal_places=6, default="12.971599")
-    office_longitude = models.DecimalField(max_digits=9, decimal_places=6, default="77.594566")
-    allowed_radius_meters = models.PositiveIntegerField(default=250)
+    office_latitude = models.DecimalField(max_digits=9, decimal_places=6, default="8.521310")
+    office_longitude = models.DecimalField(max_digits=9, decimal_places=6, default="76.978630")
+    allowed_radius_meters = models.PositiveIntegerField(default=200)
     active_qr_reference = models.CharField(max_length=120, default="FLUMENX-HQ")
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -613,6 +614,11 @@ class AttendanceRecord(models.Model):
     qr_reference = models.CharField(max_length=120, blank=True)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    check_in_distance_meters = models.PositiveIntegerField(null=True, blank=True)
+    check_out_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    check_out_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    check_out_distance_meters = models.PositiveIntegerField(null=True, blank=True)
+    photo = models.ImageField(upload_to="attendance_photos/%Y/%m/", null=True, blank=True)
     location_verified = models.BooleanField(default=False)
     notes = models.CharField(max_length=240, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -643,7 +649,6 @@ class AttendanceRecord(models.Model):
             return parts[0] * 60 + parts[1]
         return value.hour * 60 + value.minute
 
-
     def calculate(self):
         if self.attendance_status in ("Absent", "Leave") and not self.check_in_time:
             self.check_in_status = ""
@@ -656,6 +661,7 @@ class AttendanceRecord(models.Model):
         start = self.minutes(policy.office_start_time)
         grace_end = start + policy.grace_period_minutes
         end = self.minutes(policy.office_end_time)
+        early_cutoff = self.minutes(getattr(policy, "early_checkout_half_day_cutoff", "18:00"))
 
         if self.check_in_time:
             check_in = self.minutes(self.check_in_time)
@@ -668,10 +674,12 @@ class AttendanceRecord(models.Model):
             else:
                 self.check_in_status = "Late"
 
+        is_early_checkout_half_day = False
         if self.check_out_time:
             check_out = self.minutes(self.check_out_time)
             self.is_early_exit = check_out < end
             self.early_exit_minutes = max(0, end - check_out)
+            is_early_checkout_half_day = check_out < early_cutoff
             if self.check_in_time:
                 worked = check_out - self.minutes(self.check_in_time)
                 if worked < 0:
@@ -681,7 +689,7 @@ class AttendanceRecord(models.Model):
         if self.check_in_time:
             if self.check_out_time and float(self.working_hours) < float(policy.half_day_hours):
                 self.attendance_status = "Half Day"
-            elif self.is_late:
+            elif self.is_late or is_early_checkout_half_day:
                 self.attendance_status = "Half Day"
             elif self.is_early_exit:
                 self.attendance_status = "Present (Early Exit)"

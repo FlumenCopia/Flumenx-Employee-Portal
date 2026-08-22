@@ -174,19 +174,21 @@ PASSWORD_RESET_TIMEOUT = int(
 
 
 
+default_local_cors = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3003", "http://127.0.0.1:3003"]
 cors_origins_env = os.getenv("CORS_ALLOWED_ORIGINS")
 if cors_origins_env:
-    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+    CORS_ALLOWED_ORIGINS = list(set([origin.strip() for origin in cors_origins_env.split(",") if origin.strip()] + default_local_cors))
 else:
-    CORS_ALLOWED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    CORS_ALLOWED_ORIGINS = default_local_cors
 
 CORS_ALLOW_CREDENTIALS = True
 
+default_local_csrf = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3003", "http://127.0.0.1:3003", "http://localhost:8000", "http://127.0.0.1:8000"]
 csrf_origins_env = os.getenv("CSRF_TRUSTED_ORIGINS")
 if csrf_origins_env:
-    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_origins_env.split(",") if origin.strip()]
+    CSRF_TRUSTED_ORIGINS = list(set([origin.strip() for origin in csrf_origins_env.split(",") if origin.strip()] + default_local_csrf))
 else:
-    CSRF_TRUSTED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    CSRF_TRUSTED_ORIGINS = default_local_csrf
 raw_csrf_samesite = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_SAMESITE = "None" if raw_csrf_samesite.lower() == "none" else raw_csrf_samesite.capitalize()
 CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", "False").lower() == "true"

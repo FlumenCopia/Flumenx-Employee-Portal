@@ -1,2 +1,5 @@
-import { AdminAttendancePage } from "@/components/attendance-pages";
-export default function Page(){return <AdminAttendancePage/>}
+import SharedAttendanceRoute from "@/app/attendance/page";
+
+export default function Page() {
+  return <SharedAttendanceRoute />;
+}

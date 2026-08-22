@@ -7,3 +7,16 @@ export const displayTime = (value: string | null) => value ? new Date(`2026-01-0
 export const defaultSummary: AttendanceSummary = {
   present: 0, late: 0, early_exits: 0, absent: 0, half_days: 0, leave: 0, attendance_percentage: 0,
 };
+
+export const formatMinutesDuration = (mins: number): string => {
+  if (!mins || mins <= 0) return "0 min";
+  const hours = Math.floor(mins / 60);
+  const remainingMins = mins % 60;
+  if (hours === 0) {
+    return `${remainingMins} min`;
+  }
+  if (remainingMins === 0) {
+    return `${hours}h`;
+  }
+  return `${hours}h ${remainingMins}m`;
+};

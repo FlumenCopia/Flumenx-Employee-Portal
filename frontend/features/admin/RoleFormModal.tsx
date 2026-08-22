@@ -44,6 +44,7 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
   const isEdit = Boolean(role);
   const [name, setName] = useState(role?.name || "");
   const [code, setCode] = useState(role?.code || "");
+  const [codeManuallyEdited, setCodeManuallyEdited] = useState(Boolean(role));
   const [description, setDescription] = useState(role?.description || "");
   const [isSuperadminWildcard, setIsSuperadminWildcard] = useState(role?.is_superadmin_wildcard || false);
 
@@ -52,6 +53,36 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  function handleNameChange(val: string) {
+    setName(val);
+    if (!isEdit && !codeManuallyEdited) {
+      const autoCode = val
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+      setCode(autoCode);
+    }
+  }
+
+  function handleCodeChange(val: string) {
+    setCode(val);
+    setCodeManuallyEdited(true);
+  }
+
+  function applyPreset(preset: "read_only" | "full_access" | "clear_all") {
+    setMatrixItems((current) =>
+      current.map((item) => {
+        if (preset === "read_only") {
+          return { ...item, can_view: true, can_create: false, can_edit: false, can_delete: false };
+        }
+        if (preset === "full_access") {
+          return { ...item, can_view: true, can_create: true, can_edit: true, can_delete: true };
+        }
+        return { ...item, can_view: false, can_create: false, can_edit: false, can_delete: false };
+      })
+    );
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -294,7 +325,7 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => handleNameChange(e.target.value)}
               placeholder="team member"
               required
               className="fi"
@@ -327,7 +358,7 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
             <input
               type="text"
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => handleCodeChange(e.target.value)}
               placeholder="e.g. PROJECT_LEAD"
               required
               disabled={isEdit && role?.is_system_role}
@@ -412,26 +443,77 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
 
         {/* Matrix Header & Table */}
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", flexWrap: "wrap", gap: "8px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <ShieldCheck size={16} style={{ color: "#a8874e" }} />
               <span style={{ fontSize: "12px", fontWeight: 800, letterSpacing: "0.05em", color: "#1f2937", textTransform: "uppercase" }}>
                 GRANTED PERMISSIONS MATRIX
               </span>
             </div>
-            <span
-              style={{
-                fontSize: "11px",
-                fontWeight: 700,
-                color: "#a8874e",
-                background: "rgba(203, 168, 110, 0.12)",
-                padding: "4px 10px",
-                borderRadius: "20px",
-                border: "1px solid rgba(203, 168, 110, 0.2)",
-              }}
-            >
-              {activePageCount} of {matrixItems.length} Pages Viewable
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <button
+                type="button"
+                onClick={() => applyPreset("read_only")}
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  padding: "4px 9px",
+                  borderRadius: "6px",
+                  border: "1px solid #d1d5db",
+                  background: "#ffffff",
+                  color: "#374151",
+                  cursor: "pointer",
+                }}
+              >
+                Read-Only View
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset("full_access")}
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  padding: "4px 9px",
+                  borderRadius: "6px",
+                  border: "1px solid #087a5b",
+                  background: "rgba(8, 122, 91, 0.08)",
+                  color: "#087a5b",
+                  cursor: "pointer",
+                }}
+              >
+                Full Access
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset("clear_all")}
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  padding: "4px 9px",
+                  borderRadius: "6px",
+                  border: "1px solid #e5e7eb",
+                  background: "#ffffff",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                }}
+              >
+                Clear All
+              </button>
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#a8874e",
+                  background: "rgba(203, 168, 110, 0.12)",
+                  padding: "4px 10px",
+                  borderRadius: "20px",
+                  border: "1px solid rgba(203, 168, 110, 0.2)",
+                  marginLeft: "4px",
+                }}
+              >
+                {activePageCount} of {matrixItems.length} Viewable
+              </span>
+            </div>
           </div>
 
           {matrixLoading && (
@@ -477,6 +559,12 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
                           can_edit: "EDIT",
                           can_delete: "DELETE",
                         };
+                        const hints = {
+                          can_view: "Access page",
+                          can_create: "Add new",
+                          can_edit: "Modify",
+                          can_delete: "Remove",
+                        };
                         return (
                           <th
                             key={colKey}
@@ -485,7 +573,7 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
                               top: 0,
                               background: "#f9fafb",
                               zIndex: 10,
-                              padding: "14px 14px",
+                              padding: "12px 10px",
                               textAlign: "center",
                               cursor: "pointer",
                               color: "#374151",
@@ -498,6 +586,7 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
                             title="Click to toggle column"
                           >
                             <div style={{ textTransform: "uppercase" }}>{labels[colKey]}</div>
+                            <div style={{ fontSize: "9px", fontWeight: 500, color: "#9ca3af", marginTop: "2px" }}>{hints[colKey]}</div>
                           </th>
                         );
                       })}
