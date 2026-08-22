@@ -108,24 +108,7 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
       api<RolePermissionMatrixResponse>(`/portal/roles/${role.id}/permissions/`)
         .then((res) => {
           const raw = res?.permissions || [];
-          const filtered = raw.filter(
-            (p) =>
-              p.page_title !== "Command Center Dashboard" &&
-              p.page_title !== "Command Center" &&
-              p.page_title !== "Timeline & Phases" &&
-              p.page_title !== "Timeline" &&
-              p.page_title !== "Employees" &&
-              p.page_title !== "Attendance" &&
-              p.page_title !== "Leave Requests" &&
-              p.module_code !== "ATTENDANCE" &&
-              p.module_code !== "LEAVES" &&
-              !p.route_path.includes("view=command-center") &&
-              !p.route_path.includes("view=timeline") &&
-              !p.route_path.includes("/employees") &&
-              !p.route_path.includes("/attendance") &&
-              !p.route_path.includes("/leaves")
-          );
-          setMatrixItems(filtered);
+          setMatrixItems(raw);
         })
         .catch(() => setMatrixItems([]))
         .finally(() => setMatrixLoading(false));
@@ -134,24 +117,7 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
         .then((pagesRes) => {
           const pages = Array.isArray(pagesRes) ? pagesRes : pagesRes?.results || [];
           const items: RolePermissionItem[] = pages
-            .filter(
-              (p) =>
-                p?.is_active &&
-                p?.title !== "Command Center Dashboard" &&
-                p?.title !== "Command Center" &&
-                p?.title !== "Timeline & Phases" &&
-                p?.title !== "Timeline" &&
-                p?.title !== "Employees" &&
-                p?.title !== "Attendance" &&
-                p?.title !== "Leave Requests" &&
-                p?.module_code !== "ATTENDANCE" &&
-                p?.module_code !== "LEAVES" &&
-                !p?.route_path?.includes("view=command-center") &&
-                !p?.route_path?.includes("view=timeline") &&
-                !p?.route_path?.includes("/employees") &&
-                !p?.route_path?.includes("/attendance") &&
-                !p?.route_path?.includes("/leaves")
-            )
+            .filter((p) => p?.is_active)
             .map((p) => ({
               page_id: p.id,
               page_title: p.title,

@@ -17,6 +17,62 @@ class Command(BaseCommand):
                     "is_superadmin_wildcard": True,
                     "is_system_role": True,
                 },
+                {
+                    "code": "ADMIN",
+                    "name": "Administrator",
+                    "description": "Administrator with full portal management access",
+                    "is_superadmin_wildcard": False,
+                    "is_system_role": True,
+                },
+                {
+                    "code": "HR",
+                    "name": "Human Resources",
+                    "description": "HR Manager with access to employees, leaves, attendance, and KPI",
+                    "is_superadmin_wildcard": False,
+                    "is_system_role": True,
+                },
+                {
+                    "code": "ACCOUNTANT",
+                    "name": "Accountant",
+                    "description": "Accountant with access to financial and payroll modules",
+                    "is_superadmin_wildcard": False,
+                    "is_system_role": True,
+                },
+                {
+                    "code": "TEAM_LEAD",
+                    "name": "Team Lead",
+                    "description": "Team Leader managing project tasks, team performance, and meetings",
+                    "is_superadmin_wildcard": False,
+                    "is_system_role": True,
+                },
+                {
+                    "code": "EMPLOYEE",
+                    "name": "Employee",
+                    "description": "Regular employee with standard self-service portal access",
+                    "is_superadmin_wildcard": False,
+                    "is_system_role": True,
+                },
+                {
+                    "code": "BDE",
+                    "name": "Business Development",
+                    "description": "Business Development Executive for clients and proposal tracking",
+                    "is_superadmin_wildcard": False,
+                    "is_system_role": True,
+                },
+                {
+                    "code": "OPERATIONS",
+                    "name": "Operations",
+                    "description": "Operations Specialist managing daily workflow deliverables",
+                    "is_superadmin_wildcard": False,
+                    "is_system_role": True,
+                },
+                {
+                    "code": "OPERATIONS_HEAD",
+                    "name": "Operations Head",
+                    "description": "Head of Operations overseeing all team deliverables and projects",
+                    "is_superadmin_wildcard": False,
+                    "is_system_role": True,
+                },
             ]
 
             created_roles = {}
@@ -33,82 +89,68 @@ class Command(BaseCommand):
                 created_roles[rdata["code"]] = role_obj
 
             pages_data = [
-                # {
-                #     "module_code": "DASHBOARD",
-                #     "title": "Command Center Dashboard",
-                #     "route_path": "/work?view=command-center",
-                #     "icon": "Sparkles",
-                #     "sidebar_order": 1,
-                # },
                 {
                     "module_code": "TASKS",
                     "title": "Task Board",
                     "route_path": "/work?view=kanban",
                     "icon": "Kanban",
-                    "sidebar_order": 2,
+                    "sidebar_order": 1,
                 },
-                # {
-                #     "module_code": "TIMELINE",
-                #     "title": "Timeline & Phases",
-                #     "route_path": "/work?view=timeline",
-                #     "icon": "Layers",
-                #     "sidebar_order": 3,
-                # },
                 {
                     "module_code": "TEAM_WORK",
                     "title": "Team Work",
                     "route_path": "/team-work",
                     "icon": "Users",
-                    "sidebar_order": 4,
+                    "sidebar_order": 2,
                 },
                 {
                     "module_code": "KPI",
                     "title": "KPI Performance",
                     "route_path": "/kpi",
                     "icon": "TrendingUp",
-                    "sidebar_order": 5,
+                    "sidebar_order": 3,
                 },
-                # {
-                #     "module_code": "EMPLOYEES",
-                #     "title": "Employees",
-                #     "route_path": "/employees",
-                #     "icon": "Users",
-                #     "sidebar_order": 6,
-                # },
+                {
+                    "module_code": "EMPLOYEES",
+                    "title": "Employees Directory",
+                    "route_path": "/employees",
+                    "icon": "Users",
+                    "sidebar_order": 4,
+                },
                 {
                     "module_code": "ATTENDANCE",
                     "title": "Attendance",
                     "route_path": "/attendance",
                     "icon": "CalendarCheck",
-                    "sidebar_order": 7,
+                    "sidebar_order": 5,
                 },
                 {
                     "module_code": "LEAVES",
                     "title": "Leave Requests",
                     "route_path": "/leaves",
                     "icon": "CalendarDays",
-                    "sidebar_order": 8,
+                    "sidebar_order": 6,
                 },
                 {
                     "module_code": "MEETINGS",
                     "title": "Meetings",
                     "route_path": "/meetings",
                     "icon": "UserRound",
-                    "sidebar_order": 9,
+                    "sidebar_order": 7,
                 },
                 {
                     "module_code": "PAGE_MANAGEMENT",
                     "title": "Page Management",
                     "route_path": "/pages",
                     "icon": "FileCode",
-                    "sidebar_order": 10,
+                    "sidebar_order": 8,
                 },
                 {
                     "module_code": "SETTINGS_ACCESS",
                     "title": "Settings & Access",
                     "route_path": "/settings",
                     "icon": "Settings",
-                    "sidebar_order": 11,
+                    "sidebar_order": 9,
                 },
             ]
 
@@ -124,54 +166,61 @@ class Command(BaseCommand):
                         "is_active": True,
                     },
                 )
+                page_obj.title = pdata["title"]
+                page_obj.route_path = pdata["route_path"]
+                page_obj.icon = pdata["icon"]
+                page_obj.sidebar_order = pdata["sidebar_order"]
+                page_obj.is_active = True
+                page_obj.save()
                 created_pages[pdata["module_code"]] = page_obj
 
             permissions_map = {
                 "SUPER_ADMIN": {p: (True, True, True, True) for p in created_pages},
-                "ADMIN": {
-                    p: (True, True, True, True)
-                    for p in created_pages
-                    if p not in ("PAGE_MANAGEMENT", "SETTINGS_ACCESS")
-                },
+                "ADMIN": {p: (True, True, True, True) for p in created_pages},
                 "HR": {
                     p: (True, True, True, False)
-                    for p in ("DASHBOARD", "TASKS", "TIMELINE", "KPI", "EMPLOYEES", "ATTENDANCE", "LEAVES", "MEETINGS")
+                    for p in ("TASKS", "KPI", "EMPLOYEES", "ATTENDANCE", "LEAVES", "MEETINGS", "TEAM_WORK")
                 },
                 "TEAM_LEAD": {
                     p: (True, True, True, False)
-                    for p in ("DASHBOARD", "TASKS", "TIMELINE", "TEAM_WORK", "MEETINGS")
+                    for p in ("TASKS", "TEAM_WORK", "KPI", "ATTENDANCE", "LEAVES", "MEETINGS")
                 },
                 "EMPLOYEE": {
-                    "DASHBOARD": (True, False, False, False),
                     "TASKS": (True, False, True, False),
                     "KPI": (True, False, False, False),
-                    "ATTENDANCE": (True, False, False, False),
+                    "ATTENDANCE": (True, True, False, False),
                     "LEAVES": (True, True, False, False),
                     "MEETINGS": (True, False, False, False),
                 },
                 "ACCOUNTANT": {
-                    "DASHBOARD": (True, False, False, False),
                     "TASKS": (True, False, False, False),
-                    "ATTENDANCE": (True, False, False, False),
+                    "ATTENDANCE": (True, True, True, False),
+                    "LEAVES": (True, False, False, False),
+                    "KPI": (True, False, False, False),
                 },
                 "BDE": {
-                    "DASHBOARD": (True, False, False, False),
                     "TASKS": (True, True, True, False),
-                    "TIMELINE": (True, False, False, False),
-                    "MEETINGS": (True, False, False, False),
+                    "TEAM_WORK": (True, True, True, False),
+                    "MEETINGS": (True, True, True, False),
+                    "ATTENDANCE": (True, True, False, False),
                     "LEAVES": (True, True, False, False),
                 },
                 "OPERATIONS": {
-                    "DASHBOARD": (True, True, True, False),
                     "TASKS": (True, True, True, False),
-                    "TIMELINE": (True, True, True, False),
+                    "TEAM_WORK": (True, True, True, False),
                     "KPI": (True, True, True, False),
+                    "ATTENDANCE": (True, True, False, False),
+                    "LEAVES": (True, True, False, False),
+                    "MEETINGS": (True, True, True, False),
                 },
                 "OPERATIONS_HEAD": {
-                    "DASHBOARD": (True, True, True, True),
                     "TASKS": (True, True, True, True),
-                    "TIMELINE": (True, True, True, True),
+                    "TEAM_WORK": (True, True, True, True),
                     "KPI": (True, True, True, True),
+                    "ATTENDANCE": (True, True, True, True),
+                    "LEAVES": (True, True, True, True),
+                    "MEETINGS": (True, True, True, True),
+                    "EMPLOYEES": (True, True, True, False),
                 },
             }
 

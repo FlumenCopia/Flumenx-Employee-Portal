@@ -302,6 +302,7 @@ function LogoutModal({
   );
 }
 export function Shell({ children, role }: { children: ReactNode; role?: WorkspaceRole }) {
+  const [mounted, setMounted] = useState(false);
   const cachedUser = getCachedAuthUser();
   const workspaceRole = role || getWorkspaceRole(cachedUser?.portal_role);
   const cachedUserMatchesRole = Boolean(cachedUser && isRoleAllowedInWorkspace(cachedUser.portal_role, workspaceRole));
@@ -315,6 +316,10 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   const [dynamicNav, setDynamicNav] = useState<readonly (readonly [string, string, any])[] | null>(null);
   const [navLoading, setNavLoading] = useState(true);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const fetchDynamicNavigation = useCallback(async () => {
     if (!user) return;
     try {
@@ -326,12 +331,8 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
             item.title !== "Command Center" &&
             item.title !== "Command Center Dashboard" &&
             item.title !== "Timeline & Phases" &&
-            item.title !== "Employees" &&
-            item.title !== "Page Management" &&
             !item.route_path.includes("view=command-center") &&
-            !item.route_path.includes("view=timeline") &&
-            !item.route_path.includes("/employees") &&
-            !item.route_path.includes("/pages")
+            !item.route_path.includes("view=timeline")
         );
         const mapped = filtered.map((item) => [
           item.title,
@@ -496,14 +497,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   };
 
   const baseNav: readonly (readonly [string, string, any])[] = dynamicNav !== null ? dynamicNav : getFilteredNavigation(workspaceRole);
-  const filteredNav = baseNav.filter(
-    ([label, href]) =>
-      label !== "Employees" &&
-      label !== "Page Management" &&
-      typeof href === "string" &&
-      !href.includes("/employees") &&
-      !href.includes("/pages")
-  );
+  const filteredNav = baseNav;
 
   const hasAttendance = filteredNav.some(([label, href]) => label.toLowerCase().includes("attendance") || (typeof href === "string" && href.includes("/attendance")));
   const hasLeaves = filteredNav.some(([label, href]) => label.toLowerCase().includes("leave") || (typeof href === "string" && href.includes("/leaves")));
@@ -520,7 +514,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
 
   const name = user?.first_name || workspaceFallbackNames[workspaceRole];
   const roleLabel = workspaceLabels[workspaceRole];
-  if (!ready && !user) return <div className="route-loader"><span>F</span><p>Verifying workspace session</p></div>;
+  if (!mounted || (!ready && !user)) return <div className="route-loader"><span>F</span><p>Verifying workspace session</p></div>;
 
   const canCreateTask = (() => {
     if (!user) return false;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, CheckCircle2, RefreshCw, RotateCcw, ShieldCheck, X } from "lucide-react";
+import { Camera, CheckCircle2, RefreshCw, RotateCcw, ShieldCheck, UserCheck, X, AlertTriangle } from "lucide-react";
 
 interface AttendanceCameraModalProps {
   mode: "check-in" | "check-out";
@@ -26,6 +26,10 @@ export function AttendanceCameraModal({
   const [cameraError, setCameraError] = useState<string>("");
   const [cameraLoading, setCameraLoading] = useState<boolean>(true);
 
+  // Real-time Face Detection state
+  const [faceDetected, setFaceDetected] = useState<boolean>(false);
+  const [faceDetectionStatus, setFaceDetectionStatus] = useState<string>("Align face inside the frame");
+
   const stopStream = () => {
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
@@ -36,6 +40,9 @@ export function AttendanceCameraModal({
   const startCamera = async () => {
     setCameraLoading(true);
     setCameraError("");
+    setFaceDetected(false);
+    setFaceDetectionStatus("Initializing camera...");
+
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -67,6 +74,100 @@ export function AttendanceCameraModal({
     }
   };
 
+  // Real-time face detection loop
+  useEffect(() => {
+    let timerId: NodeJS.Timeout | null = null;
+    let isActive = true;
+
+    const runFaceAnalysis = async () => {
+      if (!isActive || !videoRef.current || previewUrl || cameraError) return;
+      const video = videoRef.current;
+      if (video.paused || video.ended || video.readyState < 2) return;
+      if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+      try {
+        // 1. Try Browser Native FaceDetector API if supported (Chrome / Edge)
+        if (typeof window !== "undefined" && "FaceDetector" in window) {
+          try {
+            const detector = new (window as any).FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+            const faces = await detector.detect(video);
+            if (faces && faces.length > 0) {
+              setFaceDetected(true);
+              setFaceDetectionStatus("Face Detected · Ready to Capture");
+              return;
+            }
+          } catch {
+            // Fallback to canvas skin-tone & luminance analysis
+          }
+        }
+
+        // 2. Real-time Canvas-based Face & Skin-Tone Luminance Analyzer
+        const sampleCanvas = document.createElement("canvas");
+        sampleCanvas.width = 160;
+        sampleCanvas.height = 120;
+        const ctx = sampleCanvas.getContext("2d", { willReadFrequently: true });
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, sampleCanvas.width, sampleCanvas.height);
+          const imgData = ctx.getImageData(0, 0, sampleCanvas.width, sampleCanvas.height);
+          const data = imgData.data;
+
+          let skinPixels = 0;
+          let totalCenterPixels = 0;
+
+          // Target center oval region where user's face is positioned
+          const minX = Math.floor(sampleCanvas.width * 0.25);
+          const maxX = Math.floor(sampleCanvas.width * 0.75);
+          const minY = Math.floor(sampleCanvas.height * 0.15);
+          const maxY = Math.floor(sampleCanvas.height * 0.85);
+
+          for (let y = minY; y < maxY; y++) {
+            for (let x = minX; x < maxX; x++) {
+              const idx = (y * sampleCanvas.width + x) * 4;
+              const r = data[idx];
+              const g = data[idx + 1];
+              const b = data[idx + 2];
+
+              totalCenterPixels++;
+
+              // YCbCr & RGB skin-tone detection algorithm
+              const maxRGB = Math.max(r, g, b);
+              const minRGB = Math.min(r, g, b);
+              if (
+                r > 45 && g > 35 && b > 20 &&
+                (maxRGB - minRGB) > 12 &&
+                Math.abs(r - g) > 10 &&
+                r > g && r > b
+              ) {
+                skinPixels++;
+              }
+            }
+          }
+
+          const skinRatio = skinPixels / totalCenterPixels;
+
+          if (skinRatio >= 0.14) {
+            setFaceDetected(true);
+            setFaceDetectionStatus("Face Detected · Ready to Capture");
+          } else {
+            setFaceDetected(false);
+            setFaceDetectionStatus("No face detected. Position your face clearly inside the frame.");
+          }
+        }
+      } catch {
+        setFaceDetected(false);
+      }
+    };
+
+    if (mode === "check-in" && !previewUrl && !cameraLoading && !cameraError) {
+      timerId = setInterval(runFaceAnalysis, 250);
+    }
+
+    return () => {
+      isActive = false;
+      if (timerId) clearInterval(timerId);
+    };
+  }, [mode, previewUrl, cameraLoading, cameraError]);
+
   useEffect(() => {
     if (mode === "check-in") {
       startCamera();
@@ -79,6 +180,7 @@ export function AttendanceCameraModal({
   }, []);
 
   const capturePhoto = () => {
+    if (!faceDetected) return; // Strict block if face is not properly detected
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -106,6 +208,7 @@ export function AttendanceCameraModal({
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     setCapturedBlob(null);
+    setFaceDetected(false);
     startCamera();
   };
 
@@ -166,7 +269,7 @@ export function AttendanceCameraModal({
               ATTENDANCE VERIFICATION
             </span>
             <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "2px 0 0 0" }}>
-              {mode === "check-in" ? "Live Photo Verification" : "Confirm Check-Out"}
+              {mode === "check-in" ? "Live Face Verification" : "Confirm Check-Out"}
             </h2>
           </div>
           <button
@@ -205,76 +308,128 @@ export function AttendanceCameraModal({
         {/* Body */}
         <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
           {mode === "check-in" && (
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                aspectRatio: "4/3",
-                borderRadius: "12px",
-                background: "#000000",
-                overflow: "hidden",
-                display: "grid",
-                placeItems: "center",
-                border: "1px solid var(--border, #333)",
-              }}
-            >
-              {cameraLoading && !previewUrl && (
-                <div style={{ textAlign: "center", color: "#8e8e93", fontSize: "13px" }}>
-                  <RefreshCw className="spin" size={24} style={{ marginBottom: "8px" }} />
-                  <p>Starting front camera...</p>
-                </div>
-              )}
-
-              {cameraError && !previewUrl && (
-                <div style={{ padding: "20px", textAlign: "center", color: "#ef4444" }}>
-                  <p style={{ fontSize: "13px", marginBottom: "12px" }}>{cameraError}</p>
-                  <button
-                    onClick={startCamera}
-                    style={{
-                      background: "var(--panel, #333)",
-                      color: "#fff",
-                      border: "1px solid #555",
-                      borderRadius: "6px",
-                      padding: "6px 14px",
-                      fontSize: "12px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Retry Camera
-                  </button>
-                </div>
-              )}
-
+            <>
+              {/* Face Detection Status Banner */}
               {!previewUrl && !cameraError && (
-                <video
-                  ref={videoRef}
-                  playsInline
-                  autoPlay
-                  muted
+                <div
                   style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    transform: "scaleX(-1)", // Mirror mode for natural selfie
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    fontSize: "12.5px",
+                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    background: faceDetected ? "rgba(34, 197, 94, 0.12)" : "rgba(239, 68, 68, 0.12)",
+                    border: `1px solid ${faceDetected ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+                    color: faceDetected ? "#4ade80" : "#f87171",
+                    transition: "all 0.3s ease",
                   }}
-                />
+                >
+                  {faceDetected ? <UserCheck size={16} /> : <AlertTriangle size={16} />}
+                  <span>{faceDetectionStatus}</span>
+                </div>
               )}
 
-              {previewUrl && (
-                <img
-                  src={previewUrl}
-                  alt="Attendance selfie preview"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    transform: "scaleX(-1)",
-                  }}
-                />
-              )}
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  aspectRatio: "4/3",
+                  borderRadius: "12px",
+                  background: "#000000",
+                  overflow: "hidden",
+                  display: "grid",
+                  placeItems: "center",
+                  border: `2px solid ${
+                    previewUrl
+                      ? "#333"
+                      : faceDetected
+                      ? "#22c55e"
+                      : "rgba(239, 68, 68, 0.6)"
+                  }`,
+                  transition: "border-color 0.3s ease",
+                }}
+              >
+                {cameraLoading && !previewUrl && (
+                  <div style={{ textAlign: "center", color: "#8e8e93", fontSize: "13px" }}>
+                    <RefreshCw className="spin" size={24} style={{ marginBottom: "8px" }} />
+                    <p>Starting front camera...</p>
+                  </div>
+                )}
 
-              <canvas ref={canvasRef} style={{ display: "none" }} />
-            </div>
+                {cameraError && !previewUrl && (
+                  <div style={{ padding: "20px", textAlign: "center", color: "#ef4444" }}>
+                    <p style={{ fontSize: "13px", marginBottom: "12px" }}>{cameraError}</p>
+                    <button
+                      onClick={startCamera}
+                      style={{
+                        background: "var(--panel, #333)",
+                        color: "#fff",
+                        border: "1px solid #555",
+                        borderRadius: "6px",
+                        padding: "6px 14px",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Retry Camera
+                    </button>
+                  </div>
+                )}
+
+                {!previewUrl && !cameraError && (
+                  <>
+                    <video
+                      ref={videoRef}
+                      playsInline
+                      autoPlay
+                      muted
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        transform: "scaleX(-1)", // Mirror mode for natural selfie
+                      }}
+                    />
+
+                    {/* Face Target Oval Guide */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        width: "55%",
+                        height: "75%",
+                        borderRadius: "50%",
+                        border: `2.5px ${faceDetected ? "solid #22c55e" : "dashed #ef4444"}`,
+                        boxShadow: faceDetected
+                          ? "0 0 20px rgba(34, 197, 94, 0.4), inset 0 0 15px rgba(34, 197, 94, 0.2)"
+                          : "0 0 15px rgba(239, 68, 68, 0.3)",
+                        pointerEvents: "none",
+                        transition: "all 0.3s ease",
+                      }}
+                    />
+                  </>
+                )}
+
+                {previewUrl && (
+                  <img
+                    src={previewUrl}
+                    alt="Attendance selfie preview"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      transform: "scaleX(-1)",
+                    }}
+                  />
+                )}
+
+                <canvas ref={canvasRef} style={{ display: "none" }} />
+              </div>
+            </>
           )}
 
           {mode === "check-out" && (
@@ -284,35 +439,46 @@ export function AttendanceCameraModal({
           )}
 
           {/* Action buttons */}
-          <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
             {mode === "check-in" && !previewUrl && (
-              <button
-                onClick={capturePhoto}
-                disabled={cameraLoading || Boolean(cameraError) || submitting}
-                style={{
-                  flex: 1,
-                  background: "linear-gradient(135deg, #cba86e 0%, #a8874e 100%)",
-                  color: "#ffffff",
-                  border: 0,
-                  borderRadius: "10px",
-                  padding: "12px",
-                  fontWeight: 700,
-                  fontSize: "13.5px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  cursor: cameraLoading || cameraError ? "not-allowed" : "pointer",
-                  opacity: cameraLoading || cameraError ? 0.6 : 1,
-                }}
-              >
-                <Camera size={18} />
-                Capture Photo
-              </button>
+              <>
+                <button
+                  onClick={capturePhoto}
+                  disabled={!faceDetected || cameraLoading || Boolean(cameraError) || submitting}
+                  style={{
+                    width: "100%",
+                    background: faceDetected
+                      ? "linear-gradient(135deg, #cba86e 0%, #a8874e 100%)"
+                      : "#2e2e38",
+                    color: faceDetected ? "#ffffff" : "#71717a",
+                    border: 0,
+                    borderRadius: "10px",
+                    padding: "12px",
+                    fontWeight: 700,
+                    fontSize: "13.5px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    cursor: faceDetected && !cameraLoading && !submitting ? "pointer" : "not-allowed",
+                    opacity: faceDetected ? 1 : 0.6,
+                    transition: "all 0.3s ease",
+                  }}
+                >
+                  <Camera size={18} />
+                  {faceDetected ? "Capture Photo" : "Detecting Face..."}
+                </button>
+
+                {!faceDetected && !cameraLoading && !cameraError && (
+                  <p style={{ fontSize: "11.5px", color: "#f87171", textAlign: "center", margin: 0 }}>
+                    ⚠️ Position your face inside the green oval frame to enable photo capture.
+                  </p>
+                )}
+              </>
             )}
 
             {mode === "check-in" && previewUrl && (
-              <>
+              <div style={{ display: "flex", gap: "10px" }}>
                 <button
                   onClick={retakePhoto}
                   disabled={submitting}
@@ -355,11 +521,11 @@ export function AttendanceCameraModal({
                   <CheckCircle2 size={18} />
                   {submitting ? "Submitting..." : "Confirm & Submit"}
                 </button>
-              </>
+              </div>
             )}
 
             {mode === "check-out" && (
-              <>
+              <div style={{ display: "flex", gap: "10px" }}>
                 <button
                   onClick={onCancel}
                   disabled={submitting}
@@ -398,7 +564,7 @@ export function AttendanceCameraModal({
                   <CheckCircle2 size={18} />
                   {submitting ? "Processing..." : "Confirm Check-Out"}
                 </button>
-              </>
+              </div>
             )}
           </div>
         </div>
