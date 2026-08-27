@@ -29,6 +29,7 @@ import {
   Maximize2,
   Minimize2,
   User as UserIcon,
+  RefreshCw,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Avatar } from "@/components/icons";
@@ -84,6 +85,8 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
   const [videoInputDevices, setVideoInputDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedAudioInput, setSelectedAudioInput] = useState<string>("");
   const [selectedVideoInput, setSelectedVideoInput] = useState<string>("");
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
 
   // Remote Peers & Connections
   const [peers, setPeers] = useState<Map<string, PeerConnection>>(new Map());
@@ -496,6 +499,101 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     }
   };
 
+  const refreshDevices = useCallback(async () => {
+    try {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      setAudioInputDevices(devices.filter((d) => d.kind === "audioinput"));
+      setVideoInputDevices(devices.filter((d) => d.kind === "videoinput"));
+    } catch {}
+  }, []);
+
+  const switchCamera = async (targetDeviceId?: string) => {
+    if (isSwitchingCamera) return;
+    setIsSwitchingCamera(true);
+    try {
+      const nextFacing = facingMode === "user" ? "environment" : "user";
+      const videoConstraint: MediaTrackConstraints = targetDeviceId
+        ? { deviceId: { exact: targetDeviceId } }
+        : { facingMode: { ideal: nextFacing } };
+
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { ...videoConstraint, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      if (!newVideoTrack) return;
+
+      if (!targetDeviceId) {
+        setFacingMode(nextFacing);
+      }
+      setSelectedVideoInput(targetDeviceId || newVideoTrack.getSettings().deviceId || "");
+
+      if (localStream) {
+        const oldTrack = localStream.getVideoTracks()[0];
+        if (oldTrack) {
+          oldTrack.stop();
+          localStream.removeTrack(oldTrack);
+        }
+        localStream.addTrack(newVideoTrack);
+        newVideoTrack.enabled = !isVideoOff;
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = localStream;
+          localVideoRef.current.play().catch(() => {});
+        }
+
+        // Replace track in active WebRTC peer connections
+        peersRef.current.forEach((peer) => {
+          const sender = peer.pc.getSenders().find((s) => s.track?.kind === "video" || s.track === null);
+          if (sender) {
+            sender.replaceTrack(newVideoTrack).catch((err) => console.warn("replaceTrack video error:", err));
+          }
+        });
+      }
+      await refreshDevices();
+    } catch (err) {
+      console.warn("Could not switch camera:", err);
+    } finally {
+      setIsSwitchingCamera(false);
+    }
+  };
+
+  const switchMicrophone = async (targetDeviceId: string) => {
+    try {
+      setSelectedAudioInput(targetDeviceId);
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: targetDeviceId } },
+        video: false,
+      });
+
+      const newAudioTrack = newStream.getAudioTracks()[0];
+      if (!newAudioTrack) return;
+
+      if (localStream) {
+        const oldTrack = localStream.getAudioTracks()[0];
+        if (oldTrack) {
+          oldTrack.stop();
+          localStream.removeTrack(oldTrack);
+        }
+        localStream.addTrack(newAudioTrack);
+        newAudioTrack.enabled = !isAudioMuted;
+
+        // Replace track in active WebRTC peer connections
+        peersRef.current.forEach((peer) => {
+          const sender = peer.pc.getSenders().find((s) => s.track?.kind === "audio" || s.track === null);
+          if (sender) {
+            sender.replaceTrack(newAudioTrack).catch((err) => console.warn("replaceTrack audio error:", err));
+          }
+        });
+      }
+      await refreshDevices();
+    } catch (err) {
+      console.warn("Could not switch microphone:", err);
+    }
+  };
+
   const toggleScreenShare = async () => {
     if (isScreenSharing) {
       // Stop Screen Share -> Revert to Camera Track
@@ -780,6 +878,28 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
                   title={isVideoOff ? "Turn On Camera" : "Turn Off Camera"}
                 >
                   {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => switchCamera()}
+                  disabled={isSwitchingCamera || isVideoOff}
+                  style={{
+                    width: "42px",
+                    height: "42px",
+                    borderRadius: "50%",
+                    border: "none",
+                    background: isSwitchingCamera ? "rgba(52, 211, 153, 0.25)" : "rgba(255, 255, 255, 0.15)",
+                    color: isVideoOff ? "#64748B" : "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: isVideoOff ? "not-allowed" : "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                  title="Flip Camera (Front/Back)"
+                >
+                  <RefreshCw size={18} className={isSwitchingCamera ? "animate-spin" : ""} />
                 </button>
               </div>
             </div>
@@ -1085,17 +1205,138 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
             </div>
           </aside>
         )}
+
+        {/* Audio & Video Device Settings Drawer */}
+        {activeDrawer === "settings" && (
+          <aside style={{ width: "340px", maxWidth: "100%", background: "#0F1715", borderLeft: "1px solid rgba(255, 255, 255, 0.1)", display: "flex", flexDirection: "column", zIndex: 20 }}>
+            <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, fontSize: "14px" }}>
+                <Settings size={16} color="#34D399" />
+                <span>Audio & Video Settings</span>
+              </div>
+              <button type="button" onClick={() => setActiveDrawer("none")} style={{ background: "none", border: "none", color: "#94A3B8", cursor: "pointer" }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, padding: "16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "18px" }}>
+              {/* Camera Selection */}
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 700, color: "#E2E8F0", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <Video size={14} color="#34D399" />
+                    Camera Device
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => switchCamera()}
+                    disabled={isSwitchingCamera || isVideoOff}
+                    style={{
+                      background: "rgba(52, 211, 153, 0.15)",
+                      border: "1px solid rgba(52, 211, 153, 0.3)",
+                      borderRadius: "6px",
+                      padding: "4px 8px",
+                      color: "#34D399",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <RefreshCw size={11} className={isSwitchingCamera ? "animate-spin" : ""} />
+                    <span>Flip (Front/Back)</span>
+                  </button>
+                </div>
+                <select
+                  value={selectedVideoInput}
+                  onChange={(e) => switchCamera(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    borderRadius: "8px",
+                    background: "rgba(255, 255, 255, 0.08)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    color: "#FFFFFF",
+                    fontSize: "12.5px",
+                    fontWeight: 600,
+                    outline: "none",
+                  }}
+                >
+                  {videoInputDevices.length === 0 ? (
+                    <option value="">Default Camera</option>
+                  ) : (
+                    videoInputDevices.map((d, i) => (
+                      <option key={d.deviceId || i} value={d.deviceId} style={{ background: "#0F1715", color: "#FFFFFF" }}>
+                        {d.label || `Camera ${i + 1}`}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              {/* Microphone Selection */}
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 700, color: "#E2E8F0", display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+                  <Mic size={14} color="#34D399" />
+                  Microphone Device
+                </label>
+                <select
+                  value={selectedAudioInput}
+                  onChange={(e) => switchMicrophone(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    borderRadius: "8px",
+                    background: "rgba(255, 255, 255, 0.08)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    color: "#FFFFFF",
+                    fontSize: "12.5px",
+                    fontWeight: 600,
+                    outline: "none",
+                  }}
+                >
+                  {audioInputDevices.length === 0 ? (
+                    <option value="">Default Microphone</option>
+                  ) : (
+                    audioInputDevices.map((d, i) => (
+                      <option key={d.deviceId || i} value={d.deviceId} style={{ background: "#0F1715", color: "#FFFFFF" }}>
+                        {d.label || `Microphone ${i + 1}`}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+            </div>
+          </aside>
+        )}
       </div>
 
-      {/* Floating Bottom Action Bar */}
-      <footer style={{ height: "72px", display: "flex", alignItems: "center", justifyContent: "center", gap: "14px", padding: "0 16px", borderTop: "1px solid rgba(255, 255, 255, 0.08)", background: "rgba(10, 17, 15, 0.95)", zIndex: 10 }}>
+      {/* Floating Bottom Action Bar (Ultra-responsive on Mobile) */}
+      <footer
+        style={{
+          minHeight: "64px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+          padding: "8px 12px",
+          borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+          background: "rgba(10, 17, 15, 0.98)",
+          zIndex: 30,
+          flexWrap: "nowrap",
+          overflowX: "auto",
+        }}
+      >
         {/* Mic Toggle */}
         <button
           type="button"
           onClick={() => toggleAudio()}
           style={{
-            width: "48px",
-            height: "48px",
+            width: "42px",
+            height: "42px",
+            flexShrink: 0,
             borderRadius: "50%",
             border: "none",
             background: isAudioMuted ? "#EF4444" : "rgba(255, 255, 255, 0.12)",
@@ -1108,7 +1349,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           }}
           title={isAudioMuted ? "Unmute Microphone" : "Mute Microphone"}
         >
-          {isAudioMuted ? <MicOff size={20} /> : <Mic size={20} />}
+          {isAudioMuted ? <MicOff size={18} /> : <Mic size={18} />}
         </button>
 
         {/* Video Toggle */}
@@ -1116,8 +1357,9 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           type="button"
           onClick={() => toggleVideo()}
           style={{
-            width: "48px",
-            height: "48px",
+            width: "42px",
+            height: "42px",
+            flexShrink: 0,
             borderRadius: "50%",
             border: "none",
             background: isVideoOff ? "#EF4444" : "rgba(255, 255, 255, 0.12)",
@@ -1130,7 +1372,31 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           }}
           title={isVideoOff ? "Turn On Camera" : "Turn Off Camera"}
         >
-          {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
+          {isVideoOff ? <VideoOff size={18} /> : <Video size={18} />}
+        </button>
+
+        {/* Quick Flip Camera Button */}
+        <button
+          type="button"
+          onClick={() => switchCamera()}
+          disabled={isSwitchingCamera || isVideoOff}
+          style={{
+            width: "42px",
+            height: "42px",
+            flexShrink: 0,
+            borderRadius: "50%",
+            border: "none",
+            background: isSwitchingCamera ? "rgba(52, 211, 153, 0.25)" : "rgba(255, 255, 255, 0.12)",
+            color: isVideoOff ? "#64748B" : "#FFFFFF",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: isVideoOff ? "not-allowed" : "pointer",
+            transition: "all 0.15s ease",
+          }}
+          title="Flip Camera (Front/Back)"
+        >
+          <RefreshCw size={17} className={isSwitchingCamera ? "animate-spin" : ""} />
         </button>
 
         {/* Screen Share */}
@@ -1138,8 +1404,9 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           type="button"
           onClick={toggleScreenShare}
           style={{
-            width: "48px",
-            height: "48px",
+            width: "42px",
+            height: "42px",
+            flexShrink: 0,
             borderRadius: "50%",
             border: "none",
             background: isScreenSharing ? "#34D399" : "rgba(255, 255, 255, 0.12)",
@@ -1152,7 +1419,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           }}
           title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen"}
         >
-          {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
+          {isScreenSharing ? <MonitorOff size={18} /> : <Monitor size={18} />}
         </button>
 
         {/* In-Meeting Chat */}
@@ -1163,8 +1430,9 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
             setUnreadChatCount(0);
           }}
           style={{
-            width: "48px",
-            height: "48px",
+            width: "42px",
+            height: "42px",
+            flexShrink: 0,
             borderRadius: "50%",
             border: "none",
             background: activeDrawer === "chat" ? "#087A5B" : "rgba(255, 255, 255, 0.12)",
@@ -1177,9 +1445,9 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           }}
           title="Meeting Chat"
         >
-          <MessageSquare size={20} />
+          <MessageSquare size={18} />
           {unreadChatCount > 0 && (
-            <span style={{ position: "absolute", top: "2px", right: "2px", width: "16px", height: "16px", borderRadius: "50%", background: "#34D399", color: "#0A110F", fontSize: "10px", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ position: "absolute", top: "1px", right: "1px", width: "16px", height: "16px", borderRadius: "50%", background: "#34D399", color: "#0A110F", fontSize: "10px", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
               {unreadChatCount}
             </span>
           )}
@@ -1190,8 +1458,9 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           type="button"
           onClick={() => setActiveDrawer(activeDrawer === "participants" ? "none" : "participants")}
           style={{
-            width: "48px",
-            height: "48px",
+            width: "42px",
+            height: "42px",
+            flexShrink: 0,
             borderRadius: "50%",
             border: "none",
             background: activeDrawer === "participants" ? "#087A5B" : "rgba(255, 255, 255, 0.12)",
@@ -1203,30 +1472,55 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           }}
           title="Participants List"
         >
-          <Users size={20} />
+          <Users size={18} />
+        </button>
+
+        {/* Audio & Video Device Settings */}
+        <button
+          type="button"
+          onClick={() => {
+            refreshDevices();
+            setActiveDrawer(activeDrawer === "settings" ? "none" : "settings");
+          }}
+          style={{
+            width: "42px",
+            height: "42px",
+            flexShrink: 0,
+            borderRadius: "50%",
+            border: "none",
+            background: activeDrawer === "settings" ? "#087A5B" : "rgba(255, 255, 255, 0.12)",
+            color: "#FFFFFF",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+          }}
+          title="Device Settings (Mic & Camera)"
+        >
+          <Settings size={18} />
         </button>
 
         {/* Leave or End Meeting */}
-        <div style={{ marginLeft: "12px", display: "flex", gap: "8px" }}>
+        <div style={{ display: "flex", gap: "6px", flexShrink: 0, marginLeft: "4px" }}>
           <button
             type="button"
             onClick={handleLeaveMeeting}
             style={{
-              padding: "0 18px",
-              height: "46px",
+              padding: "0 14px",
+              height: "40px",
               borderRadius: "99px",
               background: "#EF4444",
               border: "none",
               color: "#FFFFFF",
               fontWeight: 800,
-              fontSize: "13px",
+              fontSize: "12px",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              gap: "6px",
+              gap: "5px",
             }}
           >
-            <PhoneOff size={16} />
+            <PhoneOff size={14} />
             <span>Leave</span>
           </button>
 
@@ -1235,19 +1529,20 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
               type="button"
               onClick={handleEndMeetingAll}
               style={{
-                padding: "0 14px",
-                height: "46px",
+                padding: "0 10px",
+                height: "40px",
                 borderRadius: "99px",
                 background: "rgba(239, 68, 68, 0.2)",
                 border: "1px solid #EF4444",
                 color: "#FCA5A5",
                 fontWeight: 700,
-                fontSize: "12px",
+                fontSize: "11px",
                 cursor: "pointer",
+                whiteSpace: "nowrap",
               }}
               title="End call for all participants"
             >
-              End for All
+              End All
             </button>
           )}
         </div>
