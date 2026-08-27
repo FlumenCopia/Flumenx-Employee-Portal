@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Clock3,
   FileCode,
+  FileSpreadsheet,
   FolderGit2,
   Grid,
   Kanban,
@@ -43,6 +44,7 @@ export const iconMap: Record<string, LucideIcon> = {
   BriefcaseBusiness,
   Megaphone,
   BarChart3,
+  FileSpreadsheet,
   CheckSquare,
   ClipboardList,
   FileCode,
@@ -82,6 +84,7 @@ const adminNav = [
   ["Attendance", "/admin/attendance", CalendarCheck],
   ["Leave Requests", "/admin/leaves", CalendarDays],
   ["Meetings", "/admin/meetings", UserRound],
+  ["Reports Center", "/admin/reports", FileSpreadsheet],
   ["Dynamic Roles", "/admin/roles", Shield],
   ["User Management", "/admin/users", UserCheck],
   ["Page Management", "/pages", FileCode],
@@ -112,6 +115,7 @@ const hrNav = [
   ["Attendance", "/hr/attendance", CalendarCheck],
   ["Leave Requests", "/hr/leaves", CalendarDays],
   ["Meetings", "/hr/meetings", UserRound],
+  ["Reports Center", "/hr/reports", FileSpreadsheet],
   ["Announcements", "/admin/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
@@ -121,6 +125,7 @@ const accountantNav = [
   ["Attendance", "/accountant/attendance", CalendarCheck],
   ["Leave Requests", "/accountant/leaves", CalendarDays],
   ["Salary Slips", "/admin/salary-slips", FileCode],
+  ["Reports Center", "/accountant/reports", FileSpreadsheet],
 ] as const satisfies readonly NavigationItem[];
 
 const bdoNav = [
@@ -137,6 +142,7 @@ const teamLeadNav = [
   ["KPI Performance", "/kpi", TrendingUp],
   ["Employees Directory", "/employees", Users],
   ["Meetings", "/meetings", Users],
+  ["Reports Center", "/team-lead/reports", FileSpreadsheet],
 ] as const satisfies readonly NavigationItem[];
 
 export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[]> = {

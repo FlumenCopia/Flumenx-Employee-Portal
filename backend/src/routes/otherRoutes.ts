@@ -18,6 +18,7 @@ import {
   getAuditLogs,
 } from '../controllers/communicationController.js';
 import { getDashboardStats } from '../controllers/dashboardController.js';
+import { getReportsData } from '../controllers/reportsController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 
@@ -66,5 +67,8 @@ router.post('/notifications/:id/read/?', markNotificationAsRead);
 
 // Audit Logs
 router.get('/audit-logs/?', requirePermission('audit_logs', 'canView'), getAuditLogs);
+
+// Enterprise Reports Center
+router.get('/reports/?', getReportsData);
 
 export default router;

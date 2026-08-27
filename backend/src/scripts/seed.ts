@@ -26,7 +26,8 @@ async function seed() {
     { moduleCode: 'SALARY_SLIPS', title: 'Salary Slips', routePath: '/admin/salary-slips', icon: 'Receipt', sidebarOrder: 12 },
     { moduleCode: 'ANNOUNCEMENTS', title: 'Announcements', routePath: '/admin/announcements', icon: 'Megaphone', sidebarOrder: 13 },
     { moduleCode: 'AUDIT_LOGS', title: 'Audit Logs', routePath: '/admin/audit-logs', icon: 'History', sidebarOrder: 14 },
-    { moduleCode: 'SETTINGS_ACCESS', title: 'Settings & Access', routePath: '/settings', icon: 'Settings', sidebarOrder: 15 },
+    { moduleCode: 'REPORTS', title: 'Reports Center', routePath: '/reports', icon: 'FileSpreadsheet', sidebarOrder: 15 },
+    { moduleCode: 'SETTINGS_ACCESS', title: 'Settings & Access', routePath: '/settings', icon: 'Settings', sidebarOrder: 16 },
   ];
 
   const pageDocMap: Record<string, any> = {};
@@ -78,9 +79,9 @@ async function seed() {
       ADMIN: Object.keys(pageDocMap),
       OPERATIONS: Object.keys(pageDocMap),
       OPERATIONS_HEAD: Object.keys(pageDocMap),
-      HR: ['TASKS', 'TIMER', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'KPI', 'SALARY_SLIPS', 'ANNOUNCEMENTS'],
-      ACCOUNTANT: ['TASKS', 'TIMER', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'MEETINGS', 'ANNOUNCEMENTS'],
-      TEAM_LEAD: ['TASKS', 'TIMER', 'TEAM_WORK', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
+      HR: ['TASKS', 'TIMER', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'KPI', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS'],
+      ACCOUNTANT: ['TASKS', 'TIMER', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
+      TEAM_LEAD: ['TASKS', 'TIMER', 'TEAM_WORK', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
       BDE: ['TASKS', 'TIMER', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
       EMPLOYEE: ['TASKS', 'TIMER', 'KPI', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
     };
