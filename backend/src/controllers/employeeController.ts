@@ -85,14 +85,23 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
     location,
     team_lead,
     user_id,
-  } = req.body;
+  let code = employee_code ? String(employee_code).trim() : '';
+  if (!code) {
+    const totalCount = await Employee.countDocuments();
+    let num = totalCount + 1;
+    code = `FX-${String(num).padStart(3, '0')}`;
+    while (await Employee.findOne({ employeeCode: code })) {
+      num += 1;
+      code = `FX-${String(num).padStart(3, '0')}`;
+    }
+  }
 
-  if (!employee_code || !name || !email || !phone || !department || !designation || !joining_date) {
+  if (!name || !email || !phone || !department || !designation || !joining_date) {
     res.status(400).json({ detail: 'Required employee fields are missing.' });
     return;
   }
 
-  const existingCode = await Employee.findOne({ employeeCode: employee_code.trim() });
+  const existingCode = await Employee.findOne({ employeeCode: code });
   if (existingCode) {
     res.status(400).json({ detail: 'Employee code already exists.' });
     return;
@@ -101,7 +110,7 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
   const deptObj = await Department.findOne({ name: department });
 
   const employee = new Employee({
-    employeeCode: employee_code.trim(),
+    employeeCode: code,
     name: name.trim(),
     email: email.trim().toLowerCase(),
     phone: phone.trim(),

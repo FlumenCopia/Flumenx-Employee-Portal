@@ -68,6 +68,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       username: user.username,
       email: user.email,
       role: user.role,
+      portal_role: user.role,
       is_staff: user.isStaff,
       is_superuser: user.isSuperuser,
       dynamic_role: user.dynamicRole,
