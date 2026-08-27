@@ -297,9 +297,9 @@ export function TaskTimerPage() {
         </div>
 
         {/* Main 2-Column Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: "1.5rem" }}>
+        <div className="timer-responsive-grid" style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: "1.5rem" }}>
           {/* Left Column: Assigned Tasks List with Quick Action Timers */}
-          <div style={{ gridColumn: "span 5", display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div className="timer-responsive-col" style={{ gridColumn: "span 5", display: "flex", flexDirection: "column", gap: "1rem" }}>
             <div style={{ background: "#ffffff", borderRadius: "0.75rem", border: "1px solid #e2e8f0", padding: "1rem", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
                 <span style={{ fontSize: "0.875rem", fontWeight: "700", color: "#334155" }}>Your Assigned Tasks</span>
@@ -436,7 +436,7 @@ export function TaskTimerPage() {
           </div>
 
           {/* Right Column: Active Stopwatch & Progressive Counter Panel */}
-          <div style={{ gridColumn: "span 7", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          <div className="timer-responsive-col" style={{ gridColumn: "span 7", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             {/* Stopwatch Control Card */}
             <div
               style={{

@@ -10,6 +10,7 @@ import { clearCachedAuthUser, getCachedAuthUser, loadAuthUser } from "@/lib/auth
 import type { AuthUser, Paginated, PortalNotification, WorkspaceRole } from "@/lib/types";
 import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, getWorkspaceDestination, getWorkspaceRole, isRoleAllowedInWorkspace, normalizeWorkspaceRoute, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
 import { PwaInstallButton } from "./PwaInstallButton";
+import { MobileBottomNav } from "./MobileBottomNav";
 
 const dynamicNavCache: Record<string, readonly (readonly [string, string, any])[]> = {};
 
@@ -643,6 +644,13 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
         <div className="page">{children}</div>
       </main>
 
+      <MobileBottomNav
+        workspaceRole={workspaceRole}
+        user={user}
+        onOpenSidebar={() => setOpen(true)}
+        onOpenLogout={openLogoutModal}
+        onNewTaskClick={handleNewTaskClick}
+      />
 
       <LogoutModal
         open={showLogoutModal}
