@@ -342,6 +342,14 @@ export async function getWorkAssignmentById(req: Request, res: Response): Promis
 }
 
 export async function createWorkAssignment(req: Request, res: Response): Promise<void> {
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isManagementOrLead = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD', 'BDE'].includes(req.user?.role || '');
+
+  if (!isSuper && !isManagementOrLead) {
+    res.status(403).json({ detail: 'Permission denied. Only Team Leads and Management can create work assignments.' });
+    return;
+  }
+
   const {
     employee,
     client,
@@ -358,6 +366,18 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
     unit,
     reviewer,
   } = req.body;
+
+  if (!isSuper && req.user?.role === 'TEAM_LEAD' && employee && req.user) {
+    const ownEmp = await Employee.findOne({ user: req.user._id });
+    if (ownEmp && ownEmp.department) {
+      const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
+      const targetEmp = await Employee.findById(employee);
+      if (targetEmp && targetEmp.department && !deptRegex.test(targetEmp.department) && String(targetEmp._id) !== String(ownEmp._id)) {
+        res.status(403).json({ detail: 'Permission denied. Team Leads can only assign tasks to members in their own department.' });
+        return;
+      }
+    }
+  }
 
   if (!title) {
     res.status(400).json({ detail: 'Task title is required.' });
@@ -412,6 +432,14 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
 }
 
 export async function bulkCreateWorkAssignments(req: Request, res: Response): Promise<void> {
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isManagementOrLead = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD', 'BDE'].includes(req.user?.role || '');
+
+  if (!isSuper && !isManagementOrLead) {
+    res.status(403).json({ detail: 'Permission denied. Only Team Leads and Management can create work assignments.' });
+    return;
+  }
+
   const { employee, reviewer, priority, tasks } = req.body;
 
   const tasksList = Array.isArray(tasks) ? tasks : Array.isArray(req.body) ? req.body : [req.body];

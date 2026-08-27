@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { LeaveRequest } from '../models/LeaveRequest.js';
 import { Employee } from '../models/Employee.js';
 
@@ -20,11 +21,19 @@ export async function getLeaves(req: Request, res: Response): Promise<void> {
     }
 
     if (isTeamLead) {
-      if (employee_id) {
-        filter.employee = employee_id;
+      const deptRegex = ownEmployee.department ? new RegExp(`^${ownEmployee.department.trim()}$`, 'i') : null;
+      const teamEmployees = deptRegex ? await Employee.find({ department: deptRegex }).select('_id') : [];
+      const teamEmpIds = [ownEmployee._id, ...teamEmployees.map((e) => e._id)];
+
+      if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
+        if (teamEmpIds.some((id) => id.toString() === String(employee_id))) {
+          filter.employee = employee_id;
+        } else {
+          res.json({ count: 0, next: null, previous: null, results: [] });
+          return;
+        }
       } else {
-        const teamEmployees = await Employee.find({ department: ownEmployee.department }).select('_id');
-        filter.employee = { $in: teamEmployees.map((e) => e._id) };
+        filter.employee = { $in: teamEmpIds };
       }
     } else {
       // Standard employee strictly sees only own leaves

@@ -114,13 +114,21 @@ export async function getAttendanceRecords(req: Request, res: Response): Promise
     }
 
     if (isTeamLead) {
+      const deptRegex = ownEmp.department ? new RegExp(`^${ownEmp.department.trim()}$`, 'i') : null;
+      const teamEmployees = deptRegex ? await Employee.find({ department: deptRegex }).select('_id') : [];
+      const teamEmpIds = [ownEmp._id, ...teamEmployees.map((e) => e._id)];
+
       if (my_attendance === 'true') {
         filter.employee = ownEmp._id;
       } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
-        filter.employee = employee_id;
+        if (teamEmpIds.some((id) => id.toString() === String(employee_id))) {
+          filter.employee = employee_id;
+        } else {
+          res.json({ count: 0, next: null, previous: null, results: [] });
+          return;
+        }
       } else {
-        const teamEmployees = await Employee.find({ department: ownEmp.department }).select('_id');
-        filter.employee = { $in: teamEmployees.map((e) => e._id) };
+        filter.employee = { $in: teamEmpIds };
       }
     } else {
       // Standard employee strictly sees only own attendance

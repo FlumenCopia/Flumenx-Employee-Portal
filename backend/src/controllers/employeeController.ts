@@ -11,14 +11,48 @@ export async function getEmployees(req: Request, res: Response): Promise<void> {
   const { department, status, search } = req.query;
 
   const filter: any = {};
-  if (department && department !== 'All') filter.department = department;
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'ACCOUNTANT', 'BDE'].includes(req.user?.role || '');
+  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+
+  if (!isSuper && !isManagement) {
+    const ownEmp = await Employee.findOne({ user: req.user?._id });
+    if (!ownEmp) {
+      res.json({ count: 0, next: null, previous: null, results: [] });
+      return;
+    }
+
+    if (isTeamLead && ownEmp.department) {
+      const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
+      filter.$or = [
+        { department: deptRegex },
+        { _id: ownEmp._id },
+      ];
+    } else if (ownEmp.department) {
+      const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
+      filter.$or = [
+        { department: deptRegex },
+        { _id: ownEmp._id },
+      ];
+    }
+  }
+
+  if (department && department !== 'All') {
+    filter.department = department;
+  }
   if (status) filter.status = status;
   if (search) {
-    filter.$or = [
+    const searchFilter = [
       { name: { $regex: search as string, $options: 'i' } },
       { employeeCode: { $regex: search as string, $options: 'i' } },
       { email: { $regex: search as string, $options: 'i' } },
     ];
+    if (filter.$or) {
+      filter.$and = [{ $or: filter.$or }, { $or: searchFilter }];
+      delete filter.$or;
+    } else {
+      filter.$or = searchFilter;
+    }
   }
 
   const employees = await Employee.find(filter)

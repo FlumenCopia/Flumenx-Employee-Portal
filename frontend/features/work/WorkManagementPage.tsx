@@ -723,6 +723,29 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
       subtitle={SHOW_ADVANCED_WORKBOARD ? "Assign client work, track taskboards, timeline phases, and KPI targets in real time." : "Assign client work, track taskboards, and update deliverable progress in real time."}
       action={
         <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          {canManageAll && (
+            <button
+              type="button"
+              onClick={openCreate}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                background: "var(--neon, #00E889)",
+                color: "#05100B",
+                textDecoration: "none",
+                fontWeight: 800,
+                fontSize: "13px",
+                border: "none",
+                cursor: "pointer",
+                boxShadow: "0 2px 10px rgba(0, 232, 137, 0.35)",
+              }}
+            >
+              <Plus size={16} /> + Create Task
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
