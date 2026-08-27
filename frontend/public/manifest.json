@@ -9,20 +9,26 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/flumen-icon.png",
+      "src": "/flumenx-mark-only.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/flumen-icon.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/flumenx-mark-only.png",
       "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/flumenx-mark-only.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/flumen-icon.png",
+      "sizes": "192x192",
       "type": "image/png"
     }
   ]

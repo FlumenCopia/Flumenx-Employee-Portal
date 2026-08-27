@@ -16,9 +16,9 @@ export const metadata: Metadata = {
     title: "FLUMENX OS",
   },
   icons: {
-    icon: "/flumen-favicon.png",
-    shortcut: "/flumen-favicon.png",
-    apple: "/flumen-icon.png",
+    icon: "/flumenx-mark-only.png",
+    shortcut: "/flumenx-mark-only.png",
+    apple: "/flumenx-mark-only.png",
   },
 };
 
