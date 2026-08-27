@@ -50,7 +50,12 @@ const ICE_SERVERS: RTCConfiguration = {
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
+    { urls: "stun:global.stun.twilio.com:3478" },
+    { urls: "stun:stun.services.mozilla.com" },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
@@ -83,6 +88,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
   // Remote Peers & Connections
   const [peers, setPeers] = useState<Map<string, PeerConnection>>(new Map());
   const peersRef = useRef<Map<string, PeerConnection>>(new Map());
+  const iceCandidatesQueue = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
   // UI Drawers & Controls
   const [activeDrawer, setActiveDrawer] = useState<"none" | "chat" | "participants" | "settings">("none");
@@ -208,8 +214,11 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     const socket = io(socketUrl || "", {
       path: "/socket.io",
       auth: { token },
-      transports: ["websocket", "polling"],
-      reconnectionAttempts: 8,
+      transports: ["polling", "websocket"],
+      upgrade: true,
+      forceNew: true,
+      reconnection: true,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
     });
 
@@ -251,6 +260,15 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           const answer = await peer.pc.createAnswer();
           await peer.pc.setLocalDescription(answer);
           socket.emit("signal-answer", { to: data.from, answer });
+
+          // Drain queued ICE candidates
+          const queued = iceCandidatesQueue.current.get(data.from) || [];
+          for (const cand of queued) {
+            try {
+              await peer.pc.addIceCandidate(new RTCIceCandidate(cand));
+            } catch {}
+          }
+          iceCandidatesQueue.current.delete(data.from);
         } catch (err) {
           console.error("Error answering WebRTC offer:", err);
         }
@@ -262,6 +280,15 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       if (peer) {
         try {
           await peer.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+
+          // Drain queued ICE candidates
+          const queued = iceCandidatesQueue.current.get(data.from) || [];
+          for (const cand of queued) {
+            try {
+              await peer.pc.addIceCandidate(new RTCIceCandidate(cand));
+            } catch {}
+          }
+          iceCandidatesQueue.current.delete(data.from);
         } catch (err) {
           console.error("Error setting remote description from answer:", err);
         }
@@ -270,22 +297,19 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
     socket.on("signal-ice-candidate", async (data: { from: string; candidate: RTCIceCandidateInit }) => {
       const peer = peersRef.current.get(data.from);
-      if (peer && data.candidate) {
-        try {
-          if (peer.pc.remoteDescription) {
+      if (data.candidate) {
+        if (peer && peer.pc.remoteDescription) {
+          try {
             await peer.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-          } else {
-            // Delay adding candidate until remote description is set
-            setTimeout(async () => {
-              try {
-                if (peer?.pc.remoteDescription) {
-                  await peer.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-                }
-              } catch {}
-            }, 500);
+          } catch (err) {
+            console.error("Error adding ice candidate:", err);
           }
-        } catch (err) {
-          console.error("Error adding ice candidate:", err);
+        } else {
+          // Queue candidate until remote description is ready
+          if (!iceCandidatesQueue.current.has(data.from)) {
+            iceCandidatesQueue.current.set(data.from, []);
+          }
+          iceCandidatesQueue.current.get(data.from)!.push(data.candidate);
         }
       }
     });

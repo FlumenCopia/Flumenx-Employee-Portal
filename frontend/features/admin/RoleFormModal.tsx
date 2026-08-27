@@ -30,11 +30,14 @@ type Props = {
 function getPageIcon(title: string, route: string) {
   const t = (title || "").toLowerCase();
   const r = (route || "").toLowerCase();
+  if (t.includes("command") || r.includes("command")) return <Sparkles size={15} style={{ color: "#8b5cf6" }} />;
   if (t.includes("task") || r.includes("kanban")) return <Kanban size={15} style={{ color: "#d97706" }} />;
   if (t.includes("kpi") || r.includes("kpi")) return <TrendingUp size={15} style={{ color: "#059669" }} />;
   if (t.includes("attendance") || r.includes("attendance")) return <CalendarCheck size={15} style={{ color: "#2563eb" }} />;
   if (t.includes("leave") || r.includes("leave")) return <Calendar size={15} style={{ color: "#7c3aed" }} />;
   if (t.includes("meeting") || r.includes("meeting")) return <Video size={15} style={{ color: "#db2777" }} />;
+  if (t.includes("report") || r.includes("report")) return <FileText size={15} style={{ color: "#087a5b" }} />;
+  if (t.includes("client") || r.includes("client")) return <Users size={15} style={{ color: "#0284c7" }} />;
   if (t.includes("page") || r.includes("page")) return <FileText size={15} style={{ color: "#0891b2" }} />;
   if (t.includes("setting") || r.includes("setting")) return <Settings size={15} style={{ color: "#475569" }} />;
   return <Users size={15} style={{ color: "#a8874e" }} />;

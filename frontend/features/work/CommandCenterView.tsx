@@ -26,6 +26,11 @@ import {
   Zap,
   Trash2,
   Globe,
+  List,
+  Table,
+  Play,
+  Pause,
+  Eye,
 } from "lucide-react";
 
 import type { WorkAssignment, Client, WorkEmployeeOption, WorkPriority, WorkStatus, PortalRole, DepartmentItem, WorkSummary } from "@/lib/types";
@@ -500,6 +505,7 @@ export function CommandCenterView({
 
   const [nowMs, setNowMs] = useState<number>(Date.now());
   const [timerLoadingId, setTimerLoadingId] = useState<string | null>(null);
+  const [kanbanDisplayMode, setKanbanDisplayMode] = useState<"board" | "stack">("board");
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 1000);
@@ -1159,284 +1165,558 @@ export function CommandCenterView({
             </div>
           )}
 
-          {/* 6 Kanban Columns Grid */}
-          <div className="kb">
-            {STATUSES.map((col) => {
-              const colTasks = filteredTasks.filter((t) => t.status === col.id);
-              return (
-                <div key={col.id} className="kb-col">
-                  <div className="kb-head">
-                    <div className="kb-name">
-                      <span className="kb-dot" style={{ background: col.color }} />
-                      {col.name}
-                    </div>
-                    <span className="kb-count">{colTasks.length}</span>
-                  </div>
+          {/* View Mode Toggle Header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap", margin: "4px 0 2px 0" }}>
+            <div style={{ fontSize: "12.5px", fontWeight: 700, color: "var(--muted)" }}>
+              Showing <b style={{ color: "var(--text)" }}>{filteredTasks.length}</b> {filteredTasks.length === 1 ? "task" : "tasks"}
+            </div>
+            <div style={{ display: "inline-flex", background: "var(--panel)", padding: "3px", borderRadius: "8px", border: "1.5px solid var(--border)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+              <button
+                type="button"
+                onClick={() => setKanbanDisplayMode("board")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "5px 12px",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  background: kanbanDisplayMode === "board" ? "var(--amber)" : "transparent",
+                  color: kanbanDisplayMode === "board" ? "#FFFFFF" : "var(--muted)",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <Kanban size={13} />
+                <span>Kanban Columns</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setKanbanDisplayMode("stack")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "5px 12px",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  background: kanbanDisplayMode === "stack" ? "var(--amber)" : "transparent",
+                  color: kanbanDisplayMode === "stack" ? "#FFFFFF" : "var(--muted)",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <Table size={13} />
+                <span>Stacked Table (Mobile Friendly)</span>
+              </button>
+            </div>
+          </div>
 
-                  <div className="kb-body">
-                    {(() => {
-                      if (colTasks.length === 0) {
-                        return <div style={{ textAlign: "center", padding: "24px 8px", color: "var(--muted)", fontSize: "11px" }}>No tasks</div>;
-                      }
+          {/* STACKED TABLE VIEW (MOBILE & COMPACT) */}
+          {kanbanDisplayMode === "stack" ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {filteredTasks.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 16px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "12px", color: "var(--muted)" }}>
+                  <p style={{ fontWeight: 700, fontSize: "14px", margin: "0 0 4px 0" }}>No tasks match your current filters</p>
+                  <p style={{ fontSize: "12px", margin: 0 }}>Try adjusting or resetting your department, priority, or search filter.</p>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {filteredTasks.map((t) => {
+                    const isOverdue = isDateStrictlyPast(t.due);
+                    const canonKey = normalizeDepartment(t.type);
+                    const typeInfo = CANONICAL_DEPARTMENTS[canonKey] || { label: t.type, badge: t.type, color: "var(--amber)" };
+                    const colInfo = STATUSES.find((s) => s.id === t.status) || STATUSES[0];
+                    const isTimerActive = Boolean(t.activeTimer && t.activeTimer.started_at);
+                    const timeFormatted = formatTimeSpent(t.totalTimeSpentSeconds || 0, t.activeTimer, nowMs);
 
-                      return colTasks.map((t) => {
-                        const isOverdue = isDateStrictlyPast(t.due);
-                        const canonKey = normalizeDepartment(t.type);
-                        const typeInfo = CANONICAL_DEPARTMENTS[canonKey] || { label: t.type, badge: t.type, color: "var(--amber)" };
-                        return (
-                          <div
-                            key={t.id}
-                            className="tcard"
-                            onClick={() => setSelectedTask(t)}
-                            style={{
-                              padding: "16px",
-                              background: "var(--panel)",
-                              border: "1px solid var(--border)",
-                              borderRadius: "12px",
-                              cursor: "pointer",
-                              marginBottom: "12px",
-                              boxShadow: "var(--shadow-sm)",
-                              transition: "all 0.2s ease",
-                            }}
-                          >
-                            <div className="tc-top" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
-                              {t.clientName && (
-                                <span className="chip" style={{ background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", border: "1px solid rgba(59, 130, 246, 0.3)", padding: "3px 9px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                                  🏢 {t.clientName}
-                                </span>
-                              )}
-                              <span className="chip" style={{ background: "var(--soft-brand-bg)", color: "var(--amber)", border: "1px solid rgba(8, 122, 91, 0.25)", padding: "3px 9px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, textTransform: "uppercase" }}>
-                                {typeInfo.label}
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => setSelectedTask(t)}
+                        style={{
+                          background: "var(--panel)",
+                          border: isTimerActive ? "2px solid #10B981" : isOverdue ? "1.5px solid rgba(239, 68, 68, 0.45)" : "1px solid var(--border)",
+                          borderRadius: "12px",
+                          padding: "14px 16px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
+                          cursor: "pointer",
+                          boxShadow: isTimerActive ? "0 0 12px rgba(16, 185, 129, 0.18)" : "var(--shadow-sm)",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        {/* Top Header: Chips & Status Dropdown */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                            {t.clientName && (
+                              <span style={{ background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", border: "1px solid rgba(59, 130, 246, 0.3)", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
+                                🏢 {t.clientName}
                               </span>
-                              <span className="chip" style={getPriorityBadgeStyle(t.priority)}>
-                                {(t.priority || "NORMAL").toUpperCase()}
+                            )}
+                            <span style={{ background: "var(--soft-brand-bg)", color: "var(--amber)", border: "1px solid rgba(8, 122, 91, 0.25)", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, textTransform: "uppercase" }}>
+                              {typeInfo.label}
+                            </span>
+                            <span style={getPriorityBadgeStyle(t.priority)}>
+                              {(t.priority || "NORMAL").toUpperCase()}
+                            </span>
+                            {t.reviewStatus === "OK" && (
+                              <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
+                                ✓ OK
                               </span>
-                              {t.reviewStatus === "OK" && (
-                                <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                                  ✓ OK
-                                </span>
-                              )}
-                              {t.reviewStatus === "CORRECTION_NEEDED" && (
-                                <span style={{ background: "rgba(200, 75, 75, 0.1)", color: "var(--red)", border: "1px solid rgba(200, 75, 75, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                                  ↩ Correction Needed
-                                </span>
-                              )}
-                              {(!t.reviewStatus || t.reviewStatus === "PENDING_REVIEW") && (
-                                <span style={{ background: "rgba(201, 135, 23, 0.12)", color: "var(--warning)", border: "1px solid rgba(201, 135, 23, 0.3)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700 }}>
-                                  ⏳ Pending Review
-                                </span>
-                              )}
-                              <span className="tc-code" style={{ marginLeft: "auto", fontSize: "11px", color: "var(--muted)", fontFamily: "monospace", fontWeight: 700 }}>{t.code}</span>
-                            </div>
+                            )}
+                            {t.reviewStatus === "CORRECTION_NEEDED" && (
+                              <span style={{ background: "rgba(200, 75, 75, 0.1)", color: "var(--red)", border: "1px solid rgba(200, 75, 75, 0.25)", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
+                                ↩ Correction Needed
+                              </span>
+                            )}
+                          </div>
 
-                            <div className="tc-title" style={{ fontWeight: 800, fontSize: "15px", color: "var(--text)", marginBottom: "8px", lineHeight: "1.4" }}>{t.title}</div>
-                            {t.desc && <div style={{ fontSize: "12.5px", color: "var(--muted)", marginBottom: "12px", lineHeight: "1.45" }}>{t.desc}</div>}
-
-                            <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", background: "var(--panel2)", border: "1px solid var(--line)", borderRadius: "8px", marginBottom: "12px" }} onClick={(e) => e.stopPropagation()}>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
-                                <span style={{ color: "var(--muted)", fontWeight: 600 }}>Assigned To:</span>
-                                {canManageAll ? (
-                                  <select
-                                    value={(members || []).find((m) => m.display_name === t.assigneeName || String(m.id) === String(t.assignee))?.id || ""}
-                                    onChange={async (e) => {
-                                      const newEmpId = e.target.value;
-                                      const empObj = (members || []).find((m) => String(m.id) === newEmpId);
-                                      const newEmpName = empObj ? empObj.display_name : "Unassigned";
-                                      try {
-                                        await api(`/work-assignments/${t.id}/`, {
-                                          method: "PATCH",
-                                          body: JSON.stringify({ employee: newEmpId || null }),
-                                        });
-                                        setTasks((prev) =>
-                                          prev.map((item) => (item.id === t.id ? { ...item, assignee: newEmpId, assigneeName: newEmpName } : item))
-                                        );
-                                      } catch {
-                                        // fallback local update
-                                      }
-                                    }}
-                                    style={{
-                                      padding: "2px 6px",
-                                      fontSize: "12px",
-                                      fontWeight: 800,
-                                      color: "var(--text)",
-                                      background: "#FFFFFF",
-                                      border: "1px solid #CBD5E1",
-                                      borderRadius: "6px",
-                                    }}
-                                  >
-                                    <option value="">Unassigned</option>
-                                    {(members || []).map((m) => (
-                                      <option key={m.id} value={String(m.id)}>
-                                        {m.display_name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <b style={{ color: "var(--text)", fontWeight: 700, fontSize: "12.5px" }}>{t.assigneeName || "Unassigned"}</b>
-                                )}
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
-                                <span style={{ color: "var(--muted)" }}>Reviewer:</span>
-                                <b style={{ color: "var(--text)", fontWeight: 700, fontSize: "12.5px" }}>{t.reviewer || "Admin"}</b>
-                              </div>
-                            </div>
-
-                            <div className="tc-meta" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px", color: "var(--muted)" }}>
-                              <div className={`tc-due ${isOverdue ? "late" : ""}`} style={{ color: isOverdue ? "var(--red)" : "var(--muted)", fontSize: "12px", fontWeight: isOverdue ? 800 : 600 }}>
-                                📅 {isOverdue ? "Overdue: " : "Due: "}{t.due}
-                              </div>
-                            </div>
-
-                            {/* LIVE TASK TIMER BAR */}
-                            <div
-                              onClick={(e) => e.stopPropagation()}
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }} onClick={(e) => e.stopPropagation()}>
+                            {/* Status Selector Dropdown */}
+                            <select
+                              value={t.status === "backlog" ? "Backlog" : (t.rawStatus || "Assigned")}
+                              disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
+                              onChange={async (e) => {
+                                e.stopPropagation();
+                                const newWorkStatus = e.target.value as WorkStatus;
+                                if (!canUserChangeTaskStatus(t) || isUpdatingStatus) return;
+                                await handleWorkStatusChange(t.id, newWorkStatus);
+                              }}
                               style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "8px 10px",
-                                background: t.activeTimer ? "rgba(8, 122, 91, 0.12)" : "var(--panel2)",
-                                border: t.activeTimer ? "1px solid #087A5B" : "1px solid var(--line)",
-                                borderRadius: "8px",
-                                marginTop: "10px",
+                                padding: "4px 10px",
+                                borderRadius: "6px",
+                                fontSize: "11.5px",
+                                fontWeight: 800,
+                                background: colInfo.color,
+                                color: "#FFFFFF",
+                                border: "none",
+                                cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
+                                outline: "none",
+                                opacity: canUserChangeTaskStatus(t) ? 1 : 0.7,
                               }}
                             >
-                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                <Clock size={14} style={{ color: t.activeTimer ? "#087A5B" : "var(--muted)" }} />
-                                <span style={{ fontSize: "12px", fontWeight: 800, color: t.activeTimer ? "#087A5B" : "var(--text)" }}>
-                                  {formatTimeSpent(t.totalTimeSpentSeconds || 0, t.activeTimer, nowMs)}
-                                </span>
-                                {t.activeTimer && (
-                                  <span style={{ fontSize: "10px", fontWeight: 800, color: "#087A5B", background: "rgba(8,122,91,0.2)", padding: "2px 6px", borderRadius: "4px" }}>
-                                    LIVE
-                                  </span>
-                                )}
-                              </div>
+                              {t.status === "backlog" && <option value="Backlog">Backlog (Overdue)</option>}
+                              {ALL_WORK_STATUSES.map((st) => (
+                                <option key={st.id} value={st.id} style={{ background: "#FFFFFF", color: "var(--text)" }}>
+                                  {st.name}
+                                </option>
+                              ))}
+                            </select>
 
-                              {t.activeTimer ? (
+                            <span style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "monospace", fontWeight: 700 }}>
+                              {t.code}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Title & Description */}
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: "15px", color: "var(--text)", lineHeight: "1.35", marginBottom: t.desc ? "4px" : "0" }}>
+                            {t.title}
+                          </div>
+                          {t.desc && (
+                            <div style={{ fontSize: "12.5px", color: "var(--muted)", lineHeight: "1.4" }}>
+                              {t.desc}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Bottom Row: Metadata & Actions */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap", paddingTop: "8px", borderTop: "1px solid var(--line)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap", fontSize: "12px" }}>
+                            {/* Assignee */}
+                            <div style={{ display: "flex", alignItems: "center", gap: "5px", color: "var(--text)", fontWeight: 600 }}>
+                              <span style={{ color: "var(--muted)", fontSize: "11px" }}>👤</span>
+                              <span>{t.assigneeName || "Unassigned"}</span>
+                            </div>
+
+                            {/* Due Date */}
+                            <div style={{ display: "flex", alignItems: "center", gap: "4px", color: isOverdue ? "var(--red)" : "var(--muted)", fontWeight: isOverdue ? 800 : 600 }}>
+                              <Clock size={13} />
+                              <span>{t.due || "No date"}</span>
+                              {isOverdue && <span style={{ fontSize: "10px", background: "rgba(239, 68, 68, 0.15)", color: "var(--red)", padding: "1px 5px", borderRadius: "4px", fontWeight: 800 }}>OVERDUE</span>}
+                            </div>
+
+                            {/* Quantity progress */}
+                            {t.assignedQuantity !== undefined && (
+                              <div style={{ fontSize: "11.5px", color: "var(--muted)", fontWeight: 600 }}>
+                                Units: <b style={{ color: "var(--text)" }}>{t.completedQuantity || 0}</b> / {t.assignedQuantity} {t.unit || "tasks"}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right Controls: Timer & Edit */}
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }} onClick={(e) => e.stopPropagation()}>
+                            {/* Timer widget */}
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", background: isTimerActive ? "rgba(16, 185, 129, 0.12)" : "var(--panel2)", border: `1px solid ${isTimerActive ? "rgba(16, 185, 129, 0.3)" : "var(--border)"}`, borderRadius: "8px", padding: "4px 8px" }}>
+                              <span style={{ fontSize: "11.5px", fontFamily: "monospace", fontWeight: 700, color: isTimerActive ? "#10B981" : "var(--text)" }}>
+                                {timeFormatted}
+                              </span>
+                              {isTimerActive ? (
                                 <button
                                   type="button"
                                   onClick={(e) => handleStopTaskTimer(e, t.id)}
-                                  disabled={timerLoadingId === t.id}
-                                  style={{
-                                    background: "#E11D48",
-                                    color: "#FFFFFF",
-                                    border: "none",
-                                    borderRadius: "6px",
-                                    padding: "4px 10px",
-                                    fontSize: "11px",
-                                    fontWeight: 800,
-                                    cursor: "pointer",
-                                  }}
+                                  style={{ background: "#EF4444", border: "none", color: "#FFF", borderRadius: "6px", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                                  title="Stop task timer"
                                 >
-                                  ⏹ Stop Timer
+                                  <Pause size={12} />
                                 </button>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={(e) => handleStartTaskTimer(e, t.id)}
-                                  disabled={timerLoadingId === t.id}
-                                  style={{
-                                    background: "#087A5B",
-                                    color: "#FFFFFF",
-                                    border: "none",
-                                    borderRadius: "6px",
-                                    padding: "4px 10px",
-                                    fontSize: "11px",
-                                    fontWeight: 800,
-                                    cursor: "pointer",
-                                  }}
+                                  style={{ background: "#10B981", border: "none", color: "#FFF", borderRadius: "6px", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                                  title="Start task timer"
                                 >
-                                  ▶ Start Timer
+                                  <Play size={12} />
                                 </button>
                               )}
                             </div>
 
-                            <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>Status:</span>
-                              <select
-                                 value={t.status === "backlog" ? "Backlog" : (t.rawStatus || "Assigned")}
-                                 disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
-                                 onClick={(e) => e.stopPropagation()}
-                                 onChange={async (e) => {
-                                   e.stopPropagation();
-                                   const newWorkStatus = e.target.value as WorkStatus;
-                                   e.target.blur();
-                                   if (!canUserChangeTaskStatus(t) || isUpdatingStatus) return;
-                                   await handleWorkStatusChange(t.id, newWorkStatus);
-                                 }}
-                                 className="fs"
-                                 style={{
-                                   padding: "5px 12px",
-                                   fontSize: "12.5px",
-                                   color: t.status === "backlog" ? "var(--red)" : "var(--text)",
-                                   background: t.status === "backlog" ? "rgba(200,75,75,0.08)" : "var(--panel)",
-                                   border: t.status === "backlog" ? "1px solid rgba(200,75,75,0.3)" : "1px solid var(--border)",
-                                   borderRadius: "8px",
-                                   fontWeight: 700,
-                                   cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
-                                   opacity: canUserChangeTaskStatus(t) ? 1 : 0.6,
-                                 }}
-                                 title={!canUserChangeTaskStatus(t) ? "Only Reviewer and Admins can change status" : "Change status"}
-                               >
-                                 {t.status === "backlog" && (
-                                   <option value="Backlog">Backlog (Overdue)</option>
-                                 )}
-                                 {!ALL_WORK_STATUSES.some((st) => st.id === t.rawStatus) && t.rawStatus && t.status !== "backlog" && (
-                                   <option value={t.rawStatus} disabled>
-                                     {t.rawStatus}
-                                   </option>
-                                 )}
-                                 {ALL_WORK_STATUSES.map((st) => {
-                                   const isReviewerOnly = st.isReviewerOnly;
-                                   const isBacklog = st.id === "Backlog";
-                                   const isAllowed = !isBacklog && canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
-                                   return (
-                                     <option key={st.id} value={st.id} disabled={!isAllowed}>
-                                       {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(t) ? "🔒" : ""}
-                                     </option>
-                                   );
-                                 })}
-                               </select>
-
-                               {onEditWork && (
-                                 <button
-                                   type="button"
-                                   onClick={(e) => {
-                                     e.stopPropagation();
-                                     const rawWa = assignments.find((a) => String(a.id) === String(t.id));
-                                     if (rawWa) onEditWork(rawWa);
-                                   }}
-                                   style={{
-                                     background: "var(--panel2)",
-                                     border: "1px solid var(--border)",
-                                     color: "var(--text)",
-                                     padding: "3px 8px",
-                                     borderRadius: "6px",
-                                     fontSize: "11px",
-                                     fontWeight: 700,
-                                     cursor: "pointer",
-                                     display: "flex",
-                                     alignItems: "center",
-                                     gap: "4px",
-                                     marginLeft: "auto",
-                                   }}
-                                 >
-                                   <Pencil size={12} />
-                                   <span>Edit</span>
-                                 </button>
-                               )}
-                            </div>
+                            {/* Edit Button */}
+                            {onEditWork && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const rawWa = assignments.find((a) => String(a.id) === String(t.id));
+                                  if (rawWa) onEditWork(rawWa);
+                                }}
+                                style={{
+                                  background: "var(--panel2)",
+                                  border: "1px solid var(--border)",
+                                  color: "var(--text)",
+                                  padding: "4px 8px",
+                                  borderRadius: "6px",
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                }}
+                                title="Edit task details"
+                              >
+                                <Pencil size={12} />
+                                <span>Edit</span>
+                              </button>
+                            )}
                           </div>
-                        );
-                      });
-                    })()}
-                  </div>
-
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </div>
+          ) : (
+            /* 6 Kanban Columns Grid */
+            <div className="kb">
+              {STATUSES.map((col) => {
+                const colTasks = filteredTasks.filter((t) => t.status === col.id);
+                return (
+                  <div key={col.id} className="kb-col">
+                    <div className="kb-head">
+                      <div className="kb-name">
+                        <span className="kb-dot" style={{ background: col.color }} />
+                        {col.name}
+                      </div>
+                      <span className="kb-count">{colTasks.length}</span>
+                    </div>
+
+                    <div className="kb-body">
+                      {(() => {
+                        if (colTasks.length === 0) {
+                          return <div style={{ textAlign: "center", padding: "24px 8px", color: "var(--muted)", fontSize: "11px" }}>No tasks</div>;
+                        }
+
+                        return colTasks.map((t) => {
+                          const isOverdue = isDateStrictlyPast(t.due);
+                          const canonKey = normalizeDepartment(t.type);
+                          const typeInfo = CANONICAL_DEPARTMENTS[canonKey] || { label: t.type, badge: t.type, color: "var(--amber)" };
+                          return (
+                            <div
+                              key={t.id}
+                              className="tcard"
+                              onClick={() => setSelectedTask(t)}
+                              style={{
+                                padding: "16px",
+                                background: "var(--panel)",
+                                border: "1px solid var(--border)",
+                                borderRadius: "12px",
+                                cursor: "pointer",
+                                marginBottom: "12px",
+                                boxShadow: "var(--shadow-sm)",
+                                transition: "all 0.2s ease",
+                              }}
+                            >
+                              <div className="tc-top" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
+                                {t.clientName && (
+                                  <span className="chip" style={{ background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", border: "1px solid rgba(59, 130, 246, 0.3)", padding: "3px 9px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
+                                    🏢 {t.clientName}
+                                  </span>
+                                )}
+                                <span className="chip" style={{ background: "var(--soft-brand-bg)", color: "var(--amber)", border: "1px solid rgba(8, 122, 91, 0.25)", padding: "3px 9px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, textTransform: "uppercase" }}>
+                                  {typeInfo.label}
+                                </span>
+                                <span className="chip" style={getPriorityBadgeStyle(t.priority)}>
+                                  {(t.priority || "NORMAL").toUpperCase()}
+                                </span>
+                                {t.reviewStatus === "OK" && (
+                                  <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
+                                    ✓ OK
+                                  </span>
+                                )}
+                                {t.reviewStatus === "CORRECTION_NEEDED" && (
+                                  <span style={{ background: "rgba(200, 75, 75, 0.1)", color: "var(--red)", border: "1px solid rgba(200, 75, 75, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
+                                    ↩ Correction Needed
+                                  </span>
+                                )}
+                                {(!t.reviewStatus || t.reviewStatus === "PENDING_REVIEW") && (
+                                  <span style={{ background: "rgba(201, 135, 23, 0.12)", color: "var(--warning)", border: "1px solid rgba(201, 135, 23, 0.3)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700 }}>
+                                    ⏳ Pending Review
+                                  </span>
+                                )}
+                                <span className="tc-code" style={{ marginLeft: "auto", fontSize: "11px", color: "var(--muted)", fontFamily: "monospace", fontWeight: 700 }}>{t.code}</span>
+                              </div>
+
+                              <div className="tc-title" style={{ fontWeight: 800, fontSize: "15px", color: "var(--text)", marginBottom: "8px", lineHeight: "1.4" }}>{t.title}</div>
+                              {t.desc && <div style={{ fontSize: "12.5px", color: "var(--muted)", marginBottom: "12px", lineHeight: "1.45" }}>{t.desc}</div>}
+
+                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", background: "var(--panel2)", border: "1px solid var(--line)", borderRadius: "8px", marginBottom: "12px" }} onClick={(e) => e.stopPropagation()}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
+                                  <span style={{ color: "var(--muted)", fontWeight: 600 }}>Assigned To:</span>
+                                  {canManageAll ? (
+                                    <select
+                                      value={(members || []).find((m) => m.display_name === t.assigneeName || String(m.id) === String(t.assignee))?.id || ""}
+                                      onChange={async (e) => {
+                                        const newEmpId = e.target.value;
+                                        const empObj = (members || []).find((m) => String(m.id) === newEmpId);
+                                        const newEmpName = empObj ? empObj.display_name : "Unassigned";
+                                        try {
+                                          await api(`/work-assignments/${t.id}/`, {
+                                            method: "PATCH",
+                                            body: JSON.stringify({ employee: newEmpId || null }),
+                                          });
+                                          setTasks((prev) =>
+                                            prev.map((task) =>
+                                              task.id === t.id
+                                                ? {
+                                                    ...task,
+                                                    assignee: newEmpId || "",
+                                                    assigneeName: newEmpName,
+                                                  }
+                                                : task
+                                            )
+                                          );
+                                        } catch (err: any) {
+                                          alert(err.message || "Failed to reassign task");
+                                        }
+                                      }}
+                                      style={{
+                                        border: "1px solid var(--border)",
+                                        borderRadius: "4px",
+                                        padding: "2px 6px",
+                                        fontSize: "11px",
+                                        fontWeight: 600,
+                                        background: "var(--panel)",
+                                        color: "var(--text)",
+                                        maxWidth: "130px"
+                                      }}
+                                    >
+                                      <option value="">Unassigned</option>
+                                      {(members || []).map((m) => (
+                                        <option key={m.id} value={m.id}>
+                                          {m.display_name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span style={{ fontWeight: 700, color: "var(--text)" }}>{t.assigneeName || "Unassigned"}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="tc-mid" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px", marginBottom: "12px", fontSize: "11.5px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "4px", color: isOverdue ? "var(--red)" : "var(--muted)" }}>
+                                  <Clock size={13} />
+                                  <span style={{ fontWeight: isOverdue ? 800 : 600 }}>{t.due}</span>
+                                </div>
+                                <div style={{ fontWeight: 700, color: "var(--muted)" }}>{t.hours}h</div>
+                              </div>
+
+                              {t.assignedQuantity !== undefined && t.assignedQuantity > 1 && (
+                                <div style={{ marginBottom: "12px" }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10.5px", color: "var(--muted)", marginBottom: "4px" }}>
+                                    <span>Quantity Progress</span>
+                                    <span>{t.completedQuantity || 0} / {t.assignedQuantity} {t.unit || "tasks"}</span>
+                                  </div>
+                                  <div style={{ height: "4px", background: "var(--line)", borderRadius: "2px", overflow: "hidden" }}>
+                                    <div style={{ height: "100%", width: `${Math.min(100, Math.round(((t.completedQuantity || 0) / t.assignedQuantity) * 100))}%`, background: "var(--amber)", borderRadius: "2px" }} />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Task Timer Widget */}
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  gap: "8px",
+                                  padding: "8px 10px",
+                                  background: t.activeTimer ? "rgba(22, 133, 91, 0.12)" : "var(--panel2)",
+                                  border: t.activeTimer ? "1px solid rgba(22, 133, 91, 0.35)" : "1px solid var(--line)",
+                                  borderRadius: "8px",
+                                  marginTop: "8px",
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                  <Clock size={13} color={t.activeTimer ? "var(--green)" : "var(--muted)"} />
+                                  <span
+                                    style={{
+                                      fontFamily: "monospace",
+                                      fontWeight: 800,
+                                      fontSize: "11.5px",
+                                      color: t.activeTimer ? "var(--green)" : "var(--text)",
+                                    }}
+                                  >
+                                    {formatTimeSpent(t.totalTimeSpentSeconds || 0, t.activeTimer, nowMs)}
+                                  </span>
+                                </div>
+
+                                {t.activeTimer ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleStopTaskTimer(e, t.id)}
+                                    disabled={timerLoadingId === t.id}
+                                    style={{
+                                      background: "var(--red)",
+                                      color: "#ffffff",
+                                      border: "none",
+                                      padding: "4px 10px",
+                                      borderRadius: "6px",
+                                      fontSize: "11px",
+                                      fontWeight: 800,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    ⏹ Stop Timer
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleStartTaskTimer(e, t.id)}
+                                    disabled={timerLoadingId === t.id}
+                                    style={{
+                                      background: "var(--amber)",
+                                      color: "#ffffff",
+                                      border: "none",
+                                      padding: "4px 10px",
+                                      borderRadius: "6px",
+                                      fontSize: "11px",
+                                      fontWeight: 800,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    ▶ Start Timer
+                                  </button>
+                                )}
+                              </div>
+
+                              <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>Status:</span>
+                                <select
+                                   value={t.status === "backlog" ? "Backlog" : (t.rawStatus || "Assigned")}
+                                   disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
+                                   onClick={(e) => e.stopPropagation()}
+                                   onChange={async (e) => {
+                                     e.stopPropagation();
+                                     const newWorkStatus = e.target.value as WorkStatus;
+                                     e.target.blur();
+                                     if (!canUserChangeTaskStatus(t) || isUpdatingStatus) return;
+                                     await handleWorkStatusChange(t.id, newWorkStatus);
+                                   }}
+                                   className="fs"
+                                   style={{
+                                     padding: "5px 12px",
+                                     fontSize: "12.5px",
+                                     color: t.status === "backlog" ? "var(--red)" : "var(--text)",
+                                     background: t.status === "backlog" ? "rgba(200,75,75,0.08)" : "var(--panel)",
+                                     border: t.status === "backlog" ? "1px solid rgba(200,75,75,0.3)" : "1px solid var(--border)",
+                                     borderRadius: "8px",
+                                     fontWeight: 700,
+                                     cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
+                                     opacity: canUserChangeTaskStatus(t) ? 1 : 0.6,
+                                   }}
+                                   title={!canUserChangeTaskStatus(t) ? "Only Reviewer and Admins can change status" : "Change status"}
+                                 >
+                                   {t.status === "backlog" && (
+                                     <option value="Backlog">Backlog (Overdue)</option>
+                                   )}
+                                   {!ALL_WORK_STATUSES.some((st) => st.id === t.rawStatus) && t.rawStatus && t.status !== "backlog" && (
+                                     <option value={t.rawStatus} disabled>
+                                       {t.rawStatus}
+                                     </option>
+                                   )}
+                                   {ALL_WORK_STATUSES.map((st) => {
+                                     const isReviewerOnly = st.isReviewerOnly;
+                                     const isBacklog = st.id === "Backlog";
+                                     const isAllowed = !isBacklog && canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
+                                     return (
+                                       <option key={st.id} value={st.id} disabled={!isAllowed}>
+                                         {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(t) ? "🔒" : ""}
+                                       </option>
+                                     );
+                                   })}
+                                 </select>
+
+                                 {onEditWork && (
+                                   <button
+                                     type="button"
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       const rawWa = assignments.find((a) => String(a.id) === String(t.id));
+                                       if (rawWa) onEditWork(rawWa);
+                                     }}
+                                     style={{
+                                       background: "var(--panel2)",
+                                       border: "1px solid var(--border)",
+                                       color: "var(--text)",
+                                       padding: "3px 8px",
+                                       borderRadius: "6px",
+                                       fontSize: "11px",
+                                       fontWeight: 700,
+                                       cursor: "pointer",
+                                       display: "flex",
+                                       alignItems: "center",
+                                       gap: "4px",
+                                       marginLeft: "auto",
+                                     }}
+                                   >
+                                     <Pencil size={12} />
+                                     <span>Edit</span>
+                                   </button>
+                                 )}
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

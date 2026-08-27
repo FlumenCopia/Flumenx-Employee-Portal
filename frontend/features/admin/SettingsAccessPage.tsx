@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Key, Shield, Users as UsersIcon, ArrowRight, Trash2 } from "lucide-react";
+import { Plus, Pencil, Key, Shield, Users as UsersIcon, ArrowRight, Trash2, MapPin, Building2, UserCog } from "lucide-react";
 import { useShellUser } from "@/components/shell";
 import { EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -12,6 +12,7 @@ import { DepartmentFormModal } from "./DepartmentFormModal";
 import { RoleFormModal } from "./RoleFormModal";
 import { UserFormModal } from "./UserFormModal";
 import { UserPasswordModal } from "./UserPasswordModal";
+import { AttendancePolicySettings } from "@/features/attendance/AttendancePolicySettings";
 
 export function SettingsAccessPage() {
   const router = useRouter();
@@ -131,154 +132,204 @@ export function SettingsAccessPage() {
     );
   }
 
+  const [activeTab, setActiveTab] = useState<"all" | "roles" | "users" | "departments" | "attendance_gps">("all");
+
+  const tabs = [
+    { id: "all", label: "All Settings", icon: Shield },
+    { id: "attendance_gps", label: "Attendance & Geo-Fence (GPS)", icon: MapPin },
+    { id: "roles", label: "Dynamic Roles & RBAC", icon: Shield },
+    { id: "users", label: "Super Admin Users", icon: UserCog },
+    { id: "departments", label: "Departments", icon: Building2 },
+  ] as const;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       <PageHeader
         title="Settings & Access"
-        subtitle="RBAC, Users & Roles"
+        subtitle="RBAC, Super Admin Users, Department Mapping, and Office Attendance Geo-Fence (GPS) Settings."
       />
+
+      {/* Tabs Navigation */}
+      <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "6px", borderBottom: "1px solid var(--border)" }}>
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          const isActive = activeTab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActiveTab(t.id)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "8px 14px",
+                borderRadius: "8px",
+                background: isActive ? "rgba(8, 122, 91, 0.15)" : "var(--panel)",
+                border: `1px solid ${isActive ? "#087A5B" : "var(--border)"}`,
+                color: isActive ? "#087A5B" : "var(--text)",
+                fontSize: "12.5px",
+                fontWeight: isActive ? 700 : 500,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <Icon size={15} color={isActive ? "#087A5B" : "var(--muted)"} />
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {actionError && <div className="toast error" style={{ background: "rgba(223,125,110,0.15)", border: "1px solid var(--red)", color: "var(--red)", padding: "10px 14px", borderRadius: "6px" }}>{actionError}</div>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: "16px", alignItems: "start" }}>
-        {/* LEFT COLUMN: DYNAMIC ROLES & PERMISSIONS MATRIX */}
-        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "16px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-            <div>
-              <b style={{ fontSize: "15px", fontWeight: 700, color: "var(--text)", display: "flex", alignItems: "center", gap: "8px" }}>
-                Dynamic Roles & Permissions Matrix
-              </b>
-              <p style={{ fontSize: "11.5px", color: "var(--muted)", margin: "2px 0 0 0" }}>Edit permissions granted to each role</p>
-            </div>
-            <PrimaryButton
-              onClick={() => {
-                setEditingRole(null);
-                setRoleModalOpen(true);
-              }}
-            >
-              + Add Role
-            </PrimaryButton>
-          </div>
+      {/* ATTENDANCE GEOFENCE TAB */}
+      {activeTab === "attendance_gps" ? (
+        <AttendancePolicySettings />
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: "16px", alignItems: "start" }}>
+          {/* LEFT COLUMN: DYNAMIC ROLES & PERMISSIONS MATRIX */}
+          {(activeTab === "all" || activeTab === "roles") && (
+            <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "16px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                <div>
+                  <b style={{ fontSize: "15px", fontWeight: 700, color: "var(--text)", display: "flex", alignItems: "center", gap: "8px" }}>
+                    Dynamic Roles & Permissions Matrix
+                  </b>
+                  <p style={{ fontSize: "11.5px", color: "var(--muted)", margin: "2px 0 0 0" }}>Edit permissions granted to each role</p>
+                </div>
+                <PrimaryButton
+                  onClick={() => {
+                    setEditingRole(null);
+                    setRoleModalOpen(true);
+                  }}
+                >
+                  + Add Role
+                </PrimaryButton>
+              </div>
 
-          {loadingRoles && <EmptyState title="Loading roles" text="Fetching dynamic system roles." />}
+              {loadingRoles && <EmptyState title="Loading roles" text="Fetching dynamic system roles." />}
 
-          {!loadingRoles && Boolean(roles.length) && (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px", textAlign: "left" }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--muted)", fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.08em" }}>
-                    <th style={{ padding: "8px 10px 8px 0" }}>ROLE</th>
-                    <th style={{ padding: "8px 10px" }}>ASSIGNED MEMBERS</th>
-                    <th style={{ padding: "8px 10px" }}>PERMISSIONS</th>
-                    <th style={{ padding: "8px 0 8px 10px", textAlign: "right" }}>ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {roles.map((r, index) => {
-                    const assignedMembers = usersList.filter((u) => {
-                      if (u.dynamic_role?.id === r.id) return true;
-                      if (u.dynamic_role?.code && u.dynamic_role.code.toUpperCase() === r.code.toUpperCase()) return true;
-                      if (u.legacy_portal_role && u.legacy_portal_role.toUpperCase() === r.code.toUpperCase()) return true;
-                      return false;
-                    });
-                    return (
-                      <tr key={r.id || r.code || index} style={{ borderBottom: "1px solid var(--line)" }}>
-                        <td style={{ padding: "10px 10px 10px 0", verticalAlign: "top" }}>
-                          <div style={{ display: "flex", flexDirection: "column" }}>
-                            <b style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>{r.name}</b>
-                            <small style={{ fontSize: "10px", color: "var(--muted)", fontFamily: "monospace" }}>{r.code.toLowerCase()}</small>
-                          </div>
-                        </td>
-                        <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
-                            {assignedMembers.length > 0 ? (
-                              assignedMembers.map((m, mIdx) => (
-                                <span
-                                  key={m.user_id || m.work_email || mIdx}
-                                  style={{
-                                    fontSize: "9.5px",
-                                    fontWeight: 700,
-                                    letterSpacing: "0.04em",
-                                    background: "rgba(203, 168, 110, 0.12)",
-                                    color: "var(--neon)",
-                                    border: "1px solid rgba(203, 168, 110, 0.25)",
-                                    padding: "2px 7px",
-                                    borderRadius: "4px",
-                                    textTransform: "uppercase",
-                                  }}
-                                >
-                                  {m.full_name}
-                                </span>
-                              ))
-                            ) : (
-                              <span style={{ fontSize: "11px", color: "var(--muted)" }}>None</span>
-                            )}
-                          </div>
-                        </td>
-                        <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
-                          {r.is_superadmin_wildcard || r.code === "SUPER_ADMIN" ? (
-                            <span style={{ fontSize: "11px", color: "var(--neon)", fontWeight: 600 }}>
-                              ★ Full access (* wildcards)
-                            </span>
-                          ) : (
-                            <span style={{ fontSize: "11px", color: "var(--muted)" }}>
-                              {r.permissions_count ?? 0} permissions granted
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ padding: "10px 0 10px 10px", textAlign: "right", verticalAlign: "top" }}>
-                          <div style={{ display: "inline-flex", gap: "5px" }}>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() => {
-                                setEditingRole(r);
-                                setRoleModalOpen(true);
-                              }}
-                              style={{ padding: "0 10px", height: "30px", fontSize: "11px", borderRadius: "5px" }}
-                            >
-                              Edit
-                            </button>
-                            {!r.is_system_role && r.code !== "SUPER_ADMIN" && (
-                              <button
-                                type="button"
-                                className="secondary-button"
-                                onClick={() => handleDeleteRole(r)}
-                                style={{ padding: "0 8px", height: "30px", fontSize: "11px", color: "#FF594D", borderColor: "rgba(255,89,77,0.3)", borderRadius: "5px" }}
-                                title="Delete Role"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
+              {!loadingRoles && Boolean(roles.length) && (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px", textAlign: "left" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--muted)", fontSize: "10.5px", fontWeight: 700, letterSpacing: "0.08em" }}>
+                        <th style={{ padding: "8px 10px 8px 0" }}>ROLE</th>
+                        <th style={{ padding: "8px 10px" }}>ASSIGNED MEMBERS</th>
+                        <th style={{ padding: "8px 10px" }}>PERMISSIONS</th>
+                        <th style={{ padding: "8px 0 8px 10px", textAlign: "right" }}>ACTIONS</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {roles.map((r, index) => {
+                        const assignedMembers = usersList.filter((u) => {
+                          if (u.dynamic_role?.id === r.id) return true;
+                          if (u.dynamic_role?.code && u.dynamic_role.code.toUpperCase() === r.code.toUpperCase()) return true;
+                          if (u.legacy_portal_role && u.legacy_portal_role.toUpperCase() === r.code.toUpperCase()) return true;
+                          return false;
+                        });
+                        return (
+                          <tr key={r.id || r.code || index} style={{ borderBottom: "1px solid var(--line)" }}>
+                            <td style={{ padding: "10px 10px 10px 0", verticalAlign: "top" }}>
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                <b style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>{r.name}</b>
+                                <small style={{ fontSize: "10px", color: "var(--muted)", fontFamily: "monospace" }}>{r.code.toLowerCase()}</small>
+                              </div>
+                            </td>
+                            <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+                                {assignedMembers.length > 0 ? (
+                                  assignedMembers.map((m, mIdx) => (
+                                    <span
+                                      key={m.user_id || m.work_email || mIdx}
+                                      style={{
+                                        fontSize: "9.5px",
+                                        fontWeight: 700,
+                                        letterSpacing: "0.04em",
+                                        background: "rgba(203, 168, 110, 0.12)",
+                                        color: "var(--neon)",
+                                        border: "1px solid rgba(203, 168, 110, 0.25)",
+                                        padding: "2px 7px",
+                                        borderRadius: "4px",
+                                        textTransform: "uppercase",
+                                      }}
+                                    >
+                                      {m.full_name}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span style={{ fontSize: "11px", color: "var(--muted)" }}>None</span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
+                              {r.is_superadmin_wildcard || r.code === "SUPER_ADMIN" ? (
+                                <span style={{ fontSize: "11px", color: "var(--neon)", fontWeight: 600 }}>
+                                  ★ Full access (* wildcards)
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: "11px", color: "var(--muted)" }}>
+                                  {r.permissions_count ?? 0} permissions granted
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: "10px 0 10px 10px", textAlign: "right", verticalAlign: "top" }}>
+                              <div style={{ display: "inline-flex", gap: "5px" }}>
+                                <button
+                                  type="button"
+                                  className="secondary-button"
+                                  onClick={() => {
+                                    setEditingRole(r);
+                                    setRoleModalOpen(true);
+                                  }}
+                                  style={{ padding: "0 10px", height: "30px", fontSize: "11px", borderRadius: "5px" }}
+                                >
+                                  Edit
+                                </button>
+                                {!r.is_system_role && r.code !== "SUPER_ADMIN" && (
+                                  <button
+                                    type="button"
+                                    className="secondary-button"
+                                    onClick={() => handleDeleteRole(r)}
+                                    style={{ padding: "0 8px", height: "30px", fontSize: "11px", color: "#FF594D", borderColor: "rgba(255,89,77,0.3)", borderRadius: "5px" }}
+                                    title="Delete Role"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
-        </div>
 
-        {/* RIGHT COLUMN: USER ACCOUNTS & ACCESS */}
-        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "16px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-            <div>
-              <b style={{ fontSize: "15px", fontWeight: 700, color: "var(--text)", display: "flex", alignItems: "center", gap: "8px" }}>
-                User Accounts & Access
-              </b>
-              <p style={{ fontSize: "11.5px", color: "var(--muted)", margin: "2px 0 0 0" }}>Manage user roles & passwords</p>
-            </div>
-            <PrimaryButton
-              onClick={() => {
-                setEditingUser(null);
-                setUserModalOpen(true);
-              }}
-            >
-              + Add User
-            </PrimaryButton>
-          </div>
+          {/* RIGHT COLUMN: USER ACCOUNTS & ACCESS */}
+          {(activeTab === "all" || activeTab === "users") && (
+            <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "16px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                <div>
+                  <b style={{ fontSize: "15px", fontWeight: 700, color: "var(--text)", display: "flex", alignItems: "center", gap: "8px" }}>
+                    User Accounts & Access
+                  </b>
+                  <p style={{ fontSize: "11.5px", color: "var(--muted)", margin: "2px 0 0 0" }}>Manage user roles & passwords</p>
+                </div>
+                <PrimaryButton
+                  onClick={() => {
+                    setEditingUser(null);
+                    setUserModalOpen(true);
+                  }}
+                >
+                  + Add User
+                </PrimaryButton>
+              </div>
 
           {loadingUsers && <EmptyState title="Loading users" text="Fetching portal user accounts." />}
 
@@ -388,7 +439,9 @@ export function SettingsAccessPage() {
             </div>
           )}
         </div>
+        )}
       </div>
+      )}
 
       <RoleFormModal
         key={editingRole?.id ?? "new"}

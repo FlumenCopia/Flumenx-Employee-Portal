@@ -66,9 +66,14 @@ export function AdminAttendancePage() {
         title="Attendance."
         subtitle="Today's workforce rhythm and live attendance register across all departments."
         action={
-          <Link className="secondary-button" href="/admin/attendance/reports">
-            <FileBarChart size={16} /> Reports & Export
-          </Link>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <Link className="secondary-button" href="/admin/attendance/settings">
+              <MapPin size={16} /> GPS &amp; Policy Settings
+            </Link>
+            <Link className="secondary-button" href="/admin/attendance/reports">
+              <FileBarChart size={16} /> Reports &amp; Export
+            </Link>
+          </div>
         }
       />
       

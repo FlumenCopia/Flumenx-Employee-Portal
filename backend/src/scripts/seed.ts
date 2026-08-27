@@ -12,22 +12,25 @@ async function seed() {
 
   // 1. Seed Portal Pages
   const pagesData = [
-    { moduleCode: 'TASKS', title: 'Task Board', routePath: '/work?view=kanban', icon: 'Kanban', sidebarOrder: 1 },
-    { moduleCode: 'TIMER', title: 'Time Tracker', routePath: '/timer', icon: 'Clock3', sidebarOrder: 2 },
-    { moduleCode: 'TEAM_WORK', title: 'Team Work', routePath: '/team-work', icon: 'Users', sidebarOrder: 3 },
-    { moduleCode: 'KPI', title: 'KPI Performance', routePath: '/kpi', icon: 'TrendingUp', sidebarOrder: 4 },
-    { moduleCode: 'EMPLOYEES', title: 'Employees Directory', routePath: '/employees', icon: 'Users', sidebarOrder: 5 },
-    { moduleCode: 'ATTENDANCE', title: 'Attendance', routePath: '/attendance', icon: 'CalendarCheck', sidebarOrder: 6 },
-    { moduleCode: 'LEAVES', title: 'Leave Requests', routePath: '/leaves', icon: 'CalendarDays', sidebarOrder: 7 },
-    { moduleCode: 'MEETINGS', title: 'Meetings', routePath: '/meetings', icon: 'UserRound', sidebarOrder: 8 },
-    { moduleCode: 'ROLES', title: 'Dynamic Roles', routePath: '/admin/roles', icon: 'ShieldAlert', sidebarOrder: 9 },
-    { moduleCode: 'SUPER_ADMIN_USERS', title: 'User Management', routePath: '/admin/users', icon: 'UserCheck', sidebarOrder: 10 },
-    { moduleCode: 'PAGE_MANAGEMENT', title: 'Page Management', routePath: '/pages', icon: 'FileCode', sidebarOrder: 11 },
-    { moduleCode: 'SALARY_SLIPS', title: 'Salary Slips', routePath: '/admin/salary-slips', icon: 'Receipt', sidebarOrder: 12 },
-    { moduleCode: 'ANNOUNCEMENTS', title: 'Announcements', routePath: '/admin/announcements', icon: 'Megaphone', sidebarOrder: 13 },
-    { moduleCode: 'AUDIT_LOGS', title: 'Audit Logs', routePath: '/admin/audit-logs', icon: 'History', sidebarOrder: 14 },
-    { moduleCode: 'REPORTS', title: 'Reports Center', routePath: '/reports', icon: 'FileSpreadsheet', sidebarOrder: 15 },
-    { moduleCode: 'SETTINGS_ACCESS', title: 'Settings & Access', routePath: '/settings', icon: 'Settings', sidebarOrder: 16 },
+    { moduleCode: 'COMMAND_CENTER', title: 'Command Center', routePath: '/work?view=command-center', icon: 'Sparkles', sidebarOrder: 1 },
+    { moduleCode: 'TASKS', title: 'Task Board', routePath: '/work?view=kanban', icon: 'Kanban', sidebarOrder: 2 },
+    { moduleCode: 'TIMER', title: 'Time Tracker', routePath: '/timer', icon: 'Clock3', sidebarOrder: 3 },
+    { moduleCode: 'TEAM_WORK', title: 'Team Work', routePath: '/team-work', icon: 'Users', sidebarOrder: 4 },
+    { moduleCode: 'CLIENTS', title: 'Clients Master', routePath: '/clients', icon: 'BriefcaseBusiness', sidebarOrder: 5 },
+    { moduleCode: 'TIMELINE', title: 'Timeline & Phases', routePath: '/work?view=timeline', icon: 'Layers', sidebarOrder: 6 },
+    { moduleCode: 'KPI', title: 'KPI Performance', routePath: '/kpi', icon: 'TrendingUp', sidebarOrder: 7 },
+    { moduleCode: 'EMPLOYEES', title: 'Employees Directory', routePath: '/employees', icon: 'Users', sidebarOrder: 8 },
+    { moduleCode: 'ATTENDANCE', title: 'Attendance', routePath: '/attendance', icon: 'CalendarCheck', sidebarOrder: 9 },
+    { moduleCode: 'LEAVES', title: 'Leave Requests', routePath: '/leaves', icon: 'CalendarDays', sidebarOrder: 10 },
+    { moduleCode: 'MEETINGS', title: 'Meetings', routePath: '/meetings', icon: 'UserRound', sidebarOrder: 11 },
+    { moduleCode: 'REPORTS', title: 'Reports Center', routePath: '/reports', icon: 'FileSpreadsheet', sidebarOrder: 12 },
+    { moduleCode: 'ROLES', title: 'Dynamic Roles', routePath: '/admin/roles', icon: 'ShieldAlert', sidebarOrder: 13 },
+    { moduleCode: 'SUPER_ADMIN_USERS', title: 'User Management', routePath: '/admin/users', icon: 'UserCheck', sidebarOrder: 14 },
+    { moduleCode: 'PAGE_MANAGEMENT', title: 'Page Management', routePath: '/pages', icon: 'FileCode', sidebarOrder: 15 },
+    { moduleCode: 'SALARY_SLIPS', title: 'Salary Slips', routePath: '/admin/salary-slips', icon: 'Receipt', sidebarOrder: 16 },
+    { moduleCode: 'ANNOUNCEMENTS', title: 'Announcements', routePath: '/admin/announcements', icon: 'Megaphone', sidebarOrder: 17 },
+    { moduleCode: 'AUDIT_LOGS', title: 'Audit Logs', routePath: '/admin/audit-logs', icon: 'History', sidebarOrder: 18 },
+    { moduleCode: 'SETTINGS_ACCESS', title: 'Settings & Access', routePath: '/settings', icon: 'Settings', sidebarOrder: 19 },
   ];
 
   const pageDocMap: Record<string, any> = {};
@@ -79,11 +82,11 @@ async function seed() {
       ADMIN: Object.keys(pageDocMap),
       OPERATIONS: Object.keys(pageDocMap),
       OPERATIONS_HEAD: Object.keys(pageDocMap),
-      HR: ['TASKS', 'TIMER', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'KPI', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS'],
-      ACCOUNTANT: ['TASKS', 'TIMER', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
-      TEAM_LEAD: ['TASKS', 'TIMER', 'TEAM_WORK', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
-      BDE: ['TASKS', 'TIMER', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
-      EMPLOYEE: ['TASKS', 'TIMER', 'KPI', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
+      HR: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS'],
+      ACCOUNTANT: ['TASKS', 'TIMER', 'CLIENTS', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
+      TEAM_LEAD: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
+      BDE: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'CLIENTS', 'TIMELINE', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
+      EMPLOYEE: ['TASKS', 'TIMER', 'TEAM_WORK', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
     };
 
     const allowed = ROLE_MODULE_MAP[r.code] || ['TASKS', 'ATTENDANCE', 'LEAVES', 'MEETINGS'];
@@ -378,16 +381,24 @@ async function seed() {
   let policy = await AttendancePolicy.findOne();
   if (!policy) {
     policy = new AttendancePolicy({
-      officeLatitude: 9.9312328,
-      officeLongitude: 76.2673041,
-      allowedRadiusMeters: 500,
-      workStartTime: '09:30',
-      workEndTime: '18:30',
+      officeLatitude: 8.5213442,
+      officeLongitude: 76.97848305555556,
+      allowedRadiusMeters: 200,
+      officeStartTime: '09:30',
+      officeEndTime: '18:30',
       gracePeriodMinutes: 5,
-      halfDayCutoffLateMinutes: 120,
+      earlyCheckoutHalfDayCutoff: '18:00',
+      halfDayHours: 4,
+      fullDayHours: 8,
     });
     await policy.save();
     console.log('[Seed] Attendance Policy created.');
+  } else {
+    policy.officeLatitude = 8.5213442;
+    policy.officeLongitude = 76.97848305555556;
+    policy.allowedRadiusMeters = 200;
+    await policy.save();
+    console.log('[Seed] Attendance Policy updated with HQ GPS coordinates.');
   }
 
   console.log('[Seed] System seeding completed successfully!');

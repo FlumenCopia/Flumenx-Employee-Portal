@@ -4,6 +4,7 @@ import { config } from '../config/env.js';
 import { Meeting } from '../models/Meeting.js';
 import { MeetingMessage } from '../models/MeetingMessage.js';
 import { User } from '../models/User.js';
+import { Employee } from '../models/Employee.js';
 
 interface AuthenticatedSocket extends Socket {
   user?: any;
@@ -38,7 +39,9 @@ export function setupMeetingSockets(io: SocketIOServer) {
         if (decoded && decoded.id) {
           const user = await User.findById(decoded.id).select('-password');
           if (user) {
+            const emp = await Employee.findOne({ user: user._id });
             socket.user = user;
+            (socket.user as any).employee = emp;
           }
         }
       }
