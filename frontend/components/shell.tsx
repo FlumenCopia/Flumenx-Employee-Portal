@@ -614,7 +614,6 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
           <button className="menu-button" onClick={() => setOpen(true)} aria-label="Open navigation menu"><Menu /></button>
           <div className="topbar-word">FLUMENX OS / <span>{roleLabel.toUpperCase()}</span></div>
           <div className="top-actions">
-            <PwaInstallButton variant="header" />
             <NotificationBell user={user} />
             <span className="topbar-user-name font-medium text-[#1a1b1e] bg-[#ffffff] border border-[#dad7ce] px-2.5 py-1 rounded-lg text-xs shadow-sm">
               {user?.employee?.name || user?.first_name || user?.username || name}
