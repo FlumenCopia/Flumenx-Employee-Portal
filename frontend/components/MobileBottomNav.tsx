@@ -115,7 +115,7 @@ export function MobileBottomNav({
             </button>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
             <button
               type="button"
               onClick={() => {
@@ -126,9 +126,9 @@ export function MobileBottomNav({
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "6px",
-                padding: "12px 6px",
-                borderRadius: "12px",
+                gap: "5px",
+                padding: "10px 4px",
+                borderRadius: "10px",
                 background: "linear-gradient(135deg, #087A5B 0%, #055C44 100%)",
                 border: "1px solid #34D399",
                 color: "#FFFFFF",
@@ -136,8 +136,8 @@ export function MobileBottomNav({
                 textAlign: "center",
               }}
             >
-              <Plus size={20} />
-              <span style={{ fontSize: "11px", fontWeight: 700 }}>+ New Task</span>
+              <Plus size={18} />
+              <span style={{ fontSize: "10.5px", fontWeight: 700 }}>+ New Task</span>
             </button>
 
             <button
@@ -150,9 +150,9 @@ export function MobileBottomNav({
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "6px",
-                padding: "12px 6px",
-                borderRadius: "12px",
+                gap: "5px",
+                padding: "10px 4px",
+                borderRadius: "10px",
                 background: "rgba(255, 255, 255, 0.05)",
                 border: "1px solid rgba(255, 255, 255, 0.1)",
                 color: "#E2E8F0",
@@ -160,8 +160,8 @@ export function MobileBottomNav({
                 textAlign: "center",
               }}
             >
-              <CalendarCheck size={20} color="#34D399" />
-              <span style={{ fontSize: "11px", fontWeight: 600 }}>Attendance</span>
+              <CalendarCheck size={18} color="#34D399" />
+              <span style={{ fontSize: "10.5px", fontWeight: 600 }}>Attendance</span>
             </button>
 
             <button
@@ -174,9 +174,9 @@ export function MobileBottomNav({
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "6px",
-                padding: "12px 6px",
-                borderRadius: "12px",
+                gap: "5px",
+                padding: "10px 4px",
+                borderRadius: "10px",
                 background: "rgba(255, 255, 255, 0.05)",
                 border: "1px solid rgba(255, 255, 255, 0.1)",
                 color: "#E2E8F0",
@@ -184,8 +184,8 @@ export function MobileBottomNav({
                 textAlign: "center",
               }}
             >
-              <Users size={20} color="#38BDF8" />
-              <span style={{ fontSize: "11px", fontWeight: 600 }}>Team Directory</span>
+              <Users size={18} color="#38BDF8" />
+              <span style={{ fontSize: "10.5px", fontWeight: 600 }}>Directory</span>
             </button>
 
             <button
@@ -198,9 +198,9 @@ export function MobileBottomNav({
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "6px",
-                padding: "12px 6px",
-                borderRadius: "12px",
+                gap: "5px",
+                padding: "10px 4px",
+                borderRadius: "10px",
                 background: "rgba(255, 255, 255, 0.05)",
                 border: "1px solid rgba(255, 255, 255, 0.1)",
                 color: "#E2E8F0",
@@ -208,8 +208,8 @@ export function MobileBottomNav({
                 textAlign: "center",
               }}
             >
-              <FileText size={20} color="#FBBF24" />
-              <span style={{ fontSize: "11px", fontWeight: 600 }}>Salary Slips</span>
+              <FileText size={18} color="#FBBF24" />
+              <span style={{ fontSize: "10.5px", fontWeight: 600 }}>Salary Slips</span>
             </button>
 
             <button
@@ -224,9 +224,9 @@ export function MobileBottomNav({
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "6px",
-                padding: "12px 6px",
-                borderRadius: "12px",
+                gap: "5px",
+                padding: "10px 4px",
+                borderRadius: "10px",
                 background: "rgba(255, 255, 255, 0.05)",
                 border: "1px solid rgba(255, 255, 255, 0.1)",
                 color: "#E2E8F0",
@@ -234,8 +234,8 @@ export function MobileBottomNav({
                 textAlign: "center",
               }}
             >
-              <KeyRound size={20} color="#34D399" />
-              <span style={{ fontSize: "11px", fontWeight: 600 }}>Password</span>
+              <KeyRound size={18} color="#34D399" />
+              <span style={{ fontSize: "10.5px", fontWeight: 600 }}>Password</span>
             </button>
 
             <button
@@ -248,9 +248,9 @@ export function MobileBottomNav({
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: "6px",
-                padding: "12px 6px",
-                borderRadius: "12px",
+                gap: "5px",
+                padding: "10px 4px",
+                borderRadius: "10px",
                 background: "rgba(255, 255, 255, 0.05)",
                 border: "1px solid rgba(255, 255, 255, 0.1)",
                 color: "#E2E8F0",
@@ -258,34 +258,39 @@ export function MobileBottomNav({
                 textAlign: "center",
               }}
             >
-              <Menu size={20} color="#A78BFA" />
-              <span style={{ fontSize: "11px", fontWeight: 600 }}>Full Menu</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setExpanded(false);
-                onOpenLogout();
-              }}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "6px",
-                padding: "12px 6px",
-                borderRadius: "12px",
-                background: "rgba(239, 68, 68, 0.15)",
-                border: "1px solid rgba(239, 68, 68, 0.35)",
-                color: "#FCA5A5",
-                cursor: "pointer",
-                textAlign: "center",
-              }}
-            >
-              <LogOut size={20} color="#EF4444" />
-              <span style={{ fontSize: "11px", fontWeight: 700 }}>Logout</span>
+              <Menu size={18} color="#A78BFA" />
+              <span style={{ fontSize: "10.5px", fontWeight: 600 }}>Full Menu</span>
             </button>
           </div>
+
+          {/* Full-width Logout Bar */}
+          <button
+            type="button"
+            onClick={() => {
+              setExpanded(false);
+              onOpenLogout();
+            }}
+            style={{
+              marginTop: "10px",
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              padding: "9px 12px",
+              borderRadius: "10px",
+              background: "rgba(239, 68, 68, 0.14)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              color: "#FCA5A5",
+              fontSize: "11.5px",
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <LogOut size={15} color="#EF4444" />
+            <span>Sign out of FLUMENX OS</span>
+          </button>
         </div>
       )}
 
