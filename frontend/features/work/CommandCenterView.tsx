@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { SHOW_ADVANCED_WORKBOARD, CANONICAL_DEPARTMENTS, normalizeDepartment } from "@/lib/types";
 
 import {
@@ -75,6 +75,7 @@ export interface TaskItem {
   type: string;
   phase: string;
   assignee: string;
+  assigneeId?: number | null;
   assigneeName: string;
   reviewer: string;
   reviewerId?: number | null;
@@ -387,8 +388,11 @@ export function CommandCenterView({
   }, [initialTab]);
 
   useEffect(() => {
-    if (assignments && assignments.length > 0) {
-      const converted: TaskItem[] = assignments.map((a) => {
+    if (!assignments || assignments.length === 0) {
+      setTasks([]);
+      return;
+    }
+    const converted: TaskItem[] = assignments.map((a) => {
         const statusMap: Record<string, TaskItem["status"]> = {
           Backlog: "backlog",
           Assigned: "assigned",
@@ -429,6 +433,7 @@ export function CommandCenterView({
           type: detectedType,
           phase: "ph1",
           assignee: String(a.employee),
+          assigneeId: a.employee,
           assigneeName: a.employee_name,
           reviewer: a.reviewer_name || (a.reviewer_details ? a.reviewer_details.name : "") || "Admin",
           reviewerId: a.reviewer,
@@ -455,9 +460,6 @@ export function CommandCenterView({
         };
       });
       setTasks(converted);
-    } else {
-      setTasks([]);
-    }
   }, [assignments]);
 
 
@@ -512,8 +514,27 @@ export function CommandCenterView({
     return () => clearInterval(timer);
   }, []);
 
+  const isAssignedToCurrentUser = useCallback((t: TaskItem): boolean => {
+    if (!currentUser) return false;
+    const currentEmpId = currentUser.employeeId ? String(currentUser.employeeId) : null;
+    const currentUserId = currentUser.id ? String(currentUser.id) : null;
+    const currentName = (currentUser.name || currentUser.username || "").toLowerCase().trim();
+
+    if (currentEmpId && t.assigneeId && String(t.assigneeId) === currentEmpId) return true;
+    if (currentUserId && t.assigneeId && String(t.assigneeId) === currentUserId) return true;
+    if (currentName && t.assigneeName && t.assigneeName.toLowerCase().trim() === currentName) return true;
+    if (currentName && t.assignee && t.assignee.toLowerCase().trim() === currentName) return true;
+    return false;
+  }, [currentUser]);
+
   const handleStartTaskTimer = async (e: React.MouseEvent, taskId: string) => {
     e.stopPropagation();
+    const targetTask = tasks.find((t) => String(t.id) === String(taskId));
+    const isSuper = (currentUser as any)?.is_superuser || (userRole || "").toUpperCase() === "SUPER_ADMIN";
+    if (targetTask && !isAssignedToCurrentUser(targetTask) && !isSuper) {
+      alert("You can only start the timer for tasks assigned to you.");
+      return;
+    }
     if (timerLoadingId) return;
     setTimerLoadingId(taskId);
     try {
@@ -1358,24 +1379,30 @@ export function CommandCenterView({
                               <span style={{ fontSize: "11.5px", fontFamily: "monospace", fontWeight: 700, color: isTimerActive ? "#10B981" : "var(--text)" }}>
                                 {timeFormatted}
                               </span>
-                              {isTimerActive ? (
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleStopTaskTimer(e, t.id)}
-                                  style={{ background: "#EF4444", border: "none", color: "#FFF", borderRadius: "6px", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-                                  title="Stop task timer"
-                                >
-                                  <Pause size={12} />
-                                </button>
+                              {(isAssignedToCurrentUser(t) || (currentUser as any)?.is_superuser || (userRole || "").toUpperCase() === "SUPER_ADMIN") ? (
+                                isTimerActive ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleStopTaskTimer(e, t.id)}
+                                    style={{ background: "#EF4444", border: "none", color: "#FFF", borderRadius: "6px", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                                    title="Stop task timer"
+                                  >
+                                    <Pause size={12} />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleStartTaskTimer(e, t.id)}
+                                    style={{ background: "#10B981", border: "none", color: "#FFF", borderRadius: "6px", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                                    title="Start task timer"
+                                  >
+                                    <Play size={12} />
+                                  </button>
+                                )
                               ) : (
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleStartTaskTimer(e, t.id)}
-                                  style={{ background: "#10B981", border: "none", color: "#FFF", borderRadius: "6px", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-                                  title="Start task timer"
-                                >
-                                  <Play size={12} />
-                                </button>
+                                isTimerActive ? (
+                                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#EF4444", display: "inline-block", animation: "pulse 1.5s infinite" }} title={`Active timer running by ${t.assigneeName || 'assignee'}`} />
+                                ) : null
                               )}
                             </div>
 
@@ -1592,42 +1619,50 @@ export function CommandCenterView({
                                   </span>
                                 </div>
 
-                                {t.activeTimer ? (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => handleStopTaskTimer(e, t.id)}
-                                    disabled={timerLoadingId === t.id}
-                                    style={{
-                                      background: "var(--red)",
-                                      color: "#ffffff",
-                                      border: "none",
-                                      padding: "4px 10px",
-                                      borderRadius: "6px",
-                                      fontSize: "11px",
-                                      fontWeight: 800,
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    ⏹ Stop Timer
-                                  </button>
+                                {(isAssignedToCurrentUser(t) || (currentUser as any)?.is_superuser || (userRole || "").toUpperCase() === "SUPER_ADMIN") ? (
+                                  t.activeTimer ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleStopTaskTimer(e, t.id)}
+                                      disabled={timerLoadingId === t.id}
+                                      style={{
+                                        background: "var(--red)",
+                                        color: "#ffffff",
+                                        border: "none",
+                                        padding: "4px 10px",
+                                        borderRadius: "6px",
+                                        fontSize: "11px",
+                                        fontWeight: 800,
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      ⏹ Stop Timer
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleStartTaskTimer(e, t.id)}
+                                      disabled={timerLoadingId === t.id}
+                                      style={{
+                                        background: "var(--amber)",
+                                        color: "#ffffff",
+                                        border: "none",
+                                        padding: "4px 10px",
+                                        borderRadius: "6px",
+                                        fontSize: "11px",
+                                        fontWeight: 800,
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      ▶ Start Timer
+                                    </button>
+                                  )
                                 ) : (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => handleStartTaskTimer(e, t.id)}
-                                    disabled={timerLoadingId === t.id}
-                                    style={{
-                                      background: "var(--amber)",
-                                      color: "#ffffff",
-                                      border: "none",
-                                      padding: "4px 10px",
-                                      borderRadius: "6px",
-                                      fontSize: "11px",
-                                      fontWeight: 800,
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    ▶ Start Timer
-                                  </button>
+                                  t.activeTimer ? (
+                                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--red)", background: "rgba(239, 68, 68, 0.12)", padding: "3px 8px", borderRadius: "6px" }}>
+                                      🔴 Active ({t.assigneeName || 'Assignee'})
+                                    </span>
+                                  ) : null
                                 )}
                               </div>
 

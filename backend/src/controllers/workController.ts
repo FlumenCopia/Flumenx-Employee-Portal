@@ -86,13 +86,26 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
 
     if (isTeamLead) {
       // Team lead sees their own tasks + tasks assigned to team members in their department
+      const deptRegex = ownEmployee.department ? new RegExp(`^${ownEmployee.department.trim()}$`, 'i') : null;
+      const teamEmployees = deptRegex ? await Employee.find({ department: deptRegex }).select('_id') : [];
+      const teamEmpIds = [ownEmployee._id, ...teamEmployees.map((e) => e._id)];
+
       if (assigned_to_me === 'true' || employee_id === 'me') {
         filter.employee = ownEmployee._id;
       } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
-        filter.employee = employee_id;
+        if (teamEmpIds.some((id) => id.toString() === String(employee_id))) {
+          filter.employee = employee_id;
+        } else {
+          // Cross-department access blocked
+          res.json({ count: 0, next: null, previous: null, results: [] });
+          return;
+        }
       } else {
-        const teamEmployees = await Employee.find({ department: ownEmployee.department }).select('_id');
-        filter.employee = { $in: teamEmployees.map((e) => e._id) };
+        filter.$or = [
+          { employee: { $in: teamEmpIds } },
+          { assignedBy: req.user?._id },
+          { reviewer: ownEmployee._id },
+        ];
       }
     } else {
       // Standard EMPLOYEE or BDE strictly sees only own tasks
@@ -181,6 +194,17 @@ export async function startTaskTimer(req: Request, res: Response): Promise<void>
     return;
   }
 
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+
+  // Strictly enforce that only the assigned employee can start the timer
+  if (!isSuper) {
+    if (!ownEmp || !assignment.employee || String(assignment.employee) !== String(ownEmp._id)) {
+      res.status(403).json({ detail: 'Permission denied. You can only start the timer for tasks assigned to you.' });
+      return;
+    }
+  }
+
   if (assignment.activeTimer && assignment.activeTimer.startedAt) {
     res.status(400).json({ detail: 'Timer is already running for this task.' });
     return;
@@ -209,6 +233,19 @@ export async function stopTaskTimer(req: Request, res: Response): Promise<void> 
   if (!assignment.activeTimer || !assignment.activeTimer.startedAt) {
     res.status(400).json({ detail: 'No active timer found for this task.' });
     return;
+  }
+
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+
+  // Enforce that only the assigned employee or the user who started it can stop it
+  if (!isSuper) {
+    const isAssignee = ownEmp && assignment.employee && String(assignment.employee) === String(ownEmp._id);
+    const isStarter = assignment.activeTimer.startedBy && req.user && String(assignment.activeTimer.startedBy) === String(req.user._id);
+    if (!isAssignee && !isStarter) {
+      res.status(403).json({ detail: 'Permission denied. You can only stop timers for your own tasks.' });
+      return;
+    }
   }
 
   const startedAt = new Date(assignment.activeTimer.startedAt);
@@ -609,8 +646,29 @@ export async function createWorkDeliverable(req: Request, res: Response): Promis
 
 // --- Work Options & Share Links ---
 export async function getWorkEmployeeOptions(req: Request, res: Response): Promise<void> {
-  const employees = await Employee.find({ status: { $ne: 'Inactive' } }, '_id name employeeCode department').sort({ name: 1 });
-  const users = await User.find({ isActive: true }, '_id email firstName lastName username role').sort({ firstName: 1 });
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
+  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+
+  const empFilter: any = { status: { $ne: 'Inactive' } };
+
+  if (!isSuper && !isManagement && isTeamLead && req.user) {
+    const ownEmp = await Employee.findOne({ user: req.user._id });
+    if (ownEmp && ownEmp.department) {
+      const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
+      empFilter.$or = [
+        { department: deptRegex },
+        { _id: ownEmp._id },
+      ];
+    }
+  }
+
+  const employees = await Employee.find(empFilter, '_id name employeeCode department').sort({ name: 1 });
+  const userFilter: any = { isActive: true };
+  if (isTeamLead && !isSuper && !isManagement) {
+    userFilter.role = { $in: ['TEAM_LEAD', 'EMPLOYEE'] };
+  }
+  const users = await User.find(userFilter, '_id email firstName lastName username role').sort({ firstName: 1 });
 
   const map = new Map<string, { id: any; name: string; display_name: string; employee_code: string; department: string }>();
 
