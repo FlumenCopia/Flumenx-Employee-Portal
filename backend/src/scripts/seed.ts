@@ -2,7 +2,7 @@ import { connectDB } from '../config/db.js';
 import { PortalPage } from '../models/PortalPage.js';
 import { DynamicRole } from '../models/DynamicRole.js';
 import { Department } from '../models/Department.js';
-import { User } from '../models/User.js';
+import { User, UserRoleType } from '../models/User.js';
 import { Employee } from '../models/Employee.js';
 import { AttendancePolicy } from '../models/AttendancePolicy.js';
 
@@ -172,7 +172,198 @@ async function seed() {
     console.log('[Seed] Created Super Admin Employee profile.');
   }
 
-  // 5. Update any other existing users to ensure dynamicRole linkage
+  // 5. Seed Employee Team & Team Leads
+  const employeesToSeed = [
+    {
+      name: 'Dhishunjith k',
+      email: 'dhishunjith@flumenx.com',
+      designation: 'DM Team Lead',
+      department: 'Digital Marketing',
+      role: 'TEAM_LEAD',
+      code: 'FX-002',
+    },
+    {
+      name: 'Najil Rahman P.M.',
+      email: 'najilrahmanflumenx@gmail.com',
+      designation: 'Senior web developer',
+      department: 'Web Development',
+      role: 'TEAM_LEAD',
+      code: 'FX-003',
+    },
+    {
+      name: 'Nidhin KG',
+      email: 'nidhinkgflumenx@gmail.com',
+      designation: 'Junior web developer',
+      department: 'Web Development',
+      role: 'EMPLOYEE',
+      code: 'FX-004',
+      leadEmail: 'najilrahmanflumenx@gmail.com',
+    },
+    {
+      name: 'Ebi Lawrence',
+      email: 'ebilawrenceflumenx@gmail.com',
+      designation: 'Junior Graphic Designer',
+      department: 'Design',
+      role: 'EMPLOYEE',
+      code: 'FX-005',
+      leadEmail: 'dhishunjith@flumenx.com',
+    },
+    {
+      name: 'Abeyson p mathew',
+      email: 'abeysonpmathewflumenx@gmail.com',
+      designation: 'HR',
+      department: 'Human Resources',
+      role: 'HR',
+      code: 'FX-006',
+    },
+    {
+      name: 'Anurag J S',
+      email: 'anuragjsflumenx@gmail.com',
+      designation: 'BDM',
+      department: 'Business Development',
+      role: 'BDE',
+      code: 'FX-007',
+    },
+    {
+      name: 'Shrijith',
+      email: 'Shreejithspillaiflumencopia@gmail.com',
+      designation: 'Senior Graphic Designer',
+      department: 'Design',
+      role: 'EMPLOYEE',
+      code: 'FX-008',
+      leadEmail: 'dhishunjith@flumenx.com',
+    },
+    {
+      name: 'Anandhu R S',
+      email: 'anandhursflumenx@gmail.com',
+      designation: 'Accountant',
+      department: 'Accounts',
+      role: 'ACCOUNTANT',
+      code: 'FX-009',
+    },
+    {
+      name: 'Anandu anil',
+      email: 'ananduanilflumenx@gmail.com',
+      designation: 'Video editor',
+      department: 'Video Editing',
+      role: 'EMPLOYEE',
+      code: 'FX-010',
+      leadEmail: 'dhishunjith@flumenx.com',
+    },
+    {
+      name: 'Gowtham Vijay',
+      email: 'gowthamvijayflumenx@gmail.com',
+      designation: 'Digital Marketing Executive',
+      department: 'Digital Marketing',
+      role: 'EMPLOYEE',
+      code: 'FX-011',
+      leadEmail: 'dhishunjith@flumenx.com',
+    },
+    {
+      name: 'NiKhil A. V.',
+      email: 'nikhilavflumenx@gmail.com',
+      designation: 'Digital Marketing Executive',
+      department: 'Digital Marketing',
+      role: 'EMPLOYEE',
+      code: 'FX-012',
+      leadEmail: 'dhishunjith@flumenx.com',
+    },
+    {
+      name: 'Akhil S. S.',
+      email: 'akhilsflumencopia@gmail.com',
+      designation: 'Junior web developer',
+      department: 'Web Development',
+      role: 'EMPLOYEE',
+      code: 'FX-013',
+      leadEmail: 'najilrahmanflumenx@gmail.com',
+    },
+    {
+      name: 'Rahul B Chandran',
+      email: 'rahulchandran883@gmail.com',
+      designation: 'Digital marketing intern',
+      department: 'Digital Marketing',
+      role: 'EMPLOYEE',
+      code: 'FX-014',
+      leadEmail: 'dhishunjith@flumenx.com',
+    },
+  ];
+
+  const empDocMap: Record<string, any> = {};
+
+  // First pass: Create Users & Employees
+  for (const item of employeesToSeed) {
+    const cleanEmail = item.email.trim().toLowerCase();
+    let u = await User.findOne({ email: cleanEmail });
+    const matchedRole = roleDocMap[item.role] || roleDocMap['EMPLOYEE'];
+
+    if (!u) {
+      const parts = item.name.trim().split(' ');
+      const firstName = parts[0];
+      const lastName = parts.slice(1).join(' ') || '';
+      const username = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '_');
+
+      u = new User({
+        username,
+        email: cleanEmail,
+        password: 'password123',
+        firstName,
+        lastName,
+        role: item.role as UserRoleType,
+        dynamicRole: matchedRole ? matchedRole._id : null,
+        isStaff: item.role === 'TEAM_LEAD' || item.role === 'HR',
+        isActive: true,
+      });
+      await u.save();
+    } else {
+      u.role = item.role as UserRoleType;
+      if (matchedRole) u.dynamicRole = matchedRole._id;
+      await u.save();
+    }
+
+    let emp = await Employee.findOne({ email: cleanEmail });
+    const deptObj = await Department.findOne({ name: item.department });
+
+    if (!emp) {
+      emp = new Employee({
+        user: u._id,
+        employeeCode: item.code,
+        name: item.name.trim(),
+        email: cleanEmail,
+        phone: '+91 9876543210',
+        department: item.department,
+        departmentRef: deptObj ? deptObj._id : null,
+        designation: item.designation,
+        joiningDate: new Date(),
+        status: 'Active',
+      });
+      await emp.save();
+    } else {
+      emp.user = u._id;
+      emp.employeeCode = item.code;
+      emp.department = item.department;
+      if (deptObj) emp.departmentRef = deptObj._id;
+      emp.designation = item.designation;
+      await emp.save();
+    }
+
+    empDocMap[cleanEmail] = emp;
+  }
+
+  // Second pass: Assign Team Leads
+  for (const item of employeesToSeed) {
+    if (item.leadEmail && empDocMap[item.leadEmail.trim().toLowerCase()]) {
+      const emp = empDocMap[item.email.trim().toLowerCase()];
+      const leadEmp = empDocMap[item.leadEmail.trim().toLowerCase()];
+      if (emp && leadEmp) {
+        emp.teamLead = leadEmp._id;
+        await emp.save();
+      }
+    }
+  }
+
+  console.log(`[Seed] Seeded ${employeesToSeed.length} team members and team leads.`);
+
+  // 6. Update any other existing users to ensure dynamicRole linkage
   const existingUsers = await User.find({ _id: { $ne: superAdminUser._id } });
   for (const u of existingUsers) {
     const matchedRole = roleDocMap[u.role] || roleDocMap['EMPLOYEE'];
