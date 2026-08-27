@@ -103,7 +103,7 @@ export function MobileBottomNav({
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", paddingBottom: "10px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/flumenx-mark-only.png" alt="FLUMENX OS" style={{ width: "20px", height: "20px" }} />
+              <img src="/flumenx-mark-only.png" alt="FLUMENX OS" style={{ width: "22px", height: "22px", borderRadius: "5px", objectFit: "cover" }} />
               <span style={{ fontSize: "12px", fontWeight: 800, color: "#34D399", letterSpacing: "0.1em" }}>FLUMENX OS ACTIONS</span>
             </div>
             <button
@@ -319,7 +319,7 @@ export function MobileBottomNav({
             <img
               src="/flumenx-mark-only.png"
               alt="FLUMENX OS"
-              style={{ width: "26px", height: "26px", objectFit: "contain" }}
+              style={{ width: "28px", height: "28px", borderRadius: "7px", objectFit: "cover" }}
             />
           </button>
         </div>

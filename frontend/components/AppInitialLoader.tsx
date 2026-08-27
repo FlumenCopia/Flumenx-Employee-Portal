@@ -88,9 +88,10 @@ export function AppInitialLoader({ children }: { children: React.ReactNode }) {
                 src="/flumenx-mark-only.png"
                 alt="FLUMENX OS"
                 style={{
-                  width: "72px",
-                  height: "72px",
-                  objectFit: "contain",
+                  width: "76px",
+                  height: "76px",
+                  borderRadius: "18px",
+                  objectFit: "cover",
                   filter: "drop-shadow(0 0 25px rgba(52, 211, 153, 0.45))",
                 }}
               />
