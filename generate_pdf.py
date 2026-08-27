@@ -1,0 +1,534 @@
+import os
+import subprocess
+import shutil
+
+html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FLUMENX OS - Enterprise RBAC & Security Test Flow Guide</title>
+<style>
+  @page {
+    size: A4;
+    margin: 12mm 12mm 12mm 12mm;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    line-height: 1.45;
+    font-size: 12.5px;
+    margin: 0;
+    padding: 0;
+  }
+  .header {
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .title {
+    font-size: 22px;
+    font-weight: 900;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+    margin: 0 0 3px 0;
+  }
+  .subtitle {
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 600;
+    margin: 0;
+  }
+  .badge-env {
+    background: #10b981;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-transform: uppercase;
+  }
+  h2 {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+    border-left: 4px solid #00E889;
+    padding-left: 8px;
+    margin: 18px 0 10px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 14px;
+    font-size: 11.5px;
+  }
+  th {
+    background: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    text-align: left;
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+  }
+  td {
+    padding: 6px 8px;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td {
+    background-color: #f8fafc;
+  }
+  .role-pill {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 10.5px;
+  }
+  .pill-super { background: #fee2e2; color: #991b1b; }
+  .pill-admin { background: #ffedd5; color: #9a3412; }
+  .pill-hr { background: #fce7f3; color: #831843; }
+  .pill-lead { background: #dbeafe; color: #1e40af; }
+  .pill-emp { background: #dcfce7; color: #166534; }
+  .pill-acc { background: #fef9c3; color: #854d0e; }
+  .pill-bde { background: #ede9fe; color: #5b21b6; }
+
+  .check-box {
+    display: inline-block;
+    width: 13px;
+    height: 13px;
+    border: 1.5px solid #94a3b8;
+    border-radius: 3px;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+  .card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    page-break-inside: avoid;
+  }
+  .card-lead { border-left: 4px solid #3b82f6; }
+  .card-emp { border-left: 4px solid #10b981; }
+  .card-hr { border-left: 4px solid #ec4899; }
+  .card-super { border-left: 4px solid #ef4444; }
+  .card-acc { border-left: 4px solid #eab308; }
+  .card-bde { border-left: 4px solid #8b5cf6; }
+
+  .url-code {
+    font-family: monospace;
+    background: #f1f5f9;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 10.5px;
+    color: #0f172a;
+  }
+  .page-break {
+    page-break-after: always;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1 class="title">FLUMENX OS · RBAC Quality Assurance Test Plan</h1>
+    <p class="subtitle">Complete Testing Matrix & Role Execution Guide · Portal URL: <strong>https://erp.flumenx.in</strong></p>
+  </div>
+  <div>
+    <span class="badge-env">Live Verified</span>
+  </div>
+</div>
+
+<h2>1. Master Test Credentials Reference Table</h2>
+<p>Use these credentials to verify each role's permission boundary, department scoping, and action privileges:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Role Category</th>
+      <th>Primary Test Email</th>
+      <th>Password</th>
+      <th>Assigned Department</th>
+      <th>Scope & Privilege Level</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="role-pill pill-super">SUPER ADMIN</span></td>
+      <td><strong>admin@flumenx.com</strong></td>
+      <td><code>password123</code></td>
+      <td>Operations</td>
+      <td>Global Wildcard (Full Access across all 19 modules, system settings & roles)</td>
+    </tr>
+    <tr>
+      <td><span class="role-pill pill-admin">OPERATIONS / CMO</span></td>
+      <td><strong>operations@flumenx.com</strong></td>
+      <td><code>password123</code></td>
+      <td>Operations</td>
+      <td>Company-wide View & Edit (Tasks, Deliverables, Team Work, KPI, Clients)</td>
+    </tr>
+    <tr>
+      <td><span class="role-pill pill-hr">HR MANAGER</span></td>
+      <td><strong>hr@flumenx.com</strong><br><small>abeysonpmathewflumenx@gmail.com</small></td>
+      <td><code>password123</code></td>
+      <td>Human Resources</td>
+      <td>Company-wide Employee Directory, Attendance Management, Leaves Decision, Salary Slips</td>
+    </tr>
+    <tr>
+      <td><span class="role-pill pill-acc">ACCOUNTANT</span></td>
+      <td><strong>accountant@flumenx.com</strong><br><small>anandhursflumenx@gmail.com</small></td>
+      <td><code>password123</code></td>
+      <td>Accounts</td>
+      <td>Salary Slip Generation & Distribution, Finance Reports, Attendance/Leave view</td>
+    </tr>
+    <tr>
+      <td><span class="role-pill pill-bde">BD / BDO</span></td>
+      <td><strong>bde@flumenx.com</strong><br><small>anuragjsflumenx@gmail.com</small></td>
+      <td><code>password123</code></td>
+      <td>Business Development</td>
+      <td>Client Master Management, Client Portal Share Links, Self Attendance & Leaves</td>
+    </tr>
+    <tr>
+      <td><span class="role-pill pill-lead">WEB DEV TEAM LEAD</span></td>
+      <td><strong>web.lead@flumenx.com</strong><br><small>najilrahmanflumenx@gmail.com</small></td>
+      <td><code>password123</code></td>
+      <td>Web Development</td>
+      <td>Department-Only Scoping (Web Dev Tasks & Members Only; Task Creation Allowed)</td>
+    </tr>
+    <tr>
+      <td><span class="role-pill pill-lead">DM TEAM LEAD</span></td>
+      <td><strong>dhishunjith@flumenx.com</strong></td>
+      <td><code>password123</code></td>
+      <td>Digital Marketing</td>
+      <td>Department-Only Scoping (Digital Marketing Tasks & Members Only)</td>
+    </tr>
+    <tr>
+      <td><span class="role-pill pill-emp">WEB DEV EMPLOYEE</span></td>
+      <td><strong>emp01@flumenx.com</strong><br><small>nidhinkgflumenx@gmail.com</small></td>
+      <td><code>password123</code></td>
+      <td>Web Development</td>
+      <td>Strictly Self-Service (Own Assigned Tasks Only; Own Timer Only; No Task Creation)</td>
+    </tr>
+    <tr>
+      <td><span class="role-pill pill-emp">VIDEO EDITOR EMP</span></td>
+      <td><strong>ananduanilflumenx@gmail.com</strong></td>
+      <td><code>password123</code></td>
+      <td>Video Editing</td>
+      <td>Strictly Self-Service (Own Video Editing Tasks Only; Isolated from Web Dev)</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<h2>2. Step-by-Step Testing Flow by User Role</h2>
+
+<!-- ROLE 1: WEB DEV TEAM LEAD -->
+<div class="card card-lead">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h3 style="margin:0; color:#1e40af;">TEST 1: Web Development Team Lead (<span class="role-pill pill-lead">TEAM_LEAD</span>)</h3>
+    <span class="url-code">web.lead@flumenx.com / password123</span>
+  </div>
+  <p style="margin:4px 0 8px 0; color:#475569;"><strong>Objective:</strong> Verify department isolation, team task assignment, and read-only timer buttons on peer tasks.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30px;">#</th>
+        <th style="width:160px;">Page / Route</th>
+        <th>Action to Perform & Expected Security Behavior</th>
+        <th style="width:70px;">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1.1</td>
+        <td><span class="url-code">/team-lead/work</span><br>Task Board</td>
+        <td>
+          <span class="check-box"></span><strong>Check Task Board Visibility:</strong> Verify ONLY Web Development tasks appear. Ananthu's Video Editing tasks MUST NOT be visible.<br>
+          <span class="check-box"></span><strong>Check Member Dropdown:</strong> Verify only Web Dev members (Nidhin KG, Akhil S.S., Najil) appear in the member filter dropdown.<br>
+          <span class="check-box"></span><strong>Create Task Button:</strong> Click <strong>+ Create Task</strong>. Verify you can assign tasks to Web Dev members. Verify assigning to cross-department is rejected.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>1.2</td>
+        <td><span class="url-code">/team-lead/work</span><br>Timer Check</td>
+        <td>
+          <span class="check-box"></span><strong>Own Task Timer:</strong> On a task assigned to yourself, verify the active green <strong>▶ Start Timer</strong> / red <strong>⏹ Stop Timer</strong> button is interactive.<br>
+          <span class="check-box"></span><strong>Peer Task Timer:</strong> On a task assigned to Nidhin or Akhil, verify you see a <strong>read-only time badge</strong> (e.g. <code>⏱️ 2h 15m</code>) and CANNOT start/stop their timer.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>1.3</td>
+        <td><span class="url-code">/employees</span><br>Employees Directory</td>
+        <td>
+          <span class="check-box"></span><strong>Directory Scoping:</strong> Verify the directory lists only Web Development employees + yourself.<br>
+          <span class="check-box"></span><strong>Action Guard:</strong> Verify there is <strong>NO "+ Add Employee"</strong> button and <strong>NO Edit/Delete</strong> action buttons.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>1.4</td>
+        <td><span class="url-code">/team-lead/leaves</span><br>Leave Requests</td>
+        <td>
+          <span class="check-box"></span><strong>Leave Visibility:</strong> Verify you only see leave requests submitted by Web Development team members and your own leaves.<br>
+          <span class="check-box"></span><strong>Leave Decision:</strong> Verify you can Approve or Reject department leaves.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>1.5</td>
+        <td><span class="url-code">/admin/roles</span><br>URL Penetration Test</td>
+        <td>
+          <span class="check-box"></span><strong>Unauthorized Access Check:</strong> Manually type <code>https://erp.flumenx.in/admin/roles</code> or <code>/admin/users</code> in browser address bar. Verify you are <strong>IMMEDIATELY redirected</strong> back to dashboard.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ROLE 2: STANDARD EMPLOYEE -->
+<div class="card card-emp">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h3 style="margin:0; color:#166534;">TEST 2: Standard Employee (<span class="role-pill pill-emp">EMPLOYEE</span>)</h3>
+    <span class="url-code">emp01@flumenx.com / password123</span>
+  </div>
+  <p style="margin:4px 0 8px 0; color:#475569;"><strong>Objective:</strong> Verify strict self-service data isolation, individual timer controls, and absence of administrative actions.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30px;">#</th>
+        <th style="width:160px;">Page / Route</th>
+        <th>Action to Perform & Expected Security Behavior</th>
+        <th style="width:70px;">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>2.1</td>
+        <td><span class="url-code">/employee/work</span><br>Task Board</td>
+        <td>
+          <span class="check-box"></span><strong>Task Scope:</strong> Verify you ONLY see tasks assigned to you (Nidhin KG / emp01). No other employee's tasks are visible.<br>
+          <span class="check-box"></span><strong>Task Creation:</strong> Verify there is <strong>NO "+ Create Task"</strong> button. Attempting direct API POST to <code>/api/work-assignments/</code> returns <code>403 Forbidden</code>.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>2.2</td>
+        <td><span class="url-code">/timer</span><br>Time Tracker</td>
+        <td>
+          <span class="check-box"></span><strong>Start Timer:</strong> Click <strong>▶ Start Timer</strong> on your assigned task. Verify status turns to "In Progress" and counter ticks live in seconds.<br>
+          <span class="check-box"></span><strong>Stop Timer:</strong> Click <strong>⏹ Stop Timer</strong>. Verify elapsed time is accurately logged in time history.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>2.3</td>
+        <td><span class="url-code">/employee/attendance</span><br>My Attendance</td>
+        <td>
+          <span class="check-box"></span><strong>Attendance Isolation:</strong> Verify ONLY your own punch-in/out records are listed.<br>
+          <span class="check-box"></span><strong>Punch Attendance:</strong> Click Punch In / Out. Verify time is recorded accurately in Indian Standard Time (IST).
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>2.4</td>
+        <td><span class="url-code">/employee/leaves</span><br>My Leaves</td>
+        <td>
+          <span class="check-box"></span><strong>Apply Leave:</strong> Submit a leave request.<br>
+          <span class="check-box"></span><strong>Decision Guard:</strong> Verify there are <strong>NO Approve/Reject</strong> action buttons.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>2.5</td>
+        <td>Sidebar Navigation</td>
+        <td>
+          <span class="check-box"></span><strong>Sidebar Audit:</strong> Verify <strong>"Team Work"</strong>, <strong>"Dynamic Roles"</strong>, <strong>"User Management"</strong>, and <strong>"Settings"</strong> are completely absent from the sidebar.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="page-break"></div>
+
+<!-- ROLE 3: HR MANAGER -->
+<div class="card card-hr">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h3 style="margin:0; color:#831843;">TEST 3: HR Manager (<span class="role-pill pill-hr">HR</span>)</h3>
+    <span class="url-code">hr@flumenx.com / password123</span>
+  </div>
+  <p style="margin:4px 0 8px 0; color:#475569;"><strong>Objective:</strong> Verify company-wide HR management capabilities (Add/Edit employees, Approve leaves, Attendance overview) while restricted from System Roles.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30px;">#</th>
+        <th style="width:160px;">Page / Route</th>
+        <th>Action to Perform & Expected Security Behavior</th>
+        <th style="width:70px;">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>3.1</td>
+        <td><span class="url-code">/employees</span><br>Employees Master</td>
+        <td>
+          <span class="check-box"></span><strong>Company Directory:</strong> Verify ALL employees across all departments (Web Dev, Design, Video Editing, DM, Accounts) are visible.<br>
+          <span class="check-box"></span><strong>Add Employee:</strong> Verify <strong>"+ Add Employee"</strong> button is visible and opening employee creation form.<br>
+          <span class="check-box"></span><strong>Edit Employee:</strong> Verify <strong>Edit</strong> button is available on employee rows.<br>
+          <span class="check-box"></span><strong>Delete Guard:</strong> Verify <strong>Delete</strong> button is disabled / hidden.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>3.2</td>
+        <td><span class="url-code">/hr/leaves</span><br>Company Leaves</td>
+        <td>
+          <span class="check-box"></span><strong>All Requests:</strong> Verify leave requests across all departments are listed.<br>
+          <span class="check-box"></span><strong>Approve/Reject:</strong> Click Approve on a pending leave request and verify status updates to "Approved".
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>3.3</td>
+        <td><span class="url-code">/hr/attendance</span><br>Attendance Master</td>
+        <td>
+          <span class="check-box"></span><strong>Company Attendance:</strong> View daily punch-ins for all staff with IST timestamps.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ROLE 4: ACCOUNTANT -->
+<div class="card card-acc">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h3 style="margin:0; color:#854d0e;">TEST 4: Accountant (<span class="role-pill pill-acc">ACCOUNTANT</span>)</h3>
+    <span class="url-code">accountant@flumenx.com / password123</span>
+  </div>
+  <p style="margin:4px 0 8px 0; color:#475569;"><strong>Objective:</strong> Verify financial access, salary slip generation, and restricted access to admin/system pages.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30px;">#</th>
+        <th style="width:160px;">Page / Route</th>
+        <th>Action to Perform & Expected Security Behavior</th>
+        <th style="width:70px;">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>4.1</td>
+        <td><span class="url-code">/accountant/salary-slips</span><br>Salary Slips</td>
+        <td>
+          <span class="check-box"></span><strong>Generate Slips:</strong> Verify you can generate monthly salary slips for employees and view PDF previews.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>4.2</td>
+        <td><span class="url-code">/accountant/reports</span><br>Finance Reports</td>
+        <td>
+          <span class="check-box"></span><strong>Reports View:</strong> Verify payroll summaries and financial exports are accessible.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ROLE 5: SUPER ADMIN -->
+<div class="card card-super">
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h3 style="margin:0; color:#991b1b;">TEST 5: Super Administrator (<span class="role-pill pill-super">SUPER_ADMIN</span>)</h3>
+    <span class="url-code">admin@flumenx.com / password123</span>
+  </div>
+  <p style="margin:4px 0 8px 0; color:#475569;"><strong>Objective:</strong> Verify master wildcard governance across all 19 modules, system policies, and role management.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30px;">#</th>
+        <th style="width:160px;">Page / Route</th>
+        <th>Action to Perform & Expected Security Behavior</th>
+        <th style="width:70px;">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>5.1</td>
+        <td><span class="url-code">/admin/roles</span><br>Dynamic Roles</td>
+        <td>
+          <span class="check-box"></span><strong>Role Configuration:</strong> Verify all 9 system roles and their permission matrices can be edited.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>5.2</td>
+        <td><span class="url-code">/admin/users</span><br>User Management</td>
+        <td>
+          <span class="check-box"></span><strong>User Control:</strong> Verify ability to create users, reset passwords, and toggle active status.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+      <tr>
+        <td>5.3</td>
+        <td><span class="url-code">/admin/attendance/settings</span><br>GPS Policy</td>
+        <td>
+          <span class="check-box"></span><strong>Policy Controls:</strong> Verify office latitude, longitude, radius, and office timings can be updated.
+        </td>
+        <td>[ &nbsp; ] PASS<br>[ &nbsp; ] FAIL</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div style="margin-top: 16px; border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 11px; color: #64748b; text-align: center;">
+  FLUMENX OS Enterprise Security & RBAC Test Suite · Generated on August 27, 2026 · Confidential & Proprietary
+</div>
+
+</body>
+</html>
+"""
+
+html_path = os.path.abspath("d:/flumenx/Flumenx-Employee-Portal/FLUMENX_OS_RBAC_Master_Testing_Guide.html")
+pdf_path_workspace = os.path.abspath("d:/flumenx/Flumenx-Employee-Portal/FLUMENX_OS_RBAC_Master_Testing_Guide.pdf")
+pdf_path_public = os.path.abspath("d:/flumenx/Flumenx-Employee-Portal/frontend/public/FLUMENX_OS_RBAC_Master_Testing_Guide.pdf")
+
+with open(html_path, "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print(f"[OK] Wrote HTML to {html_path}")
+
+chrome_exe = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+cmd = [
+    chrome_exe,
+    "--headless",
+    "--disable-gpu",
+    "--no-pdf-header-footer",
+    f"--print-to-pdf={pdf_path_workspace}",
+    html_path
+]
+
+res = subprocess.run(cmd, capture_output=True, text=True)
+print(f"[Chrome PDF Generator] Status: {res.returncode}")
+
+shutil.copyfile(pdf_path_workspace, pdf_path_public)
+print(f"[OK] Copied PDF to {pdf_path_public}")

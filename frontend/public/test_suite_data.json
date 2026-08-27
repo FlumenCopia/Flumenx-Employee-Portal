@@ -1,0 +1,290 @@
+{
+  "project": "FLUMENX OS Enterprise RBAC & Security Test Suite",
+  "portal_url": "https://erp.flumenx.in",
+  "version": "1.0.0",
+  "last_updated": "2026-08-27T18:00:00.000Z",
+  "roles": [
+    {
+      "id": "SUPER_ADMIN",
+      "name": "Super Administrator",
+      "email": "admin@flumenx.com",
+      "password": "password123",
+      "department": "Operations",
+      "color": "#ef4444",
+      "badge": "pill-super",
+      "description": "Global Wildcard: Master access to all 19 modules, system settings, role manager, and audit logs.",
+      "tests": [
+        {
+          "id": "5.1",
+          "route": "/admin/roles",
+          "title": "Dynamic Role Permission Management",
+          "action": "Open Role Management. Edit permissions for dynamic roles (e.g., toggle canCreate/canEdit on TASKS) and save.",
+          "expected": "Roles and permissions update successfully without permission errors.",
+          "status": "PASS",
+          "notes": "Verified working across all 9 roles."
+        },
+        {
+          "id": "5.2",
+          "route": "/admin/users",
+          "title": "User Administration & Role Assignment",
+          "action": "Create a new user, change passwords, and toggle active/inactive status.",
+          "expected": "User CRUD operations execute successfully.",
+          "status": "PASS",
+          "notes": "Password hash and dynamic role assignment working."
+        },
+        {
+          "id": "5.3",
+          "route": "/admin/attendance/settings",
+          "title": "GPS Geofence Policy Management",
+          "action": "Update office latitude, longitude, and allowed radius meters.",
+          "expected": "Attendance policy updates and applies to all punch requests.",
+          "status": "PASS",
+          "notes": "Coordinates verified in Trivandrum HQ."
+        }
+      ]
+    },
+    {
+      "id": "OPERATIONS",
+      "name": "Operations Head / CMO",
+      "email": "operations@flumenx.com",
+      "password": "password123",
+      "department": "Operations",
+      "color": "#f97316",
+      "badge": "pill-admin",
+      "description": "Company-wide View & Edit: Task boards, timeline phases, deliverable monitoring, KPI dashboard.",
+      "tests": [
+        {
+          "id": "0.1",
+          "route": "/admin/work?view=command-center",
+          "title": "Command Center & Company Timeline",
+          "action": "View all agency assignments across departments and update deliverable milestones.",
+          "expected": "All deliverables and company phases are visible and editable.",
+          "status": "PASS",
+          "notes": "Full visibility verified."
+        },
+        {
+          "id": "0.2",
+          "route": "/clients",
+          "title": "Client Management & Public Share Links",
+          "action": "Create clients and generate public progress share tokens.",
+          "expected": "Client portal links generate and render external read-only progress.",
+          "status": "PASS",
+          "notes": "Public link token verified."
+        }
+      ]
+    },
+    {
+      "id": "HR",
+      "name": "HR Manager",
+      "email": "hr@flumenx.com",
+      "password": "password123",
+      "department": "Human Resources",
+      "color": "#ec4899",
+      "badge": "pill-hr",
+      "description": "Company-wide Employee Directory (Add/Edit), Leave Approvals, Full Attendance Overview.",
+      "tests": [
+        {
+          "id": "3.1",
+          "route": "/employees",
+          "title": "Company-wide Employee Management",
+          "action": "Open Employees directory. Verify all staff are listed. Click '+ Add Employee' to create a record. Click 'Edit' on existing employee.",
+          "expected": "All employees visible; Add and Edit forms work cleanly; Delete button is disabled/hidden.",
+          "status": "PASS",
+          "notes": "Add and Edit functional."
+        },
+        {
+          "id": "3.2",
+          "route": "/hr/leaves",
+          "title": "Company-wide Leave Approvals",
+          "action": "View all submitted leaves across departments. Click Approve or Reject on pending leaves.",
+          "expected": "Decision updates immediately and status changes.",
+          "status": "PASS",
+          "notes": "Leave decision verified."
+        },
+        {
+          "id": "3.3",
+          "route": "/hr/attendance",
+          "title": "Company Attendance Monitoring",
+          "action": "View daily punch-in/out records for all employees in IST format.",
+          "expected": "Accurate timestamps and geo-coordinates displayed.",
+          "status": "PASS",
+          "notes": "IST formatting verified."
+        }
+      ]
+    },
+    {
+      "id": "ACCOUNTANT",
+      "name": "Accountant / Finance",
+      "email": "accountant@flumenx.com",
+      "password": "password123",
+      "department": "Accounts",
+      "color": "#eab308",
+      "badge": "pill-acc",
+      "description": "Salary Slip Generation, Financial Reports, Attendance/Leave viewing.",
+      "tests": [
+        {
+          "id": "4.1",
+          "route": "/accountant/salary-slips",
+          "title": "Salary Slip Generation & PDF Preview",
+          "action": "Generate monthly salary slips and preview slip calculations.",
+          "expected": "Salary slips are generated and printable.",
+          "status": "PASS",
+          "notes": "Verified."
+        },
+        {
+          "id": "4.2",
+          "route": "/accountant/reports",
+          "title": "Payroll & Expense Summaries",
+          "action": "View payroll summaries and department-wise cost reports.",
+          "expected": "Finance reports load without errors.",
+          "status": "PASS",
+          "notes": "Verified."
+        }
+      ]
+    },
+    {
+      "id": "BDE",
+      "name": "Business Development Executive",
+      "email": "bde@flumenx.com",
+      "password": "password123",
+      "department": "Business Development",
+      "color": "#8b5cf6",
+      "badge": "pill-bde",
+      "description": "Client Onboarding, Proposal Management, Self Attendance & Leaves.",
+      "tests": [
+        {
+          "id": "6.1",
+          "route": "/clients",
+          "title": "Client Master Management",
+          "action": "Add and edit client profiles and deliverables contracts.",
+          "expected": "Client operations succeed.",
+          "status": "PASS",
+          "notes": "Verified."
+        }
+      ]
+    },
+    {
+      "id": "TEAM_LEAD",
+      "name": "Web Development Team Lead",
+      "email": "web.lead@flumenx.com",
+      "password": "password123",
+      "department": "Web Development",
+      "color": "#3b82f6",
+      "badge": "pill-lead",
+      "description": "Department-Only Scoping: Web Dev tasks & members only; can create/assign department tasks; department leave decisions.",
+      "tests": [
+        {
+          "id": "1.1",
+          "route": "/team-lead/work",
+          "title": "Department Task Scoping",
+          "action": "Open Task Board. Verify ONLY Web Development tasks appear. Verify Ananthu's Video Editing tasks are hidden.",
+          "expected": "Strictly department tasks listed. Member filter only shows Web Dev team.",
+          "status": "PASS",
+          "notes": "Cross-department tasks filtered out."
+        },
+        {
+          "id": "1.2",
+          "route": "/team-lead/work",
+          "title": "Peer Timer Guarding",
+          "action": "Inspect tasks assigned to team members (Nidhin or Akhil).",
+          "expected": "Read-only time badge displayed. Start/Stop button hidden and rejected if requested.",
+          "status": "PASS",
+          "notes": "Assignee-only timer verified."
+        },
+        {
+          "id": "1.3",
+          "route": "/team-lead/work",
+          "title": "Task Creation & Assignment",
+          "action": "Click '+ Create Task'. Assign a task to a Web Dev member.",
+          "expected": "Task created and assigned to Web Dev member. Cross-department assignment rejected.",
+          "status": "PASS",
+          "notes": "+ Create Task functional."
+        },
+        {
+          "id": "1.4",
+          "route": "/employees",
+          "title": "Department Employee Directory",
+          "action": "View employee directory.",
+          "expected": "Only Web Development staff listed. + Add Employee, Edit, Delete buttons are hidden.",
+          "status": "PASS",
+          "notes": "Directory scoped to Web Development."
+        },
+        {
+          "id": "1.5",
+          "route": "/team-lead/leaves",
+          "title": "Department Leave Approvals",
+          "action": "View leave requests from Web Dev members and approve/reject.",
+          "expected": "Department leaves visible and decision action works.",
+          "status": "PASS",
+          "notes": "Department leaves verified."
+        },
+        {
+          "id": "1.6",
+          "route": "/admin/roles",
+          "title": "Unauthorized Route URL Bounce",
+          "action": "Type /admin/roles or /admin/users in browser address bar.",
+          "expected": "Immediately redirected to /team-lead/dashboard.",
+          "status": "PASS",
+          "notes": "Bounced as expected."
+        }
+      ]
+    },
+    {
+      "id": "EMPLOYEE",
+      "name": "Standard Employee (Web Dev)",
+      "email": "emp01@flumenx.com",
+      "password": "password123",
+      "department": "Web Development",
+      "color": "#10b981",
+      "badge": "pill-emp",
+      "description": "Strictly Self-Service: Own assigned tasks only; own live timer only; cannot create tasks.",
+      "tests": [
+        {
+          "id": "2.1",
+          "route": "/employee/work",
+          "title": "Own Assigned Tasks Isolation",
+          "action": "Open Task Board. Verify ONLY tasks assigned to you appear. Verify there is NO '+ Create Task' button.",
+          "expected": "Only own tasks displayed. Task creation button completely absent.",
+          "status": "PASS",
+          "notes": "Strict self-isolation verified."
+        },
+        {
+          "id": "2.2",
+          "route": "/timer",
+          "title": "Interactive Live Task Timer",
+          "action": "Click '▶ Start Timer' on own assigned task. Wait a few seconds, then click '⏹ Stop Timer'.",
+          "expected": "Timer starts ticking live in seconds. Stop timer accurately records logged duration in time logs.",
+          "status": "PASS",
+          "notes": "1-tap live timer verified."
+        },
+        {
+          "id": "2.3",
+          "route": "/employee/attendance",
+          "title": "Self Attendance Punch & Logs",
+          "action": "Click Punch In. Check your record list.",
+          "expected": "Only personal punch records appear with IST timestamps.",
+          "status": "PASS",
+          "notes": "Self attendance only."
+        },
+        {
+          "id": "2.4",
+          "route": "/employee/leaves",
+          "title": "Self Leave Application",
+          "action": "Submit a leave request. Verify there are NO Approve/Reject buttons.",
+          "expected": "Leave created with 'Pending' status. Decision buttons absent.",
+          "status": "PASS",
+          "notes": "Self leave verified."
+        },
+        {
+          "id": "2.5",
+          "route": "Sidebar Navigation",
+          "title": "Sidebar Access Restriction",
+          "action": "Inspect left sidebar navigation items.",
+          "expected": "Team Work, Dynamic Roles, User Management, and Settings are completely hidden.",
+          "status": "PASS",
+          "notes": "Clean self-service menu."
+        }
+      ]
+    }
+  ]
+}

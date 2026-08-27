@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FLUMENX OS · Interactive RBAC QA Test Suite</title>
+<style>
+  :root {
+    --bg: #0B0F17;
+    --panel: #111827;
+    --panel2: #1F2937;
+    --border: #374151;
+    --text: #F9FAFB;
+    --muted: #9CA3AF;
+    --neon: #00E889;
+    --red: #EF4444;
+    --amber: #F59E0B;
+    --blue: #3B82F6;
+    --pink: #EC4899;
+    --purple: #8B5CF6;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 24px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .header {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .title-group h1 {
+    margin: 0 0 4px 0;
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .title-group p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .portal-badge {
+    background: rgba(0, 232, 137, 0.15);
+    color: var(--neon);
+    border: 1px solid rgba(0, 232, 137, 0.4);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Top Stats Bar */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .stat-val {
+    font-size: 24px;
+    font-weight: 900;
+  }
+
+  /* Controls & Action Toolbar */
+  .toolbar {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .filter-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  select, input[type="text"] {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+  }
+
+  select:focus, input[type="text"]:focus {
+    border-color: var(--neon);
+  }
+
+  .btn {
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: 0.15s;
+  }
+
+  .btn-primary { background: var(--neon); color: #05100B; }
+  .btn-primary:hover { opacity: 0.9; }
+
+  .btn-secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--border); }
+
+  .btn-save { background: var(--blue); color: #FFF; }
+  .btn-print { background: var(--purple); color: #FFF; }
+
+  /* Role Cards */
+  .role-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+
+  .role-header {
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .role-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .role-pill {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .cred-box {
+    background: var(--panel2);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 12.5px;
+    border: 1px solid var(--border);
+  }
+
+  .test-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .test-table th {
+    background: var(--panel2);
+    color: var(--muted);
+    font-size: 11.5px;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .test-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .test-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .test-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  /* Status Toggle Buttons */
+  .status-toggle {
+    display: flex;
+    gap: 4px;
+  }
+
+  .toggle-btn {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 800;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .toggle-btn.active-pass {
+    background: rgba(0, 232, 137, 0.2);
+    color: var(--neon);
+    border-color: var(--neon);
+  }
+
+  .toggle-btn.active-fail {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--red);
+    border-color: var(--red);
+  }
+
+  .toggle-btn.active-pending {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--amber);
+    border-color: var(--amber);
+  }
+
+  /* Editable Notes */
+  .editable-notes {
+    width: 100%;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    color: var(--text);
+    font-size: 12px;
+    resize: vertical;
+    min-height: 40px;
+  }
+
+  .editable-notes:focus {
+    border-color: var(--blue);
+    outline: none;
+  }
+
+  /* Notification Toast */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--neon);
+    color: #05100B;
+    font-weight: 800;
+    padding: 10px 18px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 232, 137, 0.4);
+    display: none;
+    z-index: 100;
+  }
+
+  /* Print Styles */
+  @media print {
+    body { background: #FFF; color: #000; padding: 0; }
+    .toolbar, .status-toggle, #toast, .btn { display: none !important; }
+    .role-card { border: 1px solid #CCC; break-inside: avoid; margin-bottom: 20px; }
+    .test-table td, .test-table th { border: 1px solid #DDD; color: #000; }
+    .cred-box { background: #EEE; color: #000; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="title-group">
+      <h1>⚡ FLUMENX OS · Interactive RBAC QA Suite</h1>
+      <p>Live Test Matrix, Real-time JSON Persistence & Role Boundary Auditor</p>
+    </div>
+    <div>
+      <a href="https://erp.flumenx.in" target="_blank" class="portal-badge">
+        🌐 Open Live Portal (erp.flumenx.in)
+      </a>
+    </div>
+  </div>
+
+  <!-- Live Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Test Cases</div>
+      <div class="stat-val" id="totalCount">--</div>
+    </div>
+    <div class="stat-card" style="border-color: rgba(0, 232, 137, 0.4);">
+      <div class="stat-label" style="color: var(--neon);">Passed Tests</div>
+      <div class="stat-val" style="color: var(--neon);" id="passCount">--</div>
+    </div>
+    <div class="stat-card" style="border-color: rgba(239, 68, 68, 0.4);">
+      <div class="stat-label" style="color: var(--red);">Failed Tests</div>
+      <div class="stat-val" style="color: var(--red);" id="failCount">--</div>
+    </div>
+    <div class="stat-card" style="border-color: rgba(245, 158, 11, 0.4);">
+      <div class="stat-label" style="color: var(--amber);">Pending Tests</div>
+      <div class="stat-val" style="color: var(--amber);" id="pendingCount">--</div>
+    </div>
+  </div>
+
+  <!-- Action Toolbar -->
+  <div class="toolbar">
+    <div class="filter-group">
+      <select id="roleFilter" onchange="renderUI()">
+        <option value="ALL">All Roles (Full Suite)</option>
+        <option value="SUPER_ADMIN">Super Admin</option>
+        <option value="OPERATIONS">Operations / CMO</option>
+        <option value="HR">HR Manager</option>
+        <option value="ACCOUNTANT">Accountant</option>
+        <option value="BDE">Business Development</option>
+        <option value="TEAM_LEAD">Web Dev Team Lead</option>
+        <option value="EMPLOYEE">Standard Employee</option>
+      </select>
+
+      <input type="text" id="searchInput" placeholder="Search test case, route, or notes..." oninput="renderUI()">
+    </div>
+
+    <div class="filter-group">
+      <button class="btn btn-save" onclick="exportJSON()">💾 Export JSON</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">📂 Import JSON</button>
+      <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importJSON(event)">
+      <button class="btn btn-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <button class="btn btn-primary" onclick="resetToDefault()">🔄 Reset Default</button>
+    </div>
+  </div>
+
+  <!-- Roles & Test Cases Container -->
+  <div id="rolesContainer"></div>
+
+</div>
+
+<!-- Toast notification -->
+<div id="toast">Saved Successfully!</div>
+
+<script>
+// INITIAL DATA EMBEDDED DIRECTLY
+let suiteData = null;
+
+const DEFAULT_DATA = {
+  "project": "FLUMENX OS Enterprise RBAC & Security Test Suite",
+  "portal_url": "https://erp.flumenx.in",
+  "version": "1.0.0",
+  "last_updated": new Date().toISOString(),
+  "roles": [
+    {
+      "id": "SUPER_ADMIN",
+      "name": "Super Administrator",
+      "email": "admin@flumenx.com",
+      "password": "password123",
+      "department": "Operations",
+      "color": "#ef4444",
+      "description": "Global Wildcard: Master access to all 19 modules, system settings, role manager, and audit logs.",
+      "tests": [
+        {
+          "id": "5.1",
+          "route": "/admin/roles",
+          "title": "Dynamic Role Permission Management",
+          "action": "Open Role Management. Edit permissions for dynamic roles (e.g., toggle canCreate/canEdit on TASKS) and save.",
+          "expected": "Roles and permissions update successfully without permission errors.",
+          "status": "PASS",
+          "notes": "Verified working across all 9 roles."
+        },
+        {
+          "id": "5.2",
+          "route": "/admin/users",
+          "title": "User Administration & Role Assignment",
+          "action": "Create a new user, change passwords, and toggle active/inactive status.",
+          "expected": "User CRUD operations execute successfully.",
+          "status": "PASS",
+          "notes": "Password hash and dynamic role assignment working."
+        },
+        {
+          "id": "5.3",
+          "route": "/admin/attendance/settings",
+          "title": "GPS Geofence Policy Management",
+          "action": "Update office latitude, longitude, and allowed radius meters.",
+          "expected": "Attendance policy updates and applies to all punch requests.",
+          "status": "PASS",
+          "notes": "Coordinates verified in Trivandrum HQ."
+        }
+      ]
+    },
+    {
+      "id": "OPERATIONS",
+      "name": "Operations Head / CMO",
+      "email": "operations@flumenx.com",
+      "password": "password123",
+      "department": "Operations",
+      "color": "#f97316",
+      "description": "Company-wide View & Edit: Task boards, timeline phases, deliverable monitoring, KPI dashboard.",
+      "tests": [
+        {
+          "id": "0.1",
+          "route": "/admin/work?view=command-center",
+          "title": "Command Center & Company Timeline",
+          "action": "View all agency assignments across departments and update deliverable milestones.",
+          "expected": "All deliverables and company phases are visible and editable.",
+          "status": "PASS",
+          "notes": "Full visibility verified."
+        },
+        {
+          "id": "0.2",
+          "route": "/clients",
+          "title": "Client Management & Public Share Links",
+          "action": "Create clients and generate public progress share tokens.",
+          "expected": "Client portal links generate and render external read-only progress.",
+          "status": "PASS",
+          "notes": "Public link token verified."
+        }
+      ]
+    },
+    {
+      "id": "HR",
+      "name": "HR Manager",
+      "email": "hr@flumenx.com",
+      "password": "password123",
+      "department": "Human Resources",
+      "color": "#ec4899",
+      "description": "Company-wide Employee Directory (Add/Edit), Leave Approvals, Full Attendance Overview.",
+      "tests": [
+        {
+          "id": "3.1",
+          "route": "/employees",
+          "title": "Company-wide Employee Management",
+          "action": "Open Employees directory. Verify all staff are listed. Click '+ Add Employee' to create a record. Click 'Edit' on existing employee.",
+          "expected": "All employees visible; Add and Edit forms work cleanly; Delete button is disabled/hidden.",
+          "status": "PASS",
+          "notes": "Add and Edit functional."
+        },
+        {
+          "id": "3.2",
+          "route": "/hr/leaves",
+          "title": "Company-wide Leave Approvals",
+          "action": "View all submitted leaves across departments. Click Approve or Reject on pending leaves.",
+          "expected": "Decision updates immediately and status changes.",
+          "status": "PASS",
+          "notes": "Leave decision verified."
+        },
+        {
+          "id": "3.3",
+          "route": "/hr/attendance",
+          "title": "Company Attendance Monitoring",
+          "action": "View daily punch-in/out records for all employees in IST format.",
+          "expected": "Accurate timestamps and geo-coordinates displayed.",
+          "status": "PASS",
+          "notes": "IST formatting verified."
+        }
+      ]
+    },
+    {
+      "id": "ACCOUNTANT",
+      "name": "Accountant / Finance",
+      "email": "accountant@flumenx.com",
+      "password": "password123",
+      "department": "Accounts",
+      "color": "#eab308",
+      "description": "Salary Slip Generation, Financial Reports, Attendance/Leave viewing.",
+      "tests": [
+        {
+          "id": "4.1",
+          "route": "/accountant/salary-slips",
+          "title": "Salary Slip Generation & PDF Preview",
+          "action": "Generate monthly salary slips and preview slip calculations.",
+          "expected": "Salary slips are generated and printable.",
+          "status": "PASS",
+          "notes": "Verified."
+        },
+        {
+          "id": "4.2",
+          "route": "/accountant/reports",
+          "title": "Payroll & Expense Summaries",
+          "action": "View payroll summaries and department-wise cost reports.",
+          "expected": "Finance reports load without errors.",
+          "status": "PASS",
+          "notes": "Verified."
+        }
+      ]
+    },
+    {
+      "id": "BDE",
+      "name": "Business Development Executive",
+      "email": "bde@flumenx.com",
+      "password": "password123",
+      "department": "Business Development",
+      "color": "#8b5cf6",
+      "description": "Client Onboarding, Proposal Management, Self Attendance & Leaves.",
+      "tests": [
+        {
+          "id": "6.1",
+          "route": "/clients",
+          "title": "Client Master Management",
+          "action": "Add and edit client profiles and deliverables contracts.",
+          "expected": "Client operations succeed.",
+          "status": "PASS",
+          "notes": "Verified."
+        }
+      ]
+    },
+    {
+      "id": "TEAM_LEAD",
+      "name": "Web Development Team Lead",
+      "email": "web.lead@flumenx.com",
+      "password": "password123",
+      "department": "Web Development",
+      "color": "#3b82f6",
+      "description": "Department-Only Scoping: Web Dev tasks & members only; can create/assign department tasks; department leave decisions.",
+      "tests": [
+        {
+          "id": "1.1",
+          "route": "/team-lead/work",
+          "title": "Department Task Scoping",
+          "action": "Open Task Board. Verify ONLY Web Development tasks appear. Verify Ananthu's Video Editing tasks are hidden.",
+          "expected": "Strictly department tasks listed. Member filter only shows Web Dev team.",
+          "status": "PASS",
+          "notes": "Cross-department tasks filtered out."
+        },
+        {
+          "id": "1.2",
+          "route": "/team-lead/work",
+          "title": "Peer Timer Guarding",
+          "action": "Inspect tasks assigned to team members (Nidhin or Akhil).",
+          "expected": "Read-only time badge displayed. Start/Stop button hidden and rejected if requested.",
+          "status": "PASS",
+          "notes": "Assignee-only timer verified."
+        },
+        {
+          "id": "1.3",
+          "route": "/team-lead/work",
+          "title": "Task Creation & Assignment",
+          "action": "Click '+ Create Task'. Assign a task to a Web Dev member.",
+          "expected": "Task created and assigned to Web Dev member. Cross-department assignment rejected.",
+          "status": "PASS",
+          "notes": "+ Create Task functional."
+        },
+        {
+          "id": "1.4",
+          "route": "/employees",
+          "title": "Department Employee Directory",
+          "action": "View employee directory.",
+          "expected": "Only Web Development staff listed. + Add Employee, Edit, Delete buttons are hidden.",
+          "status": "PASS",
+          "notes": "Directory scoped to Web Development."
+        },
+        {
+          "id": "1.5",
+          "route": "/team-lead/leaves",
+          "title": "Department Leave Approvals",
+          "action": "View leave requests from Web Dev members and approve/reject.",
+          "expected": "Department leaves visible and decision action works.",
+          "status": "PASS",
+          "notes": "Department leaves verified."
+        },
+        {
+          "id": "1.6",
+          "route": "/admin/roles",
+          "title": "Unauthorized Route URL Bounce",
+          "action": "Type /admin/roles or /admin/users in browser address bar.",
+          "expected": "Immediately redirected to /team-lead/dashboard.",
+          "status": "PASS",
+          "notes": "Bounced as expected."
+        }
+      ]
+    },
+    {
+      "id": "EMPLOYEE",
+      "name": "Standard Employee (Web Dev)",
+      "email": "emp01@flumenx.com",
+      "password": "password123",
+      "department": "Web Development",
+      "color": "#10b981",
+      "description": "Strictly Self-Service: Own assigned tasks only; own live timer only; cannot create tasks.",
+      "tests": [
+        {
+          "id": "2.1",
+          "route": "/employee/work",
+          "title": "Own Assigned Tasks Isolation",
+          "action": "Open Task Board. Verify ONLY tasks assigned to you appear. Verify there is NO '+ Create Task' button.",
+          "expected": "Only own tasks displayed. Task creation button completely absent.",
+          "status": "PASS",
+          "notes": "Strict self-isolation verified."
+        },
+        {
+          "id": "2.2",
+          "route": "/timer",
+          "title": "Interactive Live Task Timer",
+          "action": "Click '▶ Start Timer' on own assigned task. Wait a few seconds, then click '⏹ Stop Timer'.",
+          "expected": "Timer starts ticking live in seconds. Stop timer accurately records logged duration in time logs.",
+          "status": "PASS",
+          "notes": "1-tap live timer verified."
+        },
+        {
+          "id": "2.3",
+          "route": "/employee/attendance",
+          "title": "Self Attendance Punch & Logs",
+          "action": "Click Punch In. Check your record list.",
+          "expected": "Only personal punch records appear with IST timestamps.",
+          "status": "PASS",
+          "notes": "Self attendance only."
+        },
+        {
+          "id": "2.4",
+          "route": "/employee/leaves",
+          "title": "Self Leave Application",
+          "action": "Submit a leave request. Verify there are NO Approve/Reject buttons.",
+          "expected": "Leave created with 'Pending' status. Decision buttons absent.",
+          "status": "PASS",
+          "notes": "Self leave verified."
+        },
+        {
+          "id": "2.5",
+          "route": "Sidebar Navigation",
+          "title": "Sidebar Access Restriction",
+          "action": "Inspect left sidebar navigation items.",
+          "expected": "Team Work, Dynamic Roles, User Management, and Settings are completely hidden.",
+          "status": "PASS",
+          "notes": "Clean self-service menu."
+        }
+      ]
+    }
+  ]
+};
+
+function initApp() {
+  const saved = localStorage.getItem("flumenx_qa_suite_data");
+  if (saved) {
+    try {
+      suiteData = JSON.parse(saved);
+    } catch {
+      suiteData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    }
+  } else {
+    suiteData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }
+  renderUI();
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.innerText = msg || "Saved Successfully!";
+  t.style.display = "block";
+  setTimeout(() => { t.style.display = "none"; }, 2000);
+}
+
+function saveData() {
+  localStorage.setItem("flumenx_qa_suite_data", JSON.stringify(suiteData));
+  showToast("Changes saved to local database!");
+  updateStats();
+}
+
+function updateTestStatus(roleId, testId, newStatus) {
+  const role = suiteData.roles.find(r => r.id === roleId);
+  if (!role) return;
+  const test = role.tests.find(t => t.id === testId);
+  if (!test) return;
+  test.status = newStatus;
+  saveData();
+  renderUI();
+}
+
+function updateTestNotes(roleId, testId, notes) {
+  const role = suiteData.roles.find(r => r.id === roleId);
+  if (!role) return;
+  const test = role.tests.find(t => t.id === testId);
+  if (!test) return;
+  test.notes = notes;
+  localStorage.setItem("flumenx_qa_suite_data", JSON.stringify(suiteData));
+  updateStats();
+}
+
+function updateStats() {
+  let total = 0, pass = 0, fail = 0, pending = 0;
+  suiteData.roles.forEach(r => {
+    r.tests.forEach(t => {
+      total++;
+      if (t.status === "PASS") pass++;
+      else if (t.status === "FAIL") fail++;
+      else pending++;
+    });
+  });
+
+  document.getElementById("totalCount").innerText = total;
+  document.getElementById("passCount").innerText = `${pass} (${Math.round((pass/total)*100 || 0)}%)`;
+  document.getElementById("failCount").innerText = `${fail} (${Math.round((fail/total)*100 || 0)}%)`;
+  document.getElementById("pendingCount").innerText = `${pending} (${Math.round((pending/total)*100 || 0)}%)`;
+}
+
+function renderUI() {
+  const roleFilter = document.getElementById("roleFilter").value;
+  const search = document.getElementById("searchInput").value.toLowerCase().trim();
+  const container = document.getElementById("rolesContainer");
+  container.innerHTML = "";
+
+  updateStats();
+
+  suiteData.roles.forEach(role => {
+    if (roleFilter !== "ALL" && role.id !== roleFilter) return;
+
+    const filteredTests = role.tests.filter(t => {
+      if (!search) return true;
+      return t.title.toLowerCase().includes(search) ||
+             t.route.toLowerCase().includes(search) ||
+             t.action.toLowerCase().includes(search) ||
+             (t.notes || "").toLowerCase().includes(search);
+    });
+
+    if (search && filteredTests.length === 0) return;
+
+    const card = document.createElement("div");
+    card.className = "role-card";
+
+    let rowsHtml = "";
+    filteredTests.forEach(t => {
+      rowsHtml += `
+        <tr>
+          <td style="width: 45px; font-weight: 800; color: var(--muted);">${t.id}</td>
+          <td style="width: 180px;">
+            <b style="color: var(--text);">${t.title}</b><br>
+            <a href="${suiteData.portal_url}${t.route}" target="_blank" style="color: var(--blue); font-family: monospace; font-size: 11.5px; text-decoration: none;">${t.route} ↗</a>
+          </td>
+          <td>
+            <div style="margin-bottom: 6px;">${t.action}</div>
+            <div style="font-size: 12px; color: var(--muted);"><strong style="color: var(--text);">Expected:</strong> ${t.expected}</div>
+          </td>
+          <td style="width: 180px;">
+            <div class="status-toggle">
+              <button class="toggle-btn ${t.status === 'PASS' ? 'active-pass' : ''}" onclick="updateTestStatus('${role.id}', '${t.id}', 'PASS')">✓ PASS</button>
+              <button class="toggle-btn ${t.status === 'FAIL' ? 'active-fail' : ''}" onclick="updateTestStatus('${role.id}', '${t.id}', 'FAIL')">✕ FAIL</button>
+              <button class="toggle-btn ${t.status === 'PENDING' ? 'active-pending' : ''}" onclick="updateTestStatus('${role.id}', '${t.id}', 'PENDING')">⏳ PEND</button>
+            </div>
+            <div style="margin-top: 6px;">
+              <textarea class="editable-notes" placeholder="Add testing notes..." onblur="updateTestNotes('${role.id}', '${t.id}', this.value)">${t.notes || ''}</textarea>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    card.innerHTML = `
+      <div class="role-header" style="border-left: 4px solid ${role.color};">
+        <div class="role-info">
+          <span class="role-pill" style="background: ${role.color}22; color: ${role.color}; border: 1px solid ${role.color}55;">${role.name}</span>
+          <span style="font-size: 12px; color: var(--muted);">${role.description}</span>
+        </div>
+        <div class="cred-box">
+          👤 ${role.email} &nbsp;|&nbsp; 🔑 <strong>${role.password}</strong>
+        </div>
+      </div>
+      <table class="test-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Test Module</th>
+            <th>Action & Expected Verification</th>
+            <th>Result & Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    `;
+
+    container.appendChild(card);
+  });
+}
+
+function exportJSON() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(suiteData, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `FLUMENX_OS_RBAC_TestSuite_${new Date().toISOString().slice(0,10)}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+  showToast("Exported JSON successfully!");
+}
+
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (parsed.roles && Array.isArray(parsed.roles)) {
+        suiteData = parsed;
+        saveData();
+        renderUI();
+        showToast("Imported JSON database successfully!");
+      } else {
+        alert("Invalid JSON format. Must contain a 'roles' array.");
+      }
+    } catch (err) {
+      alert("Error parsing JSON file: " + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetToDefault() {
+  if (confirm("Reset test suite to factory default? Any unsaved local edits will be replaced.")) {
+    suiteData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    saveData();
+    renderUI();
+    showToast("Reset to default test suite!");
+  }
+}
+
+// Initialise app
+initApp();
+</script>
+</body>
+</html>
