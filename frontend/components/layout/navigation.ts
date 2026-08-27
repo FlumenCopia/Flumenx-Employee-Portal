@@ -71,71 +71,72 @@ export type DynamicApiNavItem = {
 };
 
 const adminNav = [
-  ["Overview", "/admin/dashboard", LayoutDashboard],
   ["Command Center", "/admin/work?view=command-center", Sparkles],
   ["Task Board", "/admin/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
+  ["Team Work", "/team-work", Users],
   ["Clients Master", "/clients", BriefcaseBusiness],
   ["Timeline & Phases", "/admin/work?view=timeline", Layers],
   ["KPI Performance", "/admin/kpi", TrendingUp],
+  ["Employees Directory", "/employees", Users],
   ["Attendance", "/admin/attendance", CalendarCheck],
-  ["Leave requests", "/admin/leaves", CalendarDays],
+  ["Leave Requests", "/admin/leaves", CalendarDays],
   ["Meetings", "/admin/meetings", UserRound],
+  ["Dynamic Roles", "/admin/roles", Shield],
+  ["User Management", "/admin/users", UserCheck],
+  ["Page Management", "/pages", FileCode],
+  ["Salary Slips", "/admin/salary-slips", FileCode],
+  ["Announcements", "/admin/announcements", Megaphone],
+  ["Audit Logs", "/admin/audit-logs", BarChart3],
+  ["Settings & Access", "/settings", Settings],
 ] as const satisfies readonly NavigationItem[];
 
 const employeeNav = [
-  ["Overview", "/employee/dashboard", LayoutDashboard],
-  ["Command Center", "/employee/work?view=command-center", Sparkles],
   ["Task Board", "/employee/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
-  ["Timeline & Phases", "/employee/work?view=timeline", Layers],
-  ["My KPI", "/employee/kpi", TrendingUp],
-  ["My profile", "/employee/profile", UserRound],
-  ["My attendance", "/employee/attendance", Clock3],
-  ["My leave", "/employee/leaves", CalendarDays],
+  ["Team Work", "/team-work", Users],
+  ["KPI Performance", "/employee/kpi", TrendingUp],
+  ["Employees Directory", "/employees", Users],
+  ["My Profile", "/employee/profile", UserRound],
+  ["My Attendance", "/employee/attendance", Clock3],
+  ["My Leave", "/employee/leaves", CalendarDays],
   ["Meetings", "/employee/meetings", Users],
 ] as const satisfies readonly NavigationItem[];
 
 const hrNav = [
-  ["Overview", "/hr/dashboard", LayoutDashboard],
-  ["Command Center", "/hr/work?view=command-center", Sparkles],
   ["Task Board", "/hr/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
-  ["Timeline & Phases", "/hr/work?view=timeline", Layers],
+  ["Team Work", "/team-work", Users],
   ["KPI Performance", "/hr/kpi", TrendingUp],
+  ["Employees Directory", "/employees", Users],
   ["Attendance", "/hr/attendance", CalendarCheck],
-  ["Leave requests", "/hr/leaves", CalendarDays],
+  ["Leave Requests", "/hr/leaves", CalendarDays],
   ["Meetings", "/hr/meetings", UserRound],
+  ["Announcements", "/admin/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 const accountantNav = [
-  ["Overview", "/accountant/dashboard", LayoutDashboard],
-  ["Command Center", "/admin/work?view=command-center", Sparkles],
   ["Task Board", "/admin/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
   ["Attendance", "/accountant/attendance", CalendarCheck],
   ["Leave Requests", "/accountant/leaves", CalendarDays],
+  ["Salary Slips", "/admin/salary-slips", FileCode],
 ] as const satisfies readonly NavigationItem[];
 
 const bdoNav = [
-  ["Overview", "/bdo/dashboard", LayoutDashboard],
-  ["Command Center", "/bdo/work?view=command-center", Sparkles],
   ["Task Board", "/bdo/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
-  ["Timeline & Phases", "/bdo/work?view=timeline", Layers],
-  ["My profile", "/bdo/profile", UserRound],
-  ["My attendance", "/bdo/attendance", Clock3],
-  ["My leave", "/bdo/leaves", CalendarDays],
+  ["Clients Master", "/clients", BriefcaseBusiness],
   ["Meetings", "/bdo/meetings", Users],
 ] as const satisfies readonly NavigationItem[];
 
 const teamLeadNav = [
-  ["Overview", "/team-lead/dashboard", LayoutDashboard],
-  ["Command Center", "/team-lead/work?view=command-center", Sparkles],
   ["Task Board", "/team-lead/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
-  ["Timeline & Phases", "/team-lead/work?view=timeline", Layers],
   ["Team Work", "/team-lead/team-work", Users],
+  ["KPI Performance", "/kpi", TrendingUp],
+  ["Employees Directory", "/employees", Users],
+  ["Meetings", "/meetings", Users],
 ] as const satisfies readonly NavigationItem[];
 
 export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[]> = {
@@ -148,14 +149,7 @@ export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[
 };
 
 export const getFilteredNavigation = (role: WorkspaceRole): readonly NavigationItem[] => {
-  const items = workspaceNavigation[role] || workspaceNavigation.employee;
-  return items.filter(
-    ([label]) =>
-      label !== "Overview" &&
-      label !== "Command Center" &&
-      label !== "Command Center Dashboard" &&
-      label !== "Timeline & Phases"
-  );
+  return workspaceNavigation[role] || workspaceNavigation.admin;
 };
 
 export function getWorkspaceRole(portalRole?: string): WorkspaceRole {
