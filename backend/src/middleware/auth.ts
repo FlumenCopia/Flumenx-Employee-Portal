@@ -44,8 +44,9 @@ export async function authenticateToken(
 
   for (const token of tokensToTry) {
     try {
-      const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
-      const user = await User.findById(decoded.userId).populate('dynamicRole');
+      const decoded = jwt.verify(token, config.jwtSecret) as any;
+      const targetId = decoded.userId || decoded.id || decoded.sub;
+      const user = await User.findById(targetId).populate('dynamicRole');
 
       if (user && user.isActive) {
         req.user = user;

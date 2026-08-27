@@ -34,7 +34,8 @@ export async function login(req: Request, res: Response): Promise<void> {
   }
 
   const payload = {
-    id: user._id,
+    id: user._id.toString(),
+    userId: user._id.toString(),
     username: user.username,
     email: user.email,
     role: user.role,
@@ -151,8 +152,9 @@ export async function refresh(req: Request, res: Response): Promise<void> {
   }
 
   try {
-    const decoded = jwt.verify(refreshToken, config.jwtRefreshSecret) as { userId: string };
-    const user = await User.findById(decoded.userId);
+    const decoded = jwt.verify(refreshToken, config.jwtRefreshSecret) as any;
+    const targetId = decoded.userId || decoded.id || decoded.sub;
+    const user = await User.findById(targetId);
 
     if (!user || !user.isActive) {
       res.status(401).json({ detail: 'User not found or inactive.' });
@@ -160,7 +162,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
     }
 
     const newAccessToken = jwt.sign(
-      { userId: user._id.toString(), role: user.role },
+      { id: user._id.toString(), userId: user._id.toString(), role: user.role, username: user.username, email: user.email, isSuperuser: user.isSuperuser },
       config.jwtSecret,
       { expiresIn: '15m' }
     );
