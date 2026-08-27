@@ -27,11 +27,50 @@ export async function updateAttendancePolicyHandler(req: Request, res: Response)
   res.json(policy);
 }
 
+/**
+ * Return current time formatted as HH:mm in IST (Asia/Kolkata)
+ */
+export function getISTTimeString(date: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const hour = parts.find((p) => p.type === 'hour')?.value || '00';
+  const minute = parts.find((p) => p.type === 'minute')?.value || '00';
+  return `${hour}:${minute}`;
+}
+
+/**
+ * Return start and end of day in IST (Asia/Kolkata)
+ */
+export function getISTDateRange(date: Date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const dateStr = formatter.format(date); // YYYY-MM-DD in IST
+  const startOfDay = new Date(`${dateStr}T00:00:00.000+05:30`);
+  const endOfDay = new Date(`${dateStr}T23:59:59.999+05:30`);
+  return { startOfDay, endOfDay, dateStr };
+}
+
 export function formatSingleRecord(r: IAttendanceRecord, emp?: any) {
   const employeeObj = emp || r.employee;
-  const dateStr = r.attendanceDate instanceof Date
-    ? r.attendanceDate.toISOString().split('T')[0]
-    : String(r.attendanceDate).split('T')[0];
+  let dateStr = '';
+  if (r.attendanceDate instanceof Date) {
+    dateStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(r.attendanceDate);
+  } else {
+    dateStr = String(r.attendanceDate).split('T')[0];
+  }
 
   return {
     id: r._id,
@@ -220,18 +259,15 @@ export async function checkInAttendance(req: Request, res: Response): Promise<vo
     return;
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(today);
-  endOfDay.setHours(23, 59, 59, 999);
+  const { startOfDay, endOfDay } = getISTDateRange(new Date());
 
   let record = await AttendanceRecord.findOne({
     employee: employee._id,
-    attendanceDate: { $gte: today, $lte: endOfDay },
+    attendanceDate: { $gte: startOfDay, $lte: endOfDay },
   });
 
   const policy = await getAttendancePolicy();
-  const nowStr = `${new Date().getHours().toString().padStart(2, '0')}:${new Date().getMinutes().toString().padStart(2, '0')}`;
+  const nowStr = getISTTimeString(new Date());
 
   let locationVerified = false;
   let distanceMeters: number | null = null;
@@ -287,14 +323,11 @@ export async function checkOutAttendance(req: Request, res: Response): Promise<v
     return;
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(today);
-  endOfDay.setHours(23, 59, 59, 999);
+  const { startOfDay, endOfDay } = getISTDateRange(new Date());
 
   const record = await AttendanceRecord.findOne({
     employee: employee._id,
-    attendanceDate: { $gte: today, $lte: endOfDay },
+    attendanceDate: { $gte: startOfDay, $lte: endOfDay },
   });
 
   if (!record) {
@@ -303,7 +336,7 @@ export async function checkOutAttendance(req: Request, res: Response): Promise<v
   }
 
   const policy = await getAttendancePolicy();
-  const nowStr = `${new Date().getHours().toString().padStart(2, '0')}:${new Date().getMinutes().toString().padStart(2, '0')}`;
+  const nowStr = getISTTimeString(new Date());
 
   record.checkOutTime = nowStr;
   if (latitude !== undefined && longitude !== undefined) {

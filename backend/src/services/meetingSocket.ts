@@ -240,12 +240,16 @@ export function setupMeetingSockets(io: SocketIOServer) {
         });
         await messageDoc.save();
 
-        io.to(`meeting:${meetingCode}`).emit('new-chat-message', {
-          id: messageDoc._id,
-          senderName,
+        // Broadcast to everyone else in the meeting room
+        socket.to(`meeting:${meetingCode}`).emit('new-chat-message', {
+          id: String(messageDoc._id),
+          sender_name: senderName,
+          senderName: senderName,
+          sender_role: messageDoc.senderRole,
           senderRole: messageDoc.senderRole,
           text: messageDoc.text,
           timestamp: messageDoc.timestamp,
+          is_self: false,
           isSelf: false,
         });
       } catch (err) {

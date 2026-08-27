@@ -349,8 +349,19 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     });
 
     // In-Meeting Chat Messages
-    socket.on("new-chat-message", (msg: MeetingChatMessage) => {
-      setChatMessages((prev) => [...prev, msg]);
+    socket.on("new-chat-message", (msg: any) => {
+      const formattedMsg: MeetingChatMessage = {
+        id: String(msg.id || Date.now()),
+        sender_name: msg.sender_name || msg.senderName || "Participant",
+        sender_role: msg.sender_role || msg.senderRole || "PARTICIPANT",
+        text: msg.text,
+        timestamp: msg.timestamp || new Date().toISOString(),
+        is_self: false,
+      };
+      setChatMessages((prev) => {
+        if (prev.some((m) => m.id === formattedMsg.id)) return prev;
+        return [...prev, formattedMsg];
+      });
       if (activeDrawer !== "chat") {
         setUnreadChatCount((c) => c + 1);
       }
