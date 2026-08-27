@@ -18,6 +18,10 @@ const server = http.createServer(app);
 // Initialize Socket.io Server for WebRTC signaling and meeting chat
 const io = new SocketIOServer(server, {
   path: '/socket.io',
+  transports: ['polling', 'websocket'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000,
   cors: {
     origin: (origin, callback) => {
       callback(null, true);
@@ -27,6 +31,18 @@ const io = new SocketIOServer(server, {
 });
 
 setupMeetingSockets(io);
+
+// Handle any proxied /socket.io HTTP polling requests seamlessly
+app.use((req, res, next) => {
+  if (req.path === '/socket.io' || req.originalUrl?.startsWith('/socket.io')) {
+    if (!req.url.startsWith('/socket.io/')) {
+      req.url = req.url.replace('/socket.io', '/socket.io/');
+    }
+    (io.engine as any).handleRequest(req, res);
+    return;
+  }
+  next();
+});
 
 // CORS configuration matching Next.js frontend requirements
 app.use(

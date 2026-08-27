@@ -212,7 +212,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     }
 
     const socket = io(socketUrl || "", {
-      path: "/socket.io",
+      path: "/socket.io/",
       auth: { token },
       transports: ["polling", "websocket"],
       upgrade: true,
