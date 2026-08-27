@@ -72,6 +72,7 @@ export async function getEmployeeById(req: Request, res: Response): Promise<void
 }
 
 export async function createEmployee(req: Request, res: Response): Promise<void> {
+  const body = req.body || {};
   const {
     employee_code,
     name,
@@ -85,6 +86,8 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
     location,
     team_lead,
     user_id,
+  } = body;
+
   let code = employee_code ? String(employee_code).trim() : '';
   if (!code) {
     const totalCount = await Employee.countDocuments();
