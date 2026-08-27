@@ -585,33 +585,20 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
         <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label.toLowerCase().includes("leave") && pendingLeaveCount > 0 && <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>}</Link>)}</nav>
         <div className="sidebar-foot">
           <PwaInstallButton variant="sidebar" />
-          {workspaceRole === "employee" || workspaceRole === "bdo" || workspaceRole === "team-lead" ? (
-            <div
-              className="mini-profile cursor-pointer hover:bg-[rgba(203,168,110,0.12)] transition-colors rounded-xl p-2 mb-2"
-              onClick={() => {
-                setOpen(false);
-                router.push(`/${workspaceRole}/profile`);
-              }}
-              title="View Work Profile"
-            >
-              <Avatar name={name} />
-              <div>
-                <b>{name}</b>
-                <span>{roleLabel}</span>
-              </div>
+          <div
+            className="mini-profile cursor-pointer hover:bg-[rgba(8,122,91,0.12)] transition-colors rounded-xl p-2 mb-2"
+            onClick={() => {
+              setOpen(false);
+              router.push(`/${workspaceRole}/profile`);
+            }}
+            title="View Profile & Settings"
+          >
+            <Avatar name={name} />
+            <div>
+              <b>{name}</b>
+              <span>{roleLabel}</span>
             </div>
-          ) : (
-            <div
-              className="mini-profile rounded-xl p-2 mb-2 select-none"
-              title={name}
-            >
-              <Avatar name={name} />
-              <div>
-                <b>{name}</b>
-                <span>{roleLabel}</span>
-              </div>
-            </div>
-          )}
+          </div>
           <button type="button" onClick={openLogoutModal} disabled={loggingOut}><LogOut size={17} /> {loggingOut ? "Signing out..." : "Sign out"}</button>
         </div>
       </aside>
@@ -622,15 +609,14 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
           <div className="topbar-word">FLUMENX OS / <span>{roleLabel.toUpperCase()}</span></div>
           <div className="top-actions">
             <NotificationBell user={user} />
-            <button
-              type="button"
-              onClick={() => setShowPasswordModal(true)}
-              className="font-medium text-[#1a1b1e] bg-[#ffffff] border border-[#dad7ce] px-2.5 py-1 rounded-lg text-xs shadow-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer flex items-center gap-1.5"
-              title="Click to Change Password"
+            <Link
+              href={`/${workspaceRole}/profile`}
+              className="topbar-user-pill"
+              title="View Profile & Settings"
             >
-              <KeyRound size={12} className="text-[#087A5B]" />
+              <Avatar name={user?.employee?.name || user?.first_name || user?.username || name} size={20} />
               <span>{user?.employee?.name || user?.first_name || user?.username || name}</span>
-            </button>
+            </Link>
             {canCreateTask && (
               <button
                 type="button"

@@ -87,12 +87,23 @@ async function refreshAuth() {
   if (!refreshPromise) {
     refreshPromise = (async () => {
       await ensureCsrf();
+      const refreshToken = typeof window !== "undefined" ? (localStorage.getItem("flumenx_refresh_token") || localStorage.getItem("refresh_token") || "") : "";
       const refreshed = await fetch(`${API_URL}/auth/refresh/`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+        body: JSON.stringify({ refresh: refreshToken }),
       });
-      return refreshed.ok;
+
+      if (refreshed.ok) {
+        const data = await refreshed.json().catch(() => ({}));
+        if (data && data.access && typeof window !== "undefined") {
+          localStorage.setItem("flumenx_access_token", data.access);
+          localStorage.setItem("access_token", data.access);
+        }
+        return true;
+      }
+      return false;
     })().finally(() => {
       refreshPromise = null;
     });

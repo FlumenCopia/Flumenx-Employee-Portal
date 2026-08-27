@@ -13,6 +13,7 @@ import {
   RotateCcw,
   AlertTriangle,
   FileText,
+  KeyRound,
 } from "lucide-react";
 import { Avatar } from "@/components/icons";
 import { EmptyState } from "@/components/ui";
@@ -20,6 +21,7 @@ import { useShellUser } from "@/components/shell";
 import { api } from "@/lib/api";
 import type { WorkAssignment, Paginated, KPIEmployeeData, Client } from "@/lib/types";
 import { EmployeeDocumentsModal } from "@/features/employees/EmployeeDocumentsModal";
+import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 
 
 const MONTH_NAMES = [
@@ -138,6 +140,7 @@ export function ProfilePage() {
   const [selectedYear, setSelectedYear] = useState<string>(currentDate.getFullYear().toString());
   const [selectedClient, setSelectedClient] = useState<string>("all");
   const [documentsModalOpen, setDocumentsModalOpen] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"pending" | "current" | "corrections" | "completed" | "all">("pending");
 
@@ -374,8 +377,8 @@ export function ProfilePage() {
           </p>
         </div>
 
-        {/* Small Identity Chip & Actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        {/* Identity Chip & Actions */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px" }}>
           {user.employee && (
             <button
               type="button"
@@ -398,6 +401,27 @@ export function ProfilePage() {
             </button>
           )}
 
+          <button
+            type="button"
+            onClick={() => setPasswordModalOpen(true)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "rgba(8, 122, 91, 0.12)",
+              border: "1px solid rgba(8, 122, 91, 0.35)",
+              borderRadius: "var(--r)",
+              padding: "8px 12px",
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "#34D399",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <KeyRound size={15} color="#34D399" /> Change Password
+          </button>
+
           <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 12px" }}>
             <Avatar name={name} size={36} />
             <div>
@@ -419,6 +443,11 @@ export function ProfilePage() {
             employee={user.employee as any}
           />
         )}
+
+        <ChangePasswordModal
+          open={passwordModalOpen}
+          onClose={() => setPasswordModalOpen(false)}
+        />
       </div>
 
 
