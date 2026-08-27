@@ -6,12 +6,19 @@ import "./globals.css";
 const jost = Jost({ subsets: ["latin"], variable: "--font-body" });
 
 export const metadata: Metadata = {
-  title: "FLUMENX · Employee Portal",
-  description: "A connected workplace, built around people.",
+  title: "FLUMENX OS · Enterprise Operating System",
+  description: "FLUMENX OS — Unified enterprise workspace and operations management.",
+  manifest: "/manifest.json",
+  themeColor: "#087A5B",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "FLUMENX OS",
+  },
   icons: {
     icon: "/flumen-favicon.png",
     shortcut: "/flumen-favicon.png",
-    apple: "/flumen-favicon.png",
+    apple: "/flumen-icon.png",
   },
 };
 

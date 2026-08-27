@@ -9,6 +9,9 @@ import { api, logout } from "@/lib/api";
 import { clearCachedAuthUser, getCachedAuthUser, loadAuthUser } from "@/lib/auth-cache";
 import type { AuthUser, Paginated, PortalNotification, WorkspaceRole } from "@/lib/types";
 import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, getWorkspaceDestination, getWorkspaceRole, isRoleAllowedInWorkspace, normalizeWorkspaceRoute, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
+import { PwaInstallButton } from "./PwaInstallButton";
+
+const dynamicNavCache: Record<string, readonly (readonly [string, string, any])[]> = {};
 
 
 const ShellUserContext = createContext<AuthUser | null>(null);
@@ -269,7 +272,7 @@ function LogoutModal({
         </div>
 
         <p className="logout-dialog-copy">
-          Are you sure you want to sign out of the Flumenx Employee Portal? You will need to log back in to access your workspace.
+          Are you sure you want to sign out of FLUMENX OS? You will need to log back in to access your workspace.
         </p>
 
         <div className="logout-dialog-actions">
@@ -313,11 +316,14 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   const [loggingOut, setLoggingOut] = useState(false);
   const [revalidatingBfCache, setRevalidatingBfCache] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
-  const [dynamicNav, setDynamicNav] = useState<readonly (readonly [string, string, any])[] | null>(null);
-  const [navLoading, setNavLoading] = useState(true);
+  const [dynamicNav, setDynamicNav] = useState<readonly (readonly [string, string, any])[] | null>(() => dynamicNavCache[workspaceRole] || null);
+  const [navLoading, setNavLoading] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
   }, []);
 
   const fetchDynamicNavigation = useCallback(async () => {
@@ -339,14 +345,17 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
           normalizeWorkspaceRoute(item.route_path, workspaceRole),
           getLucideIcon(item.icon),
         ] as const);
+        dynamicNavCache[workspaceRole] = mapped;
         setDynamicNav(mapped);
       } else {
-        setDynamicNav(getFilteredNavigation(workspaceRole));
+        const fallback = getFilteredNavigation(workspaceRole);
+        dynamicNavCache[workspaceRole] = fallback;
+        setDynamicNav(fallback);
       }
     } catch {
-      setDynamicNav(getFilteredNavigation(workspaceRole));
-    } finally {
-      setNavLoading(false);
+      const fallback = getFilteredNavigation(workspaceRole);
+      dynamicNavCache[workspaceRole] = fallback;
+      setDynamicNav(fallback);
     }
   }, [user, workspaceRole]);
 
@@ -561,12 +570,13 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
             <FlumenxMark />
             <button className="mobile-close" onClick={() => setOpen(false)} aria-label="Close navigation sidebar"><X /></button>
           </div>
-          <div className="sub-brand" style={{ paddingLeft: "2px", marginTop: "4px" }}>
-            Employee Portal
+          <div className="sub-brand" style={{ paddingLeft: "2px", marginTop: "4px", fontSize: "11.5px", fontWeight: 800, letterSpacing: "0.15em", color: "var(--brand-primary, #087A5B)" }}>
+            FLUMENX OS
           </div>
         </div>
         <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label.toLowerCase().includes("leave") && pendingLeaveCount > 0 && <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>}</Link>)}</nav>
         <div className="sidebar-foot">
+          <PwaInstallButton variant="sidebar" />
           {workspaceRole === "employee" || workspaceRole === "bdo" || workspaceRole === "team-lead" ? (
             <div
               className="mini-profile cursor-pointer hover:bg-[rgba(203,168,110,0.12)] transition-colors rounded-xl p-2 mb-2"
@@ -601,8 +611,9 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
       <main className="main">
         <header className="topbar">
           <button className="menu-button" onClick={() => setOpen(true)} aria-label="Open navigation menu"><Menu /></button>
-          <div className="topbar-word">FLUMENX / <span>{roleLabel.toUpperCase()}</span></div>
+          <div className="topbar-word">FLUMENX OS / <span>{roleLabel.toUpperCase()}</span></div>
           <div className="top-actions">
+            <PwaInstallButton variant="header" />
             <NotificationBell user={user} />
             <span className="topbar-user-name font-medium text-[#1a1b1e] bg-[#ffffff] border border-[#dad7ce] px-2.5 py-1 rounded-lg text-xs shadow-sm">
               {user?.employee?.name || user?.first_name || user?.username || name}

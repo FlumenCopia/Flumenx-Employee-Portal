@@ -1,0 +1,29 @@
+{
+  "name": "FLUMENX OS",
+  "short_name": "FLUMENX OS",
+  "description": "FLUMENX OS — Unified Enterprise Operating System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A110F",
+  "theme_color": "#087A5B",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/flumen-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/flumen-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/flumenx-mark-only.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
