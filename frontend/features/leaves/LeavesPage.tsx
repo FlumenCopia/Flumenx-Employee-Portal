@@ -38,12 +38,13 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
     setLoading(true);
     setError("");
     const query = page > 1 ? `?page=${page}` : "";
-    api<Paginated<Leave>>(`/leaves/${query}`)
+    api<Paginated<Leave> | Leave[]>(`/leaves/${query}`)
       .then(data => {
-        setItems(data.results);
-        setCount(data.count);
-        setHasNext(Boolean(data.next));
-        setHasPrevious(Boolean(data.previous));
+        const list = Array.isArray(data) ? data : (data as any)?.results || [];
+        setItems(list);
+        setCount(Array.isArray(data) ? data.length : (data as any)?.count || list.length);
+        setHasNext(Boolean((data as any)?.next));
+        setHasPrevious(Boolean((data as any)?.previous));
       })
       .catch(err => {
         setItems([]);
@@ -118,9 +119,10 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
     }
   }
 
-  const pendingCount = items.filter(x => x.status === "Pending").length;
-  const approvedCount = items.filter(x => x.status === "Approved").length;
-  const rejectedCount = items.filter(x => x.status === "Rejected").length;
+  const safeItems = items || [];
+  const pendingCount = safeItems.filter(x => x.status === "Pending").length;
+  const approvedCount = safeItems.filter(x => x.status === "Approved").length;
+  const rejectedCount = safeItems.filter(x => x.status === "Rejected").length;
 
   return <>
     <PageHeader

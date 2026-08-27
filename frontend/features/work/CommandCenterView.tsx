@@ -25,6 +25,7 @@ import {
   Users,
   Zap,
   Trash2,
+  Globe,
 } from "lucide-react";
 
 import type { WorkAssignment, Client, WorkEmployeeOption, WorkPriority, WorkStatus, PortalRole, DepartmentItem, WorkSummary } from "@/lib/types";
@@ -36,6 +37,29 @@ function isDateStrictlyPast(dateStr?: string): boolean {
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   return dateStr < todayStr;
+}
+
+function formatTimeSpent(totalSeconds: number, activeTimer?: { started_at: string } | null, nowMs?: number): string {
+  let seconds = totalSeconds || 0;
+  if (activeTimer && activeTimer.started_at) {
+    const startedMs = new Date(activeTimer.started_at).getTime();
+    const currentMs = nowMs || Date.now();
+    const diffSec = Math.max(0, Math.floor((currentMs - startedMs) / 1000));
+    seconds += diffSec;
+  }
+
+  if (seconds <= 0) return "00m 00s";
+
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  if (hrs > 0) {
+    return `${hrs}h ${pad(mins)}m ${pad(secs)}s`;
+  }
+  return `${pad(mins)}m ${pad(secs)}s`;
 }
 
 export interface TaskItem {
@@ -62,6 +86,14 @@ export interface TaskItem {
   reviewedByName?: string;
   clientName?: string;
   clientId?: number;
+  parentTask?: string;
+  parentTaskTitle?: string;
+  isMasterClientTask?: boolean;
+  assignedQuantity?: number;
+  completedQuantity?: number;
+  unit?: string;
+  totalTimeSpentSeconds?: number;
+  activeTimer?: { started_at: string; started_by?: number | null } | null;
 }
 
 export interface MemberItem {
@@ -218,6 +250,7 @@ export function CommandCenterView({
   onStatusChange,
   onReviewCheck,
   onDeleteWork,
+  onEditWork,
   initialTab = "kanban",
 }: {
   assignments: WorkAssignment[];
@@ -232,6 +265,7 @@ export function CommandCenterView({
   onStatusChange?: (id: number, status: WorkStatus) => Promise<void> | void;
   onReviewCheck?: (id: number, reviewStatus: "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED", note?: string) => Promise<unknown>;
   onDeleteWork?: (id: number) => Promise<boolean>;
+  onEditWork?: (assignment: WorkAssignment) => void;
   initialTab?: string;
 }) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
@@ -405,6 +439,14 @@ export function CommandCenterView({
           reviewedByName: a.reviewed_by_name || "",
           clientName: a.client_name,
           clientId: a.client,
+          parentTask: a.parent_task ? String(a.parent_task) : undefined,
+          parentTaskTitle: a.parent_task_title || "",
+          isMasterClientTask: Boolean(a.is_master_client_task),
+          assignedQuantity: a.assigned_quantity || 1,
+          completedQuantity: a.completed_quantity || 0,
+          unit: a.unit || "tasks",
+          totalTimeSpentSeconds: a.total_time_spent_seconds || 0,
+          activeTimer: a.active_timer || null,
         };
       });
       setTasks(converted);
@@ -455,6 +497,46 @@ export function CommandCenterView({
     const c = tasks.filter((t) => t.deliverable === d.id && ["published", "approved"].includes(t.status)).length;
     return a + Math.min(c, d.contracted);
   }, 0);
+
+  const [nowMs, setNowMs] = useState<number>(Date.now());
+  const [timerLoadingId, setTimerLoadingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleStartTaskTimer = async (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    if (timerLoadingId) return;
+    setTimerLoadingId(taskId);
+    try {
+      await api(`/work-assignments/${taskId}/start-timer/`, { method: "POST" });
+      if (onStatusChange) {
+        onStatusChange(Number(taskId), "In Progress");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not start task timer.");
+    } finally {
+      setTimerLoadingId(null);
+    }
+  };
+
+  const handleStopTaskTimer = async (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    if (timerLoadingId) return;
+    setTimerLoadingId(taskId);
+    try {
+      await api(`/work-assignments/${taskId}/stop-timer/`, { method: "POST" });
+      if (onStatusChange) {
+        onStatusChange(Number(taskId), "In Progress");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not stop task timer.");
+    } finally {
+      setTimerLoadingId(null);
+    }
+  };
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
@@ -765,6 +847,31 @@ export function CommandCenterView({
                       ))}
                     </select>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        window.dispatchEvent(new CustomEvent("flumenx:open_share_client_modal", { detail: { clientId: selectedClientId, clientName: selectedClientName } }));
+                      }
+                    }}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      background: "#3b82f6",
+                      color: "#ffffff",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      border: "none",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(59, 130, 246, 0.2)",
+                    }}
+                    title="Generate secure shareable public link for client"
+                  >
+                    <Globe size={12} /> Share Client Portal
+                  </button>
                 </div>
                 <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--primary-green)", fontFamily: "monospace" }}>
                   {Math.round(overallProgressPct)}%
@@ -1072,207 +1179,257 @@ export function CommandCenterView({
                         return <div style={{ textAlign: "center", padding: "24px 8px", color: "var(--muted)", fontSize: "11px" }}>No tasks</div>;
                       }
 
-                      const groupsMap = new Map<string, TaskItem[]>();
-                      colTasks.forEach((t) => {
-                        const cName = t.clientName || "General";
-                        const aName = t.assigneeName || "Unassigned";
-                        const key = `${cName}__${aName}`;
-                        if (!groupsMap.has(key)) {
-                          groupsMap.set(key, []);
-                        }
-                        groupsMap.get(key)!.push(t);
-                      });
-
-                      const renderedItems: React.ReactNode[] = [];
-
-                      groupsMap.forEach((tasksInGroup, key) => {
-                        if (tasksInGroup.length === 1) {
-                          const t = tasksInGroup[0];
-                          const isOverdue = isDateStrictlyPast(t.due);
-                          const canonKey = normalizeDepartment(t.type);
-                          const typeInfo = CANONICAL_DEPARTMENTS[canonKey] || { label: t.type, badge: t.type, color: "var(--amber)" };
-                          renderedItems.push(
-                            <div
-                              key={t.id}
-                              className="tcard"
-                              onClick={() => setSelectedTask(t)}
-                              style={{
-                                padding: "16px",
-                                background: "var(--panel)",
-                                border: "1px solid var(--border)",
-                                borderRadius: "12px",
-                                cursor: "pointer",
-                                marginBottom: "12px",
-                                boxShadow: "var(--shadow-sm)",
-                                transition: "all 0.2s ease",
-                              }}
-                            >
-                              <div className="tc-top" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
-                                <span className="chip" style={{ background: "var(--soft-brand-bg)", color: "var(--amber)", border: "1px solid rgba(8, 122, 91, 0.25)", padding: "3px 9px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, textTransform: "uppercase" }}>
-                                  {typeInfo.label}
+                      return colTasks.map((t) => {
+                        const isOverdue = isDateStrictlyPast(t.due);
+                        const canonKey = normalizeDepartment(t.type);
+                        const typeInfo = CANONICAL_DEPARTMENTS[canonKey] || { label: t.type, badge: t.type, color: "var(--amber)" };
+                        return (
+                          <div
+                            key={t.id}
+                            className="tcard"
+                            onClick={() => setSelectedTask(t)}
+                            style={{
+                              padding: "16px",
+                              background: "var(--panel)",
+                              border: "1px solid var(--border)",
+                              borderRadius: "12px",
+                              cursor: "pointer",
+                              marginBottom: "12px",
+                              boxShadow: "var(--shadow-sm)",
+                              transition: "all 0.2s ease",
+                            }}
+                          >
+                            <div className="tc-top" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
+                              {t.clientName && (
+                                <span className="chip" style={{ background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", border: "1px solid rgba(59, 130, 246, 0.3)", padding: "3px 9px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
+                                  🏢 {t.clientName}
                                 </span>
-                                <span className="chip" style={getPriorityBadgeStyle(t.priority)}>
-                                  {t.priority.toUpperCase()}
+                              )}
+                              <span className="chip" style={{ background: "var(--soft-brand-bg)", color: "var(--amber)", border: "1px solid rgba(8, 122, 91, 0.25)", padding: "3px 9px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, textTransform: "uppercase" }}>
+                                {typeInfo.label}
+                              </span>
+                              <span className="chip" style={getPriorityBadgeStyle(t.priority)}>
+                                {t.priority.toUpperCase()}
+                              </span>
+                              {t.reviewStatus === "OK" && (
+                                <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
+                                  ✓ OK
                                 </span>
-                                {t.reviewStatus === "OK" && (
-                                  <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                                    ✓ OK
-                                  </span>
-                                )}
-                                {t.reviewStatus === "CORRECTION_NEEDED" && (
-                                  <span style={{ background: "rgba(200, 75, 75, 0.1)", color: "var(--red)", border: "1px solid rgba(200, 75, 75, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                                    ↩ Correction Needed
-                                  </span>
-                                )}
-                                {(!t.reviewStatus || t.reviewStatus === "PENDING_REVIEW") && (
-                                  <span style={{ background: "rgba(201, 135, 23, 0.12)", color: "var(--warning)", border: "1px solid rgba(201, 135, 23, 0.3)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700 }}>
-                                    ⏳ Pending Review
-                                  </span>
-                                )}
-                                <span className="tc-code" style={{ marginLeft: "auto", fontSize: "11px", color: "var(--muted)", fontFamily: "monospace", fontWeight: 700 }}>{t.code}</span>
-                              </div>
+                              )}
+                              {t.reviewStatus === "CORRECTION_NEEDED" && (
+                                <span style={{ background: "rgba(200, 75, 75, 0.1)", color: "var(--red)", border: "1px solid rgba(200, 75, 75, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
+                                  ↩ Correction Needed
+                                </span>
+                              )}
+                              {(!t.reviewStatus || t.reviewStatus === "PENDING_REVIEW") && (
+                                <span style={{ background: "rgba(201, 135, 23, 0.12)", color: "var(--warning)", border: "1px solid rgba(201, 135, 23, 0.3)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700 }}>
+                                  ⏳ Pending Review
+                                </span>
+                              )}
+                              <span className="tc-code" style={{ marginLeft: "auto", fontSize: "11px", color: "var(--muted)", fontFamily: "monospace", fontWeight: 700 }}>{t.code}</span>
+                            </div>
 
-                              <div className="tc-title" style={{ fontWeight: 800, fontSize: "15px", color: "var(--text)", marginBottom: "8px", lineHeight: "1.4" }}>{t.title}</div>
-                              {t.desc && <div style={{ fontSize: "12.5px", color: "var(--muted)", marginBottom: "12px", lineHeight: "1.45" }}>{t.desc}</div>}
+                            <div className="tc-title" style={{ fontWeight: 800, fontSize: "15px", color: "var(--text)", marginBottom: "8px", lineHeight: "1.4" }}>{t.title}</div>
+                            {t.desc && <div style={{ fontSize: "12.5px", color: "var(--muted)", marginBottom: "12px", lineHeight: "1.45" }}>{t.desc}</div>}
 
-                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", background: "var(--panel2)", border: "1px solid var(--line)", borderRadius: "8px", marginBottom: "12px" }}>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
-                                  <span style={{ color: "var(--muted)" }}>Assigned To:</span>
+                            <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", background: "var(--panel2)", border: "1px solid var(--line)", borderRadius: "8px", marginBottom: "12px" }} onClick={(e) => e.stopPropagation()}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
+                                <span style={{ color: "var(--muted)", fontWeight: 600 }}>Assigned To:</span>
+                                {canManageAll ? (
+                                  <select
+                                    value={(members || []).find((m) => m.display_name === t.assigneeName || String(m.id) === String(t.assignee))?.id || ""}
+                                    onChange={async (e) => {
+                                      const newEmpId = e.target.value;
+                                      const empObj = (members || []).find((m) => String(m.id) === newEmpId);
+                                      const newEmpName = empObj ? empObj.display_name : "Unassigned";
+                                      try {
+                                        await api(`/work-assignments/${t.id}/`, {
+                                          method: "PATCH",
+                                          body: JSON.stringify({ employee: newEmpId || null }),
+                                        });
+                                        setTasks((prev) =>
+                                          prev.map((item) => (item.id === t.id ? { ...item, assignee: newEmpId, assigneeName: newEmpName } : item))
+                                        );
+                                      } catch {
+                                        // fallback local update
+                                      }
+                                    }}
+                                    style={{
+                                      padding: "2px 6px",
+                                      fontSize: "12px",
+                                      fontWeight: 800,
+                                      color: "var(--text)",
+                                      background: "#FFFFFF",
+                                      border: "1px solid #CBD5E1",
+                                      borderRadius: "6px",
+                                    }}
+                                  >
+                                    <option value="">Unassigned</option>
+                                    {(members || []).map((m) => (
+                                      <option key={m.id} value={String(m.id)}>
+                                        {m.display_name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
                                   <b style={{ color: "var(--text)", fontWeight: 700, fontSize: "12.5px" }}>{t.assigneeName || "Unassigned"}</b>
-                                </div>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
-                                  <span style={{ color: "var(--muted)" }}>Reviewer:</span>
-                                  <b style={{ color: "var(--text)", fontWeight: 700, fontSize: "12.5px" }}>{t.reviewer || "Admin"}</b>
-                                </div>
+                                )}
                               </div>
-
-                              <div className="tc-meta" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px", color: "var(--muted)" }}>
-                                <div className={`tc-due ${isOverdue ? "late" : ""}`} style={{ color: isOverdue ? "var(--red)" : "var(--muted)", fontSize: "12px", fontWeight: isOverdue ? 800 : 600 }}>
-                                  📅 {isOverdue ? "Overdue: " : "Due: "}{t.due}
-                                </div>
-                              </div>
-
-                              <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>Status:</span>
-                                <select
-                                   value={t.status === "backlog" ? "Backlog" : (t.rawStatus || "Assigned")}
-                                   disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
-                                   onClick={(e) => e.stopPropagation()}
-                                   onChange={async (e) => {
-                                     e.stopPropagation();
-                                     const newWorkStatus = e.target.value as WorkStatus;
-                                     e.target.blur();
-                                     if (!canUserChangeTaskStatus(t) || isUpdatingStatus) return;
-                                     await handleWorkStatusChange(t.id, newWorkStatus);
-                                   }}
-                                   className="fs"
-                                   style={{
-                                     padding: "5px 12px",
-                                     fontSize: "12.5px",
-                                     color: t.status === "backlog" ? "var(--red)" : "var(--text)",
-                                     background: t.status === "backlog" ? "rgba(200,75,75,0.08)" : "var(--panel)",
-                                     border: t.status === "backlog" ? "1px solid rgba(200,75,75,0.3)" : "1px solid var(--border)",
-                                     borderRadius: "8px",
-                                     fontWeight: 700,
-                                     cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
-                                     opacity: canUserChangeTaskStatus(t) ? 1 : 0.6,
-                                   }}
-                                   title={!canUserChangeTaskStatus(t) ? "Only Reviewer and Admins can change status" : "Change status"}
-                                 >
-                                   {t.status === "backlog" && (
-                                     <option value="Backlog">Backlog (Overdue)</option>
-                                   )}
-                                   {!ALL_WORK_STATUSES.some((st) => st.id === t.rawStatus) && t.rawStatus && t.status !== "backlog" && (
-                                     <option value={t.rawStatus} disabled>
-                                       {t.rawStatus}
-                                     </option>
-                                   )}
-                                   {ALL_WORK_STATUSES.map((st) => {
-                                     const isReviewerOnly = st.isReviewerOnly;
-                                     const isBacklog = st.id === "Backlog";
-                                     const isAllowed = !isBacklog && canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
-                                     return (
-                                       <option key={st.id} value={st.id} disabled={!isAllowed}>
-                                         {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(t) ? "🔒" : ""}
-                                       </option>
-                                     );
-                                   })}
-                                 </select>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
+                                <span style={{ color: "var(--muted)" }}>Reviewer:</span>
+                                <b style={{ color: "var(--text)", fontWeight: 700, fontSize: "12.5px" }}>{t.reviewer || "Admin"}</b>
                               </div>
                             </div>
-                          );
-                        } else {
-                          const [clientName, assigneeName] = key.split("__");
-                          const reviewerName = tasksInGroup[0].reviewer || "Admin";
-                          const groupData: TaskGroup = {
-                            key,
-                            clientName,
-                            assigneeName,
-                            reviewerName,
-                            tasks: tasksInGroup,
-                          };
 
-                          renderedItems.push(
+                            <div className="tc-meta" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px", color: "var(--muted)" }}>
+                              <div className={`tc-due ${isOverdue ? "late" : ""}`} style={{ color: isOverdue ? "var(--red)" : "var(--muted)", fontSize: "12px", fontWeight: isOverdue ? 800 : 600 }}>
+                                📅 {isOverdue ? "Overdue: " : "Due: "}{t.due}
+                              </div>
+                            </div>
+
+                            {/* LIVE TASK TIMER BAR */}
                             <div
-                              key={`group_${key}`}
-                              className="tcard tcard-grouped"
-                              onClick={() => setSelectedTaskGroup(groupData)}
+                              onClick={(e) => e.stopPropagation()}
                               style={{
-                                padding: "16px",
-                                background: "var(--panel)",
-                                border: "1px solid var(--border)",
-                                borderRadius: "12px",
-                                cursor: "pointer",
-                                marginBottom: "12px",
-                                boxShadow: "var(--shadow-sm)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "8px 10px",
+                                background: t.activeTimer ? "rgba(8, 122, 91, 0.12)" : "var(--panel2)",
+                                border: t.activeTimer ? "1px solid #087A5B" : "1px solid var(--line)",
+                                borderRadius: "8px",
+                                marginTop: "10px",
                               }}
                             >
-                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-                                <span className="chip" style={{ background: "var(--soft-brand-bg)", color: "var(--amber)", border: "1px solid rgba(8, 122, 91, 0.25)", padding: "3px 10px", borderRadius: "6px", fontSize: "11.5px", fontWeight: 800 }}>
-                                  {clientName}
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <Clock size={14} style={{ color: t.activeTimer ? "#087A5B" : "var(--muted)" }} />
+                                <span style={{ fontSize: "12px", fontWeight: 800, color: t.activeTimer ? "#087A5B" : "var(--text)" }}>
+                                  {formatTimeSpent(t.totalTimeSpentSeconds || 0, t.activeTimer, nowMs)}
                                 </span>
-                                <span style={{ background: "#13231F", color: "#FFFFFF", padding: "3px 10px", borderRadius: "12px", fontSize: "11.5px", fontWeight: 800, border: "1px solid #192D27" }}>
-                                  {tasksInGroup.length} Tasks
-                                </span>
-                              </div>
-
-                              <div style={{ fontSize: "14px", fontWeight: 800, color: "var(--text)", marginBottom: "8px" }}>
-                                📁 {tasksInGroup.length} Work Assignments Batch
-                              </div>
-
-                              <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "10px", display: "flex", flexDirection: "column", gap: "4px", background: "var(--panel2)", border: "1px solid var(--line)", padding: "9px 11px", borderRadius: "8px" }}>
-                                {tasksInGroup.slice(0, 3).map((gt) => (
-                                  <div key={gt.id} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--text)" }}>
-                                    • {gt.title}
-                                  </div>
-                                ))}
-                                {tasksInGroup.length > 3 && (
-                                  <div style={{ fontSize: "11px", color: "var(--amber)", fontWeight: 800, marginTop: "2px" }}>
-                                    +{tasksInGroup.length - 3} more task(s)...
-                                  </div>
+                                {t.activeTimer && (
+                                  <span style={{ fontSize: "10px", fontWeight: 800, color: "#087A5B", background: "rgba(8,122,91,0.2)", padding: "2px 6px", borderRadius: "4px" }}>
+                                    LIVE
+                                  </span>
                                 )}
                               </div>
 
-                              <div className="tc-assignee-info" style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "10px 12px", background: "var(--panel2)", border: "1px solid var(--line)", borderRadius: "8px", marginBottom: "10px" }}>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
-                                  <span style={{ color: "var(--muted)" }}>Assigned To:</span>
-                                  <b style={{ color: "var(--text)", fontWeight: 700, fontSize: "12.5px" }}>{assigneeName}</b>
-                                </div>
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "12px" }}>
-                                  <span style={{ color: "var(--muted)" }}>Reviewer:</span>
-                                  <b style={{ color: "var(--text)", fontWeight: 700, fontSize: "12.5px" }}>{reviewerName}</b>
-                                </div>
-                              </div>
-
-                              <div style={{ fontSize: "12px", color: "var(--amber)", fontWeight: 800, textAlign: "right" }}>
-                                Click to view all {tasksInGroup.length} tasks ➔
-                              </div>
+                              {t.activeTimer ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleStopTaskTimer(e, t.id)}
+                                  disabled={timerLoadingId === t.id}
+                                  style={{
+                                    background: "#E11D48",
+                                    color: "#FFFFFF",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    padding: "4px 10px",
+                                    fontSize: "11px",
+                                    fontWeight: 800,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  ⏹ Stop Timer
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleStartTaskTimer(e, t.id)}
+                                  disabled={timerLoadingId === t.id}
+                                  style={{
+                                    background: "#087A5B",
+                                    color: "#FFFFFF",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    padding: "4px 10px",
+                                    fontSize: "11px",
+                                    fontWeight: 800,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  ▶ Start Timer
+                                </button>
+                              )}
                             </div>
-                          );
-                        }
-                      });
 
-                      return renderedItems;
+                            <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>Status:</span>
+                              <select
+                                 value={t.status === "backlog" ? "Backlog" : (t.rawStatus || "Assigned")}
+                                 disabled={!canUserChangeTaskStatus(t) || isUpdatingStatus}
+                                 onClick={(e) => e.stopPropagation()}
+                                 onChange={async (e) => {
+                                   e.stopPropagation();
+                                   const newWorkStatus = e.target.value as WorkStatus;
+                                   e.target.blur();
+                                   if (!canUserChangeTaskStatus(t) || isUpdatingStatus) return;
+                                   await handleWorkStatusChange(t.id, newWorkStatus);
+                                 }}
+                                 className="fs"
+                                 style={{
+                                   padding: "5px 12px",
+                                   fontSize: "12.5px",
+                                   color: t.status === "backlog" ? "var(--red)" : "var(--text)",
+                                   background: t.status === "backlog" ? "rgba(200,75,75,0.08)" : "var(--panel)",
+                                   border: t.status === "backlog" ? "1px solid rgba(200,75,75,0.3)" : "1px solid var(--border)",
+                                   borderRadius: "8px",
+                                   fontWeight: 700,
+                                   cursor: canUserChangeTaskStatus(t) ? "pointer" : "not-allowed",
+                                   opacity: canUserChangeTaskStatus(t) ? 1 : 0.6,
+                                 }}
+                                 title={!canUserChangeTaskStatus(t) ? "Only Reviewer and Admins can change status" : "Change status"}
+                               >
+                                 {t.status === "backlog" && (
+                                   <option value="Backlog">Backlog (Overdue)</option>
+                                 )}
+                                 {!ALL_WORK_STATUSES.some((st) => st.id === t.rawStatus) && t.rawStatus && t.status !== "backlog" && (
+                                   <option value={t.rawStatus} disabled>
+                                     {t.rawStatus}
+                                   </option>
+                                 )}
+                                 {ALL_WORK_STATUSES.map((st) => {
+                                   const isReviewerOnly = st.isReviewerOnly;
+                                   const isBacklog = st.id === "Backlog";
+                                   const isAllowed = !isBacklog && canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
+                                   return (
+                                     <option key={st.id} value={st.id} disabled={!isAllowed}>
+                                       {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(t) ? "🔒" : ""}
+                                     </option>
+                                   );
+                                 })}
+                               </select>
+
+                               {onEditWork && (
+                                 <button
+                                   type="button"
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     const rawWa = assignments.find((a) => String(a.id) === String(t.id));
+                                     if (rawWa) onEditWork(rawWa);
+                                   }}
+                                   style={{
+                                     background: "var(--panel2)",
+                                     border: "1px solid var(--border)",
+                                     color: "var(--text)",
+                                     padding: "3px 8px",
+                                     borderRadius: "6px",
+                                     fontSize: "11px",
+                                     fontWeight: 700,
+                                     cursor: "pointer",
+                                     display: "flex",
+                                     alignItems: "center",
+                                     gap: "4px",
+                                     marginLeft: "auto",
+                                   }}
+                                 >
+                                   <Pencil size={12} />
+                                   <span>Edit</span>
+                                 </button>
+                               )}
+                            </div>
+                          </div>
+                        );
+                      });
                     })()}
                   </div>
 
@@ -1486,7 +1643,44 @@ export function CommandCenterView({
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px 20px", fontSize: "12.5px", background: "var(--panel2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                 <span style={{ color: "#64748B", fontWeight: 700 }}>Assigned to —</span>
-                <b style={{ color: "var(--text)", fontWeight: 800 }}>{selectedTask.assigneeName || "—"}</b>
+                {canManageAll ? (
+                  <select
+                    value={selectedTask.assignee || ""}
+                    onChange={async (e) => {
+                      const newEmpId = e.target.value;
+                      const empObj = (members || []).find((m) => String(m.id) === newEmpId);
+                      const newEmpName = empObj ? empObj.display_name : "Unassigned";
+                      try {
+                        await api(`/work-assignments/${selectedTask.id}/`, {
+                          method: "PATCH",
+                          body: JSON.stringify({ employee: newEmpId || null }),
+                        });
+                        setSelectedTask((prev) => prev ? { ...prev, assignee: newEmpId, assigneeName: newEmpName } : null);
+                        setTasks((prev) => prev.map((t) => (t.id === selectedTask.id ? { ...t, assignee: newEmpId, assigneeName: newEmpName } : t)));
+                      } catch {
+                        // fallback local update
+                      }
+                    }}
+                    style={{
+                      padding: "2px 6px",
+                      fontSize: "12px",
+                      fontWeight: 800,
+                      color: "var(--text)",
+                      background: "#FFFFFF",
+                      border: "1px solid #CBD5E1",
+                      borderRadius: "6px",
+                    }}
+                  >
+                    <option value="">Unassigned</option>
+                    {(members || []).map((m) => (
+                      <option key={m.id} value={String(m.id)}>
+                        {m.display_name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <b style={{ color: "var(--text)", fontWeight: 800 }}>{selectedTask.assigneeName || "—"}</b>
+                )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                 <span style={{ color: "#64748B", fontWeight: 700 }}>Estimated hours —</span>

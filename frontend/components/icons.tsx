@@ -23,7 +23,14 @@ export function FlumenxMark({ small = false, height }: { small?: boolean; height
   );
 }
 
-export function Avatar({ name, size = 38 }: { name: string; size?: number }) {
-  const initials = name.split(" ").map(x => x[0]).slice(0, 2).join("");
+export function Avatar({ name = "", size = 38 }: { name?: string; size?: number }) {
+  const safeName = name || "User";
+  const initials = safeName
+    .split(" ")
+    .map(x => (x ? x[0] : ""))
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "U";
   return <span className="avatar" style={{ width: size, height: size }}>{initials}</span>;
 }

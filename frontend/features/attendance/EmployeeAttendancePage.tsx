@@ -45,13 +45,37 @@ export function EmployeeAttendancePage() {
   const [activeModal, setActiveModal] = useState<"check-in" | "check-out" | null>(null);
   const [pendingLocation, setPendingLocation] = useState<{ lat: number; lng: number; distance: number } | null>(null);
 
-  const applyAttendanceRecord = useCallback((updated: AttendanceRecord) => {
-    setRecord(updated.attendance_date === today ? updated : null);
+  const applyAttendanceRecord = useCallback((updated: any) => {
+    const rawDate = updated.attendance_date || (updated.attendanceDate ? String(updated.attendanceDate).split('T')[0] : '');
+    const formattedRecord: AttendanceRecord = {
+      id: updated.id || updated._id,
+      employee: updated.employee,
+      employee_name: updated.employee_name || '',
+      employee_code: updated.employee_code || '',
+      department: updated.department || '',
+      attendance_date: rawDate || today,
+      check_in_time: updated.check_in_time || updated.checkInTime || null,
+      check_out_time: updated.check_out_time || updated.checkOutTime || null,
+      check_in_status: updated.check_in_status || updated.checkInStatus || '',
+      attendance_status: updated.attendance_status || updated.attendanceStatus || '',
+      is_late: Boolean(updated.is_late ?? updated.isLate),
+      late_minutes: updated.late_minutes ?? updated.lateMinutes ?? 0,
+      is_early_exit: Boolean(updated.is_early_exit ?? updated.isEarlyExit),
+      early_exit_minutes: updated.early_exit_minutes ?? updated.earlyExitMinutes ?? 0,
+      working_hours: String(updated.working_hours ?? updated.workingHours ?? '0'),
+      source: updated.source || '',
+      location_verified: Boolean(updated.location_verified ?? updated.locationVerified),
+      photo: updated.photo || null,
+      latitude: updated.latitude || null,
+      longitude: updated.longitude || null,
+    };
+
+    setRecord(formattedRecord);
     setRecords(current => {
-      const exists = current.some(item => item.id === updated.id || item.attendance_date === updated.attendance_date);
+      const exists = current.some(item => item.id === formattedRecord.id || item.attendance_date === formattedRecord.attendance_date);
       const next = exists
-        ? current.map(item => item.id === updated.id || item.attendance_date === updated.attendance_date ? updated : item)
-        : [updated, ...current];
+        ? current.map(item => item.id === formattedRecord.id || item.attendance_date === formattedRecord.attendance_date ? formattedRecord : item)
+        : [formattedRecord, ...current];
       return next.sort((a, b) => b.attendance_date.localeCompare(a.attendance_date));
     });
   }, [today]);
@@ -157,10 +181,11 @@ export function EmployeeAttendancePage() {
       (position) => {
         const userLat = position.coords.latitude;
         const userLng = position.coords.longitude;
-        const officeLat = policy ? parseFloat(policy.office_latitude) : 8.521310;
-        const officeLng = policy ? parseFloat(policy.office_longitude) : 76.978630;
-        const allowedRadius = policy?.allowed_radius_meters || 200;
-        const distance = calculateHaversine(userLat, userLng, officeLat, officeLng);
+        const officeLat = policy ? (parseFloat(String((policy as any).officeLatitude || (policy as any).office_latitude || "8.521310")) || 8.521310) : 8.521310;
+        const officeLng = policy ? (parseFloat(String((policy as any).officeLongitude || (policy as any).office_longitude || "76.978630")) || 76.978630) : 76.978630;
+        const allowedRadius = Number((policy as any)?.allowedRadiusMeters || (policy as any)?.allowed_radius_meters || 200);
+        const calcDist = calculateHaversine(userLat, userLng, officeLat, officeLng);
+        const distance = isNaN(calcDist) ? 0 : calcDist;
 
         // Location radius check applies ONLY for Check-In (Checkout permitted from anywhere)
         if (actionType === "check-in" && distance > allowedRadius) {
@@ -209,6 +234,7 @@ export function EmployeeAttendancePage() {
       setMessage(activeModal === "check-in" ? "Office check-in recorded successfully!" : "Office checkout recorded successfully!");
       setActiveModal(null);
       setPendingLocation(null);
+      loadAttendance();
       refreshAggregates();
     } catch (e) {
       setErrorMessage(e instanceof Error ? e.message : "Attendance action could not be completed.");

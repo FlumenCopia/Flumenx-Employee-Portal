@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Check, Pencil, Search, Trash2, UserPlus } from "lucide-react";
+import { Check, FileText, Pencil, Search, Trash2, UserPlus } from "lucide-react";
 import { Department, Employee, Paginated, PortalRole } from "@/lib/types";
 import { api, ApiError } from "@/lib/api";
 import { Avatar } from "@/components/icons";
 import { Badge, EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
 import { getCachedAuthUser } from "@/lib/auth-cache";
+import { EmployeeDocumentsModal } from "./EmployeeDocumentsModal";
+
 
 type EmployeeWorkspaceRole = "admin" | "hr";
 
@@ -56,8 +58,10 @@ export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [documentsModalOpen, setDocumentsModalOpen] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+
 
   const currentUser = getCachedAuthUser();
   const isSelf = Boolean(
@@ -76,12 +80,13 @@ export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole
     if (department !== "All") params.set("department", department);
     const queryString = params.toString() ? `?${params.toString()}` : "";
 
-    api<Paginated<Employee>>(`/employees/${queryString}`)
+    api<Paginated<Employee> | Employee[]>(`/employees/${queryString}`)
       .then(data => {
-        setItems(data.results);
-        setCount(data.count);
-        setHasNext(Boolean(data.next));
-        setHasPrevious(Boolean(data.previous));
+        const list = Array.isArray(data) ? data : (data as any)?.results || [];
+        setItems(list);
+        setCount(Array.isArray(data) ? data.length : (data as any)?.count || list.length);
+        setHasNext(Boolean((data as any)?.next));
+        setHasPrevious(Boolean((data as any)?.previous));
       })
       .catch(err => {
         setItems([]);
@@ -115,7 +120,7 @@ export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole
     }
   };
 
-  const shown = items;
+  const shown = items || [];
 
 return <>
   <PageHeader
@@ -197,13 +202,9 @@ return <>
             <span>{e.designation}</span>
 
             <span>
-              {new Date(e.joining_date).toLocaleDateString(
-                "en-US",
-                {
-                  month: "short",
-                  year: "numeric",
-                }
-              )}
+              {e.joining_date && !isNaN(new Date(e.joining_date).getTime())
+                ? new Date(e.joining_date).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+                : "N/A"}
             </span>
 
             <Badge tone={e.status}>
@@ -211,6 +212,18 @@ return <>
             </Badge>
 
             <div className="row-actions">
+              <button
+                type="button"
+                title="Employee documents"
+                onClick={(evt) => {
+                  evt.stopPropagation();
+                  setSelectedEmployee(e);
+                  setDocumentsModalOpen(true);
+                }}
+              >
+                <FileText size={16} />
+              </button>
+
               <button
                 type="button"
                 title="Edit employee"
@@ -239,6 +252,13 @@ return <>
           </div>
         ))}
     </div>
+
+    <EmployeeDocumentsModal
+      isOpen={documentsModalOpen}
+      onClose={() => setDocumentsModalOpen(false)}
+      employee={selectedEmployee}
+    />
+
 
     {loading && (
       <EmptyState

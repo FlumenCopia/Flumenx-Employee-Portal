@@ -35,12 +35,13 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
     setLoading(true);
     setError("");
     const query = page > 1 ? `?page=${page}` : "";
-    api<Paginated<Meeting>>(`/meetings/${query}`)
+    api<Paginated<Meeting> | Meeting[]>(`/meetings/${query}`)
       .then(data => {
-        setItems(data.results);
-        setCount(data.count);
-        setHasNext(Boolean(data.next));
-        setHasPrevious(Boolean(data.previous));
+        const list = Array.isArray(data) ? data : (data as any)?.results || [];
+        setItems(list);
+        setCount(Array.isArray(data) ? data.length : (data as any)?.count || list.length);
+        setHasNext(Boolean((data as any)?.next));
+        setHasPrevious(Boolean((data as any)?.previous));
       })
       .catch(err => {
         setItems([]);
@@ -92,6 +93,9 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
     }
   }
 
+  const safeItems = items || [];
+  const firstItem = safeItems[0];
+
   return <>
     <PageHeader eyebrow="CALENDAR / ALIGNMENT" title="Meetings." subtitle={employee ? "The conversations shaping your week." : "Create space for decisions and shared direction."} action={!employee ? <PrimaryButton onClick={() => setModal(true)}>Schedule meeting</PrimaryButton> : undefined} />
     {message && <div className="toast success">{message}</div>}
@@ -99,12 +103,12 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
     <div className="meeting-layout">
       <div className="date-poster">
         <span>NEXT UP</span>
-        <strong>{!loading && !error && items[0] ? new Date(items[0].date).getDate() : "--"}</strong>
-        <h3>{!loading && !error && items[0] ? new Date(items[0].date).toLocaleDateString("en-US", { month: "long", weekday: "long" }) : "No meetings"}</h3>
-        <p>{!loading && !error && items[0] ? `${items[0].time.slice(0, 5)} · ${items[0].title}` : "Schedule the next meeting"}</p>
+        <strong>{!loading && !error && firstItem ? new Date(firstItem.date).getDate() : "--"}</strong>
+        <h3>{!loading && !error && firstItem ? new Date(firstItem.date).toLocaleDateString("en-US", { month: "long", weekday: "long" }) : "No meetings"}</h3>
+        <p>{!loading && !error && firstItem ? `${firstItem.time.slice(0, 5)} · ${firstItem.title}` : "Schedule the next meeting"}</p>
       </div>
       <div className="meeting-stack">
-        {!loading && !error && items.map((m, i) => (
+        {!loading && !error && safeItems.map((m, i) => (
           <article key={m.id}>
             <div className="meeting-number">0{i + 1}</div>
             <div>

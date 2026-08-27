@@ -147,10 +147,22 @@ export type PortalNotification = {
   is_read: boolean; created_at: string;
 };
 export type Employee = {
-  id: number; employee_code: string; name: string; email: string; phone: string;
+  id: number | string; employee_code: string; name: string; email: string; phone: string;
   department: Department; designation: string; joining_date: string; status: EmployeeStatus;
   location?: string; portal_role?: PortalRole;
 };
+export type EmployeeDocumentItem = {
+  id: string | number;
+  employee_id: string | number;
+  title: string;
+  document_type: string;
+  file_name: string;
+  file_url: string;
+  file_type: string;
+  file_size: number;
+  created_at: string;
+};
+
 export type Leave = {
   id: number; employee?: number; employee_name?: string; employee_code?: string;
   leave_type: string; start_date: string; end_date: string; reason: string;
@@ -174,16 +186,36 @@ export type Client = {
 };
 export type WorkPriority = "Low" | "Normal" | "High" | "Urgent";
 export type WorkStatus = "Backlog" | "Assigned" | "In Progress" | "In Review" | "Approved" | "Published" | "Pending" | "Ongoing" | "Blocked" | "Changes Requested" | "Rejected" | "Completed";
-export type WorkDeliverable = {
-  id: number; assignment: number; assignment_title: string; employee_name: string;
-  client: number; client_name: string; title: string; brief: string; work_type: string;
-  due_date: string; status: WorkStatus; completed_at: string | null; is_overdue: boolean;
-  created_at: string; updated_at: string;
+export type DeliverableItem = {
+  id: string | number;
+  name?: string;
+  title?: string;
+  type?: string;
+  work_type?: string;
+  contracted?: number;
+  delivered?: number;
+  completed?: number;
+  status: string;
+  due_date?: string;
+  completed_at?: string | null;
+  client?: number | string;
+  brief?: string;
+  assignment?: number;
+  assignment_title?: string;
+  employee_name?: string;
+  client_name?: string;
+  is_overdue?: boolean;
+  created_at?: string;
+  updated_at?: string;
 };
+
+export type WorkDeliverable = DeliverableItem;
+
 export type ReviewStatus = "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED";
 
 export type WorkAssignment = {
   id: number; employee: number; employee_name: string; employee_department?: string; client: number; client_name: string;
+  parent_task?: number | string | null; parent_task_title?: string; is_master_client_task?: boolean;
   title: string; description: string; priority: WorkPriority; assigned_date: string; due_date: string;
   status: WorkStatus; progress: number; assigned_quantity: number; completed_quantity: number;
   remaining_quantity: number; unit: string; completed_at: string | null;
@@ -195,8 +227,21 @@ export type WorkAssignment = {
   reviewed_by?: number | null;
   reviewed_at?: string | null;
   reviewed_by_name?: string;
-  is_overdue: boolean; is_backlog?: boolean; deliverables: WorkDeliverable[]; created_at: string; updated_at: string;
+  is_overdue: boolean; is_backlog?: boolean; deliverables: DeliverableItem[]; created_at: string; updated_at: string;
+  total_time_spent_seconds?: number;
+  active_timer?: { started_at: string; started_by?: number | null } | null;
+  time_logs?: { id?: string; startTime?: string; started_at?: string; endTime?: string | null; stopped_at?: string | null; durationSeconds?: number; duration_seconds?: number; loggedBy?: number | null; user_name?: string }[];
+};
 
+export type ClientKPIHealth = {
+  clientId: string | number;
+  totalTasks: number;
+  totalAssignedQuantity: number;
+  totalCompletedQuantity: number;
+  quotaCompletionPct: number;
+  onTimeDeliveryPct: number;
+  satisfactionScore: number;
+  healthStatus: "Delighted" | "On Track" | "Needs Attention" | "At Risk";
 };
 
 export type DeptCategoryProgress = {
@@ -358,11 +403,16 @@ export type ShareLink = {
 };
 
 export type PublicWorkDeliverable = {
-  title: string;
-  work_type: string;
+  id?: string | number;
+  name?: string;
+  title?: string;
+  type?: string;
+  work_type?: string;
   status: string;
-  due_date: string;
-  completed_at: string | null;
+  contracted?: number;
+  delivered?: number;
+  due_date?: string;
+  completed_at?: string | null;
 };
 
 export type PublicWorkAssignment = {

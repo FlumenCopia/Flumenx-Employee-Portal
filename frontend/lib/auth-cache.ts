@@ -40,6 +40,10 @@ export function clearCachedAuthUser() {
   if (typeof window !== "undefined") {
     try {
       localStorage.removeItem("flumenx_auth_user");
+      localStorage.removeItem("flumenx_access_token");
+      localStorage.removeItem("flumenx_refresh_token");
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
       sessionStorage.removeItem("flumenx_auth_user");
       sessionStorage.clear();
     } catch {

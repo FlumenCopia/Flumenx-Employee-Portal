@@ -74,6 +74,8 @@ const adminNav = [
   ["Overview", "/admin/dashboard", LayoutDashboard],
   ["Command Center", "/admin/work?view=command-center", Sparkles],
   ["Task Board", "/admin/work?view=kanban", Kanban],
+  ["Time Tracker", "/timer", Clock3],
+  ["Clients Master", "/clients", BriefcaseBusiness],
   ["Timeline & Phases", "/admin/work?view=timeline", Layers],
   ["KPI Performance", "/admin/kpi", TrendingUp],
   ["Attendance", "/admin/attendance", CalendarCheck],
@@ -85,6 +87,7 @@ const employeeNav = [
   ["Overview", "/employee/dashboard", LayoutDashboard],
   ["Command Center", "/employee/work?view=command-center", Sparkles],
   ["Task Board", "/employee/work?view=kanban", Kanban],
+  ["Time Tracker", "/timer", Clock3],
   ["Timeline & Phases", "/employee/work?view=timeline", Layers],
   ["My KPI", "/employee/kpi", TrendingUp],
   ["My profile", "/employee/profile", UserRound],
@@ -97,6 +100,7 @@ const hrNav = [
   ["Overview", "/hr/dashboard", LayoutDashboard],
   ["Command Center", "/hr/work?view=command-center", Sparkles],
   ["Task Board", "/hr/work?view=kanban", Kanban],
+  ["Time Tracker", "/timer", Clock3],
   ["Timeline & Phases", "/hr/work?view=timeline", Layers],
   ["KPI Performance", "/hr/kpi", TrendingUp],
   ["Attendance", "/hr/attendance", CalendarCheck],
@@ -108,6 +112,7 @@ const accountantNav = [
   ["Overview", "/accountant/dashboard", LayoutDashboard],
   ["Command Center", "/admin/work?view=command-center", Sparkles],
   ["Task Board", "/admin/work?view=kanban", Kanban],
+  ["Time Tracker", "/timer", Clock3],
   ["Attendance", "/accountant/attendance", CalendarCheck],
   ["Leave Requests", "/accountant/leaves", CalendarDays],
 ] as const satisfies readonly NavigationItem[];
@@ -116,6 +121,7 @@ const bdoNav = [
   ["Overview", "/bdo/dashboard", LayoutDashboard],
   ["Command Center", "/bdo/work?view=command-center", Sparkles],
   ["Task Board", "/bdo/work?view=kanban", Kanban],
+  ["Time Tracker", "/timer", Clock3],
   ["Timeline & Phases", "/bdo/work?view=timeline", Layers],
   ["My profile", "/bdo/profile", UserRound],
   ["My attendance", "/bdo/attendance", Clock3],
@@ -127,6 +133,7 @@ const teamLeadNav = [
   ["Overview", "/team-lead/dashboard", LayoutDashboard],
   ["Command Center", "/team-lead/work?view=command-center", Sparkles],
   ["Task Board", "/team-lead/work?view=kanban", Kanban],
+  ["Time Tracker", "/timer", Clock3],
   ["Timeline & Phases", "/team-lead/work?view=timeline", Layers],
   ["Team Work", "/team-lead/team-work", Users],
 ] as const satisfies readonly NavigationItem[];
@@ -182,11 +189,29 @@ export function normalizeWorkspaceRoute(routePath: string, workspaceRole: Worksp
   if (pathname === "/settings" || pathname === "/admin/settings") {
     return "/settings";
   }
+  if (pathname === "/roles" || pathname === "/admin/roles") {
+    return "/admin/roles";
+  }
+  if (pathname === "/users" || pathname === "/admin/users" || pathname === "/super-admin/users") {
+    return "/admin/users";
+  }
+  if (pathname === "/audit-logs" || pathname === "/admin/audit-logs" || pathname === "/admin/audit_logs") {
+    return "/admin/audit-logs";
+  }
+  if (pathname === "/salary-slips" || pathname === "/admin/salary-slips") {
+    return "/admin/salary-slips";
+  }
   if (pathname === "/team-work" || pathname === "/admin/team-work" || pathname === "/team-lead/team-work") {
     return "/team-work";
   }
   if (pathname === "/pages" || pathname === "/admin/pages") {
     return "/pages";
+  }
+  if (pathname === "/timer" || pathname === "/work/timer" || pathname === "/admin/timer") {
+    return "/timer";
+  }
+  if (pathname === "/clients" || pathname === "/admin/clients") {
+    return "/clients";
   }
   if (pathname === "/work" || pathname === "/admin/work") {
     return `/work${query}`;

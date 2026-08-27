@@ -96,10 +96,13 @@ export default function LoginPage() {
     setLoading(true);
     try {
       clearCachedAuthUser();
-      const res = await api<{ user: AuthUser }>("/auth/login/", {
+      const res = await api<{ user: AuthUser; access?: string }>("/auth/login/", {
         method: "POST",
         body: JSON.stringify({ email: email.trim(), password }),
       });
+      if (res?.access) {
+        localStorage.setItem("flumenx_access_token", res.access);
+      }
       const loggedUser = res?.user;
       if (loggedUser) {
         setCachedAuthUser(loggedUser);
@@ -304,7 +307,19 @@ export default function LoginPage() {
                     type="submit"
                     disabled={forgotLoading}
                     className="login-button"
-                    style={{ flex: 1.5, margin: 0, padding: "10px" }}
+                    style={{
+                      flex: 1.5,
+                      margin: 0,
+                      padding: "10px",
+                      background: "#087A5B",
+                      color: "#FFFFFF",
+                      border: "1px solid #066349",
+                      borderRadius: "10px",
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      cursor: forgotLoading ? "not-allowed" : "pointer",
+                      opacity: forgotLoading ? 0.7 : 1,
+                    }}
                   >
                     {forgotLoading ? "Sending link..." : "Send Reset Link"}
                   </button>

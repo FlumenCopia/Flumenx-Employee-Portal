@@ -2,7 +2,8 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { BriefcaseBusiness, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { BriefcaseBusiness, Clock, Globe, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import type { Client, DepartmentItem, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary, WorkspaceRole } from "@/lib/types";
 import { SHOW_ADVANCED_WORKBOARD, normalizeDepartment } from "@/lib/types";
@@ -15,7 +16,7 @@ import { CommandCenterView } from "./CommandCenterView";
 
 type ManagementWorkspace = WorkspaceRole;
 type WorkFormState = {
-  employee: string; client: string; title: string; description: string; priority: WorkPriority;
+  employee: string; client: string; parent_task?: string; is_master_client_task?: boolean; title: string; description: string; priority: WorkPriority;
   assigned_date: string; due_date: string; assigned_quantity: string; completed_quantity: string;
   unit: string; statusMode: "AUTO" | "Blocked"; deliverables: DeliverableFormState[];
   work_type?: string; reviewer?: string; phase?: string; estimated_hours?: string;
@@ -39,12 +40,16 @@ function today() {
 type TaskRowState = {
   id: string;
   title: string;
+  assigned_quantity: string;
+  unit: string;
   due_date: string;
 };
 
-const defaultTaskRow = (dueDate?: string): TaskRowState => ({
+const defaultTaskRow = (dueDate?: string, defaultUnit?: string): TaskRowState => ({
   id: String(Math.random()),
   title: "",
+  assigned_quantity: "1",
+  unit: defaultUnit || "tasks",
   due_date: dueDate || today(),
 });
 
@@ -52,6 +57,8 @@ function defaultForm(): WorkFormState {
   return {
     employee: "",
     client: "",
+    parent_task: "",
+    is_master_client_task: false,
     title: "",
     description: "",
     priority: "Normal",
@@ -85,6 +92,8 @@ function formFromAssignment(item: WorkAssignment): WorkFormState {
   return {
     employee: String(item.employee),
     client: String(item.client),
+    parent_task: item.parent_task ? String(item.parent_task) : "",
+    is_master_client_task: Boolean(item.is_master_client_task),
     title: item.title,
     description: cleanDesc,
     priority: item.priority,
@@ -97,14 +106,14 @@ function formFromAssignment(item: WorkAssignment): WorkFormState {
     reviewer: String(item.reviewer || item.reviewer_name || ""),
     phase,
     estimated_hours,
-    deliverables: (item.deliverables || []).map(deliverable => ({
-      id: deliverable.id,
-      client: String(deliverable.client),
-      title: deliverable.title,
+    deliverables: (item.deliverables || []).map((deliverable, index) => ({
+      id: typeof deliverable.id === "number" ? deliverable.id : index + 1,
+      client: String(deliverable.client || item.client || ""),
+      title: deliverable.name || deliverable.title || "Deliverable",
       brief: deliverable.brief || "",
-      work_type: deliverable.work_type,
-      due_date: deliverable.due_date,
-      status: deliverable.status,
+      work_type: deliverable.work_type || deliverable.type || "web_development",
+      due_date: deliverable.due_date || item.due_date,
+      status: (deliverable.status as WorkStatus) || "Assigned",
     })),
   };
 }
@@ -202,6 +211,29 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
   const workAbortRef = useRef<AbortController | null>(null);
   const optionsAbortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => {
+    const handleOpenShareModal = (e: Event) => {
+      const customEvt = e as CustomEvent<{ clientId?: string | number; clientName?: string }>;
+      const detail = customEvt.detail;
+      if (detail?.clientId && clients.length > 0) {
+        const match = clients.find((c) => String(c.id) === String(detail.clientId));
+        if (match) {
+          setSelectedShareClient({ id: match.id, name: match.name });
+          setShareModalOpen(true);
+          return;
+        }
+      }
+      if (clients.length > 0) {
+        setSelectedShareClient({ id: clients[0].id, name: clients[0].name });
+        setShareModalOpen(true);
+      }
+    };
+    window.addEventListener("flumenx:open_share_client_modal", handleOpenShareModal);
+    return () => {
+      window.removeEventListener("flumenx:open_share_client_modal", handleOpenShareModal);
+    };
+  }, [clients]);
+
   const addTaskRow = () => {
     const lastDate = tasksToAssign.length ? tasksToAssign[tasksToAssign.length - 1].due_date : form.due_date;
     setTasksToAssign(current => [...current, defaultTaskRow(lastDate)]);
@@ -211,7 +243,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     setTasksToAssign(current => (current.length > 1 ? current.filter(t => t.id !== id) : current));
   };
 
-  const updateTaskRow = (id: string, field: "title" | "due_date", value: string) => {
+  const updateTaskRow = (id: string, field: "title" | "assigned_quantity" | "unit" | "due_date", value: string) => {
     setTasksToAssign(current => current.map(t => (t.id === id ? { ...t, [field]: value } : t)));
   };
 
@@ -219,10 +251,10 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     const targetDept = normalizeDepartment(form.work_type || "web_development");
     const matching = employees
       .filter((emp) => normalizeDepartment(emp.department) === targetDept)
-      .sort((a, b) => a.display_name.localeCompare(b.display_name));
+      .sort((a, b) => (a?.display_name || "").localeCompare(b?.display_name || ""));
     const remaining = employees
       .filter((emp) => normalizeDepartment(emp.department) !== targetDept)
-      .sort((a, b) => a.display_name.localeCompare(b.display_name));
+      .sort((a, b) => (a?.display_name || "").localeCompare(b?.display_name || ""));
     return [...matching, ...remaining];
   }, [employees, form.work_type]);
   const selectedEmployee = useMemo(() => employees.find(employee => String(employee.id) === form.employee), [employees, form.employee]);
@@ -314,6 +346,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
   }
 
   function openCreate() {
+    loadOptions();
     setEditing(null);
     const initialForm = defaultForm();
     if (clients.length > 0) {
@@ -418,10 +451,10 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
 
   async function syncDeliverables(assignmentId: number, deliverables: DeliverableFormState[]) {
     if (!isDeliverableWorkflow) return;
-    const existingIds = new Set(deliverables.map(deliverable => deliverable.id).filter(Boolean));
+    const existingIds = new Set(deliverables.map(deliverable => String(deliverable.id)).filter(Boolean));
     const original = editing?.deliverables || [];
     await Promise.all(original
-      .filter(deliverable => !existingIds.has(deliverable.id))
+      .filter(deliverable => !existingIds.has(String(deliverable.id)))
       .map(deliverable => api(`/work-deliverables/${deliverable.id}/`, { method: "DELETE" })));
     for (const deliverable of deliverables) {
       const payload = {
@@ -479,15 +512,23 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
         }
       }
 
+      const safeEmpId = form.employee ? (isNaN(Number(form.employee)) ? form.employee : Number(form.employee)) : null;
+      const safeClientId = effectiveClient ? (isNaN(Number(effectiveClient)) ? effectiveClient : Number(effectiveClient)) : null;
+      const safeReviewerId = form.reviewer ? (isNaN(Number(form.reviewer)) ? form.reviewer : Number(form.reviewer)) : null;
+
       const bulkPayload = {
-        client: Number(effectiveClient),
-        employee: Number(form.employee),
-        reviewer: form.reviewer ? (isNaN(Number(form.reviewer)) ? form.reviewer : Number(form.reviewer)) : null,
+        client: safeClientId,
+        employee: safeEmpId,
+        reviewer: safeReviewerId,
         work_type: form.work_type || "web_development",
         priority: form.priority || "Normal",
         description: fullDesc,
+        parent_task: form.parent_task || null,
+        is_master_client_task: Boolean(form.is_master_client_task),
         tasks: tasksToAssign.map(t => ({
           title: t.title.trim(),
+          assigned_quantity: Number(t.assigned_quantity || 1),
+          unit: t.unit || "tasks",
           due_date: t.due_date,
         })),
       };
@@ -527,8 +568,12 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
       return;
     }
 
+    const safeEmpId = form.employee ? (isNaN(Number(form.employee)) ? form.employee : Number(form.employee)) : null;
+    const safeClientId = effectiveClient ? (isNaN(Number(effectiveClient)) ? effectiveClient : Number(effectiveClient)) : null;
+    const safeReviewerId = form.reviewer ? (isNaN(Number(form.reviewer)) ? form.reviewer : Number(form.reviewer)) : null;
+
     const payload = {
-      employee: Number(form.employee),
+      employee: safeEmpId,
       title: form.title.trim(),
       description: fullDesc,
       priority: form.priority,
@@ -536,9 +581,11 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
       due_date: form.due_date,
       assigned_quantity: assignedQuantity,
       completed_quantity: completedQuantity,
-      unit: "tasks",
-      reviewer: form.reviewer ? (isNaN(Number(form.reviewer)) ? form.reviewer : Number(form.reviewer)) : null,
-      ...(effectiveClient ? { client: Number(effectiveClient) } : {}),
+      unit: form.unit || "tasks",
+      parent_task: form.parent_task || null,
+      is_master_client_task: Boolean(form.is_master_client_task),
+      reviewer: safeReviewerId,
+      ...(safeClientId ? { client: safeClientId } : {}),
     };
 
     try {
@@ -625,13 +672,13 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
   const [activeViewMode] = useState<"COMMAND_CENTER" | "LIST">("COMMAND_CENTER");
 
 
-  const handleStatusChange = async (id: number, status: WorkStatus) => {
+  const handleStatusChange = async (id: number | string, status: WorkStatus) => {
     try {
       const updated = await api<WorkAssignment>(`/work-assignments/${id}/`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
-      setItems((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      setItems((prev) => prev.map((item) => String(item.id) === String(id) ? updated : item));
       await loadWork(filters);
     } catch (err) {
       const msg = apiError(err, "Could not update status.");
@@ -640,7 +687,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     }
   };
 
-  const handleReviewCheck = async (id: number, reviewStatus: "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED", note?: string) => {
+  const handleReviewCheck = async (id: number | string, reviewStatus: "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED", note?: string) => {
     try {
       const updated = await api<WorkAssignment>(`/work-assignments/${id}/review/`, {
         method: "POST",
@@ -674,6 +721,57 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
       eyebrow={SHOW_ADVANCED_WORKBOARD ? "WORK / EXECUTION COMMAND CENTER" : "WORK / TASK BOARD"}
       title={SHOW_ADVANCED_WORKBOARD ? "Work board & Command Center." : "Work Board"}
       subtitle={SHOW_ADVANCED_WORKBOARD ? "Assign client work, track taskboards, timeline phases, and KPI targets in real time." : "Assign client work, track taskboards, and update deliverable progress in real time."}
+      action={
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => {
+              const selectedC = selectedClient || (clients.length > 0 ? clients[0] : null);
+              if (selectedC) {
+                setSelectedShareClient({ id: selectedC.id, name: selectedC.name });
+                setShareModalOpen(true);
+              } else {
+                alert("No clients available to share.");
+              }
+            }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              background: "#3b82f6",
+              color: "#ffffff",
+              textDecoration: "none",
+              fontWeight: 700,
+              fontSize: "13px",
+              border: "none",
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(59, 130, 246, 0.25)",
+            }}
+          >
+            <Globe size={16} /> Share Client Portal
+          </button>
+          <Link
+            href="/timer"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              background: "#10b981",
+              color: "#ffffff",
+              textDecoration: "none",
+              fontWeight: 700,
+              fontSize: "13px",
+              boxShadow: "0 2px 8px rgba(16, 185, 129, 0.25)",
+            }}
+          >
+            <Clock size={16} /> Task Timer & Progressive Counter
+          </Link>
+        </div>
+      }
     />
 
     {message && <div className="toast success">{message}</div>}
@@ -694,6 +792,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
         onStatusChange={handleStatusChange}
         onReviewCheck={handleReviewCheck}
         onDeleteWork={canManageAll ? handleDeleteWork : undefined}
+        onEditWork={(assignment) => openEdit(assignment)}
         initialTab={initialTab}
       />
     ) : (
@@ -890,6 +989,34 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
               </label>
             </div>
 
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+                PARENT CLIENT GOAL / MASTER TASK
+                <select
+                  value={form.parent_task || ""}
+                  onChange={event => setForm(current => ({ ...current, parent_task: event.target.value }))}
+                  className="fs"
+                >
+                  <option value="">None (Independent Task)</option>
+                  {items.filter(t => !editing || String(t.id) !== String(editing.id)).map(t => (
+                    <option key={t.id} value={String(t.id)}>
+                      {t.title} ({t.client_name || "Client"}) [{t.completed_quantity}/{t.assigned_quantity} {t.unit}]
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", fontWeight: 600, color: "#334155", marginTop: "18px" }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.is_master_client_task)}
+                  onChange={e => setForm(current => ({ ...current, is_master_client_task: e.target.checked }))}
+                  style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                />
+                Master Client Goal (Monthly Scope)
+              </label>
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
                 DUE DATE *
@@ -1044,11 +1171,39 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
               </label>
             </div>
 
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+                PARENT CLIENT GOAL / MASTER TASK
+                <select
+                  value={form.parent_task || ""}
+                  onChange={event => setForm(current => ({ ...current, parent_task: event.target.value }))}
+                  className="fs"
+                >
+                  <option value="">None (Independent Task)</option>
+                  {items.map(t => (
+                    <option key={t.id} value={String(t.id)}>
+                      {t.title} ({t.client_name || "Client"}) [{t.completed_quantity}/{t.assigned_quantity} {t.unit}]
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", fontWeight: 600, color: "#334155", marginTop: "18px" }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.is_master_client_task)}
+                  onChange={e => setForm(current => ({ ...current, is_master_client_task: e.target.checked }))}
+                  style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                />
+                Is Master Client Goal (Monthly Scope)
+              </label>
+            </div>
+
             {/* TASKS TO ASSIGN SECTION */}
             <div style={{ marginTop: "6px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                 <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
-                  TASKS TO ASSIGN
+                  TASKS TO ASSIGN & QUANTITY SET COUNT
                   <span className="badge active" style={{ fontSize: "10px", padding: "2px 8px" }}>
                     {tasksToAssign.length} {tasksToAssign.length === 1 ? "Task" : "Tasks"}
                   </span>
@@ -1061,8 +1216,8 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
                     key={taskRow.id}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "auto 1fr 140px auto",
-                      gap: "10px",
+                      gridTemplateColumns: "auto 2fr 75px 110px 130px auto",
+                      gap: "8px",
                       alignItems: "center",
                       background: "var(--card2)",
                       padding: "8px 12px",
@@ -1070,7 +1225,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
                       border: "1px solid var(--border)",
                     }}
                   >
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", minWidth: "22px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", minWidth: "18px" }}>
                       #{idx + 1}
                     </span>
 
@@ -1086,11 +1241,37 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
                           }
                         }
                       }}
-                      placeholder="e.g. Independence Day Poster"
+                      placeholder="Task Title (e.g. 10 Photos / 2 Videos)"
                       required
                       className="fi"
                       style={{ width: "100%" }}
                     />
+
+                    <input
+                      type="number"
+                      min="1"
+                      value={taskRow.assigned_quantity || "1"}
+                      onChange={e => updateTaskRow(taskRow.id, "assigned_quantity", e.target.value)}
+                      placeholder="Qty"
+                      title="Set Item Quantity (e.g. 10 or 4)"
+                      required
+                      className="fi"
+                    />
+
+                    <select
+                      value={taskRow.unit || "tasks"}
+                      onChange={e => updateTaskRow(taskRow.id, "unit", e.target.value)}
+                      className="fs"
+                      title="Deliverable Unit"
+                    >
+                      <option value="tasks">Tasks</option>
+                      <option value="Videos">Videos</option>
+                      <option value="Photos">Photos</option>
+                      <option value="Creatives">Creatives</option>
+                      <option value="Reels">Reels</option>
+                      <option value="Posts">Posts</option>
+                      <option value="Documents">Documents</option>
+                    </select>
 
                     <input
                       type="date"

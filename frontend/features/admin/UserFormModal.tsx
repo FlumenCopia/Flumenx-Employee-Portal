@@ -20,9 +20,9 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
   const [workEmail, setWorkEmail] = useState(user?.work_email || "");
   const [password, setPassword] = useState("");
   const [designation, setDesignation] = useState(user?.designation || "");
-  const [departmentId, setDepartmentId] = useState<number | "">(user?.department_id || "");
+  const [departmentId, setDepartmentId] = useState<number | string>(user?.department_id ?? "");
   const [departmentStr, setDepartmentStr] = useState(user?.department || "");
-  const [dynamicRoleId, setDynamicRoleId] = useState<number | "">(user?.dynamic_role?.id || "");
+  const [dynamicRoleId, setDynamicRoleId] = useState<number | string>(user?.dynamic_role?.id ?? "");
   const [statusVal, setStatusVal] = useState<"Active" | "On Leave" | "Inactive">(user?.status || "Active");
 
   const [roles, setRoles] = useState<DynamicRole[]>([]);
@@ -67,7 +67,7 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
     setPassword("");
     setDesignation(user?.designation || "");
     setDepartmentStr(user?.department || "");
-    setDepartmentId(user?.department_id || "");
+    setDepartmentId(user?.department_id !== undefined && user?.department_id !== null ? String(user.department_id) : "");
     setStatusVal(user?.status || "Active");
 
     setRolesLoading(true);
@@ -78,21 +78,21 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
         const list = Array.isArray(res) ? res : res?.results || [];
         setRoles(list);
 
-        let selId: number | "" = "";
+        let selId: number | string = "";
 
         if (isEdit && user) {
-          if (user.dynamic_role?.id) {
-            selId = user.dynamic_role.id;
+          if (user.dynamic_role?.id !== undefined && user.dynamic_role?.id !== null) {
+            selId = String(user.dynamic_role.id);
           } else if (user.legacy_portal_role) {
             const match = list.find(
               (r) => r.code.toUpperCase() === user.legacy_portal_role.toUpperCase()
             );
-            if (match) selId = match.id;
+            if (match) selId = String(match.id);
           }
         }
 
         if (selId === "" && list.length > 0) {
-          selId = list[0].id;
+          selId = String(list[0].id);
         }
 
         setDynamicRoleId(selId);
@@ -105,19 +105,19 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
         const list = Array.isArray(res) ? res : res?.results || [];
         setDepartments(list);
 
-        let initialDeptId: number | "" = user?.department_id || "";
+        let initialDeptId: number | string = user?.department_id !== undefined && user?.department_id !== null ? String(user.department_id) : "";
         let initialDeptName = user?.department || "";
 
         if (!initialDeptId && initialDeptName) {
           const match = list.find((d) => d.name.toLowerCase() === initialDeptName.toLowerCase());
           if (match) {
-            initialDeptId = match.id;
+            initialDeptId = String(match.id);
             initialDeptName = match.name;
           }
         }
 
         if (initialDeptId === "" && !initialDeptName && list.length > 0) {
-          initialDeptId = list[0].id;
+          initialDeptId = String(list[0].id);
           initialDeptName = list[0].name;
         }
 
@@ -131,8 +131,8 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
   if (!open) return null;
 
   async function handleDeleteUser() {
-    if (!user) return;
-    if (!window.confirm(`Are you sure you want to delete / deactivate user account "${user.full_name}"?`)) {
+    if (!user || !user.user_id) return;
+    if (!window.confirm(`Are you sure you want to permanently delete user "${user.full_name}"?`)) {
       return;
     }
     setDeleteLoading(true);
@@ -145,7 +145,7 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
       if (err instanceof ApiError) {
         setError(err.message || "Failed to delete user.");
       } else {
-        setError(err instanceof Error ? err.message : "An error occurred while deleting user.");
+        setError(err instanceof Error ? err.message : "An error occurred.");
       }
     } finally {
       setDeleteLoading(false);
@@ -159,7 +159,7 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
     setLoading(true);
 
     try {
-      const selectedDept = departments.find((d) => d.id === Number(departmentId));
+      const selectedDept = departments.find((d) => String(d.id) === String(departmentId));
       const targetDeptStr = selectedDept ? selectedDept.name : departmentStr || "Web Development";
 
       if (!isEdit) {
@@ -173,7 +173,7 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
         if (!password || password.length < 8) {
           errors.initial_password = "Initial password must be at least 8 characters long.";
         }
-        if (!dynamicRoleId || Number.isNaN(Number(dynamicRoleId))) {
+        if (!dynamicRoleId || String(dynamicRoleId).trim() === "") {
           errors.dynamic_role_id = "Please select an assigned role.";
         }
         if (Object.keys(errors).length > 0) {
@@ -184,6 +184,9 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
         }
       }
 
+      const roleIdPayload = !isNaN(Number(dynamicRoleId)) ? Number(dynamicRoleId) : dynamicRoleId;
+      const deptIdPayload = departmentId !== "" ? (!isNaN(Number(departmentId)) ? Number(departmentId) : departmentId) : null;
+
       if (isEdit && user) {
         const updatePayload: Record<string, any> = {
           full_name: fullName.trim(),
@@ -192,10 +195,10 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
           status: statusVal,
         };
         if (departmentId !== "") {
-          updatePayload.department_id = Number(departmentId);
+          updatePayload.department_id = deptIdPayload;
         }
         if (dynamicRoleId !== "") {
-          updatePayload.dynamic_role_id = Number(dynamicRoleId);
+          updatePayload.dynamic_role_id = roleIdPayload;
         }
         await api<SuperAdminUser>(`/portal/super-admin/users/${user.user_id}/`, {
           method: "PATCH",
@@ -208,10 +211,10 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
           initial_password: password,
           designation: designation.trim() || "Employee",
           department: targetDeptStr,
-          dynamic_role_id: Number(dynamicRoleId),
+          dynamic_role_id: roleIdPayload,
         };
-        if (departmentId !== "") {
-          createPayload.department_id = Number(departmentId);
+        if (deptIdPayload !== null) {
+          createPayload.department_id = deptIdPayload;
         }
         await api<SuperAdminUser>("/portal/super-admin/users/", {
           method: "POST",
@@ -300,13 +303,15 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
             ASSIGNED TEAM / UNIT
             <select
-              value={departmentId || ""}
+              value={departmentId !== undefined && departmentId !== null ? String(departmentId) : ""}
               onChange={(e) => {
-                const idVal = Number(e.target.value);
-                setDepartmentId(idVal);
-                const foundDept = departmentOptions.find((d) => d.id === idVal);
-                if (foundDept) {
-                  setDepartmentStr(foundDept.name);
+                const selectedVal = e.target.value;
+                setDepartmentId(selectedVal);
+                if (selectedVal) {
+                  const foundDept = (departments || []).find((d) => String(d.id) === selectedVal);
+                  if (foundDept) {
+                    setDepartmentStr(foundDept.name);
+                  }
                 }
               }}
               disabled={deptsLoading}
@@ -316,8 +321,8 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
               <option value="" disabled>
                 {deptsLoading ? "Loading departments..." : "Select Assigned Team / Unit"}
               </option>
-              {departmentOptions.map((dept) => (
-                <option key={dept.id} value={dept.id}>
+              {(departments || []).map((dept) => (
+                <option key={dept.id} value={String(dept.id)}>
                   {dept.name}
                 </option>
               ))}
@@ -330,8 +335,10 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
           <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
             ASSIGNED ROLE (ROLE ID SELECTION)
             <select
-              value={dynamicRoleId}
-              onChange={(e) => setDynamicRoleId(Number(e.target.value))}
+              value={dynamicRoleId !== undefined && dynamicRoleId !== null ? String(dynamicRoleId) : ""}
+              onChange={(e) => {
+                setDynamicRoleId(e.target.value);
+              }}
               disabled={rolesLoading}
               required
               className="fs"
@@ -340,7 +347,7 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
                 {rolesLoading ? "Loading dynamic roles..." : "Select Assigned Role"}
               </option>
               {(roles || []).map((r) => (
-                <option key={r.id} value={r.id}>
+                <option key={r.id} value={String(r.id)}>
                   {r.name} ({r.code})
                 </option>
               ))}

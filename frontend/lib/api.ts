@@ -108,8 +108,12 @@ export async function logout() {
   } finally {
     clearCachedAuthUser();
     if (typeof window !== "undefined") {
-      sessionStorage.clear();
       localStorage.removeItem("flumenx_auth_user");
+      localStorage.removeItem("flumenx_access_token");
+      localStorage.removeItem("flumenx_refresh_token");
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      sessionStorage.clear();
     }
   }
 }
@@ -151,8 +155,13 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   const normalizedPath = normalizeApiPath(path);
   const request = async () => {
     if (isUnsafe(options.method)) await ensureCsrf();
-    const headers: HeadersInit = { ...(!(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}), ...options.headers };
-    if (isUnsafe(options.method)) (headers as Record<string, string>)["X-CSRFToken"] = csrfToken();
+    const token = typeof window !== "undefined" ? (localStorage.getItem("flumenx_access_token") || localStorage.getItem("access_token") || "") : "";
+    const headers: Record<string, string> = {
+      ...(!(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      ...((options.headers as Record<string, string>) || {}),
+    };
+    if (isUnsafe(options.method)) headers["X-CSRFToken"] = csrfToken();
     return fetch(`${API_URL}${normalizedPath}`, { ...options, credentials: "include", headers });
   };
   let response = await request();

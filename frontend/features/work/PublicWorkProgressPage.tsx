@@ -10,8 +10,10 @@ import {
   Globe,
   Layers,
   ShieldCheck,
+  TrendingUp,
 } from "lucide-react";
 import type { PublicWorkProgress } from "@/lib/types";
+import { FlumenxMark } from "@/components/icons";
 
 export function PublicWorkProgressPage({ token }: { token: string }) {
   const [data, setData] = useState<PublicWorkProgress | null>(null);
@@ -22,8 +24,11 @@ export function PublicWorkProgressPage({ token }: { token: string }) {
     let active = true;
     const fetchProgress = async () => {
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_API_URL || "";
-        const res = await fetch(`${backendUrl}/api/public/work-progress/${token}/`);
+        const originUrl = typeof window !== "undefined"
+          ? (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api").replace(/\/$/, "")
+          : "http://127.0.0.1:8000/api";
+        const target = originUrl.endsWith("/api") ? `${originUrl}/public/work-progress/${token}/` : `${originUrl}/api/public/work-progress/${token}/`;
+        const res = await fetch(target);
         if (!res.ok) {
           if (active) setNotFound(true);
           return;
@@ -42,10 +47,10 @@ export function PublicWorkProgressPage({ token }: { token: string }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
-        <div className="text-center space-y-3">
-          <div className="w-10 h-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs text-slate-400 font-medium">Loading client work progress...</p>
+      <div style={{ minHeight: "100vh", background: "#f8fafc", color: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: "40px", height: "40px", border: "3px solid #10b981", borderTopColor: "transparent", borderRadius: "50%", margin: "0 auto 12px", animation: "spin 1s linear infinite" }} />
+          <p style={{ fontSize: "13px", color: "#64748b", fontWeight: 600 }}>Loading FLUMENX Client Portal...</p>
         </div>
       </div>
     );
@@ -53,151 +58,223 @@ export function PublicWorkProgressPage({ token }: { token: string }) {
 
   if (notFound || !data) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full text-center space-y-4 shadow-2xl">
-          <div className="w-12 h-12 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center mx-auto">
+      <div style={{ minHeight: "100vh", background: "#f8fafc", color: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+        <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "16px", padding: "2.5rem", maxWidth: "440px", width: "100%", textAlign: "center", boxShadow: "0 10px 25px rgba(0, 0, 0, 0.05)" }}>
+          <div style={{ width: "48px", height: "48px", background: "#fee2e2", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
             <AlertTriangle size={24} />
           </div>
-          <h2 className="text-lg font-bold text-white">Link Expired or Unavailable</h2>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            This work progress share link has expired, been revoked, or is no longer accessible. Please contact your account manager for an updated progress link.
+          <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#0f172a", marginBottom: "8px" }}>Link Expired or Unavailable</h2>
+          <p style={{ fontSize: "13px", color: "#64748b", lineHeight: "1.6" }}>
+            This work progress share link has expired, been revoked, or is no longer accessible. Please contact your FLUMENX account manager for an updated progress link.
           </p>
         </div>
       </div>
     );
   }
 
+  const formattedDate = () => {
+    if (!data.last_updated) return new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const d = new Date(data.last_updated);
+    if (isNaN(d.getTime())) return new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans selection:bg-indigo-500 selection:text-white">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Brand Header */}
-        <div className="flex items-center justify-between border-b border-slate-800/80 pb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600/20 border border-indigo-500/40 rounded-xl flex items-center justify-center font-bold text-indigo-400 text-sm">
-              FX
-            </div>
+    <div style={{ minHeight: "100vh", background: "#f8fafc", color: "#0f172a", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+      {/* Top Header Bar */}
+      <header style={{ background: "#ffffff", borderBottom: "1px solid #e2e8f0", padding: "1rem 2rem", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+        <div style={{ maxWidth: "1100px", margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <FlumenxMark height={34} />
+            <div style={{ height: "24px", width: "1px", background: "#cbd5e1" }} />
             <div>
-              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest block">Client Progress Portal</span>
-              <h1 className="text-xl font-bold text-white tracking-tight">{data.client_name}</h1>
+              <span style={{ fontSize: "10px", fontWeight: 800, color: "#059669", textTransform: "uppercase", letterSpacing: "1px", display: "block" }}>LIVE CLIENT PROGRESS PORTAL</span>
+              <h1 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#0f172a", margin: 0, letterSpacing: "-0.3px" }}>{data.client_name}</h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl">
-            <ShieldCheck size={14} className="text-emerald-400" />
-            <span>Verified Secure Access</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 700, color: "#15803d", background: "#dcfce7", border: "1px solid #86efac", padding: "6px 14px", borderRadius: "20px" }}>
+            <ShieldCheck size={16} />
+            <span>Verified Client Access</span>
           </div>
         </div>
+      </header>
 
-        {/* Public Update Banner (If available) */}
+      {/* Main Container */}
+      <main style={{ maxWidth: "1100px", margin: "2rem auto", padding: "0 1.5rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+        {/* Status Update Banner */}
         {data.public_update && (
-          <div className="bg-gradient-to-r from-indigo-950/60 via-slate-900 to-slate-900 border border-indigo-500/30 rounded-2xl p-4 shadow-lg text-xs space-y-1">
-            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block">Status Update</span>
-            <p className="text-slate-200 leading-relaxed font-medium">{data.public_update}</p>
+          <div style={{ background: "#ffffff", borderLeft: "4px solid #10b981", border: "1px solid #e2e8f0", borderLeftWidth: "4px", borderRadius: "12px", padding: "1.25rem", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" }}>
+            <span style={{ fontSize: "11px", fontWeight: 800, color: "#059669", textTransform: "uppercase", letterSpacing: "0.5px", display: "block", marginBottom: "4px" }}>
+              📢 Account Manager Update
+            </span>
+            <p style={{ fontSize: "14px", color: "#334155", margin: 0, fontWeight: 600, lineHeight: "1.5" }}>{data.public_update}</p>
           </div>
         )}
 
-        {/* Progress Summary Gauge */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+        {/* Overall Completion Gauge Card */}
+        <div style={{ background: "#ffffff", borderRadius: "16px", border: "1px solid #e2e8f0", padding: "1.75rem", boxShadow: "0 2px 10px rgba(0,0,0,0.03)", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #f1f5f9", paddingBottom: "1rem" }}>
             <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <Layers size={16} className="text-indigo-400" />
-                Overall Project Completion
+              <h2 style={{ fontSize: "1.15rem", fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
+                <TrendingUp size={20} style={{ color: "#10b981" }} />
+                Overall Contract Fulfillment
               </h2>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Aggregated progress across all active work deliverables.
+              <p style={{ fontSize: "13px", color: "#64748b", margin: "4px 0 0" }}>
+                Real-time aggregated progress across all contracted deliverables.
               </p>
             </div>
-            <div className="text-right">
-              <span className="text-2xl font-extrabold text-white font-mono">{data.overall_progress}%</span>
+
+            <div style={{ textAlign: "right" }}>
+              <span style={{ fontSize: "2.2rem", fontWeight: 900, color: "#059669", fontFamily: "monospace" }}>
+                {data.overall_progress}%
+              </span>
             </div>
           </div>
 
-          <div className="w-full bg-slate-950 h-3.5 rounded-full overflow-hidden border border-slate-800 p-0.5">
-            <div
-              className="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full rounded-full transition-all duration-700"
-              style={{ width: `${Math.min(100, Math.max(0, data.overall_progress))}%` }}
-            />
-          </div>
+          <div>
+            <div style={{ width: "100%", background: "#f1f5f9", height: "14px", borderRadius: "99px", overflow: "hidden", border: "1px solid #e2e8f0", padding: "2px", marginBottom: "8px" }}>
+              <div
+                style={{
+                  height: "100%",
+                  width: `${Math.min(100, Math.max(0, data.overall_progress))}%`,
+                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                  borderRadius: "99px",
+                  transition: "width 0.8s ease",
+                  boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)",
+                }}
+              />
+            </div>
 
-          <div className="flex justify-between text-[11px] text-slate-400 font-mono pt-1">
-            <span>Last Updated: {new Date(data.last_updated).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
-            <span>Scope: {data.scope === "assignment" ? "Single Assignment" : "Full Client Portfolio"}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748b", fontWeight: 600 }}>
+              <span>Last Synchronized: {formattedDate()}</span>
+              <span>Portfolio Scope: {data.scope === "assignment" ? "Single Assignment" : "Full Client Portfolio"}</span>
+            </div>
           </div>
         </div>
 
-        {/* Work Assignments Breakdown */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Building2 size={16} className="text-indigo-400" />
-            Work Progress & Deliverables ({data.assignments.length})
+        {/* Deliverable Scope Cards Grid */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <h3 style={{ fontSize: "1.15rem", fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
+            <Building2 size={20} style={{ color: "#10b981" }} />
+            Contract Scope & Deliverables ({data.assignments.length})
           </h3>
 
-          <div className="space-y-4">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.25rem" }}>
             {data.assignments.map((wa, idx) => (
-              <div key={idx} className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-base font-bold text-white">{wa.title}</h4>
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                        wa.status === "Completed"
-                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                          : wa.status === "In Progress" || wa.status === "Ongoing"
-                          ? "bg-indigo-500/15 text-indigo-400 border-indigo-500/30"
-                          : "bg-slate-500/15 text-slate-400 border-slate-500/30"
-                      }`}>
-                        {wa.status}
-                      </span>
-                    </div>
+              <div
+                key={idx}
+                style={{
+                  background: "#ffffff",
+                  borderRadius: "14px",
+                  border: "1px solid #e2e8f0",
+                  padding: "1.5rem",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1.25rem",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <h4 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>🎯 {wa.title}</h4>
+                    <span
+                      style={{
+                        padding: "3px 12px",
+                        borderRadius: "99px",
+                        fontSize: "11px",
+                        fontWeight: 800,
+                        background: wa.status === "Completed" ? "#dcfce7" : "#e0f2fe",
+                        color: wa.status === "Completed" ? "#15803d" : "#0369a1",
+                        border: `1px solid ${wa.status === "Completed" ? "#86efac" : "#bae6fd"}`,
+                      }}
+                    >
+                      {wa.status}
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-4 text-xs font-mono">
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px", fontSize: "13px" }}>
                     <div>
-                      <span className="text-[10px] text-slate-500 block">Assigned / Completed</span>
-                      <span className="font-bold text-white">{wa.completed_quantity} / {wa.assigned_quantity} {wa.unit}</span>
+                      <span style={{ fontSize: "11px", color: "#64748b", display: "block", fontWeight: 600 }}>Deliverable Quota</span>
+                      <span style={{ fontWeight: 800, color: "#0f172a" }}>{wa.completed_quantity} / {wa.assigned_quantity} {wa.unit}</span>
                     </div>
-                    <div className="pl-3 border-l border-slate-800">
-                      <span className="text-[10px] text-slate-500 block">Progress</span>
-                      <span className="font-bold text-emerald-400">{wa.progress}%</span>
+                    <div style={{ paddingLeft: "16px", borderLeft: "1px solid #e2e8f0" }}>
+                      <span style={{ fontSize: "11px", color: "#64748b", display: "block", fontWeight: 600 }}>Progress</span>
+                      <span style={{ fontWeight: 800, color: "#059669" }}>{wa.progress}%</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Individual Assignment Progress Bar */}
-                <div className="space-y-1">
-                  <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
+                {/* Assignment Progress Bar */}
+                <div>
+                  <div style={{ width: "100%", background: "#f1f5f9", height: "10px", borderRadius: "99px", overflow: "hidden", border: "1px solid #e2e8f0", marginBottom: "6px" }}>
                     <div
-                      className="bg-indigo-500 h-full transition-all"
-                      style={{ width: `${Math.min(100, Math.max(0, wa.progress))}%` }}
+                      style={{
+                        height: "100%",
+                        width: `${Math.min(100, Math.max(0, wa.progress))}%`,
+                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                        borderRadius: "99px",
+                      }}
                     />
                   </div>
-                  <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#64748b", fontWeight: 600 }}>
                     <span>Assigned: {wa.assigned_date}</span>
-                    <span>Target Due: {wa.due_date}</span>
+                    <span>Target Completion Due: {wa.due_date}</span>
                   </div>
                 </div>
 
-                {/* Deliverables List */}
+                {/* Sub-Deliverables / Milestone Items */}
                 {wa.deliverables && wa.deliverables.length > 0 && (
-                  <div className="space-y-2 pt-2 border-t border-slate-800/60">
-                    <span className="text-[11px] font-bold text-slate-400 block">Milestones & Deliverables</span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {wa.deliverables.map((d, dIdx) => (
-                        <div key={dIdx} className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between text-xs">
-                          <div>
-                            <div className="font-semibold text-slate-200">{d.title}</div>
-                            <div className="text-[10px] text-slate-500">{d.work_type} · Due {d.due_date}</div>
+                  <div style={{ paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px", display: "block", marginBottom: "10px" }}>
+                      Milestones & Items Breakdown ({wa.deliverables.length})
+                    </span>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "10px" }}>
+                      {wa.deliverables.map((d, dIdx) => {
+                        const isDone = (d.delivered || 0) > 0 || d.status === "Completed";
+                        return (
+                          <div
+                            key={dIdx}
+                            style={{
+                              background: isDone ? "#f0fdf4" : "#f8fafc",
+                              border: `1px solid ${isDone ? "#bbf7d0" : "#e2e8f0"}`,
+                              padding: "10px 14px",
+                              borderRadius: "10px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              fontSize: "13px",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              {isDone ? (
+                                <CheckCircle2 size={18} style={{ color: "#16a34a" }} />
+                              ) : (
+                                <Clock size={18} style={{ color: "#94a3b8" }} />
+                              )}
+                              <div>
+                                <div style={{ fontWeight: 700, color: isDone ? "#15803d" : "#0f172a", textDecoration: isDone ? "line-through" : "none" }}>
+                                  {d.name || d.title}
+                                </div>
+                                <div style={{ fontSize: "11px", color: "#64748b" }}>Target: {d.contracted || 1} units</div>
+                              </div>
+                            </div>
+
+                            <span
+                              style={{
+                                padding: "3px 8px",
+                                borderRadius: "6px",
+                                fontSize: "10px",
+                                fontWeight: 800,
+                                background: isDone ? "#dcfce7" : "#e2e8f0",
+                                color: isDone ? "#15803d" : "#475569",
+                              }}
+                            >
+                              {isDone ? "Done" : "Pending"}
+                            </span>
                           </div>
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
-                            d.status === "Completed"
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                              : "bg-slate-800 text-slate-400 border-slate-700"
-                          }`}>
-                            {d.status}
-                          </span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -205,7 +282,7 @@ export function PublicWorkProgressPage({ token }: { token: string }) {
             ))}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

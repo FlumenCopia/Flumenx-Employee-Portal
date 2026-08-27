@@ -500,7 +500,8 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
 
       {!loading && !error && employeeGroupedWork.map((group) => {
         const isExpanded = Boolean(expandedMembers[group.employeeId]);
-        const isSelf = currentUserName && group.name.toLowerCase().includes(currentUserName.toLowerCase());
+        const groupName = group?.name || "";
+        const isSelf = Boolean(currentUserName && groupName && groupName.toLowerCase().includes(currentUserName.toLowerCase()));
         const deptLabel = isSelf ? `${group.department} · You` : group.department;
 
         return (

@@ -12,12 +12,15 @@ import {
   Clock,
   RotateCcw,
   AlertTriangle,
+  FileText,
 } from "lucide-react";
 import { Avatar } from "@/components/icons";
 import { EmptyState } from "@/components/ui";
 import { useShellUser } from "@/components/shell";
 import { api } from "@/lib/api";
 import type { WorkAssignment, Paginated, KPIEmployeeData, Client } from "@/lib/types";
+import { EmployeeDocumentsModal } from "@/features/employees/EmployeeDocumentsModal";
+
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -134,8 +137,10 @@ export function ProfilePage() {
   const [selectedMonth, setSelectedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
   const [selectedYear, setSelectedYear] = useState<string>(currentDate.getFullYear().toString());
   const [selectedClient, setSelectedClient] = useState<string>("all");
+  const [documentsModalOpen, setDocumentsModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"pending" | "current" | "corrections" | "completed" | "all">("pending");
+
 
   const employeeId = user?.employee?.id;
 
@@ -369,20 +374,53 @@ export function ProfilePage() {
           </p>
         </div>
 
-        {/* Small Identity Chip */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 12px" }}>
-          <Avatar name={name} size={36} />
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{name}</span>
-              <span style={{ fontSize: "10px", fontWeight: 700, padding: "1px 6px", background: "var(--neon-dim)", color: "var(--neon)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)" }}>
-                {code}
-              </span>
+        {/* Small Identity Chip & Actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {user.employee && (
+            <button
+              type="button"
+              onClick={() => setDocumentsModalOpen(true)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "var(--panel)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--r)",
+                padding: "8px 12px",
+                fontSize: "12px",
+                fontWeight: 600,
+                color: "var(--text)",
+                cursor: "pointer",
+              }}
+            >
+              <FileText size={15} style={{ color: "#a8874e" }} /> My Documents
+            </button>
+          )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 12px" }}>
+            <Avatar name={name} size={36} />
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{name}</span>
+                <span style={{ fontSize: "10px", fontWeight: 700, padding: "1px 6px", background: "var(--neon-dim)", color: "var(--neon)", borderRadius: "var(--r-sm)", border: "1px solid var(--border)" }}>
+                  {code}
+                </span>
+              </div>
+              <p style={{ fontSize: "11px", color: "var(--muted)", margin: "2px 0 0" }}>{designation} &bull; {department}</p>
             </div>
-            <p style={{ fontSize: "11px", color: "var(--muted)", margin: "2px 0 0" }}>{designation} &bull; {department}</p>
           </div>
         </div>
+
+        {user.employee && (
+          <EmployeeDocumentsModal
+            isOpen={documentsModalOpen}
+            onClose={() => setDocumentsModalOpen(false)}
+            employee={user.employee as any}
+          />
+        )}
       </div>
+
 
       {/* 2. SUMMARY CARDS GRID (6 Cards) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "12px" }}>

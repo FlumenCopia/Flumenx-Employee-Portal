@@ -174,7 +174,7 @@ export function SettingsAccessPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {roles.map((r) => {
+                  {roles.map((r, index) => {
                     const assignedMembers = usersList.filter((u) => {
                       if (u.dynamic_role?.id === r.id) return true;
                       if (u.dynamic_role?.code && u.dynamic_role.code.toUpperCase() === r.code.toUpperCase()) return true;
@@ -182,7 +182,7 @@ export function SettingsAccessPage() {
                       return false;
                     });
                     return (
-                      <tr key={r.id} style={{ borderBottom: "1px solid var(--line)" }}>
+                      <tr key={r.id || r.code || index} style={{ borderBottom: "1px solid var(--line)" }}>
                         <td style={{ padding: "10px 10px 10px 0", verticalAlign: "top" }}>
                           <div style={{ display: "flex", flexDirection: "column" }}>
                             <b style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>{r.name}</b>
@@ -192,9 +192,9 @@ export function SettingsAccessPage() {
                         <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
                             {assignedMembers.length > 0 ? (
-                              assignedMembers.map((m) => (
+                              assignedMembers.map((m, mIdx) => (
                                 <span
-                                  key={m.user_id}
+                                  key={m.user_id || m.work_email || mIdx}
                                   style={{
                                     fontSize: "9.5px",
                                     fontWeight: 700,

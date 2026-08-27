@@ -19,7 +19,7 @@ function ResetPasswordForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const isLinkInvalid = !uid || !token;
+  const isLinkInvalid = !token;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

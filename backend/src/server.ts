@@ -1,0 +1,67 @@
+import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import path from 'path';
+import { config } from './config/env.js';
+import { connectDB } from './config/db.js';
+import routes from './routes/index.js';
+import { verifyCsrf } from './middleware/csrf.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import { authenticateToken } from './middleware/auth.js';
+
+const app = express();
+
+// CORS configuration matching Next.js frontend requirements
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || config.corsOrigins.includes(origin) || origin.startsWith('http://localhost')) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Allow all dev origins
+      }
+    },
+    credentials: true,
+    exposedHeaders: ['Content-Disposition', 'X-CSRFToken'],
+  })
+);
+
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Serve media files statically (Protected by Authentication)
+const mediaPath = path.join(process.cwd(), 'media');
+app.use('/media', authenticateToken, express.static(mediaPath));
+
+// CSRF Verification for state-changing requests
+app.use(verifyCsrf);
+
+// Mount API routes under /api and root /
+app.use('/api', routes);
+app.use('/', routes);
+
+// Global Error Handler
+app.use(errorHandler);
+
+const PORT = config.port;
+
+async function startServer() {
+  await connectDB();
+  app.listen(PORT, () => {
+    console.log(`[Express Backend] Server running on http://127.0.0.1:${PORT}`);
+    console.log(`[Express Backend] API Base URL: http://127.0.0.1:${PORT}/api`);
+  });
+}
+
+process.on('uncaughtException', (err) => {
+  console.error('[Express Backend] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Express Backend] Unhandled Rejection:', reason);
+});
+
+startServer();
+
+export default app;

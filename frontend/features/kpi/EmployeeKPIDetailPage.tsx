@@ -103,7 +103,7 @@ export function EmployeeKPIDetailPage({
     {
       title: "Attendance",
       score: comp.attendance?.score ?? 0,
-      max: 2.0,
+      max: comp.attendance?.max_score ?? 2.0,
       icon: CalendarCheck,
       color: "var(--neon)",
       detail: `${comp.attendance?.present_days ?? 0} present / ${comp.attendance?.eligible_days ?? comp.attendance?.total_days ?? 0} eligible days`,
@@ -111,7 +111,7 @@ export function EmployeeKPIDetailPage({
     {
       title: "On-Time Delivery",
       score: comp.on_time_delivery?.score ?? 0,
-      max: 3.0,
+      max: comp.on_time_delivery?.max_score ?? 3.0,
       icon: Clock,
       color: "#60a5fa",
       detail: `${comp.on_time_delivery?.on_time_count ?? 0} of ${comp.on_time_delivery?.total_due ?? 0} delivered on time`,
@@ -119,7 +119,7 @@ export function EmployeeKPIDetailPage({
     {
       title: "Pending Work",
       score: comp.pending_work?.score ?? 0,
-      max: 2.0,
+      max: comp.pending_work?.max_score ?? 2.0,
       icon: FileCheck,
       color: "#f59e0b",
       detail: `${comp.pending_work?.overdue_count ?? 0} overdue · ${comp.pending_work?.active_count ?? 0} active`,
@@ -127,7 +127,7 @@ export function EmployeeKPIDetailPage({
     {
       title: "Rework / Correction",
       score: comp.rework?.score ?? 0,
-      max: 2.0,
+      max: comp.rework?.max_score ?? 2.0,
       icon: RefreshCw,
       color: "#a855f7",
       detail: `${comp.rework?.correction_count ?? 0} task(s) currently need correction`,
@@ -135,7 +135,7 @@ export function EmployeeKPIDetailPage({
     {
       title: "Work Completion",
       score: comp.work_completion?.score ?? 0,
-      max: 1.0,
+      max: comp.work_completion?.max_score ?? 2.0,
       icon: CheckCircle2,
       color: "var(--neon)",
       detail: `${comp.work_completion?.completed_quantity ?? 0} of ${comp.work_completion?.assigned_quantity ?? 0} units completed`,
@@ -199,7 +199,7 @@ export function EmployeeKPIDetailPage({
           </span>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "4px" }}>
             <span style={{ fontSize: "44px", fontWeight: 700, fontFamily: "var(--font-display)", color: "var(--text)" }}>
-              {data.is_evaluated ? data.final_score.toFixed(1) : "N/A"}
+              {data.is_evaluated ? (data.score_out_of_10 ?? (data.final_score / 10)).toFixed(1) : "N/A"}
             </span>
             {data.is_evaluated && (
               <span style={{ fontSize: "18px", color: "var(--muted)", fontWeight: 600 }}>/ 10</span>

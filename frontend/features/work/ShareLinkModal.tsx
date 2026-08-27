@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { ShareLink, WorkAssignment } from "@/lib/types";
+import { Modal } from "@/features/common/Modal";
+import { PrimaryButton } from "@/components/ui";
 
 export function ShareLinkModal({
   clientId,
@@ -118,115 +120,96 @@ export function ShareLinkModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-xl w-full space-y-5 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl">
-              <Globe size={18} />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white">Share Client Work Progress</h3>
-              <p className="text-xs text-slate-400">Generate secure read-only URL for {clientName}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-white rounded-lg transition">
-            <X size={16} />
-          </button>
-        </div>
-
+    <Modal title={`Share Client Portal Link — ${clientName}`} size="lg" onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px", color: "#0f172a" }}>
         {error && (
-          <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-3 rounded-xl text-xs flex items-center gap-2">
-            <ShieldAlert size={15} />
+          <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#b91c1c", padding: "10px 14px", borderRadius: "8px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+            <ShieldAlert size={16} />
             {error}
           </div>
         )}
 
         {/* Generate New Link Form */}
-        <form onSubmit={handleGenerate} className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-4 space-y-3">
-          <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-            <Plus size={14} className="text-indigo-400" /> Generate New Share Link
-          </h4>
+        <form onSubmit={handleGenerate} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ fontSize: "13px", fontWeight: 700, color: "#1e293b", display: "flex", alignItems: "center", gap: "6px" }}>
+            <Plus size={16} style={{ color: "#2563eb" }} /> Generate Secure Read-Only Share Link
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] text-slate-400 mb-1 font-medium">Link Scope</label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+              LINK SCOPE
               <select
                 value={scope}
                 onChange={(e) => setScope(e.target.value as any)}
-                className="w-full text-xs bg-white border border-[#dad7ce] rounded-lg p-2 text-[#1a1b1e]"
+                className="fs"
               >
-                <option value="client" className="bg-white text-[#1a1b1e]">All Work for {clientName}</option>
-                <option value="assignment" className="bg-white text-[#1a1b1e]">Single Specific Assignment</option>
+                <option value="client">All Contract Work for {clientName}</option>
+                <option value="assignment">Single Specific Assignment</option>
               </select>
-            </div>
+            </label>
 
             {scope === "assignment" && (
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1 font-medium">Select Assignment</label>
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                SELECT ASSIGNMENT
                 <select
                   value={selectedAssignmentId}
                   onChange={(e) => setSelectedAssignmentId(e.target.value)}
-                  className="w-full text-xs bg-white border border-[#dad7ce] rounded-lg p-2 text-[#1a1b1e]"
+                  className="fs"
                   required
                 >
-                  <option value="" className="bg-white text-[#1a1b1e]">Choose assignment...</option>
+                  <option value="">Choose assignment...</option>
                   {assignments.map((a) => (
-                    <option key={a.id} value={a.id} className="bg-white text-[#1a1b1e]">{a.title} ({a.status})</option>
+                    <option key={a.id} value={a.id}>{a.title} ({a.status})</option>
                   ))}
                 </select>
-              </div>
+              </label>
             )}
 
-            <div>
-              <label className="block text-[11px] text-slate-400 mb-1 font-medium">Valid Days</label>
+            <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+              VALID DURATION
               <select
                 value={daysValid}
                 onChange={(e) => setDaysValid(Number(e.target.value))}
-                className="w-full text-xs bg-white border border-[#dad7ce] rounded-lg p-2 text-[#1a1b1e]"
+                className="fs"
               >
-                <option value={7} className="bg-white text-[#1a1b1e]">7 Days</option>
-                <option value={14} className="bg-white text-[#1a1b1e]">14 Days</option>
-                <option value={30} className="bg-white text-[#1a1b1e]">30 Days (Default)</option>
-                <option value={90} className="bg-white text-[#1a1b1e]">90 Days</option>
+                <option value={7}>7 Days</option>
+                <option value={14}>14 Days</option>
+                <option value={30}>30 Days (Default)</option>
+                <option value={90}>90 Days</option>
               </select>
-            </div>
+            </label>
           </div>
 
-          <div>
-            <label className="block text-[11px] text-slate-400 mb-1 font-medium">Sanitized Public Update / Note (Optional)</label>
+          <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+            PUBLIC NOTE / STATUS UPDATE (OPTIONAL)
             <input
               type="text"
               placeholder="e.g. Phase 1 deliverables successfully completed and awaiting review."
               value={publicUpdate}
               onChange={(e) => setPublicUpdate(e.target.value)}
-              className="w-full text-xs bg-white border border-[#dad7ce] rounded-lg p-2 text-[#1a1b1e]"
+              className="fi"
             />
-          </div>
+          </label>
 
-          <div className="flex justify-end pt-1">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition disabled:opacity-50 flex items-center gap-1.5"
-            >
-              <Link2 size={14} />
+          <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: "4px" }}>
+            <PrimaryButton type="submit" disabled={submitting}>
+              <Link2 size={15} />
               {submitting ? "Generating..." : "Generate Share Link"}
-            </button>
+            </PrimaryButton>
           </div>
         </form>
 
         {/* Existing Links List */}
-        <div className="space-y-2">
-          <h4 className="text-xs font-bold text-slate-300">Active & Historical Links</h4>
-          {loading && <div className="text-xs text-slate-500 p-3 text-center">Loading links...</div>}
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <h4 style={{ fontSize: "13px", fontWeight: 700, color: "#334155", margin: 0 }}>Active & Historical Links</h4>
+          {loading && <div style={{ fontSize: "12px", color: "#64748b", padding: "12px", textAlign: "center" }}>Loading links...</div>}
           {!loading && links.length === 0 && (
-            <div className="text-xs text-slate-500 p-3 text-center bg-slate-950/40 border border-slate-800/60 rounded-xl">
-              No share links created yet for {clientName}.
+            <div style={{ fontSize: "12px", color: "#64748b", padding: "16px", textAlign: "center", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+              No share links generated yet for {clientName}.
             </div>
           )}
 
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "220px", overflowY: "auto" }}>
             {links.map((link) => {
               const origin = typeof window !== "undefined" ? window.location.origin : "";
               const fullUrl = `${origin}/share/work/${link.token}`;
@@ -235,45 +218,70 @@ export function ShareLinkModal({
               return (
                 <div
                   key={link.id}
-                  className={`p-3 rounded-xl border text-xs space-y-2 transition ${
-                    link.is_valid
-                      ? "bg-slate-950 border-slate-800 text-slate-200"
-                      : "bg-slate-950/40 border-slate-800/60 text-slate-500 opacity-65"
-                  }`}
+                  style={{
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: link.is_valid ? "1px solid #cbd5e1" : "1px solid #e2e8f0",
+                    background: link.is_valid ? "#ffffff" : "#f8fafc",
+                    opacity: link.is_valid ? 1 : 0.65,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-white">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a" }}>
                         {link.assignment_title ? `Assignment: ${link.assignment_title}` : "All Client Work"}
                       </span>
                       {link.is_valid ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        <span style={{ background: "#dcfce7", color: "#15803d", border: "1px solid #86efac", padding: "2px 8px", borderRadius: "12px", fontSize: "10px", fontWeight: 800 }}>
                           Active
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                        <span style={{ background: "#fee2e2", color: "#b91c1c", border: "1px solid #fca5a5", padding: "2px 8px", borderRadius: "12px", fontSize: "10px", fontWeight: 800 }}>
                           {link.is_revoked ? "Revoked" : "Expired"}
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       {link.is_valid && (
                         <>
                           <button
                             type="button"
                             onClick={() => copyToClipboard(link.token)}
-                            className="p-1.5 text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-lg transition flex items-center gap-1 text-[11px]"
-                            title="Copy Public URL"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              padding: "4px 10px",
+                              borderRadius: "6px",
+                              background: "#2563eb",
+                              color: "#ffffff",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              border: "none",
+                              cursor: "pointer",
+                            }}
                           >
                             {isCopied ? <Check size={13} /> : <Copy size={13} />}
-                            {isCopied ? "Copied" : "Copy"}
+                            {isCopied ? "Copied!" : "Copy Link"}
                           </button>
 
                           <button
                             type="button"
                             onClick={() => handleRevoke(link.id)}
-                            className="px-2 py-1 text-[11px] font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg transition"
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: "6px",
+                              background: "#fee2e2",
+                              color: "#dc2626",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              border: "1px solid #fca5a5",
+                              cursor: "pointer",
+                            }}
                           >
                             Revoke
                           </button>
@@ -284,7 +292,19 @@ export function ShareLinkModal({
                         <button
                           type="button"
                           onClick={() => handleRegenerate(link.id)}
-                          className="p-1.5 text-slate-300 hover:text-white bg-slate-800 rounded-lg transition flex items-center gap-1 text-[11px]"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            padding: "4px 8px",
+                            borderRadius: "6px",
+                            background: "#e2e8f0",
+                            color: "#334155",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            border: "none",
+                            cursor: "pointer",
+                          }}
                         >
                           <RefreshCw size={12} /> Regenerate
                         </button>
@@ -292,12 +312,12 @@ export function ShareLinkModal({
                     </div>
                   </div>
 
-                  <div className="font-mono text-[11px] text-slate-400 truncate bg-slate-900 p-1.5 rounded-lg border border-slate-800/80">
+                  <div style={{ fontFamily: "monospace", fontSize: "11px", color: "#475569", background: "#f1f5f9", padding: "6px 10px", borderRadius: "6px", border: "1px solid #e2e8f0", overflowX: "auto" }}>
                     {fullUrl}
                   </div>
 
                   {link.public_update && (
-                    <div className="text-[11px] text-slate-400 italic">
+                    <div style={{ fontSize: "11px", color: "#64748b", fontStyle: "italic" }}>
                       &quot;{link.public_update}&quot;
                     </div>
                   )}
@@ -307,6 +327,6 @@ export function ShareLinkModal({
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

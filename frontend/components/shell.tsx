@@ -479,6 +479,10 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
       if (typeof window !== "undefined") {
         sessionStorage.clear();
         localStorage.removeItem("flumenx_auth_user");
+        localStorage.removeItem("flumenx_access_token");
+        localStorage.removeItem("flumenx_refresh_token");
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
       }
       await logout();
     } catch {
@@ -489,6 +493,9 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
       setLoggingOut(false);
       setShowLogoutModal(false);
       if (typeof window !== "undefined") {
+        localStorage.clear();
+        sessionStorage.clear();
+        document.cookie = "csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
         window.location.replace("/login");
       } else {
         router.replace("/login");
@@ -497,7 +504,14 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   };
 
   const baseNav: readonly (readonly [string, string, any])[] = dynamicNav !== null ? dynamicNav : getFilteredNavigation(workspaceRole);
-  const filteredNav = baseNav;
+  const filteredNav = baseNav.filter(([label, href]) => {
+    if (workspaceRole !== "admin") {
+      if (href.startsWith("/admin/") || href === "/pages" || href === "/settings") {
+        return false;
+      }
+    }
+    return true;
+  });
 
   const hasAttendance = filteredNav.some(([label, href]) => label.toLowerCase().includes("attendance") || (typeof href === "string" && href.includes("/attendance")));
   const hasLeaves = filteredNav.some(([label, href]) => label.toLowerCase().includes("leave") || (typeof href === "string" && href.includes("/leaves")));

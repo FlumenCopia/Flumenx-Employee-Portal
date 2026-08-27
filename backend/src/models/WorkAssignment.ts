@@ -1,0 +1,158 @@
+import mongoose, { Schema, Document } from 'mongoose';
+
+export const WORK_STATUSES = [
+  'Backlog',
+  'Assigned',
+  'Pending',
+  'In Progress',
+  'Ongoing',
+  'Blocked',
+  'In Review',
+  'Changes Requested',
+  'Rejected',
+  'Approved',
+  'Completed',
+  'Published',
+] as const;
+
+export type WorkStatusType = (typeof WORK_STATUSES)[number];
+
+export const WORK_PRIORITIES = ['Low', 'Normal', 'High', 'Urgent'] as const;
+export type WorkPriorityType = (typeof WORK_PRIORITIES)[number];
+
+export const REVIEW_STATUSES = ['PENDING_REVIEW', 'OK', 'CORRECTION_NEEDED'] as const;
+export type ReviewStatusType = (typeof REVIEW_STATUSES)[number];
+
+export interface IWorkDeliverable {
+  _id?: mongoose.Types.ObjectId;
+  legacyId?: number;
+  client?: mongoose.Types.ObjectId | null;
+  title: string;
+  brief?: string;
+  workType: string;
+  dueDate: Date;
+  status: WorkStatusType;
+  completedAt?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface ITimeLog {
+  _id?: mongoose.Types.ObjectId;
+  startTime: Date;
+  endTime?: Date | null;
+  durationSeconds: number;
+  loggedBy?: mongoose.Types.ObjectId | null;
+}
+
+export interface IWorkAssignment extends Document {
+  legacyId?: number;
+  employee?: mongoose.Types.ObjectId | null;
+  client?: mongoose.Types.ObjectId | null;
+  parentTask?: mongoose.Types.ObjectId | IWorkAssignment | null;
+  isMasterClientTask?: boolean;
+  title: string;
+  description?: string;
+  priority: WorkPriorityType;
+  assignedDate: Date;
+  dueDate: Date;
+  status: WorkStatusType;
+  progress: number;
+  assignedQuantity: number;
+  completedQuantity: number;
+  unit: string;
+  completedAt?: Date | null;
+  assignedBy?: mongoose.Types.ObjectId | null;
+  reviewer?: mongoose.Types.ObjectId | null;
+  reviewerName?: string;
+  reviewStatus: ReviewStatusType;
+  reviewNote?: string;
+  reviewedBy?: mongoose.Types.ObjectId | null;
+  reviewedAt?: Date | null;
+  deliverables: IWorkDeliverable[];
+  totalTimeSpentSeconds: number;
+  activeTimer?: {
+    startedAt: Date;
+    startedBy?: mongoose.Types.ObjectId | null;
+  } | null;
+  timeLogs: ITimeLog[];
+}
+
+const workDeliverableSchema = new Schema(
+  {
+    legacyId: { type: Number, sparse: true },
+    client: { type: Schema.Types.ObjectId, ref: 'Client', default: null },
+    title: { type: String, default: '', trim: true },
+    name: { type: String, default: '', trim: true },
+    brief: { type: String, default: '' },
+    type: { type: String, default: '' },
+    workType: { type: String, default: 'General', trim: true },
+    contracted: { type: Number, default: 1 },
+    delivered: { type: Number, default: 0 },
+    dueDate: { type: Date, default: () => new Date(Date.now() + 7 * 86400000) },
+    status: { type: String, default: 'Assigned' },
+    completedAt: { type: Date, default: null },
+  },
+  {
+    timestamps: true,
+    strict: false,
+  }
+);
+
+const timeLogSchema = new Schema<ITimeLog>(
+  {
+    startTime: { type: Date, required: true },
+    endTime: { type: Date, default: null },
+    durationSeconds: { type: Number, default: 0 },
+    loggedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const workAssignmentSchema = new Schema<IWorkAssignment>(
+  {
+    legacyId: { type: Number, unique: true, sparse: true, index: true },
+    employee: { type: Schema.Types.ObjectId, ref: 'Employee', default: null },
+    client: { type: Schema.Types.ObjectId, ref: 'Client', default: null },
+    parentTask: { type: Schema.Types.ObjectId, ref: 'WorkAssignment', default: null },
+    isMasterClientTask: { type: Boolean, default: false },
+    title: { type: String, required: true, trim: true },
+    description: { type: String, default: '' },
+    priority: { type: String, enum: WORK_PRIORITIES, default: 'Normal' },
+    assignedDate: { type: Date, required: true },
+    dueDate: { type: Date, required: true },
+    status: { type: String, enum: WORK_STATUSES, default: 'Assigned' },
+    progress: { type: Number, default: 0, min: 0, max: 100 },
+    assignedQuantity: { type: Number, default: 100, min: 1 },
+    completedQuantity: { type: Number, default: 0, min: 0 },
+    unit: { type: String, default: '%' },
+    completedAt: { type: Date, default: null },
+    assignedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    reviewer: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    reviewerName: { type: String, default: '' },
+    reviewStatus: { type: String, enum: REVIEW_STATUSES, default: 'PENDING_REVIEW' },
+    reviewNote: { type: String, default: '' },
+    reviewedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    reviewedAt: { type: Date, default: null },
+    deliverables: [workDeliverableSchema],
+    totalTimeSpentSeconds: { type: Number, default: 0 },
+    activeTimer: {
+      type: {
+        startedAt: { type: Date, required: true },
+        startedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+      },
+      default: null,
+    },
+    timeLogs: [timeLogSchema],
+  },
+  {
+    timestamps: true,
+  }
+);
+
+workAssignmentSchema.index({ dueDate: 1, status: 1 });
+workAssignmentSchema.index({ status: 1, priority: 1 });
+
+export const WorkAssignment = mongoose.model<IWorkAssignment>('WorkAssignment', workAssignmentSchema);
