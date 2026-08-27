@@ -64,6 +64,16 @@ export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole
 
 
   const currentUser = getCachedAuthUser();
+  const canManageEmployees =
+    role === "admin" ||
+    role === "hr" ||
+    currentUser?.role === "SUPER_ADMIN" ||
+    currentUser?.role === "ADMIN" ||
+    currentUser?.role === "HR" ||
+    currentUser?.role === "OPERATIONS" ||
+    currentUser?.role === "OPERATIONS_HEAD" ||
+    Boolean((currentUser as any)?.isSuperuser);
+
   const isSelf = Boolean(
     selectedEmployee &&
       currentUser &&
@@ -122,20 +132,20 @@ export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole
 
   const shown = items || [];
 
-return <>
-  <PageHeader
-    eyebrow="PEOPLE / DIRECTORY"
-    title="Your people."
-    subtitle="A clear view of everyone building FLUMENX."
-    action={
-      <Link
-        className="primary-button"
-        href={`${employeeBasePath}/create`}
-      >
-        Add employee <UserPlus size={17} />
-      </Link>
-    }
-  />
+  return (
+    <>
+      <PageHeader
+        eyebrow="PEOPLE / DIRECTORY"
+        title="Your people."
+        subtitle="A clear view of everyone building FLUMENX."
+        action={
+          canManageEmployees ? (
+            <Link className="primary-button" href={`${employeeBasePath}/create`}>
+              Add employee <UserPlus size={17} />
+            </Link>
+          ) : undefined
+        }
+      />
 
   <div className="toolbar">
     <div className="search-box">
@@ -211,44 +221,50 @@ return <>
               {e.status}
             </Badge>
 
-            <div className="row-actions">
-              <button
-                type="button"
-                title="Employee documents"
-                onClick={(evt) => {
-                  evt.stopPropagation();
-                  setSelectedEmployee(e);
-                  setDocumentsModalOpen(true);
-                }}
-              >
-                <FileText size={16} />
-              </button>
+            {canManageEmployees ? (
+              <div className="row-actions">
+                <button
+                  type="button"
+                  title="Employee documents"
+                  onClick={(evt) => {
+                    evt.stopPropagation();
+                    setSelectedEmployee(e);
+                    setDocumentsModalOpen(true);
+                  }}
+                >
+                  <FileText size={16} />
+                </button>
 
-              <button
-                type="button"
-                title="Edit employee"
-                onClick={(evt) => {
-                  evt.stopPropagation();
-                  setSelectedEmployee(e);
-                  setEditModalOpen(true);
-                }}
-              >
-                <Pencil size={16} />
-              </button>
+                <button
+                  type="button"
+                  title="Edit employee"
+                  onClick={(evt) => {
+                    evt.stopPropagation();
+                    setSelectedEmployee(e);
+                    setEditModalOpen(true);
+                  }}
+                >
+                  <Pencil size={16} />
+                </button>
 
-              <button
-                type="button"
-                title="Delete employee"
-                onClick={(evt) => {
-                  evt.stopPropagation();
-                  setSelectedEmployee(e);
-                  setDeleteError("");
-                  setDeleteModalOpen(true);
-                }}
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
+                <button
+                  type="button"
+                  title="Delete employee"
+                  onClick={(evt) => {
+                    evt.stopPropagation();
+                    setSelectedEmployee(e);
+                    setDeleteError("");
+                    setDeleteModalOpen(true);
+                  }}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="row-actions" style={{ visibility: "hidden" }}>
+                <span />
+              </div>
+            )}
           </div>
         ))}
     </div>
@@ -405,7 +421,8 @@ return <>
       </div>
     </Modal>
   )}
-</>;
+    </>
+  );
 }
 export function EmployeeForm({
   employee,

@@ -97,52 +97,60 @@ const adminNav = [
 const employeeNav = [
   ["Task Board", "/employee/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
-  ["Team Work", "/team-work", Users],
-  ["KPI Performance", "/employee/kpi", TrendingUp],
-  ["Employees Directory", "/employees", Users],
-  ["My Profile", "/employee/profile", UserRound],
-  ["My Attendance", "/employee/attendance", Clock3],
+  ["My Attendance", "/employee/attendance", CalendarCheck],
   ["My Leave", "/employee/leaves", CalendarDays],
+  ["KPI Scorecard", "/employee/kpi", TrendingUp],
+  ["Employees Directory", "/employees", Users],
   ["Meetings", "/employee/meetings", Users],
+  ["Announcements", "/employee/announcements", Megaphone],
+  ["My Profile", "/employee/profile", UserRound],
 ] as const satisfies readonly NavigationItem[];
 
 const hrNav = [
   ["Task Board", "/hr/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
-  ["Team Work", "/team-work", Users],
-  ["KPI Performance", "/hr/kpi", TrendingUp],
   ["Employees Directory", "/employees", Users],
   ["Attendance", "/hr/attendance", CalendarCheck],
   ["Leave Requests", "/hr/leaves", CalendarDays],
-  ["Meetings", "/hr/meetings", UserRound],
+  ["KPI Performance", "/hr/kpi", TrendingUp],
+  ["Salary Slips", "/hr/salary-slips", FileCode],
   ["Reports Center", "/hr/reports", FileSpreadsheet],
-  ["Announcements", "/admin/announcements", Megaphone],
+  ["Meetings", "/hr/meetings", UserRound],
+  ["Announcements", "/hr/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 const accountantNav = [
-  ["Task Board", "/admin/work?view=kanban", Kanban],
+  ["Task Board", "/accountant/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
+  ["Salary Slips", "/accountant/salary-slips", FileCode],
   ["Attendance", "/accountant/attendance", CalendarCheck],
   ["Leave Requests", "/accountant/leaves", CalendarDays],
-  ["Salary Slips", "/admin/salary-slips", FileCode],
   ["Reports Center", "/accountant/reports", FileSpreadsheet],
+  ["Meetings", "/accountant/meetings", Users],
+  ["Announcements", "/accountant/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 const bdoNav = [
   ["Task Board", "/bdo/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
   ["Clients Master", "/clients", BriefcaseBusiness],
+  ["My Attendance", "/bdo/attendance", CalendarCheck],
+  ["My Leave", "/bdo/leaves", CalendarDays],
   ["Meetings", "/bdo/meetings", Users],
+  ["Announcements", "/bdo/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 const teamLeadNav = [
   ["Task Board", "/team-lead/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
   ["Team Work", "/team-lead/team-work", Users],
-  ["KPI Performance", "/kpi", TrendingUp],
+  ["Attendance", "/team-lead/attendance", CalendarCheck],
+  ["Leave Requests", "/team-lead/leaves", CalendarDays],
+  ["KPI Performance", "/team-lead/kpi", TrendingUp],
   ["Employees Directory", "/employees", Users],
-  ["Meetings", "/meetings", Users],
   ["Reports Center", "/team-lead/reports", FileSpreadsheet],
+  ["Meetings", "/team-lead/meetings", Users],
+  ["Announcements", "/team-lead/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[]> = {

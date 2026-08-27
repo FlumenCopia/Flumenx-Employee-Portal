@@ -69,6 +69,6 @@ router.post('/notifications/:id/read/?', markNotificationAsRead);
 router.get('/audit-logs/?', requirePermission('audit_logs', 'canView'), getAuditLogs);
 
 // Enterprise Reports Center
-router.get('/reports/?', getReportsData);
+router.get('/reports/?', requirePermission('reports', 'canView'), getReportsData);
 
 export default router;

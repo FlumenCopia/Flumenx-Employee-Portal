@@ -6,8 +6,33 @@ export async function getLeaves(req: Request, res: Response): Promise<void> {
   const { employee_id, status } = req.query;
 
   const filter: any = {};
-  if (employee_id) filter.employee = employee_id;
   if (status) filter.status = status;
+
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isManagement = ['ADMIN', 'HR', 'OPERATIONS', 'OPERATIONS_HEAD'].includes(req.user?.role || '');
+  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+
+  if (!isSuper && !isManagement) {
+    const ownEmployee = await Employee.findOne({ user: req.user?._id });
+    if (!ownEmployee) {
+      res.json({ count: 0, next: null, previous: null, results: [] });
+      return;
+    }
+
+    if (isTeamLead) {
+      if (employee_id) {
+        filter.employee = employee_id;
+      } else {
+        const teamEmployees = await Employee.find({ department: ownEmployee.department }).select('_id');
+        filter.employee = { $in: teamEmployees.map((e) => e._id) };
+      }
+    } else {
+      // Standard employee strictly sees only own leaves
+      filter.employee = ownEmployee._id;
+    }
+  } else if (employee_id) {
+    filter.employee = employee_id;
+  }
 
   const leaves = await LeaveRequest.find(filter).populate('employee').sort({ createdAt: -1 });
 
@@ -40,8 +65,10 @@ export async function createLeave(req: Request, res: Response): Promise<void> {
   const { employee_id, leave_type, start_date, end_date, reason } = req.body;
 
   let empId = employee_id;
-  if (!empId && req.user) {
-    const emp = await Employee.findOne({ user: req.user._id });
+  const isSuperOrHR = ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(req.user?.role || '') || req.user?.isSuperuser;
+
+  if (!isSuperOrHR || !empId) {
+    const emp = await Employee.findOne({ user: req.user?._id });
     if (emp) empId = emp._id;
   }
 
@@ -83,6 +110,24 @@ export async function updateLeave(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isHRorAdmin = ['ADMIN', 'HR', 'OPERATIONS', 'OPERATIONS_HEAD'].includes(req.user?.role || '');
+  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+
+  if (!isSuper && !isHRorAdmin) {
+    if (isTeamLead) {
+      const ownEmp = await Employee.findOne({ user: req.user?._id });
+      const targetEmp = leave.employee as any;
+      if (!ownEmp || !targetEmp || targetEmp.department !== ownEmp.department) {
+        res.status(403).json({ detail: 'Permission denied. Team leads can only decide leaves for their department.' });
+        return;
+      }
+    } else {
+      res.status(403).json({ detail: 'Permission denied. Only HR, Administrators, or Team Leads can decide leave requests.' });
+      return;
+    }
+  }
+
   const { status, admin_note } = req.body;
   if (status) leave.status = status;
   if (admin_note !== undefined) leave.adminNote = admin_note;
@@ -109,6 +154,21 @@ export async function decideLeave(req: Request, res: Response): Promise<void> {
 }
 
 export async function deleteLeave(req: Request, res: Response): Promise<void> {
+  const leave = await LeaveRequest.findById(req.params.id);
+  if (!leave) {
+    res.status(404).json({ detail: 'Leave request not found.' });
+    return;
+  }
+
+  const isSuperOrAdmin = ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(req.user?.role || '') || req.user?.isSuperuser;
+  if (!isSuperOrAdmin) {
+    const ownEmp = await Employee.findOne({ user: req.user?._id });
+    if (!ownEmp || String(leave.employee) !== String(ownEmp._id) || leave.status !== 'Pending') {
+      res.status(403).json({ detail: 'You can only cancel your own pending leave requests.' });
+      return;
+    }
+  }
+
   await LeaveRequest.findByIdAndDelete(req.params.id);
   res.status(204).send();
 }

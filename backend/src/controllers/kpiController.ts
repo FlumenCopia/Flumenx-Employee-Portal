@@ -73,7 +73,26 @@ export async function getKPIDashboard(req: Request, res: Response): Promise<void
   const targetYear = year ? parseInt(year as string, 10) : now.getFullYear();
 
   const filter: any = { status: 'Active' };
-  if (department) filter.department = department;
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isHRorAdmin = ['ADMIN', 'HR', 'OPERATIONS', 'OPERATIONS_HEAD'].includes(req.user?.role || '');
+  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+
+  if (!isSuper && !isHRorAdmin) {
+    const ownEmp = await Employee.findOne({ user: req.user?._id });
+    if (!ownEmp) {
+      res.json({ selected_month: targetMonth, selected_year: targetYear, total_employees: 0, evaluated_employees: 0, average_kpi: 0, average_kpi_out_of_10: 0, top_performer: null, critical_performers_count: 0, critical_performers: [], department_averages: [], leaderboard: [] });
+      return;
+    }
+
+    if (isTeamLead) {
+      filter.department = ownEmp.department;
+    } else {
+      // Standard employee strictly gets only their own KPI
+      filter._id = ownEmp._id;
+    }
+  } else if (department) {
+    filter.department = department;
+  }
   if (search) {
     filter.$or = [
       { name: { $regex: search as string, $options: 'i' } },

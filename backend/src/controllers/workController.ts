@@ -72,20 +72,40 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
   const { employee_id, client_id, status, priority, assigned_to_me } = req.query;
 
   const filter: any = {};
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
+  const isTeamLead = req.user?.role === 'TEAM_LEAD';
 
-  if (assigned_to_me === 'true' || employee_id === 'me' || (req.user && req.user.role === 'EMPLOYEE' && !employee_id)) {
-    if (req.user) {
-      const empDoc = await Employee.findOne({
-        $or: [{ user: req.user._id }, { email: req.user.email.toLowerCase() }]
-      });
-      if (empDoc) {
-        filter.employee = empDoc._id;
-      } else {
-        filter.employee = req.user._id;
-      }
+  if (!isSuper && !isManagement) {
+    // Regular employees and BDEs can ONLY view their own assigned tasks
+    const ownEmployee = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+    if (!ownEmployee) {
+      res.json([]);
+      return;
     }
-  } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
-    filter.employee = employee_id;
+
+    if (isTeamLead) {
+      // Team lead sees their own tasks + tasks assigned to team members in their department
+      if (assigned_to_me === 'true' || employee_id === 'me') {
+        filter.employee = ownEmployee._id;
+      } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
+        filter.employee = employee_id;
+      } else {
+        const teamEmployees = await Employee.find({ department: ownEmployee.department }).select('_id');
+        filter.employee = { $in: teamEmployees.map((e) => e._id) };
+      }
+    } else {
+      // Standard EMPLOYEE or BDE strictly sees only own tasks
+      filter.employee = ownEmployee._id;
+    }
+  } else {
+    // SuperAdmin / Admin / HR / Operations
+    if (assigned_to_me === 'true' || employee_id === 'me') {
+      const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+      if (ownEmp) filter.employee = ownEmp._id;
+    } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
+      filter.employee = employee_id;
+    }
   }
 
   if (client_id && mongoose.Types.ObjectId.isValid(client_id as string)) {
@@ -430,23 +450,61 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     return;
   }
 
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
+  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+
+  if (!isSuper && !isManagement) {
+    const ownEmp = await Employee.findOne({ user: req.user?._id });
+    if (!ownEmp) {
+      res.status(403).json({ detail: 'No employee profile found.' });
+      return;
+    }
+
+    if (isTeamLead) {
+      // Check if task belongs to own employee or someone in team lead's department
+      const taskEmp = assignment.employee ? await Employee.findById(assignment.employee) : null;
+      if (taskEmp && taskEmp.department !== ownEmp.department && String(assignment.employee) !== String(ownEmp._id)) {
+        res.status(403).json({ detail: 'Permission denied. You can only manage tasks within your department.' });
+        return;
+      }
+    } else {
+      // Standard employee can ONLY update tasks assigned to them
+      if (!assignment.employee || String(assignment.employee) !== String(ownEmp._id)) {
+        res.status(403).json({ detail: 'Permission denied. You can only update tasks assigned to you.' });
+        return;
+      }
+    }
+  }
+
   const fields = req.body;
-  if (fields.title) assignment.title = fields.title.trim();
-  if (fields.description !== undefined) assignment.description = fields.description;
-  if (fields.priority) assignment.priority = fields.priority;
+  if (isSuper || isManagement || isTeamLead) {
+    if (fields.title) assignment.title = fields.title.trim();
+    if (fields.description !== undefined) assignment.description = fields.description;
+    if (fields.priority) assignment.priority = fields.priority;
+    if (fields.assigned_date) assignment.assignedDate = new Date(fields.assigned_date);
+    if (fields.due_date) assignment.dueDate = new Date(fields.due_date);
+    if (fields.assigned_quantity) assignment.assignedQuantity = fields.assigned_quantity;
+    if (fields.unit) assignment.unit = fields.unit;
+    if (fields.parent_task !== undefined || fields.parentTask !== undefined) {
+      const parentVal = fields.parent_task || fields.parentTask;
+      assignment.parentTask = parentVal && mongoose.Types.ObjectId.isValid(parentVal) ? parentVal : null;
+    }
+    if (fields.is_master_client_task !== undefined) {
+      assignment.isMasterClientTask = Boolean(fields.is_master_client_task);
+    }
+    if (fields.employee !== undefined || fields.employee_id !== undefined) {
+      const empVal = fields.employee || fields.employee_id;
+      assignment.employee = empVal && mongoose.Types.ObjectId.isValid(empVal) ? empVal : null;
+    }
+    if (fields.client !== undefined || fields.client_id !== undefined) {
+      const clientVal = fields.client || fields.client_id;
+      assignment.client = clientVal && mongoose.Types.ObjectId.isValid(clientVal) ? clientVal : null;
+    }
+  }
+
   if (fields.status) assignment.status = fields.status;
-  if (fields.assigned_date) assignment.assignedDate = new Date(fields.assigned_date);
-  if (fields.due_date) assignment.dueDate = new Date(fields.due_date);
-  if (fields.assigned_quantity) assignment.assignedQuantity = fields.assigned_quantity;
   if (fields.completed_quantity !== undefined) assignment.completedQuantity = Math.max(0, fields.completed_quantity);
-  if (fields.unit) assignment.unit = fields.unit;
-  if (fields.parent_task !== undefined || fields.parentTask !== undefined) {
-    const parentVal = fields.parent_task || fields.parentTask;
-    assignment.parentTask = parentVal && mongoose.Types.ObjectId.isValid(parentVal) ? parentVal : null;
-  }
-  if (fields.is_master_client_task !== undefined) {
-    assignment.isMasterClientTask = Boolean(fields.is_master_client_task);
-  }
   if (fields.deliverables && Array.isArray(fields.deliverables)) {
     assignment.deliverables = fields.deliverables;
   }

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { AttendanceRecord, IAttendanceRecord } from '../models/AttendanceRecord.js';
 import { AttendancePolicy, IAttendancePolicy } from '../models/AttendancePolicy.js';
 import { AttendanceCorrection } from '../models/AttendanceCorrection.js';
@@ -97,16 +98,41 @@ export function formatSingleRecord(r: IAttendanceRecord, emp?: any) {
   };
 }
 
-// --- Attendance Records Endpoints ---
 export async function getAttendanceRecords(req: Request, res: Response): Promise<void> {
   const { employee_id, date, month, year, status, my_attendance } = req.query;
 
   const filter: any = {};
-  if (my_attendance === 'true' && req.user) {
-    const emp = await Employee.findOne({ user: req.user._id });
-    if (emp) filter.employee = emp._id;
-  } else if (employee_id) {
-    filter.employee = employee_id;
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isManagement = ['ADMIN', 'HR', 'OPERATIONS', 'OPERATIONS_HEAD', 'ACCOUNTANT'].includes(req.user?.role || '');
+  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+
+  if (!isSuper && !isManagement) {
+    const ownEmp = await Employee.findOne({ user: req.user?._id });
+    if (!ownEmp) {
+      res.json({ count: 0, next: null, previous: null, results: [] });
+      return;
+    }
+
+    if (isTeamLead) {
+      if (my_attendance === 'true') {
+        filter.employee = ownEmp._id;
+      } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
+        filter.employee = employee_id;
+      } else {
+        const teamEmployees = await Employee.find({ department: ownEmp.department }).select('_id');
+        filter.employee = { $in: teamEmployees.map((e) => e._id) };
+      }
+    } else {
+      // Standard employee strictly sees only own attendance
+      filter.employee = ownEmp._id;
+    }
+  } else {
+    if (my_attendance === 'true' && req.user) {
+      const emp = await Employee.findOne({ user: req.user._id });
+      if (emp) filter.employee = emp._id;
+    } else if (employee_id) {
+      filter.employee = employee_id;
+    }
   }
 
   if (date) {

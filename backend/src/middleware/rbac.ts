@@ -1,17 +1,146 @@
 import { Request, Response, NextFunction } from 'express';
-import { DynamicRole, IDynamicRole } from '../models/DynamicRole.js';
+import { DynamicRole } from '../models/DynamicRole.js';
 import { PortalPage } from '../models/PortalPage.js';
 
-export const defaultRolePermissions: Record<string, string[]> = {
-  EMPLOYEE: ['TASKS', 'KPI', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'TIMER'],
-  TEAM_LEAD: ['TASKS', 'TEAM_WORK', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'TIMER'],
-  BDE: ['TASKS', 'CLIENTS', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'TIMER'],
-  ACCOUNTANT: ['TASKS', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'MEETINGS', 'ANNOUNCEMENTS', 'TIMER'],
-  HR: ['TASKS', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'KPI', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'TIMER'],
-  ADMIN: ['TASKS', 'TEAM_WORK', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'SALARY_SLIPS', 'ROLES', 'SUPER_ADMIN_USERS', 'PAGE_MANAGEMENT', 'AUDIT_LOGS', 'SETTINGS_ACCESS', 'CLIENTS', 'TIMER'],
-  OPERATIONS: ['TASKS', 'TEAM_WORK', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'SALARY_SLIPS', 'ROLES', 'SUPER_ADMIN_USERS', 'PAGE_MANAGEMENT', 'AUDIT_LOGS', 'SETTINGS_ACCESS', 'CLIENTS', 'TIMER'],
-  OPERATIONS_HEAD: ['TASKS', 'TEAM_WORK', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'SALARY_SLIPS', 'ROLES', 'SUPER_ADMIN_USERS', 'PAGE_MANAGEMENT', 'AUDIT_LOGS', 'SETTINGS_ACCESS', 'CLIENTS', 'TIMER'],
+export type PermissionAction = 'canView' | 'canCreate' | 'canEdit' | 'canDelete';
+
+export interface ActionPerms {
+  canView: boolean;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+const READ_ONLY: ActionPerms = { canView: true, canCreate: false, canEdit: false, canDelete: false };
+const FULL_ACCESS: ActionPerms = { canView: true, canCreate: true, canEdit: true, canDelete: true };
+const MANAGE_NO_DELETE: ActionPerms = { canView: true, canCreate: true, canEdit: true, canDelete: false };
+const VIEW_CREATE: ActionPerms = { canView: true, canCreate: true, canEdit: false, canDelete: false };
+const SELF_OPERATIONS: ActionPerms = { canView: true, canCreate: true, canEdit: true, canDelete: false };
+
+export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>> = {
+  SUPER_ADMIN: {}, // Wildcard handled directly
+  ADMIN: {
+    TASKS: FULL_ACCESS,
+    TEAM_WORK: FULL_ACCESS,
+    KPI: FULL_ACCESS,
+    EMPLOYEES: FULL_ACCESS,
+    ATTENDANCE: FULL_ACCESS,
+    LEAVES: FULL_ACCESS,
+    MEETINGS: FULL_ACCESS,
+    ANNOUNCEMENTS: FULL_ACCESS,
+    SALARY_SLIPS: FULL_ACCESS,
+    CLIENTS: FULL_ACCESS,
+    TIMER: FULL_ACCESS,
+    REPORTS: FULL_ACCESS,
+    ROLES: READ_ONLY,
+    SUPER_ADMIN_USERS: READ_ONLY,
+    PAGE_MANAGEMENT: READ_ONLY,
+    AUDIT_LOGS: READ_ONLY,
+    SETTINGS_ACCESS: READ_ONLY,
+  },
+  OPERATIONS: {
+    TASKS: FULL_ACCESS,
+    TEAM_WORK: FULL_ACCESS,
+    KPI: FULL_ACCESS,
+    EMPLOYEES: MANAGE_NO_DELETE,
+    ATTENDANCE: FULL_ACCESS,
+    LEAVES: FULL_ACCESS,
+    MEETINGS: FULL_ACCESS,
+    ANNOUNCEMENTS: FULL_ACCESS,
+    SALARY_SLIPS: READ_ONLY,
+    CLIENTS: FULL_ACCESS,
+    TIMER: FULL_ACCESS,
+    REPORTS: FULL_ACCESS,
+  },
+  OPERATIONS_HEAD: {
+    TASKS: FULL_ACCESS,
+    TEAM_WORK: FULL_ACCESS,
+    KPI: FULL_ACCESS,
+    EMPLOYEES: MANAGE_NO_DELETE,
+    ATTENDANCE: FULL_ACCESS,
+    LEAVES: FULL_ACCESS,
+    MEETINGS: FULL_ACCESS,
+    ANNOUNCEMENTS: FULL_ACCESS,
+    SALARY_SLIPS: READ_ONLY,
+    CLIENTS: FULL_ACCESS,
+    TIMER: FULL_ACCESS,
+    REPORTS: FULL_ACCESS,
+  },
+  HR: {
+    EMPLOYEES: MANAGE_NO_DELETE,
+    ATTENDANCE: FULL_ACCESS,
+    LEAVES: FULL_ACCESS,
+    SALARY_SLIPS: MANAGE_NO_DELETE,
+    KPI: FULL_ACCESS,
+    TASKS: FULL_ACCESS,
+    MEETINGS: FULL_ACCESS,
+    ANNOUNCEMENTS: FULL_ACCESS,
+    TIMER: FULL_ACCESS,
+    REPORTS: FULL_ACCESS,
+    CLIENTS: READ_ONLY,
+  },
+  ACCOUNTANT: {
+    SALARY_SLIPS: FULL_ACCESS,
+    ATTENDANCE: READ_ONLY,
+    LEAVES: READ_ONLY,
+    REPORTS: FULL_ACCESS,
+    TASKS: SELF_OPERATIONS,
+    MEETINGS: FULL_ACCESS,
+    ANNOUNCEMENTS: READ_ONLY,
+    TIMER: FULL_ACCESS,
+  },
+  TEAM_LEAD: {
+    TEAM_WORK: FULL_ACCESS,
+    TASKS: FULL_ACCESS,
+    EMPLOYEES: READ_ONLY,
+    ATTENDANCE: VIEW_CREATE,
+    LEAVES: { canView: true, canCreate: true, canEdit: true, canDelete: false },
+    KPI: FULL_ACCESS,
+    MEETINGS: FULL_ACCESS,
+    ANNOUNCEMENTS: READ_ONLY,
+    TIMER: FULL_ACCESS,
+    REPORTS: FULL_ACCESS,
+    CLIENTS: READ_ONLY,
+  },
+  BDE: {
+    CLIENTS: FULL_ACCESS,
+    TASKS: SELF_OPERATIONS,
+    ATTENDANCE: VIEW_CREATE,
+    LEAVES: VIEW_CREATE,
+    MEETINGS: FULL_ACCESS,
+    ANNOUNCEMENTS: READ_ONLY,
+    TIMER: FULL_ACCESS,
+    SALARY_SLIPS: READ_ONLY,
+  },
+  BDO: {
+    CLIENTS: FULL_ACCESS,
+    TASKS: SELF_OPERATIONS,
+    ATTENDANCE: VIEW_CREATE,
+    LEAVES: VIEW_CREATE,
+    MEETINGS: FULL_ACCESS,
+    ANNOUNCEMENTS: READ_ONLY,
+    TIMER: FULL_ACCESS,
+    SALARY_SLIPS: READ_ONLY,
+  },
+  EMPLOYEE: {
+    TASKS: { canView: true, canCreate: false, canEdit: true, canDelete: false },
+    ATTENDANCE: VIEW_CREATE,
+    LEAVES: VIEW_CREATE,
+    KPI: READ_ONLY,
+    MEETINGS: FULL_ACCESS,
+    ANNOUNCEMENTS: READ_ONLY,
+    TIMER: FULL_ACCESS,
+    EMPLOYEES: READ_ONLY,
+    SALARY_SLIPS: READ_ONLY,
+  },
 };
+
+export const defaultRolePermissions: Record<string, string[]> = Object.fromEntries(
+  Object.entries(defaultRoleActionMatrix).map(([role, modules]) => [
+    role,
+    Object.keys(modules).filter((mod) => modules[mod].canView),
+  ])
+);
 
 export function requireRole(allowedRoles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
@@ -32,7 +161,7 @@ export function requireRole(allowedRoles: string[]) {
   };
 }
 
-export function requirePermission(moduleCode: string, action: 'canView' | 'canCreate' | 'canEdit' | 'canDelete') {
+export function requirePermission(moduleCode: string, action: PermissionAction = 'canView') {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
@@ -40,14 +169,14 @@ export function requirePermission(moduleCode: string, action: 'canView' | 'canCr
         return;
       }
 
-      // Super admin always has full access
+      // Super admin and Superuser always have full wildcard bypass
       if (req.user.role === 'SUPER_ADMIN' || req.user.isSuperuser) {
         return next();
       }
 
       const normalizedCode = moduleCode.trim().toUpperCase();
 
-      // Check dynamic role if attached to user
+      // 1. Dynamic Role Evaluation (Custom role assigned to user)
       if (req.user.dynamicRole) {
         const dynamicRole = await DynamicRole.findById(req.user.dynamicRole).populate('permissions.page');
 
@@ -59,8 +188,8 @@ export function requirePermission(moduleCode: string, action: 'canView' | 'canCr
           const targetPage = await PortalPage.findOne({
             $or: [
               { moduleCode: normalizedCode },
-              { moduleCode: moduleCode.trim() }
-            ]
+              { moduleCode: moduleCode.trim() },
+            ],
           });
 
           if (targetPage) {
@@ -75,15 +204,21 @@ export function requirePermission(moduleCode: string, action: 'canView' | 'canCr
         }
       }
 
-      // Standard role fallback checks synchronized with portalController.ts ROLE_ALLOWED_MODULES
+      // 2. Standard System Role Action Matrix Evaluation
       const userRole = (req.user.role || 'EMPLOYEE').toUpperCase();
-      const allowedModules = defaultRolePermissions[userRole] || ['TASKS', 'ATTENDANCE', 'LEAVES', 'MEETINGS'];
+      const rolePerms = defaultRoleActionMatrix[userRole];
 
-      if (allowedModules.includes(normalizedCode) || allowedModules.includes(moduleCode)) {
-        return next();
+      if (rolePerms) {
+        const modulePerm = rolePerms[normalizedCode];
+        if (modulePerm && modulePerm[action]) {
+          return next();
+        }
       }
 
-      res.status(403).json({ detail: `Permission denied for ${normalizedCode}:${action}` });
+      res.status(403).json({
+        detail: `Access denied. Your role '${userRole}' does not have '${action}' permission for module '${normalizedCode}'.`,
+        code: 'permission_denied',
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
