@@ -168,7 +168,6 @@ export type Leave = {
   leave_type: string; start_date: string; end_date: string; reason: string;
   status: "Pending" | "Approved" | "Rejected"; days?: number; admin_note?: string;
 };
-export type Meeting = { id: number; title: string; date: string; time: string; description: string; department: string; location: string };
 export type Announcement = { id: number; title: string; message: string; date: string; priority: "Normal" | "Important" | "Urgent" };
 export type SalarySlip = { id: number; employee?: number; employee_name?: string; month: number; year: number; gross_salary: string; net_salary: string; uploaded_at: string; file?: string };
 export type AttendanceRecord = {
@@ -424,6 +423,9 @@ export type PublicWorkAssignment = {
   completed_quantity: number;
   remaining_quantity: number;
   unit: string;
+  assigned_date?: string;
+  due_date?: string;
+  completed_at?: string | null;
   deliverables: PublicWorkDeliverable[];
 };
 

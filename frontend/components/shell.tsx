@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Bell, CalendarCheck, CalendarDays, CheckCheck, ChevronDown, FileCheck2, LogOut, Megaphone, Menu, RotateCw, UserRound, X } from "lucide-react";
+import { Bell, CalendarCheck, CalendarDays, CheckCheck, ChevronDown, FileCheck2, KeyRound, Lock, LogOut, Megaphone, Menu, RotateCw, UserRound, X } from "lucide-react";
 import { FlumenxMark, Avatar } from "./icons";
 import { api, logout } from "@/lib/api";
 import { clearCachedAuthUser, getCachedAuthUser, loadAuthUser } from "@/lib/auth-cache";
@@ -11,6 +11,7 @@ import type { AuthUser, Paginated, PortalNotification, WorkspaceRole } from "@/l
 import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, getWorkspaceDestination, getWorkspaceRole, isRoleAllowedInWorkspace, normalizeWorkspaceRoute, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
 import { PwaInstallButton } from "./PwaInstallButton";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { ChangePasswordModal } from "./ChangePasswordModal";
 
 const dynamicNavCache: Record<string, readonly (readonly [string, string, any])[]> = {};
 
@@ -314,6 +315,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   const [ready, setReady] = useState(Boolean(cachedUserMatchesRole));
   const [user, setUser] = useState<AuthUser | null>(cachedUserMatchesRole ? cachedUser : null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [revalidatingBfCache, setRevalidatingBfCache] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
@@ -325,6 +327,11 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
+    const handleOpenPw = () => setShowPasswordModal(true);
+    window.addEventListener("flumenx:open_change_password_modal", handleOpenPw);
+    return () => {
+      window.removeEventListener("flumenx:open_change_password_modal", handleOpenPw);
+    };
   }, []);
 
   const fetchDynamicNavigation = useCallback(async () => {
@@ -615,9 +622,15 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
           <div className="topbar-word">FLUMENX OS / <span>{roleLabel.toUpperCase()}</span></div>
           <div className="top-actions">
             <NotificationBell user={user} />
-            <span className="topbar-user-name font-medium text-[#1a1b1e] bg-[#ffffff] border border-[#dad7ce] px-2.5 py-1 rounded-lg text-xs shadow-sm">
-              {user?.employee?.name || user?.first_name || user?.username || name}
-            </span>
+            <button
+              type="button"
+              onClick={() => setShowPasswordModal(true)}
+              className="font-medium text-[#1a1b1e] bg-[#ffffff] border border-[#dad7ce] px-2.5 py-1 rounded-lg text-xs shadow-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Click to Change Password"
+            >
+              <KeyRound size={12} className="text-[#087A5B]" />
+              <span>{user?.employee?.name || user?.first_name || user?.username || name}</span>
+            </button>
             {canCreateTask && (
               <button
                 type="button"
@@ -649,6 +662,11 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
         onOpenSidebar={() => setOpen(true)}
         onOpenLogout={openLogoutModal}
         onNewTaskClick={handleNewTaskClick}
+      />
+
+      <ChangePasswordModal
+        open={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
       />
 
       <LogoutModal

@@ -17,6 +17,7 @@ import {
   Sparkles,
   Layers,
   Menu,
+  KeyRound,
 } from "lucide-react";
 import type { AuthUser, WorkspaceRole } from "@/lib/types";
 
@@ -215,6 +216,32 @@ export function MobileBottomNav({
               type="button"
               onClick={() => {
                 setExpanded(false);
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("flumenx:open_change_password_modal"));
+                }
+              }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "6px",
+                padding: "12px 6px",
+                borderRadius: "12px",
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                color: "#E2E8F0",
+                cursor: "pointer",
+                textAlign: "center",
+              }}
+            >
+              <KeyRound size={20} color="#34D399" />
+              <span style={{ fontSize: "11px", fontWeight: 600 }}>Password</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setExpanded(false);
                 onOpenSidebar();
               }}
               style={{
@@ -248,15 +275,15 @@ export function MobileBottomNav({
                 gap: "6px",
                 padding: "12px 6px",
                 borderRadius: "12px",
-                background: "rgba(239, 68, 68, 0.12)",
-                border: "1px solid rgba(239, 68, 68, 0.25)",
+                background: "rgba(239, 68, 68, 0.15)",
+                border: "1px solid rgba(239, 68, 68, 0.35)",
                 color: "#FCA5A5",
                 cursor: "pointer",
                 textAlign: "center",
               }}
             >
-              <LogOut size={20} />
-              <span style={{ fontSize: "11px", fontWeight: 600 }}>Sign out</span>
+              <LogOut size={20} color="#EF4444" />
+              <span style={{ fontSize: "11px", fontWeight: 700 }}>Logout</span>
             </button>
           </div>
         </div>

@@ -7,6 +7,7 @@ import {
   getMe,
   passwordResetRequest,
   passwordResetConfirm,
+  changePassword,
 } from '../controllers/authController.js';
 import { handleCsrfEndpoint } from '../middleware/csrf.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -19,6 +20,7 @@ router.post('/logout/?', logout);
 router.post('/refresh/?', refresh);
 router.get('/csrf/?', handleCsrfEndpoint);
 router.get('/me/?', authenticateToken, getMe);
+router.post('/change-password/?', authenticateToken, changePassword);
 router.post('/password-reset/?', passwordResetRequest);
 router.post('/password-reset/confirm/?', passwordResetConfirm);
 

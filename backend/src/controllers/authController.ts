@@ -300,3 +300,51 @@ export async function passwordResetConfirm(req: Request, res: Response): Promise
     res.status(500).json({ error: error.message });
   }
 }
+
+export async function changePassword(req: Request, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ detail: 'Authentication required.' });
+      return;
+    }
+
+    const { current_password, new_password, confirm_password } = req.body || {};
+
+    if (!current_password || !new_password) {
+      res.status(400).json({ detail: 'Current password and new password are required.' });
+      return;
+    }
+
+    if (confirm_password && new_password !== confirm_password) {
+      res.status(400).json({ detail: 'New password and confirmation password do not match.' });
+      return;
+    }
+
+    const trimmedPassword = String(new_password).trim();
+    if (trimmedPassword.length < 6) {
+      res.status(400).json({ detail: 'New password must be at least 6 characters long.' });
+      return;
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404).json({ detail: 'User account not found.' });
+      return;
+    }
+
+    const isMatch = await user.comparePassword(current_password);
+    if (!isMatch) {
+      res.status(400).json({ detail: 'Current password is incorrect.' });
+      return;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(trimmedPassword, salt);
+    await user.save();
+
+    res.json({ detail: 'Your password has been changed successfully.' });
+  } catch (error: any) {
+    res.status(500).json({ detail: error.message || 'Failed to update password.' });
+  }
+}
+
