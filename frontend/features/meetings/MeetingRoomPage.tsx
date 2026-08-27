@@ -164,6 +164,14 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     };
   }, [isInLobby, isMeetingEnded]);
 
+  // Attach local stream whenever entering live meeting
+  useEffect(() => {
+    if (!isInLobby && localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch(() => {});
+    }
+  }, [isInLobby, localStream]);
+
   // 3. Connect to WebRTC Socket.io Room upon clicking "Join"
   const handleJoinMeeting = useCallback(async () => {
     setIsInLobby(false);
@@ -183,19 +191,26 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
     if (localVideoRef.current && activeStream) {
       localVideoRef.current.srcObject = activeStream;
+      localVideoRef.current.play().catch(() => {});
     }
 
     // Determine Socket URL based on current host
     const token = typeof window !== "undefined" ? (localStorage.getItem("flumenx_access_token") || localStorage.getItem("access_token") || "") : "";
-    const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-    const host = window.location.hostname;
-    const socketUrl = `${protocol}//${host}:8000`;
+    let socketUrl: string | undefined = undefined;
+    if (typeof window !== "undefined") {
+      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+        socketUrl = "http://127.0.0.1:8000";
+      } else {
+        socketUrl = window.location.origin;
+      }
+    }
 
-    const socket = io(socketUrl, {
+    const socket = io(socketUrl || "", {
       path: "/socket.io",
       auth: { token },
       transports: ["websocket", "polling"],
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 8,
+      reconnectionDelay: 1000,
     });
 
     socketRef.current = socket;
@@ -203,37 +218,53 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     // Join room
     socket.emit("join-meeting", {
       meetingCode,
-      name: user?.employee?.name || user?.first_name || "Participant",
+      name: user?.employee?.name || user?.first_name || user?.username || "Participant",
     });
 
     // Handle Join Success
     socket.on("joined-successfully", async (data: { meeting: any; self: any; peers: any[] }) => {
       // Connect to existing peers (initiator)
       for (const peer of data.peers) {
-        createPeerConnection(peer.socketId, peer.name, peer.role, true, activeStream);
+        if (peer.socketId !== socket.id) {
+          createPeerConnection(peer.socketId, peer.name, peer.role, true, activeStream);
+        }
       }
     });
 
     // Handle New Peer Joined
     socket.on("peer-joined", (peer: { socketId: string; name: string; role: string }) => {
-      createPeerConnection(peer.socketId, peer.name, peer.role, false, activeStream);
+      if (peer.socketId !== socket.id) {
+        createPeerConnection(peer.socketId, peer.name, peer.role, false, activeStream);
+      }
     });
 
     // WebRTC Signaling Handlers
     socket.on("signal-offer", async (data: { from: string; offer: RTCSessionDescriptionInit }) => {
-      const peer = peersRef.current.get(data.from);
+      let peer = peersRef.current.get(data.from);
+      if (!peer) {
+        createPeerConnection(data.from, "Participant", "PARTICIPANT", false, activeStream);
+        peer = peersRef.current.get(data.from);
+      }
       if (peer) {
-        await peer.pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-        const answer = await peer.pc.createAnswer();
-        await peer.pc.setLocalDescription(answer);
-        socket.emit("signal-answer", { to: data.from, answer });
+        try {
+          await peer.pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+          const answer = await peer.pc.createAnswer();
+          await peer.pc.setLocalDescription(answer);
+          socket.emit("signal-answer", { to: data.from, answer });
+        } catch (err) {
+          console.error("Error answering WebRTC offer:", err);
+        }
       }
     });
 
     socket.on("signal-answer", async (data: { from: string; answer: RTCSessionDescriptionInit }) => {
       const peer = peersRef.current.get(data.from);
       if (peer) {
-        await peer.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        try {
+          await peer.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        } catch (err) {
+          console.error("Error setting remote description from answer:", err);
+        }
       }
     });
 
@@ -241,7 +272,18 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       const peer = peersRef.current.get(data.from);
       if (peer && data.candidate) {
         try {
-          await peer.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+          if (peer.pc.remoteDescription) {
+            await peer.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+          } else {
+            // Delay adding candidate until remote description is set
+            setTimeout(async () => {
+              try {
+                if (peer?.pc.remoteDescription) {
+                  await peer.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                }
+              } catch {}
+            }, 500);
+          }
         } catch (err) {
           console.error("Error adding ice candidate:", err);
         }
@@ -325,6 +367,10 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     isInitiator: boolean,
     stream: MediaStream | null
   ) {
+    if (peersRef.current.has(socketId)) {
+      return peersRef.current.get(socketId)!.pc;
+    }
+
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
     // Add local tracks to peer connection
@@ -1192,6 +1238,7 @@ function RemotePeerTile({ peer, isHost, onMute }: { peer: PeerConnection; isHost
   useEffect(() => {
     if (videoRef.current && peer.stream) {
       videoRef.current.srcObject = peer.stream;
+      videoRef.current.play().catch(() => {});
     }
   }, [peer.stream]);
 
