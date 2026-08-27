@@ -86,20 +86,50 @@ async function seed() {
       ACCOUNTANT: ['TASKS', 'TIMER', 'CLIENTS', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
       TEAM_LEAD: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
       BDE: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'CLIENTS', 'TIMELINE', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
-      EMPLOYEE: ['TASKS', 'TIMER', 'TEAM_WORK', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
+      EMPLOYEE: ['TASKS', 'TIMER', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'SALARY_SLIPS'],
     };
 
     const allowed = ROLE_MODULE_MAP[r.code] || ['TASKS', 'ATTENDANCE', 'LEAVES', 'MEETINGS'];
     roleObj.permissions = allowed
       .map((mod) => pageDocMap[mod])
       .filter(Boolean)
-      .map((page) => ({
-        page: page._id,
-        canView: true,
-        canCreate: r.code === 'ADMIN' || r.code === 'SUPER_ADMIN' || r.code === 'HR',
-        canEdit: r.code === 'ADMIN' || r.code === 'SUPER_ADMIN' || r.code === 'HR',
-        canDelete: r.code === 'ADMIN' || r.code === 'SUPER_ADMIN',
-      }));
+      .map((page) => {
+        const mod = page.moduleCode;
+        const role = r.code;
+        let canCreate = false;
+        let canEdit = false;
+        let canDelete = false;
+
+        if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'OPERATIONS_HEAD') {
+          canCreate = true;
+          canEdit = true;
+          canDelete = true;
+        } else if (role === 'HR') {
+          canCreate = ['EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'KPI', 'TASKS', 'ANNOUNCEMENTS'].includes(mod);
+          canEdit = ['EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'KPI', 'TASKS', 'ANNOUNCEMENTS'].includes(mod);
+          canDelete = false;
+        } else if (role === 'ACCOUNTANT') {
+          canCreate = ['SALARY_SLIPS'].includes(mod);
+          canEdit = ['SALARY_SLIPS'].includes(mod);
+          canDelete = ['SALARY_SLIPS'].includes(mod);
+        } else if (role === 'TEAM_LEAD') {
+          canCreate = ['TASKS', 'TEAM_WORK', 'LEAVES'].includes(mod);
+          canEdit = ['TASKS', 'TEAM_WORK', 'LEAVES', 'KPI'].includes(mod);
+          canDelete = false;
+        } else if (role === 'EMPLOYEE') {
+          canCreate = ['LEAVES', 'ATTENDANCE'].includes(mod);
+          canEdit = ['TASKS'].includes(mod);
+          canDelete = false;
+        }
+
+        return {
+          page: page._id,
+          canView: true,
+          canCreate,
+          canEdit,
+          canDelete,
+        };
+      });
 
     await roleObj.save();
     roleDocMap[r.code] = roleObj;
