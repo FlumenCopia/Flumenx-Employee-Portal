@@ -1209,7 +1209,7 @@ export function CommandCenterView({
                                 {typeInfo.label}
                               </span>
                               <span className="chip" style={getPriorityBadgeStyle(t.priority)}>
-                                {t.priority.toUpperCase()}
+                                {(t.priority || "NORMAL").toUpperCase()}
                               </span>
                               {t.reviewStatus === "OK" && (
                                 <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
@@ -1624,10 +1624,10 @@ export function CommandCenterView({
                   {CANONICAL_DEPARTMENTS[normalizeDepartment(selectedTask.type)]?.label || selectedTask.type}
                 </span>
                 <span className="chip" style={getPriorityBadgeStyle(selectedTask.priority)}>
-                  {selectedTask.priority.toUpperCase()}
+                  {(selectedTask.priority || "NORMAL").toUpperCase()}
                 </span>
                 <span style={{ background: "#13231F", color: "#FFFFFF", border: "1px solid #192D27", padding: "3px 9px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, textTransform: "uppercase" }}>
-                  {selectedTask.status.toUpperCase()}
+                  {(selectedTask.status || "ASSIGNED").toUpperCase()}
                 </span>
               </div>
             </div>
@@ -2012,7 +2012,7 @@ export function CommandCenterView({
                             {typeInfo.label}
                           </span>
                           <span className="chip" style={getPriorityBadgeStyle(gt.priority)}>
-                            {gt.priority.toUpperCase()}
+                            {(gt.priority || "NORMAL").toUpperCase()}
                           </span>
                           {gt.reviewStatus === "OK" && (
                             <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
