@@ -106,22 +106,86 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
         <strong>{!loading && !error && firstItem ? new Date(firstItem.date).getDate() : "--"}</strong>
         <h3>{!loading && !error && firstItem ? new Date(firstItem.date).toLocaleDateString("en-US", { month: "long", weekday: "long" }) : "No meetings"}</h3>
         <p>{!loading && !error && firstItem ? `${firstItem.time.slice(0, 5)} · ${firstItem.title}` : "Schedule the next meeting"}</p>
+        {!loading && !error && firstItem && (
+          <a
+            href={`/meet/${firstItem.meeting_code}`}
+            style={{
+              marginTop: "auto",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              padding: "9px 16px",
+              borderRadius: "8px",
+              background: "#087A5B",
+              color: "#FFFFFF",
+              fontWeight: 800,
+              fontSize: "12px",
+              textDecoration: "none",
+              boxShadow: "0 2px 8px rgba(8, 122, 91, 0.4)",
+            }}
+          >
+            🟢 Enter Live Room
+          </a>
+        )}
       </div>
       <div className="meeting-stack">
         {!loading && !error && safeItems.map((m, i) => (
-          <article key={m.id}>
+          <article key={m.id} style={{ display: "grid", gridTemplateColumns: "36px 1fr auto", alignItems: "center", gap: "16px" }}>
             <div className="meeting-number">0{i + 1}</div>
             <div>
-              <Badge tone={i === 0 ? "Important" : "neutral"}>{m.department}</Badge>
-              <h2>{m.title}</h2>
-              {m.description && <p>{m.description}</p>}
-              <span>{new Date(m.date).toLocaleDateString("en-IN", { day: "2-digit", month: "long" })} · {m.time.slice(0, 5)}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                <Badge tone={m.status === "LIVE" ? "success" : i === 0 ? "Important" : "neutral"}>
+                  {m.status === "LIVE" ? "🟢 LIVE NOW" : m.department}
+                </Badge>
+                {m.status === "ENDED" && <span style={{ fontSize: "10px", color: "#94A3B8", fontWeight: 700 }}>Concluded</span>}
+              </div>
+              <h2 style={{ fontSize: "16px", fontWeight: 800, margin: "2px 0 4px 0" }}>{m.title}</h2>
+              {m.description && <p style={{ fontSize: "12.5px", color: "#64748B", margin: "0 0 4px 0" }}>{m.description}</p>}
+              <span style={{ fontSize: "11px", color: "#94A3B8" }}>{new Date(m.date).toLocaleDateString("en-IN", { day: "2-digit", month: "long" })} · {m.time.slice(0, 5)}</span>
             </div>
-            {!employee && (
-              <button disabled={deletePendingId !== null} onClick={() => deleteMeeting(m.id)}>
-                <Trash2 size={17} />
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <a
+                href={`/meet/${m.meeting_code}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "7px 14px",
+                  borderRadius: "8px",
+                  background: m.status === "LIVE" ? "linear-gradient(135deg, #087A5B, #065C44)" : "rgba(8, 122, 91, 0.12)",
+                  border: "1px solid rgba(8, 122, 91, 0.3)",
+                  color: m.status === "LIVE" ? "#FFFFFF" : "#087A5B",
+                  fontWeight: 800,
+                  fontSize: "12px",
+                  textDecoration: "none",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <span>{m.status === "LIVE" ? "Join Live" : "Join Room"}</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/meet/${m.meeting_code}`);
+                  setMessage("Meeting link copied to clipboard!");
+                  setTimeout(() => setMessage(""), 3000);
+                }}
+                className="secondary-button"
+                style={{ padding: "6px 10px", fontSize: "11px" }}
+                title="Copy Meeting Link"
+              >
+                Copy Link
               </button>
-            )}
+
+              {!employee && (
+                <button disabled={deletePendingId !== null} onClick={() => deleteMeeting(m.id as any)} style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", padding: "6px" }} title="Delete Meeting">
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
           </article>
         ))}
       </div>

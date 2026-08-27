@@ -3,7 +3,10 @@ import { getLeaves, createLeave, updateLeave, decideLeave, deleteLeave } from '.
 import { getSalarySlips, createSalarySlip, generateSalarySlip, downloadSalarySlip, deleteSalarySlip } from '../controllers/salaryController.js';
 import {
   getMeetings,
+  getMeetingByCode,
+  getMeetingChatHistory,
   createMeeting,
+  endMeeting,
   deleteMeeting,
   getAnnouncements,
   createAnnouncement,
@@ -44,6 +47,9 @@ router.delete('/salary-slips/:id/?', requirePermission('salary_slips', 'canDelet
 
 // Meetings
 router.get('/meetings/?', requirePermission('meetings', 'canView'), getMeetings);
+router.get('/meetings/code/:code/?', getMeetingByCode);
+router.get('/meetings/code/:code/messages/?', getMeetingChatHistory);
+router.post('/meetings/code/:code/end/?', endMeeting);
 router.post('/meetings/?', requirePermission('meetings', 'canCreate'), createMeeting);
 router.delete('/meetings/:id/?', requirePermission('meetings', 'canDelete'), deleteMeeting);
 

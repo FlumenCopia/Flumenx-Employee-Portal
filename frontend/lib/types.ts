@@ -424,9 +424,6 @@ export type PublicWorkAssignment = {
   completed_quantity: number;
   remaining_quantity: number;
   unit: string;
-  assigned_date: string;
-  due_date: string;
-  completed_at: string | null;
   deliverables: PublicWorkDeliverable[];
 };
 
@@ -439,3 +436,37 @@ export type PublicWorkProgress = {
   last_updated: string;
   assignments: PublicWorkAssignment[];
 };
+
+export type Meeting = {
+  id: string | number;
+  meeting_code: string;
+  title: string;
+  date: string;
+  time: string;
+  description: string;
+  department: string;
+  location?: string;
+  status: "SCHEDULED" | "LIVE" | "ENDED" | "CANCELLED";
+  created_by?: string | number | null;
+  is_host?: boolean;
+  host_name?: string;
+  participants_count?: number;
+  settings?: {
+    isLocked: boolean;
+    allowScreenShare: boolean;
+    allowChat: boolean;
+    muteOnEntry: boolean;
+  };
+  started_at?: string | null;
+  ended_at?: string | null;
+};
+
+export type MeetingChatMessage = {
+  id: string;
+  sender_name: string;
+  sender_role?: string;
+  text: string;
+  timestamp: string;
+  is_self?: boolean;
+};
+

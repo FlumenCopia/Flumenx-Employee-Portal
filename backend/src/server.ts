@@ -1,15 +1,32 @@
 import express from 'express';
+import http from 'http';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import path from 'path';
+import { Server as SocketIOServer } from 'socket.io';
 import { config } from './config/env.js';
 import { connectDB } from './config/db.js';
 import routes from './routes/index.js';
 import { verifyCsrf } from './middleware/csrf.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authenticateToken } from './middleware/auth.js';
+import { setupMeetingSockets } from './services/meetingSocket.js';
 
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.io Server for WebRTC signaling and meeting chat
+const io = new SocketIOServer(server, {
+  path: '/socket.io',
+  cors: {
+    origin: (origin, callback) => {
+      callback(null, true);
+    },
+    credentials: true,
+  },
+});
+
+setupMeetingSockets(io);
 
 // CORS configuration matching Next.js frontend requirements
 app.use(
@@ -48,9 +65,10 @@ const PORT = config.port;
 
 async function startServer() {
   await connectDB();
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`[Express Backend] Server running on http://127.0.0.1:${PORT}`);
     console.log(`[Express Backend] API Base URL: http://127.0.0.1:${PORT}/api`);
+    console.log(`[Express Backend] Realtime Meeting WebSockets active`);
   });
 }
 
