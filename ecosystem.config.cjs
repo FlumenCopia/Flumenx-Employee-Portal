@@ -18,7 +18,7 @@ module.exports = {
       name: "flumenx-frontend",
       cwd: "./frontend",
       script: "node_modules/next/dist/bin/next",
-      args: "start -p 3010",
+      args: "start -p 3050",
       exec_mode: "fork",
       instances: 1,
       autorestart: true,
@@ -26,7 +26,7 @@ module.exports = {
       max_memory_restart: "600M",
       env: {
         NODE_ENV: "production",
-        PORT: 3010
+        PORT: 3050
       }
     }
   ]
