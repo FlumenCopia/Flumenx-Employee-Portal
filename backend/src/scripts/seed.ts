@@ -198,7 +198,7 @@ async function seed() {
     await superAdminUser.save();
   }
 
-  let superAdminEmp = await Employee.findOne({ email: 'admin@flumenx.com' });
+  let superAdminEmp = await Employee.findOne({ $or: [{ email: 'admin@flumenx.com' }, { employeeCode: 'FX-001' }] });
   if (!superAdminEmp) {
     superAdminEmp = new Employee({
       user: superAdminUser._id,
@@ -213,6 +213,12 @@ async function seed() {
       status: 'Active',
       employmentStatus: 'Permanent',
     });
+    await superAdminEmp.save();
+  } else {
+    superAdminEmp.user = superAdminUser._id;
+    superAdminEmp.employeeCode = 'FX-001';
+    superAdminEmp.name = 'Super Admin';
+    superAdminEmp.email = 'admin@flumenx.com';
     await superAdminEmp.save();
   }
 
@@ -363,15 +369,15 @@ async function seed() {
   // First pass: Create Users, Employees, Leave Ledgers, and Salary Structures
   for (const item of employeesToSeed) {
     const cleanEmail = item.email.trim().toLowerCase();
-    let u = await User.findOne({ email: cleanEmail });
+    const parts = item.name.trim().split(' ');
+    const firstName = parts[0];
+    const lastName = parts.slice(1).join(' ') || '';
+    const username = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '_');
     const matchedRole = roleDocMap[item.role] || roleDocMap['EMPLOYEE'];
 
-    if (!u) {
-      const parts = item.name.trim().split(' ');
-      const firstName = parts[0];
-      const lastName = parts.slice(1).join(' ') || '';
-      const username = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '_');
+    let u = await User.findOne({ $or: [{ email: cleanEmail }, { username }] });
 
+    if (!u) {
       u = new User({
         username,
         email: cleanEmail,
@@ -385,12 +391,14 @@ async function seed() {
       });
       await u.save();
     } else {
+      u.email = cleanEmail;
       u.role = item.role as UserRoleType;
       if (matchedRole) u.dynamicRole = matchedRole._id;
       await u.save();
     }
 
-    let emp = await Employee.findOne({ email: cleanEmail });
+    // Check if an employee exists with either this email or this employeeCode
+    let emp = await Employee.findOne({ $or: [{ email: cleanEmail }, { employeeCode: item.code }] });
     const deptObj = deptDocMap[item.department] || (await Department.findOne({ name: item.department }));
 
     if (!emp) {
@@ -410,18 +418,21 @@ async function seed() {
       await emp.save();
     } else {
       emp.user = u._id;
+      emp.name = item.name.trim();
+      emp.email = cleanEmail;
       emp.employeeCode = item.code;
       emp.department = item.department;
       if (deptObj) emp.departmentRef = deptObj._id;
       emp.designation = item.designation;
       emp.employmentStatus = item.status as any;
+      emp.status = 'Active';
       await emp.save();
     }
 
     empDocMap[cleanEmail] = emp;
 
     // Seed Employee Salary Structure
-    let struct = await EmployeeSalaryStructure.findOne({ employee: emp._id, isActive: true });
+    let struct = await EmployeeSalaryStructure.findOne({ employee: emp._id });
     if (!struct) {
       struct = new EmployeeSalaryStructure({
         employee: emp._id,
@@ -443,6 +454,14 @@ async function seed() {
         tds: 0,
         isActive: true,
       });
+      await struct.save();
+    } else {
+      struct.grossSalary = item.salary.gross;
+      struct.basicSalary = item.salary.basic;
+      struct.hra = item.salary.hra;
+      struct.conveyance = item.salary.conveyance;
+      struct.specialAllowance = item.salary.special;
+      struct.isActive = true;
       await struct.save();
     }
 
