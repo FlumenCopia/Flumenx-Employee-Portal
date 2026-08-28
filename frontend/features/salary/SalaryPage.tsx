@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import {
   Download,
-  FileUp,
   Sparkles,
   Calendar,
   Layers,
@@ -13,6 +12,9 @@ import {
   Clock,
   Plus,
   Trash2,
+  Receipt,
+  FileSpreadsheet,
+  UserCheck,
 } from "lucide-react";
 import { Employee, Paginated, SalarySlip } from "@/lib/types";
 import { api } from "@/lib/api";
@@ -32,21 +34,6 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
   const [employeeOptions, setEmployeeOptions] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [modal, setModal] = useState(false);
-  const [generateModal, setGenerateModal] = useState(false);
-
-  // Generate slip form state
-  const [genEmployeeId, setGenEmployeeId] = useState("");
-  const [genMonth, setGenMonth] = useState(new Date().getMonth() + 1);
-  const [genYear, setGenYear] = useState(new Date().getFullYear());
-  const [basicSalary, setBasicSalary] = useState<number>(40000);
-  const [hra, setHra] = useState<number>(16000);
-  const [conveyance, setConveyance] = useState<number>(4000);
-  const [allowances, setAllowances] = useState<number>(5000);
-  const [pf, setPf] = useState<number>(2400);
-  const [tax, setTax] = useState<number>(1500);
-  const [deductions, setDeductions] = useState<number>(0);
-  const [generating, setGenerating] = useState(false);
 
   // --- Payroll Engine Tab State ---
   const [payrollRecords, setPayrollRecords] = useState<any[]>([]);
@@ -57,20 +44,20 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
   const [processingCycle, setProcessingCycle] = useState(false);
   const [payrollError, setPayrollError] = useState("");
   const [payrollSuccess, setPayrollSuccess] = useState("");
+  const [genEmployeeId, setGenEmployeeId] = useState("");
 
   // --- Salary Structures Tab State ---
   const [structures, setStructures] = useState<any[]>([]);
   const [structModal, setStructModal] = useState(false);
   const [selectedEmpForStruct, setSelectedEmpForStruct] = useState("");
   const [structGross, setStructGross] = useState(50000);
-  const [structBasic, setStructBasic] = useState(30000);
-  const [structHra, setStructHra] = useState(15000);
-  const [structConveyance, setStructConveyance] = useState(2000);
-  const [structSpecial, setStructSpecial] = useState(3000);
+  const [structBasic, setStructBasic] = useState(25000);
+  const [structHra, setStructHra] = useState(12500);
+  const [structConveyance, setStructConveyance] = useState(3000);
+  const [structSpecial, setStructSpecial] = useState(9500);
   const [structPfEnabled, setStructPfEnabled] = useState(true);
   const [structEsiEnabled, setStructEsiEnabled] = useState(false);
   const [structProfTax, setStructProfTax] = useState(200);
-  const [structTds, setStructTds] = useState(0);
 
   // --- Holidays Tab State ---
   const [holidays, setHolidays] = useState<any[]>([]);
@@ -124,8 +111,9 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
           const list = Array.isArray(result) ? result : (result as any)?.results || [];
           setEmployeeOptions(list);
           if (list.length > 0) {
-            setGenEmployeeId(list[0].id || (list[0] as any)._id);
-            setSelectedEmpForStruct(list[0].id || (list[0] as any)._id);
+            const firstId = list[0].id || (list[0] as any)._id;
+            setGenEmployeeId(firstId);
+            setSelectedEmpForStruct(firstId);
           }
         })
         .catch(() => {});
@@ -140,6 +128,7 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
 
   // Preview Payroll Calculation
   const handleCalculatePreview = async (empId: string) => {
+    if (!empId) return;
     setPreviewLoading(true);
     setPayrollError("");
     setPayrollSuccess("");
@@ -209,7 +198,7 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
           pfEnabled: structPfEnabled,
           esiEnabled: structEsiEnabled,
           professionalTax: structProfTax,
-          tds: structTds,
+          tds: 0,
         }),
       });
       setStructModal(false);
@@ -252,7 +241,7 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       <PageHeader
         title={employee ? "My Salary & Payslips" : "Payroll & Salary Management"}
         subtitle={
@@ -262,40 +251,110 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
         }
         action={
           !employee ? (
-            <div className="flex gap-2">
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                background: "#E2E8F0",
+                padding: "4px",
+                borderRadius: "10px",
+                border: "1.5px solid #CBD5E1",
+                maxWidth: "100%",
+                overflowX: "auto",
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
               <button
+                type="button"
                 onClick={() => setActiveTab("payroll")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                  activeTab === "payroll" ? "bg-primary text-white" : "bg-card hover:bg-muted text-muted-foreground"
-                }`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "7px 14px",
+                  borderRadius: "8px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "12.5px",
+                  whiteSpace: "nowrap",
+                  fontWeight: activeTab === "payroll" ? 800 : 600,
+                  background: activeTab === "payroll" ? "#087A5B" : "transparent",
+                  color: activeTab === "payroll" ? "#FFFFFF" : "#334155",
+                  boxShadow: activeTab === "payroll" ? "0 2px 8px rgba(8,122,91,0.3)" : "none",
+                  transition: "all 0.18s ease",
+                }}
               >
-                <Calculator className="w-4 h-4 inline mr-1.5" />
+                <Calculator size={14} />
                 Payroll Engine
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab("structures")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                  activeTab === "structures" ? "bg-primary text-white" : "bg-card hover:bg-muted text-muted-foreground"
-                }`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "7px 14px",
+                  borderRadius: "8px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "12.5px",
+                  whiteSpace: "nowrap",
+                  fontWeight: activeTab === "structures" ? 800 : 600,
+                  background: activeTab === "structures" ? "#087A5B" : "transparent",
+                  color: activeTab === "structures" ? "#FFFFFF" : "#334155",
+                  boxShadow: activeTab === "structures" ? "0 2px 8px rgba(8,122,91,0.3)" : "none",
+                  transition: "all 0.18s ease",
+                }}
               >
-                <Layers className="w-4 h-4 inline mr-1.5" />
+                <Layers size={14} />
                 Salary Structure
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab("holidays")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                  activeTab === "holidays" ? "bg-primary text-white" : "bg-card hover:bg-muted text-muted-foreground"
-                }`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "7px 14px",
+                  borderRadius: "8px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "12.5px",
+                  whiteSpace: "nowrap",
+                  fontWeight: activeTab === "holidays" ? 800 : 600,
+                  background: activeTab === "holidays" ? "#087A5B" : "transparent",
+                  color: activeTab === "holidays" ? "#FFFFFF" : "#334155",
+                  boxShadow: activeTab === "holidays" ? "0 2px 8px rgba(8,122,91,0.3)" : "none",
+                  transition: "all 0.18s ease",
+                }}
               >
-                <Calendar className="w-4 h-4 inline mr-1.5" />
+                <Calendar size={14} />
                 Holiday Calendar
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab("slips")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                  activeTab === "slips" ? "bg-primary text-white" : "bg-card hover:bg-muted text-muted-foreground"
-                }`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "7px 14px",
+                  borderRadius: "8px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "12.5px",
+                  whiteSpace: "nowrap",
+                  fontWeight: activeTab === "slips" ? 800 : 600,
+                  background: activeTab === "slips" ? "#087A5B" : "transparent",
+                  color: activeTab === "slips" ? "#FFFFFF" : "#334155",
+                  boxShadow: activeTab === "slips" ? "0 2px 8px rgba(8,122,91,0.3)" : "none",
+                  transition: "all 0.18s ease",
+                }}
               >
+                <Receipt size={14} />
                 Payslips
               </button>
             </div>
@@ -305,15 +364,43 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
 
       {/* --- TAB 1: PAYROLL ENGINE --- */}
       {activeTab === "payroll" && !employee && (
-        <Section title="Attendance-Based Payroll Calculation (Cycle: 25th to 24th)">
-          <div className="bg-card/50 border border-border p-4 rounded-xl space-y-4 mb-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-medium text-muted-foreground">Cycle Month:</label>
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          {/* Top Calculation Control Strip */}
+          <div
+            style={{
+              background: "var(--panel)",
+              border: "1px solid var(--border)",
+              borderRadius: "12px",
+              padding: "20px 24px",
+              boxShadow: "var(--shadow-sm)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "16px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
+                  Cycle Month:
+                </span>
                 <select
                   value={payrollMonth}
                   onChange={(e) => setPayrollMonth(parseInt(e.target.value, 10))}
-                  className="bg-background border border-border px-3 py-1.5 rounded-lg text-sm"
+                  style={{
+                    background: "#FFFFFF",
+                    border: "1.5px solid #CBD5E1",
+                    borderRadius: "8px",
+                    padding: "8px 14px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: "var(--text)",
+                    outline: "none",
+                  }}
                 >
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                     <option key={m} value={m}>
@@ -321,10 +408,20 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
                     </option>
                   ))}
                 </select>
+
                 <select
                   value={payrollYear}
                   onChange={(e) => setPayrollYear(parseInt(e.target.value, 10))}
-                  className="bg-background border border-border px-3 py-1.5 rounded-lg text-sm"
+                  style={{
+                    background: "#FFFFFF",
+                    border: "1.5px solid #CBD5E1",
+                    borderRadius: "8px",
+                    padding: "8px 14px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: "var(--text)",
+                    outline: "none",
+                  }}
                 >
                   {[2025, 2026, 2027].map((y) => (
                     <option key={y} value={y}>
@@ -334,203 +431,375 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
                 </select>
               </div>
 
-              <div className="text-xs text-primary font-mono bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20">
-                Active Cycle: {cycleInfo.cycleName}
+              <div
+                style={{
+                  background: "var(--soft-brand-bg)",
+                  color: "var(--amber)",
+                  border: "1px solid rgba(8,122,91,0.25)",
+                  padding: "6px 14px",
+                  borderRadius: "20px",
+                  fontSize: "11.5px",
+                  fontWeight: 700,
+                  fontFamily: "monospace",
+                }}
+              >
+                Active Cycle: {cycleInfo.cycleName} ({cycleInfo.startStr} to {cycleInfo.endStr})
               </div>
 
-              <div className="flex items-center gap-2">
-                <PrimaryButton onClick={handleProcessCycle} disabled={processingCycle}>
-                  <Sparkles className="w-4 h-4 mr-2 inline" />
-                  {processingCycle ? "Processing..." : "Process Cycle Payroll"}
-                </PrimaryButton>
-              </div>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={handleProcessCycle}
+                disabled={processingCycle}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "10px 20px",
+                  borderRadius: "8px",
+                  background: "linear-gradient(135deg, #087A5B 0%, #066349 100%)",
+                  color: "#ffffff",
+                  fontSize: "13px",
+                  fontWeight: 800,
+                  border: "none",
+                  cursor: "pointer",
+                  boxShadow: "0 2px 8px rgba(8,122,91,0.3)",
+                }}
+              >
+                <Sparkles size={16} />
+                {processingCycle ? "Processing Payroll Cycle..." : "Process Cycle Payroll"}
+              </button>
             </div>
 
             {payrollSuccess && (
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-sm flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" /> {payrollSuccess}
+              <div
+                style={{
+                  marginTop: "16px",
+                  padding: "12px 16px",
+                  borderRadius: "8px",
+                  background: "rgba(22,133,91,0.1)",
+                  border: "1px solid rgba(22,133,91,0.3)",
+                  color: "var(--green)",
+                  fontSize: "12.5px",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <CheckCircle2 size={16} /> {payrollSuccess}
               </div>
             )}
             {payrollError && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-sm flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" /> {payrollError}
+              <div
+                style={{
+                  marginTop: "16px",
+                  padding: "12px 16px",
+                  borderRadius: "8px",
+                  background: "rgba(200,75,75,0.1)",
+                  border: "1px solid rgba(200,75,75,0.3)",
+                  color: "var(--red)",
+                  fontSize: "12.5px",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <AlertCircle size={16} /> {payrollError}
               </div>
             )}
           </div>
 
           {/* Quick Preview Calculator */}
-          <div className="bg-card/40 border border-border p-4 rounded-xl mb-6">
-            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <Calculator className="w-4 h-4 text-primary" /> Individual Employee Payroll Preview & Attendance Breakdown
+          <div
+            style={{
+              background: "var(--panel)",
+              border: "1px solid var(--border)",
+              borderRadius: "12px",
+              padding: "20px 24px",
+              boxShadow: "var(--shadow-sm)",
+            }}
+          >
+            <h4
+              style={{
+                fontSize: "13.5px",
+                fontWeight: 700,
+                color: "var(--text)",
+                margin: "0 0 14px 0",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <Calculator size={16} color="var(--amber)" /> Individual Employee Payroll Preview & Attendance Breakdown
             </h4>
-            <div className="flex flex-wrap items-center gap-3">
+
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
               <select
                 value={genEmployeeId}
                 onChange={(e) => setGenEmployeeId(e.target.value)}
-                className="bg-background border border-border px-3 py-1.5 rounded-lg text-sm flex-1 min-w-[200px]"
+                style={{
+                  flex: 1,
+                  minWidth: "260px",
+                  background: "#FFFFFF",
+                  border: "1.5px solid #CBD5E1",
+                  borderRadius: "8px",
+                  padding: "9px 14px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "var(--text)",
+                }}
               >
                 {employeeOptions.map((e) => (
                   <option key={e.id || (e as any)._id} value={e.id || (e as any)._id}>
-                    {e.name} ({e.employee_code || (e as any).employeeCode}) - {e.department}
+                    {e.name} ({e.employee_code || (e as any).employeeCode}) — {e.department}
                   </option>
                 ))}
               </select>
+
               <button
+                type="button"
+                className="secondary-button"
                 onClick={() => handleCalculatePreview(genEmployeeId)}
                 disabled={previewLoading || !genEmployeeId}
-                className="px-4 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-lg text-sm font-medium transition"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "9px 16px",
+                  borderRadius: "8px",
+                  background: "#FFFFFF",
+                  border: "1.5px solid #CBD5E1",
+                  color: "#18231F",
+                  fontSize: "12.5px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
               >
                 {previewLoading ? "Calculating..." : "Calculate Preview"}
               </button>
             </div>
 
             {selectedPreview && (
-              <div className="mt-4 p-4 bg-background/80 border border-border/80 rounded-xl grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+              <div
+                style={{
+                  marginTop: "16px",
+                  padding: "16px 20px",
+                  background: "var(--panel2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "10px",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "16px",
+                }}
+              >
                 <div>
-                  <span className="text-xs text-muted-foreground block">Employee</span>
-                  <span className="font-semibold">{selectedPreview.employee?.name}</span>
+                  <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
+                    Employee
+                  </span>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)", marginTop: "2px" }}>
+                    {selectedPreview.employee?.name}
+                  </div>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Attendance Breakdown</span>
-                  <span className="text-xs font-mono">
+                  <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
+                    Attendance Breakdown
+                  </span>
+                  <div style={{ fontSize: "12px", fontFamily: "monospace", color: "var(--text)", marginTop: "2px" }}>
                     Working: {selectedPreview.attendanceCycle?.workingDays} | Holidays: {selectedPreview.attendanceCycle?.companyHolidays} | Lates: {selectedPreview.attendanceCycle?.lateArrivalsCount}
-                  </span>
+                  </div>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Late Deductions</span>
-                  <span className="text-xs font-mono text-amber-400">
+                  <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
+                    Late Deductions
+                  </span>
+                  <div style={{ fontSize: "12px", fontFamily: "monospace", color: "var(--warning)", fontWeight: 700, marginTop: "2px" }}>
                     {selectedPreview.attendanceCycle?.lateHalfDayDeductions} Half-Days (every 3 lates)
-                  </span>
+                  </div>
                 </div>
                 <div>
-                  <span className="text-xs text-muted-foreground block">Net Calculated Salary</span>
-                  <span className="text-base font-bold text-emerald-400">
-                    ₹{selectedPreview.netSalary?.toLocaleString("en-IN")}
+                  <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
+                    Net Calculated Salary
                   </span>
+                  <div style={{ fontSize: "16px", fontWeight: 800, color: "var(--green)", fontFamily: "monospace", marginTop: "2px" }}>
+                    ₹{selectedPreview.netSalary?.toLocaleString("en-IN")}
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
           {/* Processed Records Table */}
-          <div className="overflow-x-auto border border-border rounded-xl">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/50 border-b border-border text-xs text-muted-foreground font-semibold">
-                <tr>
-                  <th className="p-3">Employee</th>
-                  <th className="p-3">Department</th>
-                  <th className="p-3">Gross</th>
-                  <th className="p-3">Payable Days</th>
-                  <th className="p-3">Attendance LOP</th>
-                  <th className="p-3">PF / ESI / PT</th>
-                  <th className="p-3">Net Pay</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {payrollRecords.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="p-8 text-center text-muted-foreground">
-                      No payroll records generated for this cycle yet. Click &quot;Process Cycle Payroll&quot; above.
-                    </td>
+          <Section title={`Cycle Payroll Register (${payrollRecords.length} Records)`}>
+            <div style={{ overflowX: "auto", width: "100%" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                <thead>
+                  <tr style={{ background: "var(--panel2)", borderBottom: "1.5px solid var(--border)" }}>
+                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Employee</th>
+                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Department</th>
+                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Gross</th>
+                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Payable Days</th>
+                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Attendance LOP</th>
+                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>PF / PT</th>
+                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Net Pay</th>
+                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Status</th>
+                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Action</th>
                   </tr>
-                ) : (
-                  payrollRecords.map((r) => (
-                    <tr key={r._id} className="hover:bg-muted/20">
-                      <td className="p-3 font-medium">{r.employee?.name}</td>
-                      <td className="p-3 text-muted-foreground">{r.employee?.department}</td>
-                      <td className="p-3 font-mono">₹{r.grossSalary?.toLocaleString("en-IN")}</td>
-                      <td className="p-3 font-mono">{r.attendanceCycle?.payableDays} / {r.attendanceCycle?.totalCalendarDays}</td>
-                      <td className="p-3 font-mono text-amber-400">₹{r.attendanceDeduction?.toLocaleString("en-IN")}</td>
-                      <td className="p-3 font-mono text-xs text-muted-foreground">
-                        PF: ₹{r.pfEmployee} | PT: ₹{r.professionalTax}
-                      </td>
-                      <td className="p-3 font-bold text-emerald-400 font-mono">
-                        ₹{r.netSalary?.toLocaleString("en-IN")}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                            r.status === "Approved"
-                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                              : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                          }`}
-                        >
-                          {r.status}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        {r.status !== "Approved" && (
-                          <button
-                            onClick={() => handleApprovePayroll(r._id)}
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium"
-                          >
-                            Approve
-                          </button>
-                        )}
+                </thead>
+                <tbody>
+                  {payrollRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} style={{ padding: "32px 16px", textAlign: "center", color: "var(--muted)", fontSize: "13px" }}>
+                        No payroll records generated for this cycle yet. Click &quot;Process Cycle Payroll&quot; above.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Section>
+                  ) : (
+                    payrollRecords.map((r) => (
+                      <tr key={r._id} style={{ borderBottom: "1px solid var(--line)" }}>
+                        <td style={{ padding: "12px 16px", fontWeight: 700, color: "var(--text)", fontSize: "13px" }}>{r.employee?.name}</td>
+                        <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: "12.5px" }}>{r.employee?.department}</td>
+                        <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "13px", fontWeight: 700 }}>₹{r.grossSalary?.toLocaleString("en-IN")}</td>
+                        <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "12.5px" }}>{r.attendanceCycle?.payableDays} / {r.attendanceCycle?.totalCalendarDays}</td>
+                        <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "12.5px", color: "var(--warning)" }}>₹{r.attendanceDeduction?.toLocaleString("en-IN")}</td>
+                        <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "11.5px", color: "var(--muted)" }}>
+                          PF: ₹{r.pfEmployee} | PT: ₹{r.professionalTax}
+                        </td>
+                        <td style={{ padding: "12px 16px", fontWeight: 800, color: "var(--green)", fontFamily: "monospace", fontSize: "14px" }}>
+                          ₹{r.netSalary?.toLocaleString("en-IN")}
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <span
+                            style={{
+                              padding: "3px 10px",
+                              borderRadius: "20px",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              background: r.status === "Approved" ? "rgba(22,133,91,0.12)" : "rgba(201,135,23,0.12)",
+                              color: r.status === "Approved" ? "var(--green)" : "var(--warning)",
+                              border: `1px solid ${r.status === "Approved" ? "rgba(22,133,91,0.3)" : "rgba(201,135,23,0.3)"}`,
+                            }}
+                          >
+                            {r.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          {r.status !== "Approved" && (
+                            <button
+                              type="button"
+                              onClick={() => handleApprovePayroll(r._id)}
+                              style={{
+                                padding: "5px 12px",
+                                borderRadius: "6px",
+                                background: "#087A5B",
+                                color: "#FFFFFF",
+                                border: "none",
+                                fontSize: "11.5px",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Approve
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Section>
+        </div>
       )}
 
       {/* --- TAB 2: SALARY STRUCTURES --- */}
       {activeTab === "structures" && !employee && (
-        <Section title="Employee Salary Structures & Heads">
-          <div className="flex justify-between items-center mb-4">
-            <p className="text-sm text-muted-foreground">
-              Define gross earnings, basic, HRA, PF caps (₹15,000 ceiling), and ESI applicability per employee.
-            </p>
-            <PrimaryButton onClick={() => setStructModal(true)}>
-              <Plus className="w-4 h-4 mr-1.5 inline" /> Configure Structure
-            </PrimaryButton>
-          </div>
-
-          <div className="overflow-x-auto border border-border rounded-xl">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/50 border-b border-border text-xs text-muted-foreground font-semibold">
-                <tr>
-                  <th className="p-3">Employee</th>
-                  <th className="p-3">Department</th>
-                  <th className="p-3">Gross Salary</th>
-                  <th className="p-3">Basic (₹)</th>
-                  <th className="p-3">HRA (₹)</th>
-                  <th className="p-3">PF Status</th>
-                  <th className="p-3">ESI Status</th>
-                  <th className="p-3">Prof. Tax</th>
+        <Section
+          title="Employee Salary Structures & Heads"
+          action={
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => setStructModal(true)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                background: "linear-gradient(135deg, #087A5B 0%, #066349 100%)",
+                color: "#ffffff",
+                fontWeight: 700,
+                fontSize: "12.5px",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <Plus size={14} /> Configure Structure
+            </button>
+          }
+        >
+          <div style={{ overflowX: "auto", width: "100%" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+              <thead>
+                <tr style={{ background: "var(--panel2)", borderBottom: "1.5px solid var(--border)" }}>
+                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Employee</th>
+                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Department</th>
+                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Gross Salary</th>
+                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Basic (₹)</th>
+                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>HRA (₹)</th>
+                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>PF Status</th>
+                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>ESI Status</th>
+                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Prof. Tax</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/60">
+              <tbody>
                 {structures.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
-                      No custom structures configured yet.
+                    <td colSpan={8} style={{ padding: "32px 16px", textAlign: "center", color: "var(--muted)", fontSize: "13px" }}>
+                      No salary structures configured yet.
                     </td>
                   </tr>
                 ) : (
                   structures.map((s) => (
-                    <tr key={s._id} className="hover:bg-muted/20">
-                      <td className="p-3 font-medium">{s.employee?.name}</td>
-                      <td className="p-3 text-muted-foreground">{s.employee?.department}</td>
-                      <td className="p-3 font-mono font-bold">₹{s.grossSalary?.toLocaleString("en-IN")}</td>
-                      <td className="p-3 font-mono">₹{s.basicSalary?.toLocaleString("en-IN")}</td>
-                      <td className="p-3 font-mono">₹{s.hra?.toLocaleString("en-IN")}</td>
-                      <td className="p-3">
-                        <span className={`text-xs px-2 py-0.5 rounded ${s.pfEnabled ? "bg-emerald-500/10 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                    <tr key={s._id} style={{ borderBottom: "1px solid var(--line)" }}>
+                      <td style={{ padding: "12px 16px", fontWeight: 700, color: "var(--text)", fontSize: "13px" }}>{s.employee?.name}</td>
+                      <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: "12.5px" }}>{s.employee?.department}</td>
+                      <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "13.5px", fontWeight: 800, color: "var(--text)" }}>
+                        ₹{s.grossSalary?.toLocaleString("en-IN")}
+                      </td>
+                      <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "13px" }}>₹{s.basicSalary?.toLocaleString("en-IN")}</td>
+                      <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "13px" }}>₹{s.hra?.toLocaleString("en-IN")}</td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <span
+                          style={{
+                            padding: "3px 8px",
+                            borderRadius: "4px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            background: s.pfEnabled ? "rgba(22,133,91,0.12)" : "rgba(100,116,139,0.12)",
+                            color: s.pfEnabled ? "var(--green)" : "var(--muted)",
+                          }}
+                        >
                           {s.pfEnabled ? `Enabled (${s.pfEmployeePercent}%)` : "Disabled"}
                         </span>
                       </td>
-                      <td className="p-3">
-                        <span className={`text-xs px-2 py-0.5 rounded ${s.esiEnabled ? "bg-emerald-500/10 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                      <td style={{ padding: "12px 16px" }}>
+                        <span
+                          style={{
+                            padding: "3px 8px",
+                            borderRadius: "4px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            background: s.esiEnabled ? "rgba(22,133,91,0.12)" : "rgba(100,116,139,0.12)",
+                            color: s.esiEnabled ? "var(--green)" : "var(--muted)",
+                          }}
+                        >
                           {s.esiEnabled ? `Enabled (${s.esiEmployeePercent}%)` : "Disabled"}
                         </span>
                       </td>
-                      <td className="p-3 font-mono">₹{s.professionalTax}</td>
+                      <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "13px" }}>₹{s.professionalTax}</td>
                     </tr>
                   ))
                 )}
@@ -542,33 +811,90 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
 
       {/* --- TAB 3: HOLIDAY CALENDAR --- */}
       {activeTab === "holidays" && !employee && (
-        <Section title="Company Holiday Calendar (Asia/Kolkata)">
-          <div className="flex justify-between items-center mb-4">
-            <p className="text-sm text-muted-foreground">
-              Official company holidays for year {payrollYear}. Holidays are automatically recognized by the payroll engine and do not incur attendance deductions.
-            </p>
-            <PrimaryButton onClick={() => setHolidayModal(true)}>
-              <Plus className="w-4 h-4 mr-1.5 inline" /> Add Holiday
-            </PrimaryButton>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Section
+          title="Company Holiday Calendar (Asia/Kolkata)"
+          action={
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => setHolidayModal(true)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                background: "linear-gradient(135deg, #087A5B 0%, #066349 100%)",
+                color: "#ffffff",
+                fontWeight: 700,
+                fontSize: "12.5px",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <Plus size={14} /> Add Holiday
+            </button>
+          }
+        >
+          <div
+            style={{
+              padding: "16px 20px",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "16px",
+            }}
+          >
             {holidays.map((h) => (
-              <div key={h.id} className="p-4 bg-card border border-border rounded-xl relative group">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-xs font-mono text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+              <div
+                key={h.id}
+                style={{
+                  background: "var(--panel)",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: "10px",
+                  padding: "16px 18px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                  position: "relative",
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        fontFamily: "monospace",
+                        background: "var(--soft-brand-bg)",
+                        color: "var(--amber)",
+                        padding: "3px 8px",
+                        borderRadius: "6px",
+                        border: "1px solid rgba(8,122,91,0.2)",
+                      }}
+                    >
                       {h.date}
                     </span>
-                    <h4 className="font-semibold text-base mt-2">{h.name}</h4>
-                    <p className="text-xs text-muted-foreground mt-1">{h.description || "Company Paid Holiday"}</p>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteHoliday(h.id)}
+                      title="Delete Holiday"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "#94A3B8",
+                        cursor: "pointer",
+                        padding: "4px",
+                        borderRadius: "4px",
+                        display: "grid",
+                        placeItems: "center",
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleDeleteHoliday(h.id)}
-                    className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-300 transition p-1"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <h4 style={{ margin: "4px 0", fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>{h.name}</h4>
+                  <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>{h.description || "Official Paid Holiday"}</p>
                 </div>
               </div>
             ))}
@@ -585,26 +911,48 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
               text="Generated salary slips will appear here."
             />
           ) : (
-            <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
+            <div style={{ display: "flex", flexDirection: "column" }}>
               {slipsData.map((slip) => (
-                <div key={slip.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition">
-                  <div className="flex items-center gap-3">
+                <div
+                  key={slip.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "14px 20px",
+                    borderBottom: "1px solid var(--line)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                     <Avatar name={slip.employee_name} />
                     <div>
-                      <h4 className="font-medium text-sm">{slip.employee_name}</h4>
-                      <p className="text-xs text-muted-foreground">
-                        {monthName(slip.month)} {slip.year} • Net: ₹{Number(slip.net_salary).toLocaleString("en-IN")}
+                      <h4 style={{ margin: 0, fontSize: "13.5px", fontWeight: 700, color: "var(--text)" }}>{slip.employee_name}</h4>
+                      <p style={{ margin: "2px 0 0", fontSize: "11.5px", color: "var(--muted)" }}>
+                        {monthName(slip.month)} {slip.year} • Net Pay: <strong style={{ color: "var(--green)" }}>₹{Number(slip.net_salary).toLocaleString("en-IN")}</strong>
                       </p>
                     </div>
                   </div>
                   <button
+                    type="button"
                     onClick={() => {
                       const host = typeof window !== "undefined" ? window.location.hostname : "127.0.0.1";
                       window.open(`http://${host}:8000/api/salary-slips/${slip.id}/download/`, "_blank");
                     }}
-                    className="p-2 text-primary hover:bg-primary/10 rounded-lg transition"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      background: "var(--soft-brand-bg)",
+                      color: "var(--amber)",
+                      border: "1px solid rgba(8,122,91,0.25)",
+                      borderRadius: "6px",
+                      padding: "6px 12px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
                   >
-                    <Download className="w-4 h-4" />
+                    <Download size={14} /> Download PDF
                   </button>
                 </div>
               ))}
@@ -616,13 +964,12 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
       {/* Modal for Salary Structure Configuration */}
       {structModal && (
         <Modal onClose={() => setStructModal(false)} title="Configure Salary Structure">
-          <form onSubmit={handleSaveStructure} className="space-y-4">
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">Select Employee</label>
+          <form onSubmit={handleSaveStructure} className="form-grid">
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label>Select Employee</label>
               <select
                 value={selectedEmpForStruct}
                 onChange={(e) => setSelectedEmpForStruct(e.target.value)}
-                className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
                 required
               >
                 {employeeOptions.map((e) => (
@@ -633,85 +980,82 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Monthly Gross (₹)</label>
-                <input
-                  type="number"
-                  value={structGross}
-                  onChange={(e) => setStructGross(Number(e.target.value))}
-                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Basic Salary (₹)</label>
-                <input
-                  type="number"
-                  value={structBasic}
-                  onChange={(e) => setStructBasic(Number(e.target.value))}
-                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
-                  required
-                />
-              </div>
+            <div>
+              <label>Monthly Gross (₹)</label>
+              <input
+                type="number"
+                value={structGross}
+                onChange={(e) => setStructGross(Number(e.target.value))}
+                required
+              />
+            </div>
+            <div>
+              <label>Basic Salary (₹)</label>
+              <input
+                type="number"
+                value={structBasic}
+                onChange={(e) => setStructBasic(Number(e.target.value))}
+                required
+              />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">HRA (₹)</label>
-                <input
-                  type="number"
-                  value={structHra}
-                  onChange={(e) => setStructHra(Number(e.target.value))}
-                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Conveyance (₹)</label>
-                <input
-                  type="number"
-                  value={structConveyance}
-                  onChange={(e) => setStructConveyance(Number(e.target.value))}
-                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Special (₹)</label>
-                <input
-                  type="number"
-                  value={structSpecial}
-                  onChange={(e) => setStructSpecial(Number(e.target.value))}
-                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
-                />
-              </div>
+            <div>
+              <label>HRA (₹)</label>
+              <input
+                type="number"
+                value={structHra}
+                onChange={(e) => setStructHra(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <label>Conveyance (₹)</label>
+              <input
+                type="number"
+                value={structConveyance}
+                onChange={(e) => setStructConveyance(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <label>Special Allowance (₹)</label>
+              <input
+                type="number"
+                value={structSpecial}
+                onChange={(e) => setStructSpecial(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <label>Professional Tax (₹)</label>
+              <input
+                type="number"
+                value={structProfTax}
+                onChange={(e) => setStructProfTax(Number(e.target.value))}
+              />
             </div>
 
-            <div className="flex gap-4 pt-2 border-t border-border">
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <div style={{ gridColumn: "1 / -1", display: "flex", gap: "20px", marginTop: "10px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "12px" }}>
                 <input
                   type="checkbox"
                   checked={structPfEnabled}
                   onChange={(e) => setStructPfEnabled(e.target.checked)}
-                  className="rounded"
                 />
-                PF Enabled (12% capped at ₹15k)
+                PF Enabled (12% capped at ₹15,000 ceiling)
               </label>
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "12px" }}>
                 <input
                   type="checkbox"
                   checked={structEsiEnabled}
                   onChange={(e) => setStructEsiEnabled(e.target.checked)}
-                  className="rounded"
                 />
-                ESI Enabled (0.75%)
+                ESI Enabled (0.75% / 3.25% if Gross ≤ ₹21k)
               </label>
             </div>
 
-            <div className="pt-3 flex justify-end gap-2">
+            <div className="form-actions" style={{ gridColumn: "1 / -1" }}>
               <button
                 type="button"
+                className="secondary-button"
                 onClick={() => setStructModal(false)}
-                className="px-4 py-2 text-sm text-muted-foreground"
               >
                 Cancel
               </button>
@@ -724,57 +1068,51 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
       {/* Modal for Holiday Creation */}
       {holidayModal && (
         <Modal onClose={() => setHolidayModal(false)} title="Add Company Holiday">
-          <form onSubmit={handleSaveHoliday} className="space-y-4">
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">Holiday Name</label>
+          <form onSubmit={handleSaveHoliday} className="form-grid">
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label>Holiday Name</label>
               <input
                 type="text"
                 value={newHolidayName}
                 onChange={(e) => setNewHolidayName(e.target.value)}
-                className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
                 placeholder="e.g. Independence Day"
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Holiday Date (YYYY-MM-DD)</label>
-                <input
-                  type="date"
-                  value={newHolidayDate}
-                  onChange={(e) => setNewHolidayDate(e.target.value)}
-                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Holiday Type</label>
-                <select
-                  value={newHolidayType}
-                  onChange={(e) => setNewHolidayType(e.target.value)}
-                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
-                >
-                  <option value="Company">Company Holiday</option>
-                  <option value="Public">Public / National Holiday</option>
-                  <option value="Restricted">Restricted Holiday</option>
-                </select>
-              </div>
+            <div>
+              <label>Holiday Date (YYYY-MM-DD)</label>
+              <input
+                type="date"
+                value={newHolidayDate}
+                onChange={(e) => setNewHolidayDate(e.target.value)}
+                required
+              />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">Description (Optional)</label>
+              <label>Holiday Type</label>
+              <select
+                value={newHolidayType}
+                onChange={(e) => setNewHolidayType(e.target.value)}
+              >
+                <option value="Company">Company Holiday</option>
+                <option value="Public">Public / National Holiday</option>
+                <option value="Restricted">Restricted Holiday</option>
+              </select>
+            </div>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label>Description (Optional)</label>
               <input
                 type="text"
                 value={newHolidayDesc}
                 onChange={(e) => setNewHolidayDesc(e.target.value)}
-                className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
-                placeholder="e.g. National Holiday celebration"
+                placeholder="e.g. Official Public celebration"
               />
             </div>
-            <div className="pt-3 flex justify-end gap-2">
+            <div className="form-actions" style={{ gridColumn: "1 / -1" }}>
               <button
                 type="button"
+                className="secondary-button"
                 onClick={() => setHolidayModal(false)}
-                className="px-4 py-2 text-sm text-muted-foreground"
               >
                 Cancel
               </button>

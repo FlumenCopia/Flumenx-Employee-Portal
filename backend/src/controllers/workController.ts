@@ -363,10 +363,10 @@ export async function getWorkAssignmentById(req: Request, res: Response): Promis
 
 export async function createWorkAssignment(req: Request, res: Response): Promise<void> {
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagementOrLead = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD', 'BDE'].includes(req.user?.role || '');
+  const isManagementOrLead = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD'].includes(req.user?.role || '');
 
   if (!isSuper && !isManagementOrLead) {
-    res.status(403).json({ detail: 'Permission denied. Only Team Leads and Management can create work assignments.' });
+    res.status(403).json({ detail: 'Permission denied. Only HR, Team Leads, and Management can create work assignments.' });
     return;
   }
 
@@ -453,10 +453,10 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
 
 export async function bulkCreateWorkAssignments(req: Request, res: Response): Promise<void> {
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagementOrLead = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD', 'BDE'].includes(req.user?.role || '');
+  const isManagementOrLead = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD'].includes(req.user?.role || '');
 
   if (!isSuper && !isManagementOrLead) {
-    res.status(403).json({ detail: 'Permission denied. Only Team Leads and Management can create work assignments.' });
+    res.status(403).json({ detail: 'Permission denied. Only HR, Team Leads, and Management can create work assignments.' });
     return;
   }
 

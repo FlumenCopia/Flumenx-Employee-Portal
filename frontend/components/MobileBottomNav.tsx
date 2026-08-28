@@ -64,6 +64,14 @@ export function MobileBottomNav({
   const isAttendanceActive = path.includes("/attendance");
   const isProfileActive = path.includes("/profile") || path.includes("/dashboard");
 
+  const canCreateTask = (() => {
+    if (!user) return false;
+    if ((user as any).is_superuser || (user as any).isSuperuser) return true;
+    const r = (user.portal_role || (user as any).role || "").toUpperCase();
+    const creatorRoles = ["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS"];
+    return creatorRoles.includes(r) || r.includes("TEAM_LEAD") || r.includes("LEAD");
+  })();
+
   return (
     <>
       {/* Dimmed backdrop when center circle is expanded */}
@@ -116,29 +124,31 @@ export function MobileBottomNav({
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
-            <button
-              type="button"
-              onClick={() => {
-                setExpanded(false);
-                onNewTaskClick();
-              }}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "5px",
-                padding: "10px 4px",
-                borderRadius: "10px",
-                background: "linear-gradient(135deg, #087A5B 0%, #055C44 100%)",
-                border: "1px solid #34D399",
-                color: "#FFFFFF",
-                cursor: "pointer",
-                textAlign: "center",
-              }}
-            >
-              <Plus size={18} />
-              <span style={{ fontSize: "10.5px", fontWeight: 700 }}>+ New Task</span>
-            </button>
+            {canCreateTask && (
+              <button
+                type="button"
+                onClick={() => {
+                  setExpanded(false);
+                  onNewTaskClick();
+                }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "5px",
+                  padding: "10px 4px",
+                  borderRadius: "10px",
+                  background: "linear-gradient(135deg, #087A5B 0%, #055C44 100%)",
+                  border: "1px solid #34D399",
+                  color: "#FFFFFF",
+                  cursor: "pointer",
+                  textAlign: "center",
+                }}
+              >
+                <Plus size={18} />
+                <span style={{ fontSize: "10.5px", fontWeight: 700 }}>+ New Task</span>
+              </button>
+            )}
 
             <button
               type="button"
