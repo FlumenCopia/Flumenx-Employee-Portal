@@ -90,7 +90,7 @@ export function PwaInstallButton({ variant = "header" }: { variant?: "header" | 
             marginBottom: "10px",
             transition: "all 0.2s ease",
           }}
-          title="Install FLUMENX OS App to your phone or desktop"
+          title="Install FLUMENX BOS App to your phone or desktop"
         >
           <Smartphone size={16} />
           <span>Install FLUMENX App</span>
@@ -135,17 +135,17 @@ export function PwaInstallButton({ variant = "header" }: { variant?: "header" | 
 
 function PwaInstructionsModal({ isIos, isDesktop, onClose }: { isIos: boolean; isDesktop: boolean; onClose: () => void }) {
   return (
-    <Modal title="Install FLUMENX OS" onClose={onClose}>
+    <Modal title="Install FLUMENX BOS" onClose={onClose}>
       <div style={{ padding: "6px 0", color: "#18231F" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "18px" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/flumenx-mark-only.png"
-            alt="FLUMENX OS"
+            alt="FLUMENX BOS"
             style={{ width: "44px", height: "44px", borderRadius: "10px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
           />
           <div>
-            <h4 style={{ margin: 0, fontSize: "16px", fontWeight: 800 }}>FLUMENX OS Enterprise</h4>
+            <h4 style={{ margin: 0, fontSize: "16px", fontWeight: 800 }}>FLUMENX BOS Enterprise</h4>
             <p style={{ margin: 0, fontSize: "12.5px", color: "#64748B" }}>Standalone Desktop & Mobile Application</p>
           </div>
         </div>
@@ -168,7 +168,7 @@ function PwaInstructionsModal({ isIos, isDesktop, onClose }: { isIos: boolean; i
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", background: "#F8FAFC", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
               <span style={{ background: "#087A5B", color: "#FFFFFF", borderRadius: "50%", width: "22px", height: "22px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 800 }}>2</span>
-              <span>Or click <b>Menu (⋮) &rarr; &quot;Cast, save, and share&quot; &rarr; &quot;Install FLUMENX OS&quot;</b>.</span>
+              <span>Or click <b>Menu (⋮) &rarr; &quot;Cast, save, and share&quot; &rarr; &quot;Install FLUMENX BOS&quot;</b>.</span>
             </div>
           </div>
         ) : isIos ? (

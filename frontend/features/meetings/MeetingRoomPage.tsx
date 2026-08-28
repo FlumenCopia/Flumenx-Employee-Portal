@@ -746,7 +746,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       <div style={{ minHeight: "100vh", background: "#0A110F", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#FFFFFF" }}>
         <div style={{ animation: "pulse 1.5s infinite" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/flumenx-mark-only.png" alt="FLUMENX OS" style={{ width: "56px", height: "56px" }} />
+          <img src="/flumenx-mark-only.png" alt="FLUMENX BOS" style={{ width: "56px", height: "56px" }} />
         </div>
         <p style={{ marginTop: "16px", fontSize: "14px", color: "#94A3B8", letterSpacing: "0.08em" }}>Connecting to meeting space...</p>
       </div>
@@ -925,7 +925,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           <div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(8, 122, 91, 0.2)", border: "1px solid rgba(8, 122, 91, 0.4)", padding: "4px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: 800, color: "#34D399", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "12px" }}>
               <Shield size={13} />
-              FLUMENX OS LIVE CALL
+              FLUMENX BOS LIVE CALL
             </div>
 
             <h1 style={{ fontSize: "28px", fontWeight: 900, letterSpacing: "-0.02em", margin: "0 0 8px 0", color: "#FFFFFF" }}>

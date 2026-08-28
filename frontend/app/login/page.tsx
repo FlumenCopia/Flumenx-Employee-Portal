@@ -155,7 +155,7 @@ export default function LoginPage() {
         <form onSubmit={submit}>
           <div style={{ textAlign: "center", marginBottom: "18px" }}>
             <div style={{ fontSize: "11px", letterSpacing: "0.22em", color: "#087A5B", fontWeight: 800, textTransform: "uppercase" }}>
-              FLUMENX OS
+              FLUMENX BOS
             </div>
           </div>
 

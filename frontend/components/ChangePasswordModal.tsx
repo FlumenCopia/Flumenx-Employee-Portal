@@ -78,7 +78,7 @@ export function ChangePasswordModal({ open, onClose }: ChangePasswordModalProps)
         <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", background: "rgba(8, 122, 91, 0.08)", borderRadius: "10px", border: "1px solid rgba(8, 122, 91, 0.25)" }}>
           <ShieldCheck size={20} color="#087A5B" />
           <span style={{ fontSize: "12.5px", color: "#334155", lineHeight: "1.4" }}>
-            Protect your FLUMENX OS account. Choose a secure password with at least 6 characters.
+            Protect your FLUMENX BOS account. Choose a secure password with at least 6 characters.
           </span>
         </div>
 

@@ -274,7 +274,7 @@ function LogoutModal({
         </div>
 
         <p className="logout-dialog-copy">
-          Are you sure you want to sign out of FLUMENX OS? You will need to log back in to access your workspace.
+          Are you sure you want to sign out of FLUMENX BOS? You will need to log back in to access your workspace.
         </p>
 
         <div className="logout-dialog-actions">
@@ -579,7 +579,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
             <button className="mobile-close" onClick={() => setOpen(false)} aria-label="Close navigation sidebar"><X /></button>
           </div>
           <div className="sub-brand" style={{ paddingLeft: "2px", marginTop: "4px", fontSize: "11.5px", fontWeight: 800, letterSpacing: "0.15em", color: "var(--brand-primary, #087A5B)" }}>
-            FLUMENX OS
+            FLUMENX BOS
           </div>
         </div>
         <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label.toLowerCase().includes("leave") && pendingLeaveCount > 0 && <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>}</Link>)}</nav>
@@ -606,7 +606,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
       <main className="main">
         <header className="topbar">
           <button className="menu-button" onClick={() => setOpen(true)} aria-label="Open navigation menu"><Menu /></button>
-          <div className="topbar-word">FLUMENX OS / <span>{roleLabel.toUpperCase()}</span></div>
+          <div className="topbar-word">FLUMENX BOS / <span>{roleLabel.toUpperCase()}</span></div>
           <div className="top-actions">
             <NotificationBell user={user} />
             <Link

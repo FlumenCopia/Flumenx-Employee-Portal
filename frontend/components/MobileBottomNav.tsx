@@ -103,8 +103,8 @@ export function MobileBottomNav({
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", paddingBottom: "10px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/flumenx-mark-only.png" alt="FLUMENX OS" style={{ width: "22px", height: "22px", borderRadius: "5px", objectFit: "cover" }} />
-              <span style={{ fontSize: "12px", fontWeight: 800, color: "#34D399", letterSpacing: "0.1em" }}>FLUMENX OS ACTIONS</span>
+              <img src="/flumenx-mark-only.png" alt="FLUMENX BOS" style={{ width: "22px", height: "22px", borderRadius: "5px", objectFit: "cover" }} />
+              <span style={{ fontSize: "12px", fontWeight: 800, color: "#34D399", letterSpacing: "0.1em" }}>FLUMENX BOS ACTIONS</span>
             </div>
             <button
               type="button"
@@ -289,7 +289,7 @@ export function MobileBottomNav({
             }}
           >
             <LogOut size={15} color="#EF4444" />
-            <span>Sign out of FLUMENX OS</span>
+            <span>Sign out of FLUMENX BOS</span>
           </button>
         </div>
       )}
@@ -323,7 +323,7 @@ export function MobileBottomNav({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/flumenx-mark-only.png"
-              alt="FLUMENX OS"
+              alt="FLUMENX BOS"
               style={{ width: "28px", height: "28px", borderRadius: "7px", objectFit: "cover" }}
             />
           </button>

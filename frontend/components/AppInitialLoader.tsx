@@ -86,7 +86,7 @@ export function AppInitialLoader({ children }: { children: React.ReactNode }) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/flumenx-mark-only.png"
-                alt="FLUMENX OS"
+                alt="FLUMENX BOS"
                 style={{
                   width: "76px",
                   height: "76px",

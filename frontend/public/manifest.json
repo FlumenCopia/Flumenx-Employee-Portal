@@ -1,7 +1,7 @@
 {
-  "name": "FLUMENX OS",
-  "short_name": "FLUMENX OS",
-  "description": "FLUMENX OS — Unified Enterprise Operating System",
+  "name": "FLUMENX BOS",
+  "short_name": "FLUMENX BOS",
+  "description": "FLUMENX BOS — Unified Enterprise Business Operating System",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0A110F",
