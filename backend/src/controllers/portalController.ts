@@ -350,10 +350,12 @@ export async function getDynamicNavigationMe(req: Request, res: Response): Promi
       }
 
       const visiblePages = allPages.filter((page) => {
-        const perm = dynamicRole.permissions.find(
-          (p) => p.page && (p.page as any)._id.toString() === page._id.toString()
-        );
-        return perm && perm.canView;
+        const perm = dynamicRole.permissions.find((p) => {
+          if (!p.page) return false;
+          const pageId = (p.page as any)._id ? (p.page as any)._id.toString() : p.page.toString();
+          return pageId === page._id.toString();
+        });
+        return perm && Boolean(perm.canView);
       });
 
       res.json(
@@ -372,17 +374,22 @@ export async function getDynamicNavigationMe(req: Request, res: Response): Promi
 
   // Fallback Role-Based Module Permissions for users without custom dynamicRole
   const ROLE_ALLOWED_MODULES: Record<string, string[]> = {
-    EMPLOYEE: ['TASKS', 'KPI', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
-    TEAM_LEAD: ['TASKS', 'TEAM_WORK', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
-    BDE: ['TASKS', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
-    ACCOUNTANT: ['TASKS', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'MEETINGS', 'ANNOUNCEMENTS'],
-    HR: ['TASKS', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'KPI', 'SALARY_SLIPS', 'ANNOUNCEMENTS'],
+    EMPLOYEE: ['TASKS', 'TIMER', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'SALARY_SLIPS'],
+    TEAM_LEAD: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS', 'SALARY_SLIPS'],
+    BDE: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'CLIENTS', 'TIMELINE', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'SALARY_SLIPS'],
+    BDO: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'CLIENTS', 'TIMELINE', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'SALARY_SLIPS'],
+    ACCOUNTANT: ['TASKS', 'TIMER', 'CLIENTS', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
+    HR: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS'],
+    OPERATIONS: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS'],
+    OPERATIONS_HEAD: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS'],
+    ADMIN: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS', 'ROLES', 'SUPER_ADMIN_USERS', 'PAGE_MANAGEMENT', 'AUDIT_LOGS', 'SETTINGS_ACCESS'],
+    SUPER_ADMIN: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS', 'ROLES', 'SUPER_ADMIN_USERS', 'PAGE_MANAGEMENT', 'AUDIT_LOGS', 'SETTINGS_ACCESS'],
   };
 
   const userRole = (req.user.role || 'EMPLOYEE').toUpperCase();
-  const allowedModules = ROLE_ALLOWED_MODULES[userRole] || ['TASKS', 'ATTENDANCE', 'LEAVES', 'MEETINGS'];
+  const allowedModules = ROLE_ALLOWED_MODULES[userRole] || ['TASKS', 'TIMER', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS'];
 
-  const filteredPages = allPages.filter(p => allowedModules.includes(p.moduleCode));
+  const filteredPages = allPages.filter((p) => allowedModules.includes(p.moduleCode));
 
   res.json(
     filteredPages.map((p) => ({

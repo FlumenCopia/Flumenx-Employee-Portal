@@ -70,7 +70,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
     EMPLOYEES: MANAGE_NO_DELETE,
     ATTENDANCE: FULL_ACCESS,
     LEAVES: FULL_ACCESS,
-    SALARY_SLIPS: MANAGE_NO_DELETE,
+    SALARY_SLIPS: FULL_ACCESS,
     KPI: FULL_ACCESS,
     TASKS: FULL_ACCESS,
     MEETINGS: FULL_ACCESS,

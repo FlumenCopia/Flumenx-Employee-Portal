@@ -1,3 +1,5 @@
-import { redirect } from "next/navigation";
+import { SalaryPage } from "@/features/salary/SalaryPage";
 
-export default function Page(){redirect("/employee/dashboard")}
+export default function Page() {
+  return <SalaryPage employee={true} />;
+}

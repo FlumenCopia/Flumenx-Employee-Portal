@@ -88,7 +88,7 @@ const adminNav = [
   ["Dynamic Roles", "/admin/roles", Shield],
   ["User Management", "/admin/users", UserCheck],
   ["Page Management", "/pages", FileCode],
-  ["Salary Slips", "/admin/salary-slips", FileCode],
+  ["Salary & Payroll", "/admin/salary-slips", FileSpreadsheet],
   ["Announcements", "/admin/announcements", Megaphone],
   ["Audit Logs", "/admin/audit-logs", BarChart3],
   ["Settings & Access", "/settings", Settings],
@@ -101,6 +101,7 @@ const employeeNav = [
   ["My Leave", "/employee/leaves", CalendarDays],
   ["KPI Scorecard", "/employee/kpi", TrendingUp],
   ["Employees Directory", "/employees", Users],
+  ["Salary & Payslips", "/employee/salary-slips", FileSpreadsheet],
   ["Meetings", "/employee/meetings", Users],
   ["Announcements", "/employee/announcements", Megaphone],
   ["My Profile", "/employee/profile", UserRound],
@@ -113,7 +114,7 @@ const hrNav = [
   ["Attendance", "/hr/attendance", CalendarCheck],
   ["Leave Requests", "/hr/leaves", CalendarDays],
   ["KPI Performance", "/hr/kpi", TrendingUp],
-  ["Salary Slips", "/hr/salary-slips", FileCode],
+  ["Salary & Payroll", "/hr/salary-slips", FileSpreadsheet],
   ["Reports Center", "/hr/reports", FileSpreadsheet],
   ["Meetings", "/hr/meetings", UserRound],
   ["Announcements", "/hr/announcements", Megaphone],
@@ -122,7 +123,7 @@ const hrNav = [
 const accountantNav = [
   ["Task Board", "/accountant/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
-  ["Salary Slips", "/accountant/salary-slips", FileCode],
+  ["Salary & Payroll", "/accountant/salary-slips", FileSpreadsheet],
   ["Attendance", "/accountant/attendance", CalendarCheck],
   ["Leave Requests", "/accountant/leaves", CalendarDays],
   ["Reports Center", "/accountant/reports", FileSpreadsheet],
@@ -136,6 +137,7 @@ const bdoNav = [
   ["Clients Master", "/clients", BriefcaseBusiness],
   ["My Attendance", "/bdo/attendance", CalendarCheck],
   ["My Leave", "/bdo/leaves", CalendarDays],
+  ["Salary & Payslips", "/bdo/salary-slips", FileSpreadsheet],
   ["Meetings", "/bdo/meetings", Users],
   ["Announcements", "/bdo/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
@@ -148,6 +150,7 @@ const teamLeadNav = [
   ["Leave Requests", "/team-lead/leaves", CalendarDays],
   ["KPI Performance", "/team-lead/kpi", TrendingUp],
   ["Employees Directory", "/employees", Users],
+  ["Salary & Payslips", "/team-lead/salary-slips", FileSpreadsheet],
   ["Reports Center", "/team-lead/reports", FileSpreadsheet],
   ["Meetings", "/team-lead/meetings", Users],
   ["Announcements", "/team-lead/announcements", Megaphone],
@@ -174,7 +177,7 @@ export function getWorkspaceRole(portalRole?: string): WorkspaceRole {
   }
   if (role === "HR") return "hr";
   if (role === "ACCOUNTANT") return "accountant";
-  if (role === "BDE") return "bdo";
+  if (role === "BDE" || role === "BDO") return "bdo";
   if (role === "TEAM_LEAD") return "team-lead";
   return "employee";
 }
@@ -206,8 +209,35 @@ export function normalizeWorkspaceRoute(routePath: string, workspaceRole: Worksp
   if (pathname === "/audit-logs" || pathname === "/admin/audit-logs" || pathname === "/admin/audit_logs") {
     return "/admin/audit-logs";
   }
-  if (pathname === "/salary-slips" || pathname === "/admin/salary-slips") {
-    return "/admin/salary-slips";
+  if (
+    pathname === "/salary-slips" ||
+    pathname === "/salary" ||
+    pathname === "/admin/salary-slips" ||
+    pathname.endsWith("/salary-slips") ||
+    pathname.endsWith("/salary")
+  ) {
+    return `/${workspaceRole}/salary-slips`;
+  }
+  if (pathname === "/announcements" || pathname === "/admin/announcements" || pathname.endsWith("/announcements")) {
+    return `/${workspaceRole}/announcements`;
+  }
+  if (pathname === "/reports" || pathname === "/admin/reports" || pathname.endsWith("/reports")) {
+    return `/${workspaceRole}/reports`;
+  }
+  if (pathname === "/attendance" || pathname === "/admin/attendance" || pathname.endsWith("/attendance")) {
+    return `/${workspaceRole}/attendance`;
+  }
+  if (pathname === "/leaves" || pathname === "/admin/leaves" || pathname.endsWith("/leaves")) {
+    return `/${workspaceRole}/leaves`;
+  }
+  if (pathname === "/meetings" || pathname === "/admin/meetings" || pathname.endsWith("/meetings")) {
+    return `/${workspaceRole}/meetings`;
+  }
+  if (pathname === "/kpi" || pathname === "/admin/kpi" || pathname.endsWith("/kpi")) {
+    return `/${workspaceRole}/kpi`;
+  }
+  if (pathname === "/work" || pathname === "/admin/work" || pathname.endsWith("/work")) {
+    return `/${workspaceRole}/work${query}`;
   }
   if (pathname === "/team-work" || pathname === "/admin/team-work" || pathname === "/team-lead/team-work") {
     return "/team-work";
@@ -221,23 +251,8 @@ export function normalizeWorkspaceRoute(routePath: string, workspaceRole: Worksp
   if (pathname === "/clients" || pathname === "/admin/clients") {
     return "/clients";
   }
-  if (pathname === "/work" || pathname === "/admin/work") {
-    return `/work${query}`;
-  }
-  if (pathname === "/kpi" || pathname === "/admin/kpi") {
-    return `/kpi${query}`;
-  }
   if (pathname === "/employees" || pathname === "/admin/employees") {
     return `/employees${query}`;
-  }
-  if (pathname === "/attendance" || pathname === "/admin/attendance") {
-    return `/attendance${query}`;
-  }
-  if (pathname === "/leaves" || pathname === "/admin/leaves") {
-    return `/leaves${query}`;
-  }
-  if (pathname === "/meetings" || pathname === "/admin/meetings") {
-    return `/meetings${query}`;
   }
 
   return routePath;

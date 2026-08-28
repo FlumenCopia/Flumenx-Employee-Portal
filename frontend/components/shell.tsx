@@ -319,7 +319,10 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   const [loggingOut, setLoggingOut] = useState(false);
   const [revalidatingBfCache, setRevalidatingBfCache] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
-  const [dynamicNav, setDynamicNav] = useState<readonly (readonly [string, string, any])[] | null>(() => dynamicNavCache[workspaceRole] || null);
+  const [dynamicNav, setDynamicNav] = useState<readonly (readonly [string, string, any])[] | null>(() => {
+    const key = cachedUser?.id ? `${cachedUser.id}_${workspaceRole}` : workspaceRole;
+    return dynamicNavCache[key] || null;
+  });
   const [navLoading, setNavLoading] = useState(false);
 
   useEffect(() => {
@@ -336,6 +339,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
 
   const fetchDynamicNavigation = useCallback(async () => {
     if (!user) return;
+    const userCacheKey = `${user.id}_${workspaceRole}`;
     try {
       const items = await api<import("./layout/navigation").DynamicApiNavItem[]>("/portal/navigation/me/");
       if (Array.isArray(items)) {
@@ -353,16 +357,16 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
           normalizeWorkspaceRoute(item.route_path, workspaceRole),
           getLucideIcon(item.icon),
         ] as const);
-        dynamicNavCache[workspaceRole] = mapped;
+        dynamicNavCache[userCacheKey] = mapped;
         setDynamicNav(mapped);
       } else {
         const fallback = getFilteredNavigation(workspaceRole);
-        dynamicNavCache[workspaceRole] = fallback;
+        dynamicNavCache[userCacheKey] = fallback;
         setDynamicNav(fallback);
       }
     } catch {
       const fallback = getFilteredNavigation(workspaceRole);
-      dynamicNavCache[workspaceRole] = fallback;
+      dynamicNavCache[userCacheKey] = fallback;
       setDynamicNav(fallback);
     }
   }, [user, workspaceRole]);
