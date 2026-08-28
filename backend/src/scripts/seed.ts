@@ -5,40 +5,66 @@ import { Department } from '../models/Department.js';
 import { User, UserRoleType } from '../models/User.js';
 import { Employee } from '../models/Employee.js';
 import { AttendancePolicy } from '../models/AttendancePolicy.js';
+import { AttendanceRecord } from '../models/AttendanceRecord.js';
+import { AttendanceCorrection } from '../models/AttendanceCorrection.js';
 import { CompanyHoliday } from '../models/CompanyHoliday.js';
 import { SalaryHead } from '../models/SalaryHead.js';
+import { SalarySlip } from '../models/SalarySlip.js';
 import { EmployeeSalaryStructure } from '../models/EmployeeSalaryStructure.js';
 import { LeaveLedger } from '../models/LeaveLedger.js';
-import { AttendanceRecord } from '../models/AttendanceRecord.js';
 import { LeaveRequest } from '../models/LeaveRequest.js';
 import { PayrollRecord } from '../models/PayrollRecord.js';
 import { PayrollSetting } from '../models/PayrollSetting.js';
+import { WorkAssignment } from '../models/WorkAssignment.js';
+import { Client } from '../models/Client.js';
+import { ClientWorkShareLink } from '../models/ClientWorkShareLink.js';
+import { Meeting } from '../models/Meeting.js';
+import { MeetingMessage } from '../models/MeetingMessage.js';
+import { Notification } from '../models/Notification.js';
+import { Announcement } from '../models/Announcement.js';
+import { AuditLog } from '../models/AuditLog.js';
+import { EmployeeDocument } from '../models/EmployeeDocument.js';
+import { EmployeeKPIRating } from '../models/EmployeeKPIRating.js';
 
 async function seed() {
   await connectDB();
   console.log('================================================================================');
-  console.log('=== STARTING CLEAN FLUMENX BOS DATABASE RESET & FRESH SEED ===');
+  console.log('=== STARTING 100% CLEAN FLUMENX BOS DATABASE PURGE & ENTERPRISE SEED ===');
   console.log('================================================================================');
 
-  // 0. CLEAN SLATE: PURGE ALL EXISTING DATABASE COLLECTIONS
-  console.log('[Seed] Purging all existing database collections...');
-  await User.deleteMany({});
-  await Employee.deleteMany({});
-  await Department.deleteMany({});
-  await PortalPage.deleteMany({});
-  await DynamicRole.deleteMany({});
-  await CompanyHoliday.deleteMany({});
-  await AttendancePolicy.deleteMany({});
-  await EmployeeSalaryStructure.deleteMany({});
-  await LeaveLedger.deleteMany({});
-  await AttendanceRecord.deleteMany({});
-  await LeaveRequest.deleteMany({});
-  await PayrollRecord.deleteMany({});
-  await PayrollSetting.deleteMany({});
-  await SalaryHead.deleteMany({});
-  console.log('[Seed] Database successfully cleared to zero state.');
+  // 0. COMPLETE DATABASE PURGE (Clean Slate)
+  console.log('[Seed] 🧹 Wiping all existing collections for a 100% fresh, clean database state...');
+  await Promise.all([
+    User.deleteMany({}),
+    Employee.deleteMany({}),
+    Department.deleteMany({}),
+    PortalPage.deleteMany({}),
+    DynamicRole.deleteMany({}),
+    CompanyHoliday.deleteMany({}),
+    AttendancePolicy.deleteMany({}),
+    AttendanceRecord.deleteMany({}),
+    AttendanceCorrection.deleteMany({}),
+    EmployeeSalaryStructure.deleteMany({}),
+    LeaveLedger.deleteMany({}),
+    LeaveRequest.deleteMany({}),
+    PayrollRecord.deleteMany({}),
+    PayrollSetting.deleteMany({}),
+    SalaryHead.deleteMany({}),
+    SalarySlip.deleteMany({}),
+    WorkAssignment.deleteMany({}),
+    Client.deleteMany({}),
+    ClientWorkShareLink.deleteMany({}),
+    Meeting.deleteMany({}),
+    MeetingMessage.deleteMany({}),
+    Notification.deleteMany({}),
+    Announcement.deleteMany({}),
+    AuditLog.deleteMany({}),
+    EmployeeDocument.deleteMany({}),
+    EmployeeKPIRating.deleteMany({}),
+  ]);
+  console.log('[Seed] ✅ Database completely purged. 0 leftover documents.');
 
-  // 1. Seed Portal Pages
+  // 1. Seed 19 Portal Pages
   const pagesData = [
     { moduleCode: 'COMMAND_CENTER', title: 'Command Center', routePath: '/work?view=command-center', icon: 'Sparkles', sidebarOrder: 1 },
     { moduleCode: 'TASKS', title: 'Task Board', routePath: '/work?view=kanban', icon: 'Kanban', sidebarOrder: 2 },
@@ -68,9 +94,9 @@ async function seed() {
     await pageObj.save();
     pageDocMap[p.moduleCode] = pageObj;
   }
-  console.log(`[Seed] Seeded ${Object.keys(pageDocMap).length} Portal Pages.`);
+  console.log(`[Seed] ✅ Seeded ${Object.keys(pageDocMap).length} Portal Pages.`);
 
-  // 2. Seed Dynamic Roles with granular permissions
+  // 2. Seed 9 Dynamic Roles with Granular Page Permissions
   const rolesData = [
     { code: 'SUPER_ADMIN', name: 'Super Admin', description: 'Full wildcard access to all modules and settings', isSuperadminWildcard: true, isSystemRole: true },
     { code: 'ADMIN', name: 'Administrator', description: 'Full operational management access', isSuperadminWildcard: false, isSystemRole: true },
@@ -152,9 +178,9 @@ async function seed() {
     await roleObj.save();
     roleDocMap[r.code] = roleObj;
   }
-  console.log(`[Seed] Seeded ${Object.keys(roleDocMap).length} Dynamic Roles.`);
+  console.log(`[Seed] ✅ Seeded ${Object.keys(roleDocMap).length} Dynamic Roles with granular page access.`);
 
-  // 3. Seed Departments
+  // 3. Seed 8 Departments
   const deptData = [
     { code: 'OPERATIONS', name: 'Operations', description: 'Core agency operations and deliverable management', displayOrder: 1 },
     { code: 'WEB_DEV', name: 'Web Development', description: 'Frontend, backend, and full stack web solutions', displayOrder: 2 },
@@ -173,7 +199,7 @@ async function seed() {
     deptDocMap[d.name] = deptObj;
     deptDocMap[d.code] = deptObj;
   }
-  console.log('[Seed] Seeded 8 Departments.');
+  console.log('[Seed] ✅ Seeded 8 Departments.');
 
   // 4. Seed Super Admin User & Employee profile
   const superAdminRole = roleDocMap['SUPER_ADMIN'];
@@ -205,9 +231,9 @@ async function seed() {
     employmentStatus: 'Permanent',
   });
   await superAdminEmp.save();
-  console.log('[Seed] Seeded Super Admin User & Employee.');
+  console.log('[Seed] ✅ Seeded Super Admin User & Employee profile.');
 
-  // 5. Seed Real Team Employees from Provided Master Sheet
+  // 5. Seed 13 Official Employees
   const employeesToSeed = [
     {
       name: 'Dhishunjith k',
@@ -453,7 +479,7 @@ async function seed() {
     }
   }
 
-  console.log(`[Seed] Seeded ${employeesToSeed.length} master employees with salary structures & leave ledgers.`);
+  console.log(`[Seed] ✅ Seeded ${employeesToSeed.length} master employees with salary structures & leave ledgers.`);
 
   // 6. Seed Company Holidays (Kerala / India Calendar)
   const holidaysData = [
@@ -481,9 +507,9 @@ async function seed() {
     });
     await hObj.save();
   }
-  console.log(`[Seed] Seeded ${holidaysData.length} Company Holidays.`);
+  console.log(`[Seed] ✅ Seeded ${holidaysData.length} Company Holidays.`);
 
-  // 7. Seed Default Attendance Policy
+  // 7. Seed Enterprise Attendance Policy
   const policy = new AttendancePolicy({
     officeLatitude: 8.5213442,
     officeLongitude: 76.97848305555556,
@@ -496,7 +522,36 @@ async function seed() {
     fullDayHours: 8,
   });
   await policy.save();
-  console.log('[Seed] Created HQ Attendance Policy.');
+  console.log('[Seed] ✅ Created HQ Attendance Policy.');
+
+  // 8. Seed Enterprise Payroll Setting
+  const payrollSetting = new PayrollSetting({
+    companyTimezone: 'Asia/Kolkata',
+    cycleStartDay: 25,
+    cycleEndDay: 24,
+    salaryBasis: 'CalendarDays',
+    officeStartTime: '09:30',
+    gracePeriodMinutes: 5,
+    lateThresholdMinutes: 5,
+    lateArrivalsLimit: 3,
+    latePenalty: 'HalfDay',
+    noonCutoffTime: '12:00',
+    pfEnabled: true,
+    pfEmployeePercent: 12,
+    pfEmployerPercent: 12,
+    pfWageCeiling: 15000,
+    esiEnabled: true,
+    esiEmployeePercent: 0.75,
+    esiEmployerPercent: 3.25,
+    esiGrossCeiling: 21000,
+    probationPaidLeaveAllowed: false,
+    permanentMonthlySickLeave: 1,
+    permanentMonthlyCasualLeave: 1,
+    unusedLeaveConversionMonths: 3,
+    isActive: true,
+  });
+  await payrollSetting.save();
+  console.log('[Seed] ✅ Created Enterprise Payroll & Statutory Setting.');
 
   console.log('================================================================================');
   console.log('=== FLUMENX BOS CLEAN SYSTEM SEEDING COMPLETED SUCCESSFULLY ===');
