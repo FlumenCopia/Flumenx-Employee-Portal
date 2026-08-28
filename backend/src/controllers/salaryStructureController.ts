@@ -419,7 +419,7 @@ export async function saveEmployeeSalaryStructure(req: Request, res: Response): 
     // Append previous version to history if gross or basic changed
     if (structure.grossSalary !== Number(grossSalary) || structure.basicSalary !== Number(basicSalary)) {
       structure.salaryHistory.push({
-        effectiveFrom: structure.effectiveFrom || structure.createdAt,
+        effectiveFrom: structure.effectiveFrom || (structure as any).createdAt || new Date(),
         effectiveUntil: new Date(),
         grossSalary: structure.grossSalary,
         basicSalary: structure.basicSalary,
@@ -434,7 +434,7 @@ export async function saveEmployeeSalaryStructure(req: Request, res: Response): 
         tdsApplicable: structure.tdsApplicable,
         customHeads: structure.customHeads as any,
         updatedBy: structure.updatedBy,
-        createdAt: structure.updatedAt || new Date(),
+        createdAt: (structure as any).updatedAt || new Date(),
         notes: structure.notes || '',
       });
     }

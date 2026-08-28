@@ -94,6 +94,5 @@ const meetingSchema = new Schema<IMeeting>(
 
 meetingSchema.index({ date: 1, time: 1 });
 meetingSchema.index({ department: 1, date: 1 });
-meetingSchema.index({ meetingCode: 1 });
 
 export const Meeting = mongoose.model<IMeeting>('Meeting', meetingSchema);

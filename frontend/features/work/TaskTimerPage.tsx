@@ -375,8 +375,19 @@ export function TaskTimerPage() {
                           )}
                         </div>
 
+                        {/* Total Time Spent Badge on Task Card */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0.4rem 0 0.5rem 0", background: "rgba(0,0,0,0.03)", padding: "4px 8px", borderRadius: "6px", fontSize: "0.75rem" }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: "4px", color: "#475569", fontWeight: 600 }}>
+                            <Clock size={13} color="#059669" />
+                            Total Time Spent:
+                          </span>
+                          <strong style={{ fontFamily: "monospace", color: isRunning ? "#16a34a" : "#0f172a", fontSize: "0.8rem" }}>
+                            {formatDurationReadable((t.total_time_spent_seconds || 0) + (isRunning ? liveDurationSeconds : 0))}
+                          </strong>
+                        </div>
+
                         {/* Unit Progress Bar */}
-                        <div style={{ margin: "0.5rem 0" }}>
+                        <div style={{ margin: "0.3rem 0 0.5rem" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: 600, color: "#475569", marginBottom: "3px" }}>
                             <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                               {getUnitIcon(t.unit)}
@@ -458,6 +469,41 @@ export function TaskTimerPage() {
                 {selectedTask ? selectedTask.title : "No Task Selected"}
               </h2>
 
+              {/* Prominent Cumulative Total Time Box */}
+              {selectedTask && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                    maxWidth: "380px",
+                    background: "rgba(255, 255, 255, 0.08)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    borderRadius: "0.75rem",
+                    padding: "0.75rem 1.25rem",
+                    marginBottom: "1rem",
+                  }}
+                >
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontSize: "0.7rem", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700 }}>
+                      Total Time Invested
+                    </div>
+                    <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#34d399", fontFamily: "monospace", marginTop: "2px" }}>
+                      {formatDurationReadable(currentTotalTimeSeconds)}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "0.7rem", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700 }}>
+                      Sessions
+                    </div>
+                    <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#f8fafc", marginTop: "2px" }}>
+                      {(selectedTask.time_logs?.length || 0) + (isCurrentSelectedRunning ? 1 : 0)} logs
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Glowing Digital Stopwatch */}
               <div
                 style={{
@@ -469,7 +515,7 @@ export function TaskTimerPage() {
                   boxShadow: isCurrentSelectedRunning ? "0 0 25px rgba(16, 185, 129, 0.3)" : "none",
                   transition: "all 0.3s ease",
                   width: "100%",
-                  maxWidth: "360px",
+                  maxWidth: "380px",
                 }}
               >
                 <div
@@ -481,15 +527,15 @@ export function TaskTimerPage() {
                     color: isCurrentSelectedRunning ? "#34d399" : "#f1f5f9",
                   }}
                 >
-                  {formatSeconds(isCurrentSelectedRunning ? liveDurationSeconds : selectedTask?.total_time_spent_seconds || 0)}
+                  {formatSeconds(isCurrentSelectedRunning ? liveDurationSeconds : 0)}
                 </div>
                 <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.375rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>
-                  {isCurrentSelectedRunning ? "⏱ Live Timer Running" : `Total Logged: ${formatDurationReadable(selectedTask?.total_time_spent_seconds || 0)}`}
+                  {isCurrentSelectedRunning ? "⏱ Active Session Stopwatch" : "Stopwatch Idle (Click Start to Log Work)"}
                 </div>
               </div>
 
               {/* Big Action Buttons */}
-              <div style={{ display: "flex", gap: "1rem", width: "100%", maxWidth: "340px" }}>
+              <div style={{ display: "flex", gap: "0.75rem", width: "100%", maxWidth: "380px", flexWrap: "wrap" }}>
                 {!isCurrentSelectedRunning ? (
                   <button
                     onClick={() => selectedTaskId && handleStartTimer(selectedTaskId)}
@@ -513,33 +559,75 @@ export function TaskTimerPage() {
                     }}
                   >
                     <Play size={18} fill="#ffffff" />
-                    Start Timer
+                    Start Session Timer
                   </button>
                 ) : (
-                  <button
-                    onClick={() => selectedTaskId && handleStopTimer(selectedTaskId)}
-                    disabled={!selectedTaskId || isPending}
-                    style={{
-                      flex: 1,
-                      padding: "0.85rem 1.5rem",
-                      borderRadius: "0.625rem",
-                      background: "#ef4444",
-                      color: "#ffffff",
-                      border: "none",
-                      fontWeight: "800",
-                      fontSize: "1rem",
-                      cursor: selectedTaskId && !isPending ? "pointer" : "not-allowed",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "0.5rem",
-                      boxShadow: "0 4px 14px rgba(239, 68, 68, 0.35)",
-                      opacity: selectedTaskId && !isPending ? 1 : 0.6,
-                    }}
-                  >
-                    <Square size={18} fill="#ffffff" />
-                    Stop Timer
-                  </button>
+                  <>
+                    <button
+                      onClick={() => selectedTaskId && handleStopTimer(selectedTaskId)}
+                      disabled={!selectedTaskId || isPending}
+                      style={{
+                        flex: 1,
+                        padding: "0.85rem 1.25rem",
+                        borderRadius: "0.625rem",
+                        background: "#ef4444",
+                        color: "#ffffff",
+                        border: "none",
+                        fontWeight: "800",
+                        fontSize: "0.95rem",
+                        cursor: selectedTaskId && !isPending ? "pointer" : "not-allowed",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        boxShadow: "0 4px 14px rgba(239, 68, 68, 0.35)",
+                        opacity: selectedTaskId && !isPending ? 1 : 0.6,
+                      }}
+                    >
+                      <Square size={16} fill="#ffffff" />
+                      Stop Timer
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!selectedTaskId || !selectedTask) return;
+                        if (isCurrentSelectedRunning) {
+                          await handleStopTimer(selectedTaskId);
+                        }
+                        try {
+                          await api(`/work-assignments/${selectedTaskId}/`, {
+                            method: "PATCH",
+                            body: JSON.stringify({
+                              status: "Completed",
+                              completed_quantity: selectedTask.assigned_quantity || 1,
+                            }),
+                          });
+                          setActionMessage({ type: "success", text: "Task marked as Completed!" });
+                          await fetchTasks();
+                        } catch (err: any) {
+                          setActionMessage({ type: "error", text: err.message || "Failed to mark complete." });
+                        }
+                      }}
+                      disabled={!selectedTaskId || isPending}
+                      style={{
+                        padding: "0.85rem 1.25rem",
+                        borderRadius: "0.625rem",
+                        background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                        color: "#ffffff",
+                        border: "none",
+                        fontWeight: "800",
+                        fontSize: "0.95rem",
+                        cursor: selectedTaskId && !isPending ? "pointer" : "not-allowed",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        boxShadow: "0 4px 14px rgba(59, 130, 246, 0.35)",
+                      }}
+                    >
+                      <CheckCircle2 size={16} />
+                      Complete Task
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -692,7 +780,7 @@ export function TaskTimerPage() {
               </div>
             )}
 
-            {/* Time Session History Logs */}
+            {/* Time Session History Logs & Work Efficiency Card */}
             {selectedTask && (
               <div
                 style={{
@@ -703,39 +791,82 @@ export function TaskTimerPage() {
                   boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                 }}
               >
-                <h3 style={{ fontSize: "1rem", fontWeight: "700", color: "#0f172a", marginBottom: "0.75rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
-                  Session Time Logs ({selectedTask.time_logs?.length || 0})
-                </h3>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Clock size={18} color="#059669" />
+                    <h3 style={{ fontSize: "1rem", fontWeight: "700", color: "#0f172a", margin: 0 }}>
+                      Session Time Logs ({selectedTask.time_logs?.length || 0})
+                    </h3>
+                  </div>
+                  <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#059669", background: "#ecfdf5", padding: "3px 10px", borderRadius: "12px" }}>
+                    Total: {formatDurationReadable(currentTotalTimeSeconds)}
+                  </span>
+                </div>
+
+                {/* Efficiency metrics summary */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "1rem", background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #f1f5f9" }}>
+                  <div>
+                    <div style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>CUMULATIVE TIME SPENT</div>
+                    <div style={{ fontSize: "1rem", fontWeight: 800, color: "#0f172a", fontFamily: "monospace" }}>
+                      {formatDurationReadable(currentTotalTimeSeconds)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>WORK RATE / VELOCITY</div>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#2563eb" }}>
+                      {(selectedTask.completed_quantity || 0) > 0
+                        ? `${formatDurationReadable(Math.round(currentTotalTimeSeconds / (selectedTask.completed_quantity || 1)))} / item`
+                        : "0 completed"}
+                    </div>
+                  </div>
+                </div>
 
                 {!selectedTask.time_logs || selectedTask.time_logs.length === 0 ? (
                   <div style={{ padding: "1.25rem", textAlign: "center", color: "#94a3b8", fontSize: "0.85rem" }}>
-                    No work time sessions logged yet. Start timer to record duration.
+                    No previous work sessions recorded. Click &quot;Start Session Timer&quot; to begin tracking time.
                   </div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", maxHeight: "200px", overflowY: "auto" }}>
-                    {selectedTask.time_logs.slice().reverse().map((log, idx) => (
-                      <div
-                        key={log.id || idx}
-                        style={{
-                          padding: "0.625rem 0.875rem",
-                          borderRadius: "0.375rem",
-                          background: "#f8fafc",
-                          border: "1px solid #f1f5f9",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#334155" }}>
-                            {log.startTime || log.started_at ? new Date(log.startTime || log.started_at!).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "Work Session"}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", maxHeight: "250px", overflowY: "auto" }}>
+                    {selectedTask.time_logs.slice().reverse().map((log, idx) => {
+                      const sessionNum = (selectedTask.time_logs?.length || 0) - idx;
+                      const start = log.startTime || log.started_at;
+                      const end = log.endTime || log.stopped_at || (log as any).ended_at;
+                      const duration = log.durationSeconds || log.duration_seconds || 0;
+
+                      return (
+                        <div
+                          key={log.id || idx}
+                          style={{
+                            padding: "0.75rem 1rem",
+                            borderRadius: "0.5rem",
+                            background: "#f8fafc",
+                            border: "1px solid #e2e8f0",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontSize: "0.825rem", fontWeight: 700, color: "#1e293b" }}>
+                              Session #{sessionNum}
+                            </div>
+                            <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
+                              {start ? new Date(start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Started"}
+                              {end ? ` → ${new Date(end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : " (ongoing)"}
+                              {start ? ` • ${new Date(start).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}` : ""}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontFamily: "monospace", fontSize: "0.95rem", fontWeight: 800, color: "#059669" }}>
+                              {formatDurationReadable(duration)}
+                            </div>
+                            <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
+                              {formatSeconds(duration)}
+                            </div>
                           </div>
                         </div>
-                        <div style={{ fontFamily: "monospace", fontSize: "0.875rem", fontWeight: 700, color: "#059669" }}>
-                          {formatDurationReadable(log.durationSeconds || log.duration_seconds || 0)}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
