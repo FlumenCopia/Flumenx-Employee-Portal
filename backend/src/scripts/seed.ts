@@ -11,43 +11,32 @@ import { EmployeeSalaryStructure } from '../models/EmployeeSalaryStructure.js';
 import { LeaveLedger } from '../models/LeaveLedger.js';
 import { AttendanceRecord } from '../models/AttendanceRecord.js';
 import { LeaveRequest } from '../models/LeaveRequest.js';
+import { PayrollRecord } from '../models/PayrollRecord.js';
+import { PayrollSetting } from '../models/PayrollSetting.js';
 
 async function seed() {
   await connectDB();
   console.log('================================================================================');
-  console.log('=== STARTING FLUMENX BOS ENTERPRISE SYSTEM SEED & CLEANUP ===');
+  console.log('=== STARTING CLEAN FLUMENX BOS DATABASE RESET & FRESH SEED ===');
   console.log('================================================================================');
 
-  // Master valid email list (Super Admin + 13 Official Employees)
-  const validEmails = [
-    'admin@flumenx.com',
-    'dhishunjith@flumenx.com',
-    'nidhinkgflumenx@gmail.com',
-    'ebilawrenceflumenx@gmail.com',
-    'abeysonpmathewflumenx@gmail.com',
-    'anuragjsflumenx@gmail.com',
-    'shreejithspillaiflumencopia@gmail.com',
-    'anandhursflumenx@gmail.com',
-    'najilrahmanflumenx@gmail.com',
-    'ananduanilflumenx@gmail.com',
-    'gowthamvijayflumenx@gmail.com',
-    'nikhilavflumenx@gmail.com',
-    'akhilsflumencopia@gmail.com',
-    'rahulchandran883@gmail.com',
-  ];
-
-  // 0. PURGE UNWANTED / STALE TEST DATA
-  console.log('[Seed] Cleaning up unwanted test/orphan database records...');
-  const userDeleteResult = await User.deleteMany({ email: { $nin: validEmails } });
-  const empDeleteResult = await Employee.deleteMany({ email: { $nin: validEmails } });
-  console.log(`[Seed] Purged ${userDeleteResult.deletedCount} unwanted users and ${empDeleteResult.deletedCount} unwanted employees.`);
-
-  // Clean orphan salary structures, leave ledgers, and attendance records
-  const validEmployees = await Employee.find({ email: { $in: validEmails } }).select('_id');
-  const validEmpIds = validEmployees.map((e) => e._id);
-  await EmployeeSalaryStructure.deleteMany({ employee: { $nin: validEmpIds } });
-  await LeaveLedger.deleteMany({ employee: { $nin: validEmpIds } });
-  console.log('[Seed] Orphaned structures and ledgers cleaned.');
+  // 0. CLEAN SLATE: PURGE ALL EXISTING DATABASE COLLECTIONS
+  console.log('[Seed] Purging all existing database collections...');
+  await User.deleteMany({});
+  await Employee.deleteMany({});
+  await Department.deleteMany({});
+  await PortalPage.deleteMany({});
+  await DynamicRole.deleteMany({});
+  await CompanyHoliday.deleteMany({});
+  await AttendancePolicy.deleteMany({});
+  await EmployeeSalaryStructure.deleteMany({});
+  await LeaveLedger.deleteMany({});
+  await AttendanceRecord.deleteMany({});
+  await LeaveRequest.deleteMany({});
+  await PayrollRecord.deleteMany({});
+  await PayrollSetting.deleteMany({});
+  await SalaryHead.deleteMany({});
+  console.log('[Seed] Database successfully cleared to zero state.');
 
   // 1. Seed Portal Pages
   const pagesData = [
@@ -75,16 +64,7 @@ async function seed() {
   const pageDocMap: Record<string, any> = {};
 
   for (const p of pagesData) {
-    let pageObj = await PortalPage.findOne({ moduleCode: p.moduleCode });
-    if (!pageObj) {
-      pageObj = new PortalPage({ ...p, isActive: true });
-    } else {
-      pageObj.title = p.title;
-      pageObj.routePath = p.routePath;
-      pageObj.icon = p.icon;
-      pageObj.sidebarOrder = p.sidebarOrder;
-      pageObj.isActive = true;
-    }
+    const pageObj = new PortalPage({ ...p, isActive: true });
     await pageObj.save();
     pageDocMap[p.moduleCode] = pageObj;
   }
@@ -106,16 +86,6 @@ async function seed() {
   const roleDocMap: Record<string, any> = {};
 
   for (const r of rolesData) {
-    let roleObj = await DynamicRole.findOne({ code: r.code });
-    if (!roleObj) {
-      roleObj = new DynamicRole({ ...r, permissions: [] });
-    } else {
-      roleObj.name = r.name;
-      roleObj.description = r.description;
-      roleObj.isSuperadminWildcard = r.isSuperadminWildcard;
-      roleObj.isSystemRole = r.isSystemRole;
-    }
-
     const ROLE_MODULE_MAP: Record<string, string[]> = {
       SUPER_ADMIN: Object.keys(pageDocMap),
       ADMIN: Object.keys(pageDocMap),
@@ -129,7 +99,7 @@ async function seed() {
     };
 
     const allowed = ROLE_MODULE_MAP[r.code] || ['TASKS', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS'];
-    roleObj.permissions = allowed
+    const permissions = allowed
       .map((mod) => pageDocMap[mod])
       .filter(Boolean)
       .map((page) => {
@@ -170,6 +140,15 @@ async function seed() {
         };
       });
 
+    const roleObj = new DynamicRole({
+      code: r.code,
+      name: r.name,
+      description: r.description,
+      isSuperadminWildcard: r.isSuperadminWildcard,
+      isSystemRole: r.isSystemRole,
+      permissions,
+    });
+
     await roleObj.save();
     roleDocMap[r.code] = roleObj;
   }
@@ -189,80 +168,44 @@ async function seed() {
 
   const deptDocMap: Record<string, any> = {};
   for (const d of deptData) {
-    let deptObj = await Department.findOne({ $or: [{ name: d.name }, { code: d.code }] });
-    if (!deptObj) {
-      deptObj = new Department({ ...d, isActive: true });
-    } else {
-      deptObj.name = d.name;
-      deptObj.code = d.code;
-      deptObj.description = d.description;
-      deptObj.displayOrder = d.displayOrder;
-      deptObj.isActive = true;
-    }
+    const deptObj = new Department({ ...d, isActive: true });
     await deptObj.save();
     deptDocMap[d.name] = deptObj;
     deptDocMap[d.code] = deptObj;
   }
   console.log('[Seed] Seeded 8 Departments.');
 
-  // 4. Ensure Super Admin User & Employee profile exist
+  // 4. Seed Super Admin User & Employee profile
   const superAdminRole = roleDocMap['SUPER_ADMIN'];
-  let superAdminUser = await User.findOne({ email: 'admin@flumenx.com' });
-  if (!superAdminUser) {
-    superAdminUser = new User({
-      username: 'admin',
-      email: 'admin@flumenx.com',
-      password: 'password123',
-      firstName: 'Super',
-      lastName: 'Admin',
-      role: 'SUPER_ADMIN',
-      dynamicRole: superAdminRole._id,
-      isSuperuser: true,
-      isStaff: true,
-      isActive: true,
-    });
-    await superAdminUser.save();
-    console.log('[Seed] Created default Super Admin user: admin@flumenx.com / password123');
-  } else {
-    superAdminUser.role = 'SUPER_ADMIN';
-    superAdminUser.dynamicRole = superAdminRole._id;
-    superAdminUser.isSuperuser = true;
-    superAdminUser.isStaff = true;
-    await superAdminUser.save();
-  }
-
-  let superAdminEmp = await Employee.findOne({
-    $or: [{ user: superAdminUser._id }, { email: 'admin@flumenx.com' }, { employeeCode: 'FX-001' }],
+  const superAdminUser = new User({
+    username: 'admin',
+    email: 'admin@flumenx.com',
+    password: 'password123',
+    firstName: 'Super',
+    lastName: 'Admin',
+    role: 'SUPER_ADMIN',
+    dynamicRole: superAdminRole._id,
+    isSuperuser: true,
+    isStaff: true,
+    isActive: true,
   });
+  await superAdminUser.save();
 
-  // Clean any other employee holding FX-001 or superAdminUser._id
-  await Employee.deleteMany({
-    _id: { $ne: superAdminEmp?._id },
-    $or: [{ user: superAdminUser._id }, { employeeCode: 'FX-001' }],
+  const superAdminEmp = new Employee({
+    user: superAdminUser._id,
+    employeeCode: 'FX-001',
+    name: 'Super Admin',
+    email: 'admin@flumenx.com',
+    phone: '+91 9876543210',
+    department: 'Operations',
+    departmentRef: deptDocMap['Operations']?._id,
+    designation: 'Super Administrator',
+    joiningDate: new Date('2024-01-01'),
+    status: 'Active',
+    employmentStatus: 'Permanent',
   });
-
-  if (!superAdminEmp) {
-    superAdminEmp = new Employee({
-      user: superAdminUser._id,
-      employeeCode: 'FX-001',
-      name: 'Super Admin',
-      email: 'admin@flumenx.com',
-      phone: '+91 9876543210',
-      department: 'Operations',
-      departmentRef: deptDocMap['Operations']?._id,
-      designation: 'Super Administrator',
-      joiningDate: new Date('2024-01-01'),
-      status: 'Active',
-      employmentStatus: 'Permanent',
-    });
-    await superAdminEmp.save();
-  } else {
-    superAdminEmp.user = superAdminUser._id;
-    superAdminEmp.employeeCode = 'FX-001';
-    superAdminEmp.name = 'Super Admin';
-    superAdminEmp.email = 'admin@flumenx.com';
-    await superAdminEmp.save();
-  }
+  await superAdminEmp.save();
+  console.log('[Seed] Seeded Super Admin User & Employee.');
 
   // 5. Seed Real Team Employees from Provided Master Sheet
   const employeesToSeed = [
@@ -417,131 +360,84 @@ async function seed() {
     const username = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '_');
     const matchedRole = roleDocMap[item.role] || roleDocMap['EMPLOYEE'];
 
-    let u = await User.findOne({ $or: [{ email: cleanEmail }, { username }] });
-
-    if (!u) {
-      u = new User({
-        username,
-        email: cleanEmail,
-        password: 'password123',
-        firstName,
-        lastName,
-        role: item.role as UserRoleType,
-        dynamicRole: matchedRole ? matchedRole._id : null,
-        isStaff: ['TEAM_LEAD', 'HR', 'ACCOUNTANT', 'SUPER_ADMIN'].includes(item.role),
-        isActive: true,
-      });
-      await u.save();
-    } else {
-      u.email = cleanEmail;
-      u.role = item.role as UserRoleType;
-      if (matchedRole) u.dynamicRole = matchedRole._id;
-      await u.save();
-    }
-
-    // Check if an employee exists with user ID, email, or employeeCode
-    let emp = await Employee.findOne({
-      $or: [{ user: u._id }, { email: cleanEmail }, { employeeCode: item.code }],
+    const u = new User({
+      username,
+      email: cleanEmail,
+      password: 'password123',
+      firstName,
+      lastName,
+      role: item.role as UserRoleType,
+      dynamicRole: matchedRole ? matchedRole._id : null,
+      isStaff: ['TEAM_LEAD', 'HR', 'ACCOUNTANT', 'SUPER_ADMIN'].includes(item.role),
+      isActive: true,
     });
+    await u.save();
 
-    // Delete any other employee documents holding this user ID or employeeCode to prevent index collisions
-    await Employee.deleteMany({
-      _id: { $ne: emp?._id },
-      $or: [{ user: u._id }, { employeeCode: item.code }],
+    const deptObj = deptDocMap[item.department] || deptDocMap['OPERATIONS'];
+
+    const emp = new Employee({
+      user: u._id,
+      employeeCode: item.code,
+      name: item.name.trim(),
+      email: cleanEmail,
+      phone: '+91 9876543210',
+      department: item.department,
+      departmentRef: deptObj ? deptObj._id : null,
+      designation: item.designation,
+      joiningDate: new Date('2025-01-01'),
+      status: 'Active',
+      employmentStatus: item.status as any,
     });
-
-    const deptObj = deptDocMap[item.department] || (await Department.findOne({ name: item.department }));
-
-    if (!emp) {
-      emp = new Employee({
-        user: u._id,
-        employeeCode: item.code,
-        name: item.name.trim(),
-        email: cleanEmail,
-        phone: '+91 9876543210',
-        department: item.department,
-        departmentRef: deptObj ? deptObj._id : null,
-        designation: item.designation,
-        joiningDate: new Date('2025-01-01'),
-        status: 'Active',
-        employmentStatus: item.status as any,
-      });
-      await emp.save();
-    } else {
-      emp.user = u._id;
-      emp.name = item.name.trim();
-      emp.email = cleanEmail;
-      emp.employeeCode = item.code;
-      emp.department = item.department;
-      if (deptObj) emp.departmentRef = deptObj._id;
-      emp.designation = item.designation;
-      emp.employmentStatus = item.status as any;
-      emp.status = 'Active';
-      await emp.save();
-    }
+    await emp.save();
 
     empDocMap[cleanEmail] = emp;
 
     // Seed Employee Salary Structure
-    let struct = await EmployeeSalaryStructure.findOne({ employee: emp._id });
-    if (!struct) {
-      struct = new EmployeeSalaryStructure({
-        employee: emp._id,
-        effectiveDate: new Date('2025-01-01'),
-        grossSalary: item.salary.gross,
-        basicSalary: item.salary.basic,
-        hra: item.salary.hra,
-        conveyance: item.salary.conveyance,
-        specialAllowance: item.salary.special,
-        pfEnabled: true,
-        pfEmployeePercent: 12,
-        pfEmployerPercent: 12,
-        pfWageCeiling: 15000,
-        esiEnabled: item.salary.gross <= 21000,
-        esiEmployeePercent: 0.75,
-        esiEmployerPercent: 3.25,
-        esiGrossCeiling: 21000,
-        professionalTax: 200,
-        tds: 0,
-        isActive: true,
-      });
-      await struct.save();
-    } else {
-      struct.grossSalary = item.salary.gross;
-      struct.basicSalary = item.salary.basic;
-      struct.hra = item.salary.hra;
-      struct.conveyance = item.salary.conveyance;
-      struct.specialAllowance = item.salary.special;
-      struct.isActive = true;
-      await struct.save();
-    }
+    const struct = new EmployeeSalaryStructure({
+      employee: emp._id,
+      effectiveDate: new Date('2025-01-01'),
+      grossSalary: item.salary.gross,
+      basicSalary: item.salary.basic,
+      hra: item.salary.hra,
+      conveyance: item.salary.conveyance,
+      specialAllowance: item.salary.special,
+      pfEnabled: true,
+      pfEmployeePercent: 12,
+      pfEmployerPercent: 12,
+      pfWageCeiling: 15000,
+      esiEnabled: item.salary.gross <= 21000,
+      esiEmployeePercent: 0.75,
+      esiEmployerPercent: 3.25,
+      esiGrossCeiling: 21000,
+      professionalTax: 200,
+      tds: 0,
+      isActive: true,
+    });
+    await struct.save();
 
     // Seed Leave Ledger balance for Permanent employees
-    const existingLeave = await LeaveLedger.findOne({ employee: emp._id });
-    if (!existingLeave) {
-      if (item.status === 'Permanent') {
-        await new LeaveLedger({
-          employee: emp._id,
-          leaveType: 'Sick',
-          transactionType: 'OpeningBalance',
-          quantity: 1,
-          balanceAfter: 1,
-          earnedMonth: 8,
-          earnedYear: 2026,
-          notes: 'Initial monthly sick leave balance',
-        }).save();
+    if (item.status === 'Permanent') {
+      await new LeaveLedger({
+        employee: emp._id,
+        leaveType: 'Sick',
+        transactionType: 'OpeningBalance',
+        quantity: 1,
+        balanceAfter: 1,
+        earnedMonth: 8,
+        earnedYear: 2026,
+        notes: 'Initial monthly sick leave balance',
+      }).save();
 
-        await new LeaveLedger({
-          employee: emp._id,
-          leaveType: 'Casual',
-          transactionType: 'OpeningBalance',
-          quantity: 1,
-          balanceAfter: 1,
-          earnedMonth: 8,
-          earnedYear: 2026,
-          notes: 'Initial monthly casual leave balance',
-        }).save();
-      }
+      await new LeaveLedger({
+        employee: emp._id,
+        leaveType: 'Casual',
+        transactionType: 'OpeningBalance',
+        quantity: 1,
+        balanceAfter: 1,
+        earnedMonth: 8,
+        earnedYear: 2026,
+        notes: 'Initial monthly casual leave balance',
+      }).save();
     }
   }
 
@@ -573,48 +469,37 @@ async function seed() {
 
   for (const h of holidaysData) {
     const dStr = h.date.toISOString().split('T')[0];
-    let hObj = await CompanyHoliday.findOne({ dateStr: dStr });
-    if (!hObj) {
-      hObj = new CompanyHoliday({
-        name: h.name,
-        date: h.date,
-        dateStr: dStr,
-        holidayType: h.holiday_type,
-        isPaid: h.is_paid,
-        year: h.date.getFullYear(),
-        description: h.description,
-        isActive: true,
-      });
-      await hObj.save();
-    }
+    const hObj = new CompanyHoliday({
+      name: h.name,
+      date: h.date,
+      dateStr: dStr,
+      holidayType: h.holiday_type,
+      isPaid: h.is_paid,
+      year: h.date.getFullYear(),
+      description: h.description,
+      isActive: true,
+    });
+    await hObj.save();
   }
   console.log(`[Seed] Seeded ${holidaysData.length} Company Holidays.`);
 
   // 7. Seed Default Attendance Policy
-  let policy = await AttendancePolicy.findOne();
-  if (!policy) {
-    policy = new AttendancePolicy({
-      officeLatitude: 8.5213442,
-      officeLongitude: 76.97848305555556,
-      allowedRadiusMeters: 200,
-      officeStartTime: '09:30',
-      officeEndTime: '18:30',
-      gracePeriodMinutes: 5,
-      earlyCheckoutHalfDayCutoff: '18:00',
-      halfDayHours: 4,
-      fullDayHours: 8,
-    });
-    await policy.save();
-    console.log('[Seed] Created HQ Attendance Policy.');
-  } else {
-    policy.officeStartTime = '09:30';
-    policy.gracePeriodMinutes = 5;
-    policy.officeEndTime = '18:30';
-    await policy.save();
-  }
+  const policy = new AttendancePolicy({
+    officeLatitude: 8.5213442,
+    officeLongitude: 76.97848305555556,
+    allowedRadiusMeters: 200,
+    officeStartTime: '09:30',
+    officeEndTime: '18:30',
+    gracePeriodMinutes: 5,
+    earlyCheckoutHalfDayCutoff: '18:00',
+    halfDayHours: 4,
+    fullDayHours: 8,
+  });
+  await policy.save();
+  console.log('[Seed] Created HQ Attendance Policy.');
 
   console.log('================================================================================');
-  console.log('=== FLUMENX BOS SYSTEM SEEDING & CLEANUP COMPLETED SUCCESSFULLY ===');
+  console.log('=== FLUMENX BOS CLEAN SYSTEM SEEDING COMPLETED SUCCESSFULLY ===');
   console.log('================================================================================');
   process.exit(0);
 }
