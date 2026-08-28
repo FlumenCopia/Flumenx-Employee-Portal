@@ -9,12 +9,45 @@ import { CompanyHoliday } from '../models/CompanyHoliday.js';
 import { SalaryHead } from '../models/SalaryHead.js';
 import { EmployeeSalaryStructure } from '../models/EmployeeSalaryStructure.js';
 import { LeaveLedger } from '../models/LeaveLedger.js';
+import { AttendanceRecord } from '../models/AttendanceRecord.js';
+import { LeaveRequest } from '../models/LeaveRequest.js';
 
 async function seed() {
   await connectDB();
   console.log('================================================================================');
-  console.log('=== STARTING FLUMENX BOS ENTERPRISE SYSTEM SEED ===');
+  console.log('=== STARTING FLUMENX BOS ENTERPRISE SYSTEM SEED & CLEANUP ===');
   console.log('================================================================================');
+
+  // Master valid email list (Super Admin + 13 Official Employees)
+  const validEmails = [
+    'admin@flumenx.com',
+    'dhishunjith@flumenx.com',
+    'nidhinkgflumenx@gmail.com',
+    'ebilawrenceflumenx@gmail.com',
+    'abeysonpmathewflumenx@gmail.com',
+    'anuragjsflumenx@gmail.com',
+    'shreejithspillaiflumencopia@gmail.com',
+    'anandhursflumenx@gmail.com',
+    'najilrahmanflumenx@gmail.com',
+    'ananduanilflumenx@gmail.com',
+    'gowthamvijayflumenx@gmail.com',
+    'nikhilavflumenx@gmail.com',
+    'akhilsflumencopia@gmail.com',
+    'rahulchandran883@gmail.com',
+  ];
+
+  // 0. PURGE UNWANTED / STALE TEST DATA
+  console.log('[Seed] Cleaning up unwanted test/orphan database records...');
+  const userDeleteResult = await User.deleteMany({ email: { $nin: validEmails } });
+  const empDeleteResult = await Employee.deleteMany({ email: { $nin: validEmails } });
+  console.log(`[Seed] Purged ${userDeleteResult.deletedCount} unwanted users and ${empDeleteResult.deletedCount} unwanted employees.`);
+
+  // Clean orphan salary structures, leave ledgers, and attendance records
+  const validEmployees = await Employee.find({ email: { $in: validEmails } }).select('_id');
+  const validEmpIds = validEmployees.map((e) => e._id);
+  await EmployeeSalaryStructure.deleteMany({ employee: { $nin: validEmpIds } });
+  await LeaveLedger.deleteMany({ employee: { $nin: validEmpIds } });
+  console.log('[Seed] Orphaned structures and ledgers cleaned.');
 
   // 1. Seed Portal Pages
   const pagesData = [
@@ -278,7 +311,7 @@ async function seed() {
     },
     {
       name: 'Shrijith',
-      email: 'Shreejithspillaiflumencopia@gmail.com',
+      email: 'shreejithspillaiflumencopia@gmail.com',
       designation: 'Senior Graphic Designer',
       department: 'Design',
       role: 'EMPLOYEE',
@@ -563,7 +596,7 @@ async function seed() {
   }
 
   console.log('================================================================================');
-  console.log('=== FLUMENX BOS SYSTEM SEEDING COMPLETED SUCCESSFULLY ===');
+  console.log('=== FLUMENX BOS SYSTEM SEEDING & CLEANUP COMPLETED SUCCESSFULLY ===');
   console.log('================================================================================');
   process.exit(0);
 }
