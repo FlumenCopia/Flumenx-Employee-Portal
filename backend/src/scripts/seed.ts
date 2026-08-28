@@ -5,10 +5,16 @@ import { Department } from '../models/Department.js';
 import { User, UserRoleType } from '../models/User.js';
 import { Employee } from '../models/Employee.js';
 import { AttendancePolicy } from '../models/AttendancePolicy.js';
+import { CompanyHoliday } from '../models/CompanyHoliday.js';
+import { SalaryHead } from '../models/SalaryHead.js';
+import { EmployeeSalaryStructure } from '../models/EmployeeSalaryStructure.js';
+import { LeaveLedger } from '../models/LeaveLedger.js';
 
 async function seed() {
   await connectDB();
-  console.log('[Seed] Starting core system seed (Super Admin, Roles, Pages, Departments)...');
+  console.log('================================================================================');
+  console.log('=== STARTING FLUMENX BOS ENTERPRISE SYSTEM SEED ===');
+  console.log('================================================================================');
 
   // 1. Seed Portal Pages
   const pagesData = [
@@ -27,7 +33,7 @@ async function seed() {
     { moduleCode: 'ROLES', title: 'Dynamic Roles', routePath: '/admin/roles', icon: 'ShieldAlert', sidebarOrder: 13 },
     { moduleCode: 'SUPER_ADMIN_USERS', title: 'User Management', routePath: '/admin/users', icon: 'UserCheck', sidebarOrder: 14 },
     { moduleCode: 'PAGE_MANAGEMENT', title: 'Page Management', routePath: '/pages', icon: 'FileCode', sidebarOrder: 15 },
-    { moduleCode: 'SALARY_SLIPS', title: 'Salary Slips', routePath: '/admin/salary-slips', icon: 'Receipt', sidebarOrder: 16 },
+    { moduleCode: 'SALARY_SLIPS', title: 'Salary & Payroll', routePath: '/admin/salary-slips', icon: 'Receipt', sidebarOrder: 16 },
     { moduleCode: 'ANNOUNCEMENTS', title: 'Announcements', routePath: '/admin/announcements', icon: 'Megaphone', sidebarOrder: 17 },
     { moduleCode: 'AUDIT_LOGS', title: 'Audit Logs', routePath: '/admin/audit-logs', icon: 'History', sidebarOrder: 18 },
     { moduleCode: 'SETTINGS_ACCESS', title: 'Settings & Access', routePath: '/settings', icon: 'Settings', sidebarOrder: 19 },
@@ -51,15 +57,15 @@ async function seed() {
   }
   console.log(`[Seed] Seeded ${Object.keys(pageDocMap).length} Portal Pages.`);
 
-  // 2. Seed Dynamic Roles
+  // 2. Seed Dynamic Roles with granular permissions
   const rolesData = [
-    { code: 'SUPER_ADMIN', name: 'Super Admin', description: 'Full wildcard access to all pages and settings', isSuperadminWildcard: true, isSystemRole: true },
-    { code: 'ADMIN', name: 'Administrator', description: 'Full portal management access', isSuperadminWildcard: false, isSystemRole: true },
-    { code: 'HR', name: 'Human Resources', description: 'HR Manager with employee, leave, attendance, and KPI access', isSuperadminWildcard: false, isSystemRole: true },
-    { code: 'ACCOUNTANT', name: 'Accountant', description: 'Accountant with financial and salary slip access', isSuperadminWildcard: false, isSystemRole: true },
-    { code: 'TEAM_LEAD', name: 'Team Lead', description: 'Team Leader managing tasks and performance', isSuperadminWildcard: false, isSystemRole: true },
-    { code: 'EMPLOYEE', name: 'Employee', description: 'Regular employee with self-service portal access', isSuperadminWildcard: false, isSystemRole: true },
-    { code: 'BDE', name: 'Business Development', description: 'BDE managing clients and proposals', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'SUPER_ADMIN', name: 'Super Admin', description: 'Full wildcard access to all modules and settings', isSuperadminWildcard: true, isSystemRole: true },
+    { code: 'ADMIN', name: 'Administrator', description: 'Full operational management access', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'HR', name: 'Human Resources', description: 'HR Manager with employee, leave, attendance, holiday, and payroll access', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'ACCOUNTANT', name: 'Accountant', description: 'Accountant with financial, statutory, and salary/payroll access', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'TEAM_LEAD', name: 'Team Lead', description: 'Team Leader managing assignments, attendance, and reviews', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'EMPLOYEE', name: 'Employee', description: 'Regular employee with self-service portal and payslip access', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'BDE', name: 'Business Development', description: 'BDM managing clients, leads, and proposals', isSuperadminWildcard: false, isSystemRole: true },
     { code: 'OPERATIONS', name: 'Operations', description: 'Operations Specialist managing daily deliverables', isSuperadminWildcard: false, isSystemRole: true },
     { code: 'OPERATIONS_HEAD', name: 'Operations Head', description: 'Head of Operations overseeing team deliverables', isSuperadminWildcard: false, isSystemRole: true },
   ];
@@ -84,12 +90,12 @@ async function seed() {
       OPERATIONS_HEAD: Object.keys(pageDocMap),
       HR: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS'],
       ACCOUNTANT: ['TASKS', 'TIMER', 'CLIENTS', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
-      TEAM_LEAD: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
-      BDE: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'CLIENTS', 'TIMELINE', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS'],
+      TEAM_LEAD: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS', 'SALARY_SLIPS'],
+      BDE: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'CLIENTS', 'TIMELINE', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'SALARY_SLIPS'],
       EMPLOYEE: ['TASKS', 'TIMER', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'SALARY_SLIPS'],
     };
 
-    const allowed = ROLE_MODULE_MAP[r.code] || ['TASKS', 'ATTENDANCE', 'LEAVES', 'MEETINGS'];
+    const allowed = ROLE_MODULE_MAP[r.code] || ['TASKS', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS'];
     roleObj.permissions = allowed
       .map((mod) => pageDocMap[mod])
       .filter(Boolean)
@@ -116,7 +122,7 @@ async function seed() {
           canCreate = ['TASKS', 'TEAM_WORK', 'LEAVES'].includes(mod);
           canEdit = ['TASKS', 'TEAM_WORK', 'LEAVES', 'KPI'].includes(mod);
           canDelete = false;
-        } else if (role === 'EMPLOYEE') {
+        } else if (role === 'EMPLOYEE' || role === 'BDE') {
           canCreate = ['LEAVES', 'ATTENDANCE'].includes(mod);
           canEdit = ['TASKS'].includes(mod);
           canDelete = false;
@@ -143,10 +149,12 @@ async function seed() {
     { code: 'VIDEO_EDITING', name: 'Video Editing', description: 'Video post-production, motion graphics, and content editing', displayOrder: 3 },
     { code: 'DESIGN', name: 'Design', description: 'UI/UX design, branding, and graphics design', displayOrder: 4 },
     { code: 'DIGITAL_MARKETING', name: 'Digital Marketing', description: 'SEO, social media marketing, and growth campaigns', displayOrder: 5 },
-    { code: 'HR', name: 'HR', description: 'Human resources, talent management, and employee welfare', displayOrder: 6 },
-    { code: 'ACCOUNTANT', name: 'Accountant', description: 'Financial management, payroll, and billing', displayOrder: 7 },
+    { code: 'HR', name: 'Human Resources', description: 'Human resources, talent management, and employee welfare', displayOrder: 6 },
+    { code: 'ACCOUNTANT', name: 'Accounts', description: 'Financial management, payroll, and billing', displayOrder: 7 },
+    { code: 'BDM', name: 'Business Development', description: 'Sales, client partnerships, and business development', displayOrder: 8 },
   ];
 
+  const deptDocMap: Record<string, any> = {};
   for (const d of deptData) {
     let deptObj = await Department.findOne({ $or: [{ name: d.name }, { code: d.code }] });
     if (!deptObj) {
@@ -159,8 +167,10 @@ async function seed() {
       deptObj.isActive = true;
     }
     await deptObj.save();
+    deptDocMap[d.name] = deptObj;
+    deptDocMap[d.code] = deptObj;
   }
-  console.log('[Seed] Seeded Departments.');
+  console.log('[Seed] Seeded 8 Departments.');
 
   // 4. Ensure Super Admin User & Employee profile exist
   const superAdminRole = roleDocMap['SUPER_ADMIN'];
@@ -186,7 +196,6 @@ async function seed() {
     superAdminUser.isSuperuser = true;
     superAdminUser.isStaff = true;
     await superAdminUser.save();
-    console.log('[Seed] Updated Super Admin user permissions.');
   }
 
   let superAdminEmp = await Employee.findOne({ email: 'admin@flumenx.com' });
@@ -198,15 +207,16 @@ async function seed() {
       email: 'admin@flumenx.com',
       phone: '+91 9876543210',
       department: 'Operations',
+      departmentRef: deptDocMap['Operations']?._id,
       designation: 'Super Administrator',
-      joiningDate: new Date(),
+      joiningDate: new Date('2024-01-01'),
       status: 'Active',
+      employmentStatus: 'Permanent',
     });
     await superAdminEmp.save();
-    console.log('[Seed] Created Super Admin Employee profile.');
   }
 
-  // 5. Seed Employee Team & Team Leads
+  // 5. Seed Real Team Employees from Provided Master Sheet
   const employeesToSeed = [
     {
       name: 'Dhishunjith k',
@@ -215,14 +225,8 @@ async function seed() {
       department: 'Digital Marketing',
       role: 'TEAM_LEAD',
       code: 'FX-002',
-    },
-    {
-      name: 'Najil Rahman P.M.',
-      email: 'najilrahmanflumenx@gmail.com',
-      designation: 'Senior web developer',
-      department: 'Web Development',
-      role: 'TEAM_LEAD',
-      code: 'FX-003',
+      status: 'Permanent',
+      salary: { gross: 45000, basic: 22500, hra: 11250, conveyance: 3000, special: 8250 },
     },
     {
       name: 'Nidhin KG',
@@ -230,8 +234,10 @@ async function seed() {
       designation: 'Junior web developer',
       department: 'Web Development',
       role: 'EMPLOYEE',
-      code: 'FX-004',
+      code: 'FX-003',
+      status: 'Permanent',
       leadEmail: 'najilrahmanflumenx@gmail.com',
+      salary: { gross: 25000, basic: 12500, hra: 6250, conveyance: 2000, special: 4250 },
     },
     {
       name: 'Ebi Lawrence',
@@ -239,8 +245,10 @@ async function seed() {
       designation: 'Junior Graphic Designer',
       department: 'Design',
       role: 'EMPLOYEE',
-      code: 'FX-005',
+      code: 'FX-004',
+      status: 'Permanent',
       leadEmail: 'dhishunjith@flumenx.com',
+      salary: { gross: 22000, basic: 11000, hra: 5500, conveyance: 2000, special: 3500 },
     },
     {
       name: 'Abeyson p mathew',
@@ -248,7 +256,9 @@ async function seed() {
       designation: 'HR',
       department: 'Human Resources',
       role: 'HR',
-      code: 'FX-006',
+      code: 'FX-005',
+      status: 'Permanent',
+      salary: { gross: 35000, basic: 17500, hra: 8750, conveyance: 2500, special: 6250 },
     },
     {
       name: 'Anurag J S',
@@ -256,7 +266,9 @@ async function seed() {
       designation: 'BDM',
       department: 'Business Development',
       role: 'BDE',
-      code: 'FX-007',
+      code: 'FX-006',
+      status: 'Permanent',
+      salary: { gross: 35000, basic: 17500, hra: 8750, conveyance: 2500, special: 6250 },
     },
     {
       name: 'Shrijith',
@@ -264,8 +276,10 @@ async function seed() {
       designation: 'Senior Graphic Designer',
       department: 'Design',
       role: 'EMPLOYEE',
-      code: 'FX-008',
+      code: 'FX-007',
+      status: 'Permanent',
       leadEmail: 'dhishunjith@flumenx.com',
+      salary: { gross: 32000, basic: 16000, hra: 8000, conveyance: 2500, special: 5500 },
     },
     {
       name: 'Anandhu R S',
@@ -273,7 +287,19 @@ async function seed() {
       designation: 'Accountant',
       department: 'Accounts',
       role: 'ACCOUNTANT',
+      code: 'FX-008',
+      status: 'Permanent',
+      salary: { gross: 32000, basic: 16000, hra: 8000, conveyance: 2500, special: 5500 },
+    },
+    {
+      name: 'Najil Rahman P.M.',
+      email: 'najilrahmanflumenx@gmail.com',
+      designation: 'Senior web developer',
+      department: 'Web Development',
+      role: 'TEAM_LEAD',
       code: 'FX-009',
+      status: 'Permanent',
+      salary: { gross: 48000, basic: 24000, hra: 12000, conveyance: 3000, special: 9000 },
     },
     {
       name: 'Anandu anil',
@@ -282,7 +308,9 @@ async function seed() {
       department: 'Video Editing',
       role: 'EMPLOYEE',
       code: 'FX-010',
+      status: 'Permanent',
       leadEmail: 'dhishunjith@flumenx.com',
+      salary: { gross: 24000, basic: 12000, hra: 6000, conveyance: 2000, special: 4000 },
     },
     {
       name: 'Gowtham Vijay',
@@ -291,7 +319,9 @@ async function seed() {
       department: 'Digital Marketing',
       role: 'EMPLOYEE',
       code: 'FX-011',
+      status: 'Permanent',
       leadEmail: 'dhishunjith@flumenx.com',
+      salary: { gross: 24000, basic: 12000, hra: 6000, conveyance: 2000, special: 4000 },
     },
     {
       name: 'NiKhil A. V.',
@@ -300,7 +330,9 @@ async function seed() {
       department: 'Digital Marketing',
       role: 'EMPLOYEE',
       code: 'FX-012',
+      status: 'Permanent',
       leadEmail: 'dhishunjith@flumenx.com',
+      salary: { gross: 24000, basic: 12000, hra: 6000, conveyance: 2000, special: 4000 },
     },
     {
       name: 'Akhil S. S.',
@@ -309,7 +341,9 @@ async function seed() {
       department: 'Web Development',
       role: 'EMPLOYEE',
       code: 'FX-013',
+      status: 'Permanent',
       leadEmail: 'najilrahmanflumenx@gmail.com',
+      salary: { gross: 22000, basic: 11000, hra: 5500, conveyance: 2000, special: 3500 },
     },
     {
       name: 'Rahul B Chandran',
@@ -318,62 +352,15 @@ async function seed() {
       department: 'Digital Marketing',
       role: 'EMPLOYEE',
       code: 'FX-014',
+      status: 'Probation',
       leadEmail: 'dhishunjith@flumenx.com',
-    },
-    {
-      name: 'Operations Manager',
-      email: 'operations@flumenx.com',
-      designation: 'Operations Head',
-      department: 'Operations',
-      role: 'OPERATIONS',
-      code: 'FX-015',
-    },
-    {
-      name: 'HR Test Lead',
-      email: 'hr@flumenx.com',
-      designation: 'Human Resources Lead',
-      department: 'Human Resources',
-      role: 'HR',
-      code: 'FX-016',
-    },
-    {
-      name: 'Accounts Test Lead',
-      email: 'accountant@flumenx.com',
-      designation: 'Finance & Accounts',
-      department: 'Accounts',
-      role: 'ACCOUNTANT',
-      code: 'FX-017',
-    },
-    {
-      name: 'BDE Test Lead',
-      email: 'bde@flumenx.com',
-      designation: 'Business Development Executive',
-      department: 'Business Development',
-      role: 'BDE',
-      code: 'FX-018',
-    },
-    {
-      name: 'Web Dev Lead Test',
-      email: 'web.lead@flumenx.com',
-      designation: 'Web Development Lead',
-      department: 'Web Development',
-      role: 'TEAM_LEAD',
-      code: 'FX-019',
-    },
-    {
-      name: 'Web Dev Employee Test',
-      email: 'emp01@flumenx.com',
-      designation: 'Frontend Developer',
-      department: 'Web Development',
-      role: 'EMPLOYEE',
-      code: 'FX-020',
-      leadEmail: 'web.lead@flumenx.com',
+      salary: { gross: 12000, basic: 6000, hra: 3000, conveyance: 1500, special: 1500 },
     },
   ];
 
   const empDocMap: Record<string, any> = {};
 
-  // First pass: Create Users & Employees
+  // First pass: Create Users, Employees, Leave Ledgers, and Salary Structures
   for (const item of employeesToSeed) {
     const cleanEmail = item.email.trim().toLowerCase();
     let u = await User.findOne({ email: cleanEmail });
@@ -393,7 +380,7 @@ async function seed() {
         lastName,
         role: item.role as UserRoleType,
         dynamicRole: matchedRole ? matchedRole._id : null,
-        isStaff: item.role === 'TEAM_LEAD' || item.role === 'HR',
+        isStaff: ['TEAM_LEAD', 'HR', 'ACCOUNTANT', 'SUPER_ADMIN'].includes(item.role),
         isActive: true,
       });
       await u.save();
@@ -404,7 +391,7 @@ async function seed() {
     }
 
     let emp = await Employee.findOne({ email: cleanEmail });
-    const deptObj = await Department.findOne({ name: item.department });
+    const deptObj = deptDocMap[item.department] || (await Department.findOne({ name: item.department }));
 
     if (!emp) {
       emp = new Employee({
@@ -416,8 +403,9 @@ async function seed() {
         department: item.department,
         departmentRef: deptObj ? deptObj._id : null,
         designation: item.designation,
-        joiningDate: new Date(),
+        joiningDate: new Date('2025-01-01'),
         status: 'Active',
+        employmentStatus: item.status as any,
       });
       await emp.save();
     } else {
@@ -426,10 +414,65 @@ async function seed() {
       emp.department = item.department;
       if (deptObj) emp.departmentRef = deptObj._id;
       emp.designation = item.designation;
+      emp.employmentStatus = item.status as any;
       await emp.save();
     }
 
     empDocMap[cleanEmail] = emp;
+
+    // Seed Employee Salary Structure
+    let struct = await EmployeeSalaryStructure.findOne({ employee: emp._id, isActive: true });
+    if (!struct) {
+      struct = new EmployeeSalaryStructure({
+        employee: emp._id,
+        effectiveDate: new Date('2025-01-01'),
+        grossSalary: item.salary.gross,
+        basicSalary: item.salary.basic,
+        hra: item.salary.hra,
+        conveyance: item.salary.conveyance,
+        specialAllowance: item.salary.special,
+        pfEnabled: true,
+        pfEmployeePercent: 12,
+        pfEmployerPercent: 12,
+        pfWageCeiling: 15000,
+        esiEnabled: item.salary.gross <= 21000,
+        esiEmployeePercent: 0.75,
+        esiEmployerPercent: 3.25,
+        esiGrossCeiling: 21000,
+        professionalTax: 200,
+        tds: 0,
+        isActive: true,
+      });
+      await struct.save();
+    }
+
+    // Seed Leave Ledger balance for Permanent employees
+    const existingLeave = await LeaveLedger.findOne({ employee: emp._id });
+    if (!existingLeave) {
+      if (item.status === 'Permanent') {
+        await new LeaveLedger({
+          employee: emp._id,
+          leaveType: 'Sick',
+          transactionType: 'OpeningBalance',
+          quantity: 1,
+          balanceAfter: 1,
+          earnedMonth: 8,
+          earnedYear: 2026,
+          notes: 'Initial monthly sick leave balance',
+        }).save();
+
+        await new LeaveLedger({
+          employee: emp._id,
+          leaveType: 'Casual',
+          transactionType: 'OpeningBalance',
+          quantity: 1,
+          balanceAfter: 1,
+          earnedMonth: 8,
+          earnedYear: 2026,
+          notes: 'Initial monthly casual leave balance',
+        }).save();
+      }
+    }
   }
 
   // Second pass: Assign Team Leads
@@ -444,19 +487,40 @@ async function seed() {
     }
   }
 
-  console.log(`[Seed] Seeded ${employeesToSeed.length} team members and team leads.`);
+  console.log(`[Seed] Seeded ${employeesToSeed.length} master employees with salary structures & leave ledgers.`);
 
-  // 6. Update any other existing users to ensure dynamicRole linkage
-  const existingUsers = await User.find({ _id: { $ne: superAdminUser._id } });
-  for (const u of existingUsers) {
-    const matchedRole = roleDocMap[u.role] || roleDocMap['EMPLOYEE'];
-    if (matchedRole) {
-      u.dynamicRole = matchedRole._id;
+  // 6. Seed Company Holidays (Kerala / India Calendar)
+  const holidaysData = [
+    { name: 'Republic Day', date: new Date('2026-01-26T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'National Holiday' },
+    { name: 'May Day', date: new Date('2026-05-01T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'International Workers Day' },
+    { name: 'Eid-ul-Fitr', date: new Date('2026-03-20T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'Eid Holiday' },
+    { name: 'Independence Day', date: new Date('2026-08-15T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'Indian Independence Day' },
+    { name: 'Thiruvonam (Onam)', date: new Date('2026-08-27T00:00:00.000+05:30'), holiday_type: 'Company', is_paid: true, description: 'Kerala State Festival' },
+    { name: 'Gandhi Jayanti', date: new Date('2026-10-02T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'Mahatma Gandhi Birthday' },
+    { name: 'Deepavali', date: new Date('2026-11-08T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'Festival of Lights' },
+    { name: 'Christmas', date: new Date('2026-12-25T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'Christmas Day' },
+  ];
+
+  for (const h of holidaysData) {
+    const dStr = h.date.toISOString().split('T')[0];
+    let hObj = await CompanyHoliday.findOne({ dateStr: dStr });
+    if (!hObj) {
+      hObj = new CompanyHoliday({
+        name: h.name,
+        date: h.date,
+        dateStr: dStr,
+        holidayType: h.holiday_type,
+        isPaid: h.is_paid,
+        year: h.date.getFullYear(),
+        description: h.description,
+        isActive: true,
+      });
+      await hObj.save();
     }
-    await u.save();
   }
+  console.log(`[Seed] Seeded ${holidaysData.length} Company Holidays.`);
 
-  // 6. Seed Default Attendance Policy
+  // 7. Seed Default Attendance Policy
   let policy = await AttendancePolicy.findOne();
   if (!policy) {
     policy = new AttendancePolicy({
@@ -471,16 +535,17 @@ async function seed() {
       fullDayHours: 8,
     });
     await policy.save();
-    console.log('[Seed] Attendance Policy created.');
+    console.log('[Seed] Created HQ Attendance Policy.');
   } else {
-    policy.officeLatitude = 8.5213442;
-    policy.officeLongitude = 76.97848305555556;
-    policy.allowedRadiusMeters = 200;
+    policy.officeStartTime = '09:30';
+    policy.gracePeriodMinutes = 5;
+    policy.officeEndTime = '18:30';
     await policy.save();
-    console.log('[Seed] Attendance Policy updated with HQ GPS coordinates.');
   }
 
-  console.log('[Seed] System seeding completed successfully!');
+  console.log('================================================================================');
+  console.log('=== FLUMENX BOS SYSTEM SEEDING COMPLETED SUCCESSFULLY ===');
+  console.log('================================================================================');
   process.exit(0);
 }
 
