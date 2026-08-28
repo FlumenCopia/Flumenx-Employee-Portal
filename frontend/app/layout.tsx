@@ -1,9 +1,19 @@
 import type { Metadata } from "next";
-import { Jost } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { AppInitialLoader } from "@/components/AppInitialLoader";
 import "./globals.css";
 
-const jost = Jost({ subsets: ["latin"], variable: "--font-body" });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
+});
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "FLUMENX BOS · Enterprise Business Operating System",
@@ -24,8 +34,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className={jost.variable}>
+    <html lang="en" className={`${inter.variable} ${plusJakarta.variable}`}>
+      <body className={inter.className}>
         <AppInitialLoader>{children}</AppInitialLoader>
       </body>
     </html>

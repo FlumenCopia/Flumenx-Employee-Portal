@@ -617,16 +617,6 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
               <Avatar name={user?.employee?.name || user?.first_name || user?.username || name} size={20} />
               <span>{user?.employee?.name || user?.first_name || user?.username || name}</span>
             </Link>
-            {canCreateTask && (
-              <button
-                type="button"
-                className="primary-button topbar-task-btn"
-                onClick={handleNewTaskClick}
-              >
-                <span className="task-btn-full">+ New Task</span>
-                <span className="task-btn-compact">+ Task</span>
-              </button>
-            )}
             <button
               type="button"
               className="secondary-button topbar-logout-btn"

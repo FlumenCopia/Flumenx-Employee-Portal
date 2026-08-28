@@ -1,6 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Great+Vibes&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --bg: #F3F5F4;
   --panel: #FFFFFF;
   --panel2: #F8FAF9;
@@ -37,10 +40,25 @@
   --shadow-md: 0 4px 12px rgba(24,35,31,0.06);
   --shadow-lg: 0 12px 28px rgba(24,35,31,0.09);
 }
-*{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body),system-ui,-apple-system,sans-serif}
-.sub-brand{font-size:11px;font-weight:800;color:#FFFFFF!important;letter-spacing:.14em;text-transform:uppercase;font-family:var(--font-body),system-ui,-apple-system,sans-serif}
-body{min-height:100vh}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+.sub-brand {
+  font-size: 11px;
+  font-weight: 800;
+  color: #FFFFFF !important;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  font-family: var(--font-display);
+}
+body { min-height: 100vh; }
 button,input,select,textarea{font:inherit}
 button,a{color:inherit}
 button{cursor:pointer}
