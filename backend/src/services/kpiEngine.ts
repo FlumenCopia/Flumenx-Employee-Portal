@@ -154,7 +154,7 @@ export class KPIService {
 
     if (completedAssignments.length > 0) {
       reviewApprovedCount = completedAssignments.filter(
-        (wa) => wa.reviewStatus === 'OK' || wa.reviewStatus === 'PENDING_REVIEW'
+        (wa) => wa.reviewStatus === 'OK'
       ).length;
       reviewQualityRatio = Math.min(
         1.0,

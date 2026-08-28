@@ -127,6 +127,15 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
   if (status) filter.status = status;
   if (priority) filter.priority = priority;
 
+  const { is_master_client_task } = req.query;
+  if (is_master_client_task === 'true') {
+    filter.isMasterClientTask = true;
+  } else if (is_master_client_task === 'all') {
+    // No filter on isMasterClientTask
+  } else {
+    filter.isMasterClientTask = { $ne: true };
+  }
+
   const assignments = await WorkAssignment.find(filter)
     .populate('employee client assignedBy reviewer reviewedBy parentTask')
     .sort({ dueDate: 1 });
@@ -169,9 +178,12 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
       time_logs: a.timeLogs || [],
       deliverables: (a.deliverables || []).map((d: any) => ({
         id: d._id,
-        title: d.title,
+        name: d.name || d.title,
+        title: d.title || d.name,
         brief: d.brief,
         work_type: d.workType,
+        contracted: d.contracted || 1,
+        delivered: d.delivered || (d.status === 'Completed' || d.status === 'Published' ? 1 : 0),
         due_date: d.dueDate ? new Date(d.dueDate).toISOString().split('T')[0] : '',
         status: d.status,
         client: d.client,
@@ -267,12 +279,20 @@ export async function stopTaskTimer(req: Request, res: Response): Promise<void> 
 }
 
 export async function getWorkAssignmentsSummary(req: Request, res: Response): Promise<void> {
-  const { employee, client, priority } = req.query;
+  const { employee, client, priority, is_master_client_task } = req.query;
 
   const filter: any = {};
   if (employee) filter.employee = employee;
   if (client) filter.client = client;
   if (priority) filter.priority = priority;
+
+  if (is_master_client_task === 'true') {
+    filter.isMasterClientTask = true;
+  } else if (is_master_client_task === 'all') {
+    // No filter
+  } else {
+    filter.isMasterClientTask = { $ne: true };
+  }
 
   const assignments = await WorkAssignment.find(filter);
 
@@ -526,17 +546,21 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
       return;
     }
 
+    const isAssignee = assignment.employee && String(assignment.employee) === String(ownEmp._id);
+    const isReviewer = (assignment.reviewer && String(assignment.reviewer) === String(ownEmp._id)) ||
+                       (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
+
     if (isTeamLead) {
-      // Check if task belongs to own employee or someone in team lead's department
+      // Check if task belongs to own employee or someone in team lead's department or is reviewer
       const taskEmp = assignment.employee ? await Employee.findById(assignment.employee) : null;
-      if (taskEmp && taskEmp.department !== ownEmp.department && String(assignment.employee) !== String(ownEmp._id)) {
-        res.status(403).json({ detail: 'Permission denied. You can only manage tasks within your department.' });
+      if (!isReviewer && taskEmp && taskEmp.department !== ownEmp.department && String(assignment.employee) !== String(ownEmp._id)) {
+        res.status(403).json({ detail: 'Permission denied. You can only manage tasks within your department or assigned for review.' });
         return;
       }
     } else {
-      // Standard employee can ONLY update tasks assigned to them
-      if (!assignment.employee || String(assignment.employee) !== String(ownEmp._id)) {
-        res.status(403).json({ detail: 'Permission denied. You can only update tasks assigned to you.' });
+      // Standard employee can update tasks assigned to them OR assigned to them as reviewer
+      if (!isAssignee && !isReviewer) {
+        res.status(403).json({ detail: 'Permission denied. You can only update tasks assigned to you or assigned to you for review.' });
         return;
       }
     }
@@ -568,7 +592,18 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     }
   }
 
-  if (fields.status) assignment.status = fields.status;
+  if (fields.status) {
+    assignment.status = fields.status;
+    if (['Completed', 'Approved', 'Published'].includes(fields.status)) {
+      if (assignment.assignedQuantity && assignment.assignedQuantity > 0) {
+        assignment.completedQuantity = assignment.assignedQuantity;
+        assignment.progress = 100;
+      }
+      if (!assignment.completedAt) {
+        assignment.completedAt = new Date();
+      }
+    }
+  }
   if (fields.completed_quantity !== undefined) assignment.completedQuantity = Math.max(0, fields.completed_quantity);
   if (fields.deliverables && Array.isArray(fields.deliverables)) {
     assignment.deliverables = fields.deliverables;
@@ -588,7 +623,8 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
   if (assignment.deliverables && assignment.deliverables.length > 0) {
     syncFromDeliverables(assignment);
   } else {
-    if (fields.completed_quantity !== undefined && assignment.assignedQuantity && assignment.assignedQuantity > 0) {
+    const hasManualQuantity = fields.completed_quantity !== undefined || (assignment.completedQuantity > 0 && !['Completed', 'Published', 'Approved'].includes(fields.status || ''));
+    if (hasManualQuantity && assignment.assignedQuantity && assignment.assignedQuantity > 0) {
       assignment.progress = Math.min(100, Math.round((assignment.completedQuantity / assignment.assignedQuantity) * 100));
       if (assignment.completedQuantity >= assignment.assignedQuantity && assignment.status !== 'Completed') {
         assignment.status = 'Completed';
@@ -596,6 +632,60 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     } else {
       syncQuantityState(assignment);
     }
+  }
+
+  await assignment.save();
+
+  if (assignment.parentTask) {
+    await syncParentTaskProgression(assignment);
+  }
+
+  res.json(assignment);
+}
+
+export async function reviewWorkAssignment(req: Request, res: Response): Promise<void> {
+  const assignment = await findWorkAssignmentByIdOrLegacy(req.params.id);
+  if (!assignment) {
+    res.status(404).json({ detail: 'Work assignment not found.' });
+    return;
+  }
+
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD'].includes(req.user?.role || '');
+  const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+
+  const isReviewer = (assignment.reviewer && ownEmp && String(assignment.reviewer) === String(ownEmp._id)) ||
+                     (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
+
+  if (!isSuper && !isManagement && !isReviewer) {
+    res.status(403).json({ detail: 'Permission denied. You are not authorized as reviewer for this task.' });
+    return;
+  }
+
+  const { review_status, review_note, reviewStatus, reviewNote } = req.body;
+  const statusToSet = review_status || reviewStatus;
+  const noteToSet = review_note !== undefined ? review_note : reviewNote;
+
+  if (!statusToSet || !['OK', 'CORRECTION_NEEDED', 'PENDING_REVIEW'].includes(statusToSet)) {
+    res.status(400).json({ detail: 'Invalid review status. Must be OK, CORRECTION_NEEDED, or PENDING_REVIEW.' });
+    return;
+  }
+
+  assignment.reviewStatus = statusToSet as any;
+  if (noteToSet !== undefined) assignment.reviewNote = String(noteToSet).trim();
+  assignment.reviewedBy = req.user ? req.user._id : null;
+  assignment.reviewedAt = new Date();
+
+  if (statusToSet === 'OK') {
+    assignment.status = 'Approved';
+    if (assignment.assignedQuantity && assignment.assignedQuantity > 0) {
+      assignment.completedQuantity = assignment.assignedQuantity;
+      assignment.progress = 100;
+    }
+    assignment.completedAt = new Date();
+  } else if (statusToSet === 'CORRECTION_NEEDED') {
+    assignment.status = 'In Progress';
+    assignment.completedAt = null;
   }
 
   await assignment.save();
@@ -739,27 +829,51 @@ export async function getWorkReviewerOptions(req: Request, res: Response): Promi
   res.json(formatted);
 }
 
+function formatShareLinkDoc(link: any) {
+  const doc = link.toObject ? link.toObject() : link;
+  const isExpired = doc.expiresAt ? new Date(doc.expiresAt).getTime() < Date.now() : false;
+  const isRevoked = Boolean(doc.isRevoked);
+  const isValid = !isRevoked && !isExpired;
+
+  return {
+    ...doc,
+    id: doc._id ? doc._id.toString() : doc.id,
+    assignment_title: link.assignment?.title || doc.assignment_title || '',
+    client_name: link.client?.name || doc.client_name || '',
+    is_revoked: isRevoked,
+    is_valid: isValid,
+  };
+}
+
 export async function getShareLinks(req: Request, res: Response): Promise<void> {
-  const links = await ClientWorkShareLink.find().populate('client assignment createdBy').sort({ createdAt: -1 });
-  res.json(links);
+  const filter: any = {};
+  if (req.query.client_id) {
+    filter.client = req.query.client_id;
+  }
+  const links = await ClientWorkShareLink.find(filter).populate('client assignment createdBy').sort({ createdAt: -1 });
+  const formatted = links.map(formatShareLinkDoc);
+  res.json(formatted);
 }
 
 export async function createShareLinkHandler(req: Request, res: Response): Promise<void> {
-  const { client_id, assignment_id, public_update, expires_in_days } = req.body;
+  const { client_id, assignment_id, public_update, expires_in_days, days_valid } = req.body;
   if (!client_id) {
     res.status(400).json({ detail: 'Client ID is required.' });
     return;
   }
+
+  const days = Number(expires_in_days || days_valid || 30);
 
   const link = await createShareLink({
     clientId: client_id,
     assignmentId: assignment_id,
     publicUpdate: public_update,
     createdById: req.user ? req.user._id.toString() : null,
-    expiresInDays: expires_in_days,
+    expiresInDays: days,
   });
 
-  res.status(201).json(link);
+  const populatedLink = await ClientWorkShareLink.findById(link._id).populate('client assignment createdBy');
+  res.status(201).json(formatShareLinkDoc(populatedLink || link));
 }
 
 export async function revokeShareLink(req: Request, res: Response): Promise<void> {
@@ -774,7 +888,8 @@ export async function revokeShareLink(req: Request, res: Response): Promise<void
   }
   link.isRevoked = true;
   await link.save();
-  res.json(link);
+  const populatedLink = await ClientWorkShareLink.findById(link._id).populate('client assignment createdBy');
+  res.json(formatShareLinkDoc(populatedLink || link));
 }
 
 export async function regenerateShareLink(req: Request, res: Response): Promise<void> {
@@ -790,7 +905,8 @@ export async function regenerateShareLink(req: Request, res: Response): Promise<
   link.token = generateShareToken();
   link.isRevoked = false;
   await link.save();
-  res.json(link);
+  const populatedLink = await ClientWorkShareLink.findById(link._id).populate('client assignment createdBy');
+  res.json(formatShareLinkDoc(populatedLink || link));
 }
 
 export async function getPublicWorkProgress(req: Request, res: Response): Promise<void> {
@@ -800,16 +916,135 @@ export async function getPublicWorkProgress(req: Request, res: Response): Promis
     return;
   }
 
-  let assignments = [];
+  let rawAssignments: any[] = [];
   if (link.assignment) {
-    assignments = [await WorkAssignment.findById(link.assignment).populate('employee deliverables.client')];
+    const single = await WorkAssignment.findById(link.assignment).populate('employee deliverables.client');
+    if (single) rawAssignments = [single];
   } else {
-    assignments = await WorkAssignment.find({ client: link.client }).populate('employee deliverables.client');
+    // Only return Master Client Tasks / Client Agreement Tasks for the client portal
+    rawAssignments = await WorkAssignment.find({
+      client: link.client,
+      isMasterClientTask: true,
+    }).populate('employee deliverables.client');
+
+    // Fallback: If no explicit master tasks exist yet, filter for top-level tasks (parentTask: null)
+    if (rawAssignments.length === 0) {
+      rawAssignments = await WorkAssignment.find({
+        client: link.client,
+        parentTask: null,
+      }).populate('employee deliverables.client');
+    }
+
+    // Final fallback: if no parentTask: null exists either, fallback to all tasks
+    if (rawAssignments.length === 0) {
+      rawAssignments = await WorkAssignment.find({ client: link.client }).populate('employee deliverables.client');
+    }
+  }
+
+  const formattedAssignments = rawAssignments.map((a) => {
+    const progressPct = a.assignedQuantity ? Math.round(((a.completedQuantity || 0) / a.assignedQuantity) * 100) : 0;
+    return {
+      id: a._id,
+      title: a.title,
+      description: a.description,
+      status: a.status,
+      priority: a.priority,
+      assigned_date: a.assignedDate ? a.assignedDate.toISOString().split('T')[0] : '',
+      due_date: a.dueDate ? a.dueDate.toISOString().split('T')[0] : '',
+      assigned_quantity: a.assignedQuantity || 1,
+      completed_quantity: a.completedQuantity || 0,
+      progress: Math.min(100, Math.max(0, a.progress || progressPct)),
+      unit: a.unit || 'tasks',
+      is_master_client_task: Boolean(a.isMasterClientTask),
+      deliverables: (a.deliverables || []).map((d: any) => ({
+        id: d._id,
+        name: d.name || d.title,
+        title: d.title || d.name,
+        brief: d.brief,
+        work_type: d.workType,
+        contracted: d.contracted || 1,
+        delivered: d.delivered || (d.status === 'Completed' || d.status === 'Published' ? 1 : 0),
+        status: d.status,
+      })),
+    };
+  });
+
+  let overallProgress = 0;
+  if (formattedAssignments.length > 0) {
+    const totalAssigned = formattedAssignments.reduce((sum, a) => sum + a.assigned_quantity, 0);
+    const totalCompleted = formattedAssignments.reduce((sum, a) => sum + Math.min(a.assigned_quantity, a.completed_quantity), 0);
+    overallProgress = totalAssigned > 0 ? Math.min(100, Math.round((totalCompleted / totalAssigned) * 100)) : 0;
   }
 
   res.json({
     client_name: (link.client as any).name,
     public_update: link.publicUpdate,
-    assignments,
+    scope: link.assignment ? 'assignment' : 'client',
+    overall_progress: overallProgress,
+    assignments: formattedAssignments,
+    last_updated: (link as any).updatedAt ? (link as any).updatedAt.toISOString() : new Date().toISOString(),
   });
+}
+
+export async function incrementDeliverable(req: Request, res: Response): Promise<void> {
+  const { id, deliverableId } = req.params;
+  const { delta = 1 } = req.body;
+
+  const assignment = await findWorkAssignmentByIdOrLegacy(id);
+  if (!assignment) {
+    res.status(404).json({ detail: 'Work assignment not found.' });
+    return;
+  }
+
+  if (!assignment.deliverables || assignment.deliverables.length === 0) {
+    res.status(404).json({ detail: 'No deliverables found on this assignment.' });
+    return;
+  }
+
+  const deliverable = assignment.deliverables.find(
+    (d: any) =>
+      String(d._id) === String(deliverableId) ||
+      String(d.id) === String(deliverableId) ||
+      String(d.legacyId) === String(deliverableId)
+  );
+
+  if (!deliverable) {
+    res.status(404).json({ detail: 'Deliverable item not found.' });
+    return;
+  }
+
+  const contracted = (deliverable as any).contracted || 1;
+  const currentDelivered =
+    (deliverable as any).delivered !== undefined
+      ? (deliverable as any).delivered
+      : (deliverable as any).status === 'Completed' || (deliverable as any).status === 'Published'
+      ? 1
+      : 0;
+
+  const targetDelta = Number(delta);
+  let newDelivered = currentDelivered + targetDelta;
+  if (targetDelta > 0 && currentDelivered === 0) {
+    newDelivered = 1;
+  } else if (targetDelta < 0 && currentDelivered > 0) {
+    newDelivered = 0;
+  }
+  newDelivered = Math.max(0, Math.min(contracted, newDelivered));
+
+  (deliverable as any).delivered = newDelivered;
+
+  if (newDelivered >= contracted) {
+    (deliverable as any).status = 'Completed';
+    (deliverable as any).completedAt = new Date();
+  } else if (newDelivered > 0) {
+    (deliverable as any).status = 'In Progress';
+    (deliverable as any).completedAt = null;
+  } else {
+    (deliverable as any).status = 'Assigned';
+    (deliverable as any).completedAt = null;
+  }
+
+  syncFromDeliverables(assignment);
+  await assignment.save();
+
+  res.json(assignment);
 }

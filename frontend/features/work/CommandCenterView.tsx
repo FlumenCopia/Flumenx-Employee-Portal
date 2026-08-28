@@ -352,7 +352,7 @@ export function CommandCenterView({
 
   const canUserChangeTaskStatus = (task: TaskItem | null): boolean => {
     if (!task) return false;
-    return isReviewerOrManager(task);
+    return isReviewerOrManager(task) || isAssignedToCurrentUser(task);
   };
 
   const canMoveSelectedTaskStatus = useMemo(() => {

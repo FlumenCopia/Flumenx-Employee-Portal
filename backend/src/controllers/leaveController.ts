@@ -86,11 +86,31 @@ export async function createLeave(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  const startDate = new Date(start_date);
+  const endDate = new Date(end_date);
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
+    res.status(400).json({ detail: 'Invalid leave date range. Start date must be on or before end date.' });
+    return;
+  }
+
+  if (empId) {
+    const existingOverlap = await LeaveRequest.findOne({
+      employee: empId,
+      status: { $ne: 'Rejected' },
+      startDate: { $lte: endDate },
+      endDate: { $gte: startDate },
+    });
+    if (existingOverlap) {
+      res.status(400).json({ detail: 'An active or pending leave request already overlaps with the requested date range.' });
+      return;
+    }
+  }
+
   const leave = new LeaveRequest({
     employee: empId || null,
     leaveType: leave_type,
-    startDate: new Date(start_date),
-    endDate: new Date(end_date),
+    startDate,
+    endDate,
     reason: reason.trim(),
     status: 'Pending',
   });

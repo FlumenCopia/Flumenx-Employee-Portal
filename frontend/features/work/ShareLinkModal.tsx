@@ -72,6 +72,7 @@ export function ShareLinkModal({
     try {
       const body: any = {
         client_id: clientId,
+        expires_in_days: daysValid,
         days_valid: daysValid,
         public_update: publicUpdate,
       };
@@ -159,7 +160,7 @@ export function ShareLinkModal({
                 >
                   <option value="">Choose assignment...</option>
                   {assignments.map((a) => (
-                    <option key={a.id} value={a.id}>{a.title} ({a.status})</option>
+                    <option key={a.id || (a as any)._id} value={a.id || (a as any)._id}>{a.title} ({a.status})</option>
                   ))}
                 </select>
               </label>
@@ -214,16 +215,25 @@ export function ShareLinkModal({
               const origin = typeof window !== "undefined" ? window.location.origin : "";
               const fullUrl = `${origin}/share/work/${link.token}`;
               const isCopied = copiedToken === link.token;
+              const linkId = link.id || (link as any)._id;
+
+              const isExpired = link.expires_at
+                ? new Date(link.expires_at).getTime() < Date.now()
+                : (link as any).expiresAt
+                ? new Date((link as any).expiresAt).getTime() < Date.now()
+                : false;
+              const isRevoked = Boolean(link.is_revoked ?? (link as any).isRevoked);
+              const isValid = link.is_valid !== undefined ? Boolean(link.is_valid) : !isRevoked && !isExpired;
 
               return (
                 <div
-                  key={link.id}
+                  key={linkId || link.token}
                   style={{
                     padding: "12px",
                     borderRadius: "8px",
-                    border: link.is_valid ? "1px solid #cbd5e1" : "1px solid #e2e8f0",
-                    background: link.is_valid ? "#ffffff" : "#f8fafc",
-                    opacity: link.is_valid ? 1 : 0.65,
+                    border: isValid ? "1px solid #cbd5e1" : "1px solid #e2e8f0",
+                    background: isValid ? "#ffffff" : "#f8fafc",
+                    opacity: isValid ? 1 : 0.65,
                     display: "flex",
                     flexDirection: "column",
                     gap: "8px",
@@ -234,64 +244,39 @@ export function ShareLinkModal({
                       <span style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a" }}>
                         {link.assignment_title ? `Assignment: ${link.assignment_title}` : "All Client Work"}
                       </span>
-                      {link.is_valid ? (
+                      {isValid ? (
                         <span style={{ background: "#dcfce7", color: "#15803d", border: "1px solid #86efac", padding: "2px 8px", borderRadius: "12px", fontSize: "10px", fontWeight: 800 }}>
                           Active
                         </span>
                       ) : (
                         <span style={{ background: "#fee2e2", color: "#b91c1c", border: "1px solid #fca5a5", padding: "2px 8px", borderRadius: "12px", fontSize: "10px", fontWeight: 800 }}>
-                          {link.is_revoked ? "Revoked" : "Expired"}
+                          {isRevoked ? "Revoked" : "Expired"}
                         </span>
                       )}
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      {link.is_valid && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => copyToClipboard(link.token)}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              padding: "4px 10px",
-                              borderRadius: "6px",
-                              background: "#2563eb",
-                              color: "#ffffff",
-                              fontSize: "11px",
-                              fontWeight: 700,
-                              border: "none",
-                              cursor: "pointer",
-                            }}
-                          >
-                            {isCopied ? <Check size={13} /> : <Copy size={13} />}
-                            {isCopied ? "Copied!" : "Copy Link"}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleRevoke(link.id)}
-                            style={{
-                              padding: "4px 8px",
-                              borderRadius: "6px",
-                              background: "#fee2e2",
-                              color: "#dc2626",
-                              fontSize: "11px",
-                              fontWeight: 600,
-                              border: "1px solid #fca5a5",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Revoke
-                          </button>
-                        </>
-                      )}
-
-                      {!link.is_valid && (
+                      {isValid ? (
                         <button
                           type="button"
-                          onClick={() => handleRegenerate(link.id)}
+                          onClick={() => handleRevoke(linkId)}
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: "6px",
+                            background: "#fee2e2",
+                            color: "#dc2626",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            border: "1px solid #fca5a5",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Revoke
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleRegenerate(linkId)}
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
@@ -312,8 +297,49 @@ export function ShareLinkModal({
                     </div>
                   </div>
 
-                  <div style={{ fontFamily: "monospace", fontSize: "11px", color: "#475569", background: "#f1f5f9", padding: "6px 10px", borderRadius: "6px", border: "1px solid #e2e8f0", overflowX: "auto" }}>
-                    {fullUrl}
+                  {/* Copyable Link Field */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <input
+                      type="text"
+                      readOnly
+                      value={fullUrl}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      title="Click to select all text"
+                      style={{
+                        flex: 1,
+                        fontFamily: "monospace",
+                        fontSize: "11px",
+                        color: "#334155",
+                        background: "#f1f5f9",
+                        padding: "7px 10px",
+                        borderRadius: "6px",
+                        border: "1px solid #cbd5e1",
+                        outline: "none",
+                        cursor: "pointer",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(link.token)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "7px 12px",
+                        borderRadius: "6px",
+                        background: isCopied ? "#16a34a" : "#2563eb",
+                        color: "#ffffff",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        border: "none",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        transition: "background 0.2s ease",
+                      }}
+                    >
+                      {isCopied ? <Check size={13} /> : <Copy size={13} />}
+                      {isCopied ? "Copied!" : "Copy"}
+                    </button>
                   </div>
 
                   {link.public_update && (

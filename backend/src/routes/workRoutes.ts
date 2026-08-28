@@ -11,6 +11,7 @@ import {
   createWorkAssignment,
   bulkCreateWorkAssignments,
   updateWorkAssignment,
+  reviewWorkAssignment,
   deleteWorkAssignment,
   startTaskTimer,
   stopTaskTimer,
@@ -23,6 +24,7 @@ import {
   revokeShareLink,
   regenerateShareLink,
   getPublicWorkProgress,
+  incrementDeliverable,
 } from '../controllers/workController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { getDepartments } from '../controllers/portalController.js';
@@ -54,6 +56,8 @@ router.post('/work-assignments/:id/start-timer/?', requirePermission('timer', 'c
 router.post('/work-assignments/:id/stop-timer/?', requirePermission('timer', 'canView'), stopTaskTimer);
 router.put('/work-assignments/:id/?', requirePermission('tasks', 'canEdit'), updateWorkAssignment);
 router.patch('/work-assignments/:id/?', requirePermission('tasks', 'canEdit'), updateWorkAssignment);
+router.post('/work-assignments/:id/review/?', requirePermission('tasks', 'canEdit'), reviewWorkAssignment);
+router.post('/work-assignments/:id/deliverables/:deliverableId/increment/?', requirePermission('tasks', 'canEdit'), incrementDeliverable);
 router.delete('/work-assignments/:id/?', requirePermission('tasks', 'canDelete'), deleteWorkAssignment);
 
 // Work Deliverables

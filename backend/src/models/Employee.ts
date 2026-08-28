@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export type EmployeeStatus = 'Active' | 'On Leave' | 'Inactive';
+export type EmploymentStatus = 'Probation' | 'Permanent' | 'Contract' | 'Intern';
 
 export interface IEmployee extends Document {
   legacyId?: number;
@@ -14,6 +15,11 @@ export interface IEmployee extends Document {
   designation: string;
   joiningDate: Date;
   status: EmployeeStatus;
+  employmentStatus: EmploymentStatus;
+  probationStartDate?: Date | null;
+  probationEndDate?: Date | null;
+  confirmationDate?: Date | null;
+  exitDate?: Date | null;
   avatar: string;
   location: string;
   teamLead?: mongoose.Types.ObjectId | null;
@@ -36,6 +42,16 @@ const employeeSchema = new Schema<IEmployee>(
       enum: ['Active', 'On Leave', 'Inactive'],
       default: 'Active',
     },
+    employmentStatus: {
+      type: String,
+      enum: ['Probation', 'Permanent', 'Contract', 'Intern'],
+      default: 'Permanent',
+      index: true,
+    },
+    probationStartDate: { type: Date, default: null },
+    probationEndDate: { type: Date, default: null },
+    confirmationDate: { type: Date, default: null },
+    exitDate: { type: Date, default: null },
     avatar: { type: String, default: '' },
     location: { type: String, default: '' },
     teamLead: { type: Schema.Types.ObjectId, ref: 'Employee', default: null },

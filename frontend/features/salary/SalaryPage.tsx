@@ -1,32 +1,41 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Download, FileUp, Sparkles } from "lucide-react";
+import {
+  Download,
+  FileUp,
+  Sparkles,
+  Calendar,
+  Layers,
+  Calculator,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { Employee, Paginated, SalarySlip } from "@/lib/types";
 import { api } from "@/lib/api";
 import { Avatar } from "@/components/icons";
 import { EmptyState, PageHeader, PrimaryButton, Section } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
+import { getAttendanceCycleForMonth, getISTDateString } from "@/lib/tzUtils";
 
-const SALARY_SLIPS_ENABLED = true;
-
-const monthName = (m: number) => new Date(2024, m - 1).toLocaleDateString("en-US", { month: "long" });
+const monthName = (m: number) =>
+  new Date(2024, m - 1).toLocaleDateString("en-US", { month: "long" });
 
 export function SalaryPage({ employee = false }: { employee?: boolean }) {
-  const [data, setData] = useState<SalarySlip[]>([]);
+  const [activeTab, setActiveTab] = useState<"slips" | "payroll" | "structures" | "holidays">("slips");
+
+  // --- Slips State ---
+  const [slipsData, setSlipsData] = useState<SalarySlip[]>([]);
   const [employeeOptions, setEmployeeOptions] = useState<Employee[]>([]);
-  const [page, setPage] = useState(1);
-  const [count, setCount] = useState(0);
-  const [hasNext, setHasNext] = useState(false);
-  const [hasPrevious, setHasPrevious] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [employeeLoading, setEmployeeLoading] = useState(false);
   const [error, setError] = useState("");
-  const [employeeError, setEmployeeError] = useState("");
   const [modal, setModal] = useState(false);
   const [generateModal, setGenerateModal] = useState(false);
 
-  // Generate form state with live calculations
+  // Generate slip form state
   const [genEmployeeId, setGenEmployeeId] = useState("");
   const [genMonth, setGenMonth] = useState(new Date().getMonth() + 1);
   const [genYear, setGenYear] = useState(new Date().getFullYear());
@@ -39,447 +48,741 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
   const [deductions, setDeductions] = useState<number>(0);
   const [generating, setGenerating] = useState(false);
 
-  const grossCalc = (basicSalary || 0) + (hra || 0) + (conveyance || 0) + (allowances || 0);
-  const netCalc = grossCalc - ((pf || 0) + (tax || 0) + (deductions || 0));
+  // --- Payroll Engine Tab State ---
+  const [payrollRecords, setPayrollRecords] = useState<any[]>([]);
+  const [payrollMonth, setPayrollMonth] = useState(new Date().getMonth() + 1);
+  const [payrollYear, setPayrollYear] = useState(new Date().getFullYear());
+  const [selectedPreview, setSelectedPreview] = useState<any | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [processingCycle, setProcessingCycle] = useState(false);
+  const [payrollError, setPayrollError] = useState("");
+  const [payrollSuccess, setPayrollSuccess] = useState("");
+
+  // --- Salary Structures Tab State ---
+  const [structures, setStructures] = useState<any[]>([]);
+  const [structModal, setStructModal] = useState(false);
+  const [selectedEmpForStruct, setSelectedEmpForStruct] = useState("");
+  const [structGross, setStructGross] = useState(50000);
+  const [structBasic, setStructBasic] = useState(30000);
+  const [structHra, setStructHra] = useState(15000);
+  const [structConveyance, setStructConveyance] = useState(2000);
+  const [structSpecial, setStructSpecial] = useState(3000);
+  const [structPfEnabled, setStructPfEnabled] = useState(true);
+  const [structEsiEnabled, setStructEsiEnabled] = useState(false);
+  const [structProfTax, setStructProfTax] = useState(200);
+  const [structTds, setStructTds] = useState(0);
+
+  // --- Holidays Tab State ---
+  const [holidays, setHolidays] = useState<any[]>([]);
+  const [holidayModal, setHolidayModal] = useState(false);
+  const [newHolidayName, setNewHolidayName] = useState("");
+  const [newHolidayDate, setNewHolidayDate] = useState(getISTDateString());
+  const [newHolidayType, setNewHolidayType] = useState("Company");
+  const [newHolidayDesc, setNewHolidayDesc] = useState("");
+  const [newHolidayPaid, setNewHolidayPaid] = useState(true);
+
+  const cycleInfo = getAttendanceCycleForMonth(payrollYear, payrollMonth);
 
   const loadSlips = () => {
     setLoading(true);
     setError("");
-    const query = page > 1 ? `?page=${page}` : "";
-    api<Paginated<SalarySlip> | SalarySlip[]>(`/salary-slips/${query}`)
+    api<Paginated<SalarySlip> | SalarySlip[]>(`/salary-slips/`)
       .then((result) => {
         const list = Array.isArray(result) ? result : (result as any)?.results || [];
-        setData(list);
-        setCount(Array.isArray(result) ? result.length : (result as any)?.count || list.length);
-        setHasNext(Boolean((result as any)?.next));
-        setHasPrevious(Boolean((result as any)?.previous));
+        setSlipsData(list);
       })
       .catch((err) => {
-        setData([]);
-        setCount(0);
-        setHasNext(false);
-        setHasPrevious(false);
+        setSlipsData([]);
         setError(err instanceof Error ? err.message : "Could not load salary slips.");
       })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => {
-    loadSlips();
-  }, [page]);
+  const loadPayrollRecords = () => {
+    api<{ results: any[] }>(`/payroll/?month=${payrollMonth}&year=${payrollYear}`)
+      .then((res) => setPayrollRecords(res.results || []))
+      .catch(() => setPayrollRecords([]));
+  };
+
+  const loadStructures = () => {
+    api<{ results: any[] }>(`/salary-structures/`)
+      .then((res) => setStructures(res.results || []))
+      .catch(() => setStructures([]));
+  };
+
+  const loadHolidays = () => {
+    api<{ results: any[] }>(`/holidays/?year=${payrollYear}`)
+      .then((res) => setHolidays(res.results || []))
+      .catch(() => setHolidays([]));
+  };
 
   useEffect(() => {
+    loadSlips();
     if (!employee) {
-      setEmployeeLoading(true);
       api<Paginated<Employee> | Employee[]>("/employees/")
         .then((result) => {
           const list = Array.isArray(result) ? result : (result as any)?.results || [];
           setEmployeeOptions(list);
-          if (list.length > 0 && !genEmployeeId) {
+          if (list.length > 0) {
             setGenEmployeeId(list[0].id || (list[0] as any)._id);
+            setSelectedEmpForStruct(list[0].id || (list[0] as any)._id);
           }
         })
-        .catch((err) => setEmployeeError(err instanceof Error ? err.message : "Could not load employees."))
-        .finally(() => setEmployeeLoading(false));
+        .catch(() => {});
     }
   }, [employee]);
 
-  async function uploadSlip(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const selectedEmp = formData.get("employee");
-    if (selectedEmp) {
-      formData.set("employee_id", String(selectedEmp));
-    }
-    try {
-      await api("/salary-slips/", {
-        method: "POST",
-        body: formData,
-      });
-      setModal(false);
-      loadSlips();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not upload salary slip.");
-    }
-  }
+  useEffect(() => {
+    if (activeTab === "payroll") loadPayrollRecords();
+    if (activeTab === "structures") loadStructures();
+    if (activeTab === "holidays") loadHolidays();
+  }, [activeTab, payrollMonth, payrollYear]);
 
-  async function generateSlipSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!genEmployeeId) {
-      alert("Please select an employee.");
-      return;
-    }
-    setGenerating(true);
+  // Preview Payroll Calculation
+  const handleCalculatePreview = async (empId: string) => {
+    setPreviewLoading(true);
+    setPayrollError("");
+    setPayrollSuccess("");
     try {
-      await api("/salary-slips/generate/", {
+      const res = await api<any>("/payroll/preview/", {
         method: "POST",
         body: JSON.stringify({
-          employee_id: genEmployeeId,
-          month: genMonth,
-          year: genYear,
-          basic_salary: basicSalary,
-          hra,
-          conveyance,
-          allowances,
-          pf,
-          tax,
-          deductions,
+          employee_id: empId,
+          month: payrollMonth,
+          year: payrollYear,
         }),
       });
-      setGenerateModal(false);
-      loadSlips();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not generate salary slip.");
+      setSelectedPreview(res);
+    } catch (err: any) {
+      setPayrollError(err.message || "Failed to calculate preview.");
+      setSelectedPreview(null);
     } finally {
-      setGenerating(false);
-    }
-  }
-
-  const handleDownload = async (slip: SalarySlip) => {
-    try {
-      const token = typeof window !== "undefined" ? (localStorage.getItem("flumenx_access_token") || localStorage.getItem("access_token") || "") : "";
-      const host = typeof window !== "undefined" ? window.location.hostname : "127.0.0.1";
-      const res = await fetch(`http://${host}:8000/api/salary-slips/${slip.id}/download/`, {
-        credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Failed to download salary slip.");
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const disposition = res.headers.get("content-disposition") || res.headers.get("Content-Disposition");
-      let filename = "";
-      if (disposition && disposition.includes("filename=")) {
-        filename = disposition.split("filename=")[1].replace(/["']/g, "").trim();
-      }
-      if (!filename) {
-        const ext = slip.file && slip.file.toLowerCase().endsWith(".pdf") ? ".pdf" : ".pdf";
-        filename = `SalarySlip_${slip.month}_${slip.year}${ext}`;
-      }
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Download failed.");
+      setPreviewLoading(false);
     }
   };
 
-  const safeData = data || [];
+  // Process Cycle
+  const handleProcessCycle = async () => {
+    setProcessingCycle(true);
+    setPayrollError("");
+    setPayrollSuccess("");
+    try {
+      const res = await api<any>("/payroll/process-cycle/", {
+        method: "POST",
+        body: JSON.stringify({
+          month: payrollMonth,
+          year: payrollYear,
+        }),
+      });
+      setPayrollSuccess(res.message || "Payroll cycle processed successfully.");
+      loadPayrollRecords();
+    } catch (err: any) {
+      setPayrollError(err.message || "Failed to process payroll cycle.");
+    } finally {
+      setProcessingCycle(false);
+    }
+  };
+
+  // Approve Payroll Record
+  const handleApprovePayroll = async (id: string) => {
+    try {
+      await api(`/payroll/${id}/approve/`, { method: "POST" });
+      loadPayrollRecords();
+    } catch (err: any) {
+      alert(err.message || "Failed to approve payroll.");
+    }
+  };
+
+  // Save Salary Structure
+  const handleSaveStructure = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      await api("/salary-structures/", {
+        method: "POST",
+        body: JSON.stringify({
+          employee: selectedEmpForStruct,
+          grossSalary: structGross,
+          basicSalary: structBasic,
+          hra: structHra,
+          conveyance: structConveyance,
+          specialAllowance: structSpecial,
+          pfEnabled: structPfEnabled,
+          esiEnabled: structEsiEnabled,
+          professionalTax: structProfTax,
+          tds: structTds,
+        }),
+      });
+      setStructModal(false);
+      loadStructures();
+    } catch (err: any) {
+      alert(err.message || "Failed to save salary structure.");
+    }
+  };
+
+  // Save Holiday
+  const handleSaveHoliday = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      await api("/holidays/", {
+        method: "POST",
+        body: JSON.stringify({
+          name: newHolidayName,
+          date: newHolidayDate,
+          holiday_type: newHolidayType,
+          description: newHolidayDesc,
+          is_paid: newHolidayPaid,
+        }),
+      });
+      setHolidayModal(false);
+      setNewHolidayName("");
+      loadHolidays();
+    } catch (err: any) {
+      alert(err.message || "Failed to create holiday.");
+    }
+  };
+
+  const handleDeleteHoliday = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this holiday?")) return;
+    try {
+      await api(`/holidays/${id}/`, { method: "DELETE" });
+      loadHolidays();
+    } catch (err: any) {
+      alert(err.message || "Failed to delete holiday.");
+    }
+  };
 
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
-        eyebrow="PAYROLL / DOCUMENTS"
-        title={employee ? "Your payslips." : "Salary slips."}
-        subtitle={employee ? "Private, secure, and ready when you need them." : "Generate dynamic PDF payslips or upload monthly documents."}
+        title={employee ? "My Salary & Payslips" : "Payroll & Salary Management"}
+        subtitle={
+          employee
+            ? "View your attendance-calculated payroll breakdowns and monthly payslips."
+            : "Enterprise Attendance-Based Payroll, India (IST) Timezone, Salary Heads & Holiday Calendar."
+        }
         action={
           !employee ? (
-            <div style={{ display: "flex", gap: "10px" }}>
-              <PrimaryButton onClick={() => setGenerateModal(true)}>
-                <Sparkles size={16} style={{ marginRight: "6px" }} /> Generate Salary Slip
-              </PrimaryButton>
-              <button type="button" className="secondary-button" onClick={() => setModal(true)}>
-                Upload File
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTab("payroll")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                  activeTab === "payroll" ? "bg-primary text-white" : "bg-card hover:bg-muted text-muted-foreground"
+                }`}
+              >
+                <Calculator className="w-4 h-4 inline mr-1.5" />
+                Payroll Engine
+              </button>
+              <button
+                onClick={() => setActiveTab("structures")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                  activeTab === "structures" ? "bg-primary text-white" : "bg-card hover:bg-muted text-muted-foreground"
+                }`}
+              >
+                <Layers className="w-4 h-4 inline mr-1.5" />
+                Salary Structure
+              </button>
+              <button
+                onClick={() => setActiveTab("holidays")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                  activeTab === "holidays" ? "bg-primary text-white" : "bg-card hover:bg-muted text-muted-foreground"
+                }`}
+              >
+                <Calendar className="w-4 h-4 inline mr-1.5" />
+                Holiday Calendar
+              </button>
+              <button
+                onClick={() => setActiveTab("slips")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                  activeTab === "slips" ? "bg-primary text-white" : "bg-card hover:bg-muted text-muted-foreground"
+                }`}
+              >
+                Payslips
               </button>
             </div>
-          ) : undefined
+          ) : null
         }
       />
-      <div className="document-banner">
-        <div>
-          <span>PAYROLL SUMMARY</span>
-          <strong>Active Period</strong>
-          <p>Monthly salary documents generated and ready for secure download.</p>
-        </div>
-        <div className="progress-ring">
-          {safeData.length}
-          <small>SLIPS</small>
-        </div>
-      </div>
-      <Section title={employee ? "Payslip archive" : "Recent uploads & generated slips"} kicker="DOCUMENTS / SECURE">
-        <div className="data-table salary-table">
-          <div className="table-head">
-            {!employee && <span>Employee</span>}
-            <span>Pay period</span>
-            <span>Gross salary</span>
-            <span>Net salary</span>
-            <span>Uploaded / Generated</span>
-            <span />
-          </div>
-          {!loading &&
-            !error &&
-            safeData.map((s) => (
-              <div className="table-row" key={s.id}>
-                {!employee && (
-                  <div className="person-cell">
-                    <Avatar name={s.employee_name || ""} />
-                    <b>{s.employee_name || "Not assigned"}</b>
-                  </div>
-                )}
-                <b>
-                  {monthName(s.month)} {s.year}
-                </b>
-                <span>Rs {Number(s.gross_salary).toLocaleString("en-IN")}</span>
-                <strong>Rs {Number(s.net_salary).toLocaleString("en-IN")}</strong>
-                <span>
-                  {s.uploaded_at
-                    ? new Date(s.uploaded_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
-                    : ""}
-                </span>
-                <button type="button" className="download-button" onClick={() => handleDownload(s)}>
-                  <Download size={17} /> Download PDF
-                </button>
-              </div>
-            ))}
-        </div>
-        {loading && <EmptyState title="Loading salary slips" text="Fetching salary documents." />}
-        {error && <EmptyState title="Could not load salary slips" text={error} />}
-        {!loading && !error && !safeData.length && (
-          <EmptyState title="No salary slips available" text="There are no salary slips to show yet." />
-        )}
-        {!loading && !error && count > 0 && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "16px 20px",
-              borderTop: "1px solid var(--line)",
-            }}
-          >
-            <span className="record-count" style={{ padding: 0 }}>
-              Page {page} of {Math.ceil(count / 20) || 1} ({count} total)
-            </span>
-            <div className="header-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={!hasPrevious || loading}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={!hasNext || loading}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
-      </Section>
 
-      {/* DYNAMIC SALARY SLIP GENERATOR MODAL */}
-      {generateModal && (
-        <Modal title="Generate Official Salary Slip (PDF)" onClose={() => setGenerateModal(false)}>
-          <form className="modal-form" onSubmit={generateSlipSubmit}>
-            <label>
-              Select Employee
+      {/* --- TAB 1: PAYROLL ENGINE --- */}
+      {activeTab === "payroll" && !employee && (
+        <Section title="Attendance-Based Payroll Calculation (Cycle: 25th to 24th)">
+          <div className="bg-card/50 border border-border p-4 rounded-xl space-y-4 mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-muted-foreground">Cycle Month:</label>
+                <select
+                  value={payrollMonth}
+                  onChange={(e) => setPayrollMonth(parseInt(e.target.value, 10))}
+                  className="bg-background border border-border px-3 py-1.5 rounded-lg text-sm"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>
+                      {monthName(m)}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={payrollYear}
+                  onChange={(e) => setPayrollYear(parseInt(e.target.value, 10))}
+                  className="bg-background border border-border px-3 py-1.5 rounded-lg text-sm"
+                >
+                  {[2025, 2026, 2027].map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="text-xs text-primary font-mono bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20">
+                Active Cycle: {cycleInfo.cycleName}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <PrimaryButton onClick={handleProcessCycle} disabled={processingCycle}>
+                  <Sparkles className="w-4 h-4 mr-2 inline" />
+                  {processingCycle ? "Processing..." : "Process Cycle Payroll"}
+                </PrimaryButton>
+              </div>
+            </div>
+
+            {payrollSuccess && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-sm flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" /> {payrollSuccess}
+              </div>
+            )}
+            {payrollError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-sm flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" /> {payrollError}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Preview Calculator */}
+          <div className="bg-card/40 border border-border p-4 rounded-xl mb-6">
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Calculator className="w-4 h-4 text-primary" /> Individual Employee Payroll Preview & Attendance Breakdown
+            </h4>
+            <div className="flex flex-wrap items-center gap-3">
               <select
                 value={genEmployeeId}
                 onChange={(e) => setGenEmployeeId(e.target.value)}
-                disabled={employeeLoading || Boolean(employeeError)}
+                className="bg-background border border-border px-3 py-1.5 rounded-lg text-sm flex-1 min-w-[200px]"
+              >
+                {employeeOptions.map((e) => (
+                  <option key={e.id || (e as any)._id} value={e.id || (e as any)._id}>
+                    {e.name} ({e.employee_code || (e as any).employeeCode}) - {e.department}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => handleCalculatePreview(genEmployeeId)}
+                disabled={previewLoading || !genEmployeeId}
+                className="px-4 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-lg text-sm font-medium transition"
+              >
+                {previewLoading ? "Calculating..." : "Calculate Preview"}
+              </button>
+            </div>
+
+            {selectedPreview && (
+              <div className="mt-4 p-4 bg-background/80 border border-border/80 rounded-xl grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="text-xs text-muted-foreground block">Employee</span>
+                  <span className="font-semibold">{selectedPreview.employee?.name}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Attendance Breakdown</span>
+                  <span className="text-xs font-mono">
+                    Working: {selectedPreview.attendanceCycle?.workingDays} | Holidays: {selectedPreview.attendanceCycle?.companyHolidays} | Lates: {selectedPreview.attendanceCycle?.lateArrivalsCount}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Late Deductions</span>
+                  <span className="text-xs font-mono text-amber-400">
+                    {selectedPreview.attendanceCycle?.lateHalfDayDeductions} Half-Days (every 3 lates)
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Net Calculated Salary</span>
+                  <span className="text-base font-bold text-emerald-400">
+                    ₹{selectedPreview.netSalary?.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Processed Records Table */}
+          <div className="overflow-x-auto border border-border rounded-xl">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-muted/50 border-b border-border text-xs text-muted-foreground font-semibold">
+                <tr>
+                  <th className="p-3">Employee</th>
+                  <th className="p-3">Department</th>
+                  <th className="p-3">Gross</th>
+                  <th className="p-3">Payable Days</th>
+                  <th className="p-3">Attendance LOP</th>
+                  <th className="p-3">PF / ESI / PT</th>
+                  <th className="p-3">Net Pay</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {payrollRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                      No payroll records generated for this cycle yet. Click &quot;Process Cycle Payroll&quot; above.
+                    </td>
+                  </tr>
+                ) : (
+                  payrollRecords.map((r) => (
+                    <tr key={r._id} className="hover:bg-muted/20">
+                      <td className="p-3 font-medium">{r.employee?.name}</td>
+                      <td className="p-3 text-muted-foreground">{r.employee?.department}</td>
+                      <td className="p-3 font-mono">₹{r.grossSalary?.toLocaleString("en-IN")}</td>
+                      <td className="p-3 font-mono">{r.attendanceCycle?.payableDays} / {r.attendanceCycle?.totalCalendarDays}</td>
+                      <td className="p-3 font-mono text-amber-400">₹{r.attendanceDeduction?.toLocaleString("en-IN")}</td>
+                      <td className="p-3 font-mono text-xs text-muted-foreground">
+                        PF: ₹{r.pfEmployee} | PT: ₹{r.professionalTax}
+                      </td>
+                      <td className="p-3 font-bold text-emerald-400 font-mono">
+                        ₹{r.netSalary?.toLocaleString("en-IN")}
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                            r.status === "Approved"
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                              : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                          }`}
+                        >
+                          {r.status}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        {r.status !== "Approved" && (
+                          <button
+                            onClick={() => handleApprovePayroll(r._id)}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium"
+                          >
+                            Approve
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
+
+      {/* --- TAB 2: SALARY STRUCTURES --- */}
+      {activeTab === "structures" && !employee && (
+        <Section title="Employee Salary Structures & Heads">
+          <div className="flex justify-between items-center mb-4">
+            <p className="text-sm text-muted-foreground">
+              Define gross earnings, basic, HRA, PF caps (₹15,000 ceiling), and ESI applicability per employee.
+            </p>
+            <PrimaryButton onClick={() => setStructModal(true)}>
+              <Plus className="w-4 h-4 mr-1.5 inline" /> Configure Structure
+            </PrimaryButton>
+          </div>
+
+          <div className="overflow-x-auto border border-border rounded-xl">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-muted/50 border-b border-border text-xs text-muted-foreground font-semibold">
+                <tr>
+                  <th className="p-3">Employee</th>
+                  <th className="p-3">Department</th>
+                  <th className="p-3">Gross Salary</th>
+                  <th className="p-3">Basic (₹)</th>
+                  <th className="p-3">HRA (₹)</th>
+                  <th className="p-3">PF Status</th>
+                  <th className="p-3">ESI Status</th>
+                  <th className="p-3">Prof. Tax</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {structures.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                      No custom structures configured yet.
+                    </td>
+                  </tr>
+                ) : (
+                  structures.map((s) => (
+                    <tr key={s._id} className="hover:bg-muted/20">
+                      <td className="p-3 font-medium">{s.employee?.name}</td>
+                      <td className="p-3 text-muted-foreground">{s.employee?.department}</td>
+                      <td className="p-3 font-mono font-bold">₹{s.grossSalary?.toLocaleString("en-IN")}</td>
+                      <td className="p-3 font-mono">₹{s.basicSalary?.toLocaleString("en-IN")}</td>
+                      <td className="p-3 font-mono">₹{s.hra?.toLocaleString("en-IN")}</td>
+                      <td className="p-3">
+                        <span className={`text-xs px-2 py-0.5 rounded ${s.pfEnabled ? "bg-emerald-500/10 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                          {s.pfEnabled ? `Enabled (${s.pfEmployeePercent}%)` : "Disabled"}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className={`text-xs px-2 py-0.5 rounded ${s.esiEnabled ? "bg-emerald-500/10 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                          {s.esiEnabled ? `Enabled (${s.esiEmployeePercent}%)` : "Disabled"}
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono">₹{s.professionalTax}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      )}
+
+      {/* --- TAB 3: HOLIDAY CALENDAR --- */}
+      {activeTab === "holidays" && !employee && (
+        <Section title="Company Holiday Calendar (Asia/Kolkata)">
+          <div className="flex justify-between items-center mb-4">
+            <p className="text-sm text-muted-foreground">
+              Official company holidays for year {payrollYear}. Holidays are automatically recognized by the payroll engine and do not incur attendance deductions.
+            </p>
+            <PrimaryButton onClick={() => setHolidayModal(true)}>
+              <Plus className="w-4 h-4 mr-1.5 inline" /> Add Holiday
+            </PrimaryButton>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {holidays.map((h) => (
+              <div key={h.id} className="p-4 bg-card border border-border rounded-xl relative group">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-xs font-mono text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                      {h.date}
+                    </span>
+                    <h4 className="font-semibold text-base mt-2">{h.name}</h4>
+                    <p className="text-xs text-muted-foreground mt-1">{h.description || "Company Paid Holiday"}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteHoliday(h.id)}
+                    className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-300 transition p-1"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* --- TAB 4: PAYSLIPS LIST --- */}
+      {activeTab === "slips" && (
+        <Section title={employee ? "My Payslips" : "Generated Payslips"}>
+          {slipsData.length === 0 ? (
+            <EmptyState
+              title="No salary slips found"
+              text="Generated salary slips will appear here."
+            />
+          ) : (
+            <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
+              {slipsData.map((slip) => (
+                <div key={slip.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={slip.employee_name} />
+                    <div>
+                      <h4 className="font-medium text-sm">{slip.employee_name}</h4>
+                      <p className="text-xs text-muted-foreground">
+                        {monthName(slip.month)} {slip.year} • Net: ₹{Number(slip.net_salary).toLocaleString("en-IN")}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const host = typeof window !== "undefined" ? window.location.hostname : "127.0.0.1";
+                      window.open(`http://${host}:8000/api/salary-slips/${slip.id}/download/`, "_blank");
+                    }}
+                    className="p-2 text-primary hover:bg-primary/10 rounded-lg transition"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Section>
+      )}
+
+      {/* Modal for Salary Structure Configuration */}
+      {structModal && (
+        <Modal onClose={() => setStructModal(false)} title="Configure Salary Structure">
+          <form onSubmit={handleSaveStructure} className="space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Select Employee</label>
+              <select
+                value={selectedEmpForStruct}
+                onChange={(e) => setSelectedEmpForStruct(e.target.value)}
+                className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
                 required
               >
-                <option value="">-- Choose Employee --</option>
                 {employeeOptions.map((e) => (
                   <option key={e.id || (e as any)._id} value={e.id || (e as any)._id}>
-                    {e.name} ({e.employee_code || (e as any).employeeCode || "N/A"}) — {e.department || "General"}
+                    {e.name} ({e.employee_code || (e as any).employeeCode})
                   </option>
                 ))}
               </select>
-              {employeeError && <small>{employeeError}</small>}
-            </label>
-
-            <div className="two-col">
-              <label>
-                Pay Month
-                <select value={genMonth} onChange={(e) => setGenMonth(Number(e.target.value))}>
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <option key={i} value={i + 1}>
-                      {monthName(i + 1)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Pay Year
-                <input
-                  type="number"
-                  value={genYear}
-                  onChange={(e) => setGenYear(Number(e.target.value))}
-                  required
-                />
-              </label>
             </div>
 
-            <div style={{ margin: "10px 0 4px", fontSize: "11px", fontWeight: 800, color: "var(--neon)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              1. EARNINGS BREAKDOWN (INR ₹)
-            </div>
-            <div className="two-col">
-              <label>
-                Basic Salary
-                <input
-                  type="number"
-                  step="any"
-                  value={basicSalary}
-                  onChange={(e) => setBasicSalary(Number(e.target.value))}
-                  required
-                />
-              </label>
-              <label>
-                House Rent Allowance (HRA)
-                <input
-                  type="number"
-                  step="any"
-                  value={hra}
-                  onChange={(e) => setHra(Number(e.target.value))}
-                />
-              </label>
-            </div>
-
-            <div className="two-col">
-              <label>
-                Conveyance Allowance
-                <input
-                  type="number"
-                  step="any"
-                  value={conveyance}
-                  onChange={(e) => setConveyance(Number(e.target.value))}
-                />
-              </label>
-              <label>
-                Special / Performance Allowance
-                <input
-                  type="number"
-                  step="any"
-                  value={allowances}
-                  onChange={(e) => setAllowances(Number(e.target.value))}
-                />
-              </label>
-            </div>
-
-            <div style={{ margin: "12px 0 4px", fontSize: "11px", fontWeight: 800, color: "#E11D48", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              2. DEDUCTIONS BREAKDOWN (INR ₹)
-            </div>
-            <div className="two-col">
-              <label>
-                Provident Fund (PF)
-                <input
-                  type="number"
-                  step="any"
-                  value={pf}
-                  onChange={(e) => setPf(Number(e.target.value))}
-                />
-              </label>
-              <label>
-                Income Tax / TDS
-                <input
-                  type="number"
-                  step="any"
-                  value={tax}
-                  onChange={(e) => setTax(Number(e.target.value))}
-                />
-              </label>
-            </div>
-
-            <label>
-              Other Deductions
-              <input
-                type="number"
-                step="any"
-                value={deductions}
-                onChange={(e) => setDeductions(Number(e.target.value))}
-              />
-            </label>
-
-            {/* LIVE COMPUTATION PREVIEW CARD */}
-            <div
-              style={{
-                background: "var(--panel2)",
-                border: "1px solid var(--border)",
-                borderRadius: "12px",
-                padding: "14px 16px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                margin: "10px 0 6px",
-              }}
-            >
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <div style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 700 }}>GROSS EARNINGS</div>
-                <div style={{ fontSize: "15px", fontWeight: 800, color: "var(--text)" }}>Rs {grossCalc.toLocaleString("en-IN")}</div>
+                <label className="text-xs text-muted-foreground block mb-1">Monthly Gross (₹)</label>
+                <input
+                  type="number"
+                  value={structGross}
+                  onChange={(e) => setStructGross(Number(e.target.value))}
+                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
+                  required
+                />
               </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 700 }}>NET PAYABLE SALARY</div>
-                <div style={{ fontSize: "18px", fontWeight: 900, color: "var(--neon)" }}>Rs {netCalc.toLocaleString("en-IN")}</div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Basic Salary (₹)</label>
+                <input
+                  type="number"
+                  value={structBasic}
+                  onChange={(e) => setStructBasic(Number(e.target.value))}
+                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
+                  required
+                />
               </div>
             </div>
 
-            <PrimaryButton type="submit" disabled={generating}>
-              {generating ? "Generating PDF Payslip..." : "Generate & Save PDF Salary Slip"}
-            </PrimaryButton>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">HRA (₹)</label>
+                <input
+                  type="number"
+                  value={structHra}
+                  onChange={(e) => setStructHra(Number(e.target.value))}
+                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Conveyance (₹)</label>
+                <input
+                  type="number"
+                  value={structConveyance}
+                  onChange={(e) => setStructConveyance(Number(e.target.value))}
+                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Special (₹)</label>
+                <input
+                  type="number"
+                  value={structSpecial}
+                  onChange={(e) => setStructSpecial(Number(e.target.value))}
+                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-2 border-t border-border">
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={structPfEnabled}
+                  onChange={(e) => setStructPfEnabled(e.target.checked)}
+                  className="rounded"
+                />
+                PF Enabled (12% capped at ₹15k)
+              </label>
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={structEsiEnabled}
+                  onChange={(e) => setStructEsiEnabled(e.target.checked)}
+                  className="rounded"
+                />
+                ESI Enabled (0.75%)
+              </label>
+            </div>
+
+            <div className="pt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setStructModal(false)}
+                className="px-4 py-2 text-sm text-muted-foreground"
+              >
+                Cancel
+              </button>
+              <PrimaryButton type="submit">Save Structure</PrimaryButton>
+            </div>
           </form>
         </Modal>
       )}
 
-      {/* UPLOAD EXISTING SALARY SLIP MODAL */}
-      {modal && (
-        <Modal title="Upload salary slip file" onClose={() => setModal(false)}>
-          <form className="modal-form" onSubmit={uploadSlip}>
-            <label>
-              Employee
-              <select name="employee" disabled={employeeLoading || Boolean(employeeError)}>
-                {employeeOptions.map((e) => (
-                  <option key={e.id || (e as any)._id} value={e.id || (e as any)._id}>
-                    {e.name}
-                  </option>
-                ))}
-              </select>
-              {employeeError && <small>{employeeError}</small>}
-            </label>
-            <div className="two-col">
-              <label>
-                Month
-                <select name="month" defaultValue={new Date().getMonth() + 1}>
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <option key={i} value={i + 1}>
-                      {monthName(i + 1)}
-                    </option>
-                  ))}
+      {/* Modal for Holiday Creation */}
+      {holidayModal && (
+        <Modal onClose={() => setHolidayModal(false)} title="Add Company Holiday">
+          <form onSubmit={handleSaveHoliday} className="space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Holiday Name</label>
+              <input
+                type="text"
+                value={newHolidayName}
+                onChange={(e) => setNewHolidayName(e.target.value)}
+                className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
+                placeholder="e.g. Independence Day"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Holiday Date (YYYY-MM-DD)</label>
+                <input
+                  type="date"
+                  value={newHolidayDate}
+                  onChange={(e) => setNewHolidayDate(e.target.value)}
+                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Holiday Type</label>
+                <select
+                  value={newHolidayType}
+                  onChange={(e) => setNewHolidayType(e.target.value)}
+                  className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
+                >
+                  <option value="Company">Company Holiday</option>
+                  <option value="Public">Public / National Holiday</option>
+                  <option value="Restricted">Restricted Holiday</option>
                 </select>
-              </label>
-              <label>
-                Year
-                <input name="year" type="number" defaultValue={new Date().getFullYear()} required />
-              </label>
+              </div>
             </div>
-            <div className="two-col">
-              <label>
-                Gross salary
-                <input name="gross_salary" type="number" step=".01" required />
-              </label>
-              <label>
-                Net salary
-                <input name="net_salary" type="number" step=".01" required />
-              </label>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Description (Optional)</label>
+              <input
+                type="text"
+                value={newHolidayDesc}
+                onChange={(e) => setNewHolidayDesc(e.target.value)}
+                className="w-full bg-background border border-border px-3 py-2 rounded-lg text-sm"
+                placeholder="e.g. National Holiday celebration"
+              />
             </div>
-            <label className="file-drop">
-              <FileUp />
-              <b>Choose PDF payslip</b>
-              <span>Maximum file size 10 MB</span>
-              <input name="file" type="file" accept=".pdf" />
-            </label>
-            <PrimaryButton type="submit">Upload document</PrimaryButton>
+            <div className="pt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setHolidayModal(false)}
+                className="px-4 py-2 text-sm text-muted-foreground"
+              >
+                Cancel
+              </button>
+              <PrimaryButton type="submit">Create Holiday</PrimaryButton>
+            </div>
           </form>
         </Modal>
       )}
-    </>
+    </div>
   );
 }

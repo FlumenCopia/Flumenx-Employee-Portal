@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
+import mongoose from 'mongoose';
 import { Employee } from '../models/Employee.js';
 import { Department } from '../models/Department.js';
 import { User } from '../models/User.js';
@@ -231,6 +232,14 @@ export async function deleteEmployee(req: Request, res: Response): Promise<void>
     res.status(404).json({ detail: 'Employee not found.' });
     return;
   }
+
+  // Deactivate linked User account to prevent ghost logins and orphaned credentials
+  if (employee.user) {
+    await User.findByIdAndUpdate(employee.user, { isActive: false });
+  } else if (employee.email) {
+    await User.findOneAndUpdate({ email: employee.email }, { isActive: false });
+  }
+
   res.status(204).send();
 }
 
@@ -239,32 +248,41 @@ export async function deleteEmployee(req: Request, res: Response): Promise<void>
 // ------------------------------------------------------------------
 
 export async function getEmployeeDocuments(req: Request, res: Response): Promise<void> {
-  const employeeId = req.params.id;
+  try {
+    const employeeId = req.params.id;
 
-  // IDOR Protection: Non-HR/Admin users can only view their own employee documents
-  if (req.user && ['EMPLOYEE', 'TEAM_LEAD', 'BDE', 'OPERATIONS'].includes(req.user.role) && !req.user.isSuperuser) {
-    const ownEmployee = await Employee.findOne({ user: req.user._id });
-    if (!ownEmployee || ownEmployee._id.toString() !== String(employeeId)) {
-      res.status(403).json({ detail: 'You are not authorized to view documents for another employee.' });
+    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
+      res.status(400).json({ detail: 'Invalid employee ID format.' });
       return;
     }
+
+    // IDOR Protection: Non-HR/Admin users can only view their own employee documents
+    if (req.user && ['EMPLOYEE', 'TEAM_LEAD', 'BDE', 'OPERATIONS'].includes(req.user.role) && !req.user.isSuperuser) {
+      const ownEmployee = await Employee.findOne({ user: req.user._id });
+      if (!ownEmployee || ownEmployee._id.toString() !== String(employeeId)) {
+        res.status(403).json({ detail: 'You are not authorized to view documents for another employee.' });
+        return;
+      }
+    }
+
+    const docs = await EmployeeDocument.find({ employee: employeeId }).sort({ createdAt: -1 });
+
+    const formatted = docs.map((d) => ({
+      id: d._id,
+      employee_id: d.employee,
+      title: d.title,
+      document_type: d.documentType,
+      file_name: d.fileName,
+      file_url: d.fileUrl,
+      file_type: d.fileType,
+      file_size: d.fileSize,
+      created_at: d.createdAt.toISOString(),
+    }));
+
+    res.json(formatted);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
-
-  const docs = await EmployeeDocument.find({ employee: employeeId }).sort({ createdAt: -1 });
-
-  const formatted = docs.map((d) => ({
-    id: d._id,
-    employee_id: d.employee,
-    title: d.title,
-    document_type: d.documentType,
-    file_name: d.fileName,
-    file_url: d.fileUrl,
-    file_type: d.fileType,
-    file_size: d.fileSize,
-    created_at: d.createdAt.toISOString(),
-  }));
-
-  res.json(formatted);
 }
 
 export async function uploadEmployeeDocument(req: Request, res: Response): Promise<void> {

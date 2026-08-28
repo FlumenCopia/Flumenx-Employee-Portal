@@ -7,16 +7,16 @@ const STATUS_WEIGHT_MAP: Record<string, number> = {
   'In Progress': 0.25,
   Ongoing: 0.25,
   'In Review': 0.5,
-  'Changes Requested': 0.5,
+  'Changes Requested': 0.25,
   Rejected: 0.0,
-  Approved: 0.75,
+  Approved: 1.0,
   Completed: 1.0,
   Published: 1.0,
   Blocked: 0.0,
 };
 
 export function syncQuantityState(assignment: IWorkAssignment): void {
-  const completedStatuses = ['Completed', 'Published'];
+  const completedStatuses = ['Completed', 'Published', 'Approved'];
   const weight = STATUS_WEIGHT_MAP[assignment.status] ?? 0.0;
 
   if (assignment.assignedQuantity && assignment.assignedQuantity > 0) {
@@ -116,20 +116,33 @@ export async function syncParentTaskProgression(childAssignment: IWorkAssignment
   const childTasks = await WorkAssignment.find({ parentTask: parentId });
 
   let sumCompletedQty = 0;
+  let totalChildAssignedQty = 0;
+
   for (const child of childTasks) {
     sumCompletedQty += child.completedQuantity || 0;
+    totalChildAssignedQty += child.assignedQuantity || 1;
   }
 
-  parentTask.completedQuantity = sumCompletedQty;
+  parentTask.completedQuantity = Math.min(parentTask.assignedQuantity || totalChildAssignedQty || 1, sumCompletedQty);
+
   if (parentTask.assignedQuantity && parentTask.assignedQuantity > 0) {
-    parentTask.progress = Math.min(100, Math.round((sumCompletedQty / parentTask.assignedQuantity) * 100));
+    parentTask.progress = Math.min(100, Math.round((parentTask.completedQuantity / parentTask.assignedQuantity) * 100));
+  } else if (totalChildAssignedQty > 0) {
+    parentTask.progress = Math.min(100, Math.round((sumCompletedQty / totalChildAssignedQty) * 100));
   }
 
-  if (parentTask.assignedQuantity && parentTask.completedQuantity >= parentTask.assignedQuantity) {
-    parentTask.status = 'Completed';
+  const allChildCompleted = childTasks.length > 0 && childTasks.every((c) => ['Completed', 'Approved', 'Published'].includes(c.status));
+  const anyChildInProgress = childTasks.some((c) => ['In Progress', 'In Review', 'Ongoing', 'Changes Requested'].includes(c.status));
+
+  if (allChildCompleted || (parentTask.assignedQuantity && parentTask.completedQuantity >= parentTask.assignedQuantity)) {
+    if (!['Completed', 'Published'].includes(parentTask.status)) {
+      parentTask.status = 'Completed';
+    }
     if (!parentTask.completedAt) parentTask.completedAt = new Date();
-  } else if (sumCompletedQty > 0 && parentTask.status === 'Assigned') {
-    parentTask.status = 'In Progress';
+  } else if (anyChildInProgress || sumCompletedQty > 0) {
+    if (['Assigned', 'Backlog', 'Pending'].includes(parentTask.status)) {
+      parentTask.status = 'In Progress';
+    }
   }
 
   await parentTask.save();

@@ -70,7 +70,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
     try {
       const [clientRes, assignRes] = await Promise.all([
         api<Client[] | { results: Client[] }>("/clients/"),
-        api<WorkAssignment[] | { results: WorkAssignment[] }>("/work-assignments/"),
+        api<WorkAssignment[] | { results: WorkAssignment[] }>("/work-assignments/?is_master_client_task=true"),
       ]);
 
       const clientList = Array.isArray(clientRes) ? clientRes : clientRes?.results || [];
@@ -338,7 +338,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
             No clients found. Click <b>+ Add New Client</b> to create your first client record.
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "1.25rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.25rem" }}>
             {filteredClients.map((client) => {
               const kpi = kpiHealthMap[String(client.id)];
               const badgeStyle = getHealthBadgeStyle(kpi?.healthStatus);
@@ -425,25 +425,29 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                               {/* Render Deliverable Items / To-Do Checklists */}
                               {mt.deliverables && mt.deliverables.length > 0 && (
                                 <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "6px", paddingTop: "6px", borderTop: "1px dashed #e2e8f0" }}>
-                                  {mt.deliverables.map((del) => (
-                                    <div
-                                      key={del.id}
-                                      onClick={() => handleToggleDeliverable(mt, String(del.id), del.delivered || 0)}
-                                      style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "6px",
-                                        fontSize: "0.75rem",
-                                        color: (del.delivered || 0) > 0 ? "#16a34a" : "#475569",
-                                        cursor: "pointer",
-                                        userSelect: "none",
-                                        textDecoration: (del.delivered || 0) > 0 ? "line-through" : "none",
-                                      }}
-                                    >
-                                      {(del.delivered || 0) > 0 ? <CheckSquare size={13} style={{ color: "#16a34a" }} /> : <Square size={13} style={{ color: "#94a3b8" }} />}
-                                      <span>{del.name || del.title}</span>
-                                    </div>
-                                  ))}
+                                  {mt.deliverables.map((del) => {
+                                    const delId = String(del.id || (del as any)._id || "");
+                                    const isDone = (del.delivered || 0) > 0 || del.status === "Completed" || del.status === "Published";
+                                    return (
+                                      <div
+                                        key={delId}
+                                        onClick={() => handleToggleDeliverable(mt, delId, isDone ? 1 : 0)}
+                                        style={{
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: "6px",
+                                          fontSize: "0.75rem",
+                                          color: isDone ? "#16a34a" : "#475569",
+                                          cursor: "pointer",
+                                          userSelect: "none",
+                                          textDecoration: isDone ? "line-through" : "none",
+                                        }}
+                                      >
+                                        {isDone ? <CheckSquare size={13} style={{ color: "#16a34a" }} /> : <Square size={13} style={{ color: "#94a3b8" }} />}
+                                        <span>{del.name || del.title}</span>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
@@ -636,7 +640,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
 
               {/* Mode A: Progressive Count inputs */}
               {taskMode === "QUANTITY" && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div className="form-row-2">
                   <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
                     CONTRACTED QUANTITY *
                     <input

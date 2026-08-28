@@ -193,9 +193,11 @@ export function requirePermission(moduleCode: string, action: PermissionAction =
           });
 
           if (targetPage) {
-            const permissionEntry = dynamicRole.permissions.find(
-              (p) => p.page && p.page.toString() === targetPage._id.toString()
-            );
+            const permissionEntry = dynamicRole.permissions.find((p) => {
+              if (!p.page) return false;
+              const pageIdStr = (p.page as any)._id ? (p.page as any)._id.toString() : p.page.toString();
+              return pageIdStr === targetPage._id.toString();
+            });
 
             if (permissionEntry && permissionEntry[action]) {
               return next();

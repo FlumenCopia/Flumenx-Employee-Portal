@@ -10,7 +10,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   const usernameOrEmail = req.body.username || req.body.email;
   const password = req.body.password;
 
-  if (!usernameOrEmail || !password) {
+  if (!usernameOrEmail || !password || typeof usernameOrEmail !== 'string' || typeof password !== 'string') {
     res.status(400).json({ detail: 'Username and password are required.' });
     return;
   }
@@ -102,11 +102,24 @@ export async function register(req: Request, res: Response): Promise<void> {
   const password = req.body.password;
   const first_name = req.body.first_name;
   const last_name = req.body.last_name;
-  const role = req.body.role;
+  const requestedRole = req.body.role;
 
   if (!username || !email || !password) {
     res.status(400).json({ detail: 'Username, email, and password are required.' });
     return;
+  }
+
+  // Security Check (DEF-001): Prevent privilege escalation via public registration.
+  // Only an authenticated SUPER_ADMIN can assign privileged roles via registration.
+  const isCallerSuperAdmin = req.user && (req.user.role === 'SUPER_ADMIN' || req.user.isSuperuser);
+  let assignedRole = 'EMPLOYEE';
+
+  if (requestedRole && requestedRole !== 'EMPLOYEE') {
+    if (!isCallerSuperAdmin) {
+      res.status(400).json({ detail: 'Privileged role assignment is not permitted via public registration.' });
+      return;
+    }
+    assignedRole = requestedRole;
   }
 
   const existingUser = await User.findOne({
@@ -124,7 +137,7 @@ export async function register(req: Request, res: Response): Promise<void> {
     password,
     firstName: first_name || '',
     lastName: last_name || '',
-    role: role || 'EMPLOYEE',
+    role: assignedRole,
   });
 
   await newUser.save();

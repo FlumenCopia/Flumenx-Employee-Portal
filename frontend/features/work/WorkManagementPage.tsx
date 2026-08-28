@@ -168,6 +168,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
   const [employees, setEmployees] = useState<WorkEmployeeOption[]>([]);
   const [reviewers, setReviewers] = useState<WorkReviewerOption[]>([]);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
+  const [masterClientTasks, setMasterClientTasks] = useState<WorkAssignment[]>([]);
   const [filters, setFilters] = useState<WorkFilters>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
   const [tasksToAssign, setTasksToAssign] = useState<TaskRowState[]>([defaultTaskRow()]);
@@ -197,6 +198,31 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
   const [editing, setEditing] = useState<WorkAssignment | null>(null);
   const [form, setForm] = useState<WorkFormState>(defaultForm);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const availableMasterTasks = useMemo(() => {
+    const allMastersMap = new Map<string, WorkAssignment>();
+
+    masterClientTasks.forEach((t) => {
+      if (t.is_master_client_task) {
+        allMastersMap.set(String(t.id), t);
+      }
+    });
+
+    items.forEach((t) => {
+      if (t.is_master_client_task) {
+        allMastersMap.set(String(t.id), t);
+      }
+    });
+
+    const list = Array.from(allMastersMap.values());
+
+    return list.filter((t) => {
+      if (!t.is_master_client_task) return false;
+      if (editing && String(t.id) === String(editing.id)) return false;
+      if (form.client && String(t.client) !== String(form.client)) return false;
+      return true;
+    });
+  }, [masterClientTasks, items, editing, form.client]);
   const [submitting, setSubmitting] = useState(false);
   const [deliverablePanelOpen, setDeliverablePanelOpen] = useState(false);
   const [deliverableEditingIndex, setDeliverableEditingIndex] = useState<number | null>(null);
@@ -308,11 +334,12 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     setOptionsLoading(true);
     setOptionsError("");
     try {
-      const [clientData, employeeData, reviewerData, deptData] = await Promise.all([
+      const [clientData, employeeData, reviewerData, deptData, masterTaskData] = await Promise.all([
         api<Paginated<Client>>("/clients/", { signal: controller.signal }),
         api<WorkEmployeeOption[]>("/work-employee-options/", { signal: controller.signal }),
         api<WorkReviewerOption[]>("/work-reviewer-options/", { signal: controller.signal }),
         api<DepartmentItem[] | { results: DepartmentItem[] }>("/portal/departments/", { signal: controller.signal }).catch(() => []),
+        api<Paginated<WorkAssignment> | WorkAssignment[]>("/work-assignments/?is_master_client_task=true", { signal: controller.signal }).catch(() => ({ results: [] })),
       ]);
       if (controller.signal.aborted) return;
       setClients(clientData.results);
@@ -320,6 +347,8 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
       setReviewers(reviewerData);
       const deptList = Array.isArray(deptData) ? deptData : (deptData as any)?.results || [];
       setDepartments(deptList);
+      const masterList = Array.isArray(masterTaskData) ? masterTaskData : (masterTaskData as any)?.results || [];
+      setMasterClientTasks(masterList);
     } catch (err) {
       if (!controller.signal.aborted) setOptionsError(apiError(err, "Could not load form options."));
     } finally {
@@ -979,7 +1008,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
               </label>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div className="form-row-2">
               <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
                 ASSIGN TO *
                 <select
@@ -1012,7 +1041,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
               </label>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <div className="form-row-2" style={{ background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
               <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
                 PARENT CLIENT GOAL / MASTER TASK
                 <select
@@ -1021,7 +1050,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
                   className="fs"
                 >
                   <option value="">None (Independent Task)</option>
-                  {items.filter(t => !editing || String(t.id) !== String(editing.id)).map(t => (
+                  {availableMasterTasks.map(t => (
                     <option key={t.id} value={String(t.id)}>
                       {t.title} ({t.client_name || "Client"}) [{t.completed_quantity}/{t.assigned_quantity} {t.unit}]
                     </option>
@@ -1040,7 +1069,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
               </label>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div className="form-row-2">
               <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
                 DUE DATE *
                 <input
@@ -1069,7 +1098,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
         ) : (
           <>
             {/* BULK NEW TASK CREATION FORM */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div className="form-row-2">
               <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
                 CLIENT / ACCOUNT *
                 <select
@@ -1143,7 +1172,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
               </div>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+            <div className="form-row-3">
               <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
                 ASSIGN TO *
                 <select
@@ -1194,7 +1223,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
               </label>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+            <div className="form-row-2" style={{ background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
               <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
                 PARENT CLIENT GOAL / MASTER TASK
                 <select
@@ -1203,7 +1232,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
                   className="fs"
                 >
                   <option value="">None (Independent Task)</option>
-                  {items.map(t => (
+                  {availableMasterTasks.map(t => (
                     <option key={t.id} value={String(t.id)}>
                       {t.title} ({t.client_name || "Client"}) [{t.completed_quantity}/{t.assigned_quantity} {t.unit}]
                     </option>
@@ -1237,16 +1266,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
                 {tasksToAssign.map((taskRow, idx) => (
                   <div
                     key={taskRow.id}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "auto 2fr 75px 110px 130px auto",
-                      gap: "8px",
-                      alignItems: "center",
-                      background: "var(--card2)",
-                      padding: "8px 12px",
-                      borderRadius: "var(--r-sm)",
-                      border: "1px solid var(--border)",
-                    }}
+                    className="task-assign-row"
                   >
                     <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", minWidth: "18px" }}>
                       #{idx + 1}

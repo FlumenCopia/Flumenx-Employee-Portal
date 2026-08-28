@@ -6,6 +6,8 @@ import attendanceRoutes from './attendanceRoutes.js';
 import kpiRoutes from './kpiRoutes.js';
 import portalRoutes from './portalRoutes.js';
 import otherRoutes from './otherRoutes.js';
+import holidayRoutes from './holidayRoutes.js';
+import payrollRoutes from './payrollRoutes.js';
 
 const router = Router();
 
@@ -15,6 +17,8 @@ router.use('/', workRoutes);
 router.use('/', attendanceRoutes);
 router.use('/', kpiRoutes);
 router.use('/', portalRoutes);
+router.use('/', holidayRoutes);
+router.use('/', payrollRoutes);
 router.use('/', otherRoutes);
 
 export default router;

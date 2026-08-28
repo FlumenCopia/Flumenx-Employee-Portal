@@ -203,15 +203,25 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 
 export async function apiBlob(path: string, options: RequestInit = {}) {
   const normalizedPath = normalizeApiPath(path);
-  const headers: HeadersInit = { ...options.headers };
-  let response = await fetch(`${API_URL}${normalizedPath}`, { ...options, credentials: "include", headers });
+  const token = typeof window !== "undefined" ? (localStorage.getItem("flumenx_access_token") || localStorage.getItem("access_token") || "") : "";
+  const getHeaders = (): Record<string, string> => ({
+    ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+    ...((options.headers as Record<string, string>) || {}),
+  });
+
+  let response = await fetch(`${API_URL}${normalizedPath}`, { ...options, credentials: "include", headers: getHeaders() });
   const isLoginPage = typeof window !== "undefined" && window.location.pathname === "/login";
   const shouldSkipRefresh = isLoginPage && normalizedPath === "/auth/me/";
 
   if (response.status === 401 && !shouldSkipRefresh && normalizedPath !== "/auth/refresh/" && normalizedPath !== "/auth/login/" && normalizedPath !== "/auth/csrf/") {
     const refreshed = await refreshAuth();
     if (refreshed) {
-      response = await fetch(`${API_URL}${normalizedPath}`, { ...options, credentials: "include", headers });
+      const newToken = typeof window !== "undefined" ? (localStorage.getItem("flumenx_access_token") || localStorage.getItem("access_token") || "") : "";
+      const newHeaders = {
+        ...(newToken ? { "Authorization": `Bearer ${newToken}` } : {}),
+        ...((options.headers as Record<string, string>) || {}),
+      };
+      response = await fetch(`${API_URL}${normalizedPath}`, { ...options, credentials: "include", headers: newHeaders });
     } else {
       redirectToLoginAfterRefreshFailure();
     }

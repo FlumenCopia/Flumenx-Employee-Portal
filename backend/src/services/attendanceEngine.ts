@@ -1,5 +1,6 @@
 import { IAttendancePolicy } from '../models/AttendancePolicy.js';
 import { IAttendanceRecord } from '../models/AttendanceRecord.js';
+import { timeStringToMinutes } from '../utils/tzUtils.js';
 
 export function calculateHaversineDistanceMeters(
   lat1: number,
@@ -20,12 +21,6 @@ export function calculateHaversineDistanceMeters(
   return Math.round(R * c);
 }
 
-function timeStringToMinutes(timeStr?: string | null): number {
-  if (!timeStr) return 0;
-  const parts = timeStr.split(':').map((p) => parseInt(p, 10));
-  return (parts[0] || 0) * 60 + (parts[1] || 0);
-}
-
 export function calculateAttendanceRecordState(
   record: IAttendanceRecord,
   policy: IAttendancePolicy
@@ -40,17 +35,21 @@ export function calculateAttendanceRecordState(
     return;
   }
 
-  const start = timeStringToMinutes(policy.officeStartTime);
-  const graceEnd = start + policy.gracePeriodMinutes;
-  const end = timeStringToMinutes(policy.officeEndTime);
+  const start = timeStringToMinutes(policy.officeStartTime || '09:30');
+  const graceEnd = start + (policy.gracePeriodMinutes ?? 5); // 09:35 AM IST
+  const end = timeStringToMinutes(policy.officeEndTime || '18:30');
   const earlyCutoff = timeStringToMinutes(policy.earlyCheckoutHalfDayCutoff || '18:00');
+  const noonCutoff = timeStringToMinutes('12:00'); // 12:00 PM IST noon cutoff
+
+  let isNoonArrival = false;
 
   if (record.checkInTime) {
     const checkIn = timeStringToMinutes(record.checkInTime);
     record.isLate = checkIn > graceEnd;
-    record.lateMinutes = Math.max(0, checkIn - graceEnd);
+    record.lateMinutes = record.isLate ? Math.max(0, checkIn - start) : 0;
+    isNoonArrival = checkIn >= noonCutoff;
 
-    if (checkIn < start) {
+    if (checkIn <= start) {
       record.checkInStatus = 'On Time';
     } else if (checkIn <= graceEnd) {
       record.checkInStatus = 'Grace Period';
@@ -74,10 +73,14 @@ export function calculateAttendanceRecordState(
   }
 
   if (record.checkInTime) {
-    if (record.checkOutTime && record.workingHours < policy.halfDayHours) {
+    if (isNoonArrival) {
       record.attendanceStatus = 'Half Day';
-    } else if (record.isLate || isEarlyCheckoutHalfDay) {
+    } else if (record.checkOutTime && record.workingHours < (policy.halfDayHours || 4)) {
       record.attendanceStatus = 'Half Day';
+    } else if (isEarlyCheckoutHalfDay) {
+      record.attendanceStatus = 'Half Day';
+    } else if (record.isEarlyExit && record.isLate) {
+      record.attendanceStatus = 'Present (Late + Early Exit)';
     } else if (record.isEarlyExit) {
       record.attendanceStatus = 'Present (Early Exit)';
     } else {
