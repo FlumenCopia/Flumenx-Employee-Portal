@@ -91,6 +91,22 @@ export async function getEmployeeById(req: Request, res: Response): Promise<void
     return;
   }
 
+  // Fetch Salary Structure
+  const { EmployeeSalaryStructure } = await import('../models/EmployeeSalaryStructure.js');
+  const structure = await EmployeeSalaryStructure.findOne({ employee: employee._id, isActive: true });
+
+  // Fetch Leave Balances
+  const { LeaveLedger } = await import('../models/LeaveLedger.js');
+  const ledgers = await LeaveLedger.find({ employee: employee._id });
+  let sickBalance = 0;
+  let casualBalance = 0;
+  for (const l of ledgers) {
+    const qty = l.quantity || 0;
+    const mult = ['OpeningBalance', 'MonthlyAccrual', 'Reversal', 'Credit'].includes(l.transactionType) ? 1 : -1;
+    if (l.leaveType === 'Sick') sickBalance += qty * mult;
+    if (l.leaveType === 'Casual') casualBalance += qty * mult;
+  }
+
   res.json({
     id: employee._id,
     employee_code: employee.employeeCode,
@@ -101,8 +117,36 @@ export async function getEmployeeById(req: Request, res: Response): Promise<void
     designation: employee.designation,
     joining_date: employee.joiningDate ? employee.joiningDate.toISOString().split('T')[0] : '',
     status: employee.status,
-    location: employee.location,
-    avatar: employee.avatar,
+    employment_status: employee.employmentStatus || 'Permanent',
+    probation_start_date: employee.probationStartDate ? employee.probationStartDate.toISOString().split('T')[0] : null,
+    probation_end_date: employee.probationEndDate ? employee.probationEndDate.toISOString().split('T')[0] : null,
+    confirmation_date: employee.confirmationDate ? employee.confirmationDate.toISOString().split('T')[0] : null,
+    exit_date: employee.exitDate ? employee.exitDate.toISOString().split('T')[0] : null,
+    location: employee.location || 'HQ Office',
+    avatar: employee.avatar || '',
+    team_lead: employee.teamLead ? { id: (employee.teamLead as any)._id, name: (employee.teamLead as any).name, code: (employee.teamLead as any).employeeCode } : null,
+    user: employee.user ? { id: (employee.user as any)._id, username: (employee.user as any).username, role: (employee.user as any).role } : null,
+    salary_structure: structure ? {
+      id: structure._id,
+      gross_salary: structure.grossSalary,
+      basic_salary: structure.basicSalary,
+      hra: structure.hra,
+      conveyance: structure.conveyance,
+      special_allowance: structure.specialAllowance,
+      other_allowances: structure.otherAllowances,
+      pf_applicable: structure.pfApplicable !== undefined ? structure.pfApplicable : structure.pfEnabled,
+      voluntary_pf: Boolean(structure.voluntaryPfAboveCeiling),
+      esi_applicable: structure.esiApplicable !== undefined ? structure.esiApplicable : structure.esiEnabled,
+      professional_tax_applicable: structure.professionalTaxApplicable !== undefined ? structure.professionalTaxApplicable : true,
+      professional_tax: structure.professionalTax || 200,
+      tds_applicable: Boolean(structure.tdsApplicable),
+      tds: structure.tds || 0,
+      salary_history: structure.salaryHistory || [],
+    } : null,
+    leave_balances: {
+      sick: Math.max(0, sickBalance),
+      casual: Math.max(0, casualBalance),
+    },
   });
 }
 

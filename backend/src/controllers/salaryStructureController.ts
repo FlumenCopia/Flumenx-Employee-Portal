@@ -212,7 +212,7 @@ export async function getSalaryStructures(req: Request, res: Response): Promise<
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
   const isAccountantOrHR = ['ADMIN', 'HR', 'ACCOUNTANT'].includes(req.user?.role || '');
 
-  const employeeFilter: any = { isActive: true };
+  const employeeFilter: any = { status: { $ne: 'Inactive' } };
   if (department && isAccountantOrHR) {
     employeeFilter.department = department;
   }

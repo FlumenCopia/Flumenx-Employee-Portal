@@ -509,6 +509,29 @@ async function seed() {
   }
   console.log(`[Seed] ✅ Seeded ${holidaysData.length} Company Holidays.`);
 
+  // 6.1 Seed Standard Salary Heads
+  const standardHeads = [
+    { name: 'Basic Salary', code: 'BASIC', type: 'Earning', calculationType: 'Fixed', taxable: true, pfEligible: true, esiEligible: true, includedInGross: true, includedInNet: true, displayOrder: 1, description: 'Core basic pay component' },
+    { name: 'House Rent Allowance', code: 'HRA', type: 'Earning', calculationType: 'Percentage', percentage: 50, percentageBaseHead: 'BASIC', taxable: true, pfEligible: false, esiEligible: true, includedInGross: true, includedInNet: true, displayOrder: 2, description: '50% of Basic Pay' },
+    { name: 'Conveyance Allowance', code: 'CONVEYANCE', type: 'Earning', calculationType: 'Fixed', defaultAmount: 2000, taxable: true, pfEligible: false, esiEligible: true, includedInGross: true, includedInNet: true, displayOrder: 3, description: 'Standard commute allowance' },
+    { name: 'Special Allowance', code: 'SPECIAL', type: 'Earning', calculationType: 'Fixed', defaultAmount: 5000, taxable: true, pfEligible: false, esiEligible: true, includedInGross: true, includedInNet: true, displayOrder: 4, description: 'Performance and special allowance' },
+    { name: 'Provident Fund (Employee)', code: 'PF_EMP', type: 'Deduction', calculationType: 'Percentage', percentage: 12, percentageBaseHead: 'BASIC', isStatutory: true, taxable: false, pfEligible: false, esiEligible: false, includedInGross: false, includedInNet: true, displayOrder: 5, description: '12% statutory employee PF' },
+    { name: 'ESI (Employee)', code: 'ESI_EMP', type: 'Deduction', calculationType: 'Percentage', percentage: 0.75, percentageBaseHead: 'GROSS', isStatutory: true, taxable: false, pfEligible: false, esiEligible: false, includedInGross: false, includedInNet: true, displayOrder: 6, description: '0.75% statutory employee ESI' },
+    { name: 'Professional Tax', code: 'PT', type: 'Deduction', calculationType: 'Fixed', defaultAmount: 200, isStatutory: true, taxable: false, pfEligible: false, esiEligible: false, includedInGross: false, includedInNet: true, displayOrder: 7, description: 'State Professional Tax' },
+    { name: 'Tax Deducted at Source', code: 'TDS', type: 'Deduction', calculationType: 'Fixed', defaultAmount: 0, isStatutory: true, taxable: false, pfEligible: false, esiEligible: false, includedInGross: false, includedInNet: true, displayOrder: 8, description: 'Income Tax TDS deduction' },
+    { name: 'Provident Fund (Employer)', code: 'PF_EMPR', type: 'EmployerContribution', calculationType: 'Percentage', percentage: 12, percentageBaseHead: 'BASIC', isStatutory: true, taxable: false, pfEligible: false, esiEligible: false, includedInGross: false, includedInNet: false, displayOrder: 9, description: '12% statutory employer PF contribution' },
+    { name: 'ESI (Employer)', code: 'ESI_EMPR', type: 'EmployerContribution', calculationType: 'Percentage', percentage: 3.25, percentageBaseHead: 'GROSS', isStatutory: true, taxable: false, pfEligible: false, esiEligible: false, includedInGross: false, includedInNet: false, displayOrder: 10, description: '3.25% statutory employer ESI contribution' },
+  ];
+
+  for (const sh of standardHeads) {
+    const headDoc = new SalaryHead({
+      ...sh,
+      isActive: true,
+    });
+    await headDoc.save();
+  }
+  console.log(`[Seed] ✅ Seeded ${standardHeads.length} Standard Salary Heads.`);
+
   // 7. Seed Enterprise Attendance Policy
   const policy = new AttendancePolicy({
     officeLatitude: 8.5213442,

@@ -887,13 +887,13 @@ export function CommandCenterView({
                       gap: "4px",
                       padding: "4px 10px",
                       borderRadius: "6px",
-                      background: "#3b82f6",
+                      background: "#087A5B",
                       color: "#ffffff",
                       fontSize: "11px",
                       fontWeight: 700,
-                      border: "none",
+                      border: "1px solid #065F46",
                       cursor: "pointer",
-                      boxShadow: "0 1px 3px rgba(59, 130, 246, 0.2)",
+                      boxShadow: "0 1px 3px rgba(8, 122, 91, 0.2)",
                     }}
                     title="Generate secure shareable public link for client"
                   >

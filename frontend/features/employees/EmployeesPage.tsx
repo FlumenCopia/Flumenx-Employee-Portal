@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Check, FileText, Pencil, Search, Trash2, UserPlus } from "lucide-react";
+import { Check, Eye, FileText, Pencil, Search, Trash2, UserPlus } from "lucide-react";
 import { Department, Employee, Paginated, PortalRole } from "@/lib/types";
 import { api, ApiError } from "@/lib/api";
 import { Avatar } from "@/components/icons";
@@ -223,6 +223,25 @@ export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole
 
             {canManageEmployees ? (
               <div className="row-actions">
+                <Link
+                  href={`${employeeBasePath}/${e.id}`}
+                  title="View 360° Profile & Salary Details"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "6px",
+                    border: "1px solid #CBD5E1",
+                    backgroundColor: "#F8FAFC",
+                    color: "#334155",
+                    textDecoration: "none",
+                  }}
+                >
+                  <Eye size={16} />
+                </Link>
+
                 <button
                   type="button"
                   title="Employee documents"

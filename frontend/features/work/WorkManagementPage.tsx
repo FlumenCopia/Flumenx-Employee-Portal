@@ -762,17 +762,17 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
                 gap: "8px",
                 padding: "8px 16px",
                 borderRadius: "8px",
-                background: "var(--neon, #00E889)",
-                color: "#05100B",
+                background: "#087A5B",
+                color: "#FFFFFF",
                 textDecoration: "none",
-                fontWeight: 800,
+                fontWeight: 700,
                 fontSize: "13px",
-                border: "none",
+                border: "1px solid #065F46",
                 cursor: "pointer",
-                boxShadow: "0 2px 10px rgba(0, 232, 137, 0.35)",
+                boxShadow: "0 2px 6px rgba(8, 122, 91, 0.2)",
               }}
             >
-              <Plus size={16} /> + Create Task
+              <Plus size={16} /> Create Task
             </button>
           )}
           <button
@@ -792,14 +792,14 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
               gap: "8px",
               padding: "8px 16px",
               borderRadius: "8px",
-              background: "#3b82f6",
-              color: "#ffffff",
+              background: "#087A5B",
+              color: "#FFFFFF",
               textDecoration: "none",
               fontWeight: 700,
               fontSize: "13px",
-              border: "none",
+              border: "1px solid #065F46",
               cursor: "pointer",
-              boxShadow: "0 2px 8px rgba(59, 130, 246, 0.25)",
+              boxShadow: "0 2px 6px rgba(8, 122, 91, 0.2)",
             }}
           >
             <Globe size={16} /> Share Client Portal
@@ -812,12 +812,13 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
               gap: "8px",
               padding: "8px 16px",
               borderRadius: "8px",
-              background: "#10b981",
-              color: "#ffffff",
+              background: "#087A5B",
+              color: "#FFFFFF",
               textDecoration: "none",
               fontWeight: 700,
               fontSize: "13px",
-              boxShadow: "0 2px 8px rgba(16, 185, 129, 0.25)",
+              border: "1px solid #065F46",
+              boxShadow: "0 2px 6px rgba(8, 122, 91, 0.2)",
             }}
           >
             <Clock size={16} /> Task Timer & Progressive Counter

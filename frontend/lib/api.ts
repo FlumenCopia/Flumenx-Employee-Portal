@@ -2,28 +2,30 @@ import { clearCachedAuthUser } from "./auth-cache";
 
 function browserCompatibleApiUrl(url: string) {
   if (typeof window === "undefined") return url;
-  const apiUrl = new URL(url);
-  if (window.location.hostname === "localhost" && apiUrl.hostname === "127.0.0.1") {
-    apiUrl.hostname = "localhost";
+  if (!url || !url.startsWith("http")) return url.replace(/\/$/, "") || "/api";
+  try {
+    const apiUrl = new URL(url);
+    if (window.location.hostname === "localhost" && apiUrl.hostname === "127.0.0.1") {
+      apiUrl.hostname = "localhost";
+    }
+    if (window.location.hostname === "127.0.0.1" && apiUrl.hostname === "localhost") {
+      apiUrl.hostname = "127.0.0.1";
+    }
+    return apiUrl.toString().replace(/\/$/, "");
+  } catch {
+    return url.replace(/\/$/, "") || "/api";
   }
-  if (window.location.hostname === "127.0.0.1" && apiUrl.hostname === "localhost") {
-    apiUrl.hostname = "127.0.0.1";
-  }
-  return apiUrl.toString().replace(/\/$/, "");
 }
 
 function resolveApiUrl() {
   if (typeof window !== "undefined") {
-    const envUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (envUrl && (envUrl.includes("127.0.0.1") || envUrl.includes("localhost"))) {
-      return browserCompatibleApiUrl(envUrl);
-    }
-    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-      return browserCompatibleApiUrl(envUrl || "http://127.0.0.1:8000/api");
-    }
     return "/api";
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
+  const backendInternal = process.env.BACKEND_INTERNAL_URL || process.env.INTERNAL_API_URL;
+  if (backendInternal) {
+    return backendInternal.endsWith("/api") ? backendInternal : `${backendInternal}/api`;
+  }
+  return "http://127.0.0.1:8000/api";
 }
 
 const API_URL = resolveApiUrl();

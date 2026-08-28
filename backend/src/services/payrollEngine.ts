@@ -152,9 +152,13 @@ export async function calculateAttendanceForCycle(
   // Every 3 late arrivals = 0.5 day deduction
   const lateHalfDayDeductions = Math.floor(lateArrivalsCount / 3) * 0.5;
 
-  // Total payable days = present + holidays (paid) + weekOffs (paid) + paidLeaves + (halfDays * 0.5) - lateHalfDayDeductions
-  const effectivePresentDays =
-    presentDays + companyHolidays + weekOffs + paidLeaveDays + halfDays * 0.5 - lateHalfDayDeductions;
+  // CRITICAL RULE: If an employee has zero check-ins (present = 0, half = 0) and zero approved paid leaves in the cycle,
+  // payable days are strictly 0 (they cannot receive pay for Sundays/holidays with zero work performed).
+  let effectivePresentDays = 0;
+  if (presentDays > 0 || halfDays > 0 || paidLeaveDays > 0) {
+    effectivePresentDays =
+      presentDays + companyHolidays + weekOffs + paidLeaveDays + halfDays * 0.5 - lateHalfDayDeductions;
+  }
 
   const payableDays = Math.max(0, Math.min(cycle.totalCalendarDays, Math.round(effectivePresentDays * 100) / 100));
   const unpaidDays = Math.max(0, Math.round((cycle.totalCalendarDays - payableDays) * 100) / 100);
