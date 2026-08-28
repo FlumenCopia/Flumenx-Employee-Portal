@@ -169,7 +169,22 @@ export type Leave = {
   status: "Pending" | "Approved" | "Rejected"; days?: number; admin_note?: string;
 };
 export type Announcement = { id: number; title: string; message: string; date: string; priority: "Normal" | "Important" | "Urgent" };
-export type SalarySlip = { id: number; employee?: number; employee_name?: string; month: number; year: number; gross_salary: string; net_salary: string; uploaded_at: string; file?: string };
+export type SalarySlip = {
+  id: number | string;
+  employee?: number | string;
+  employee_name?: string;
+  month: number;
+  year: number;
+  gross_salary: number | string;
+  net_salary: number | string;
+  total_deductions?: number | string;
+  cycle_start_date?: string;
+  cycle_end_date?: string;
+  status?: string;
+  pdf_url?: string;
+  file?: string;
+  uploaded_at?: string;
+};
 export type AttendanceRecord = {
   id: number; employee: number; employee_name: string; employee_code: string; department: string;
   attendance_date: string; check_in_time: string | null; check_out_time: string | null;

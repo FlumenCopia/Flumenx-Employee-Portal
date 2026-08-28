@@ -262,9 +262,108 @@ export async function approvePayrollRecord(req: Request, res: Response): Promise
   res.json(record);
 }
 
+export async function reprocessEmployeePayrollRecord(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    res.status(400).json({ detail: 'Invalid payroll ID format.' });
+    return;
+  }
+
+  const record = await PayrollRecord.findById(id).populate('employee');
+  if (!record) {
+    res.status(404).json({ detail: 'Payroll record not found.' });
+    return;
+  }
+
+  const emp = record.employee as any;
+  const structure = await EmployeeSalaryStructure.findOne({ employee: emp._id, isActive: true });
+  if (!structure) {
+    res.status(400).json({ detail: `No active salary structure found for employee ${emp.name}` });
+    return;
+  }
+
+  const cycle = getAttendanceCycleForMonth(record.year, record.month);
+  const attendance = await calculateAttendanceForCycle(emp._id, cycle);
+  const calc = await computePayroll(structure, attendance, record.month, record.year);
+
+  const prevNet = record.netSalary;
+  record.attendanceCycle = calc.attendanceCycle;
+  record.salarySnapshot = calc.salarySnapshot;
+  record.grossSalary = calc.grossSalary;
+  record.totalEarnings = calc.totalEarnings;
+  record.attendanceDeduction = calc.attendanceDeduction;
+  record.pfEmployee = calc.pfEmployee;
+  record.pfEmployer = calc.pfEmployer;
+  record.esiEmployee = calc.esiEmployee;
+  record.esiEmployer = calc.esiEmployer;
+  record.professionalTax = calc.professionalTax;
+  record.tds = calc.tds;
+  record.totalDeductions = calc.totalDeductions;
+  record.netSalary = calc.netSalary;
+  record.status = 'Calculated';
+  record.calculatedAt = new Date();
+  record.calculatedBy = req.user?._id;
+  await record.save();
+
+  try {
+    await AuditLog.create({
+      user: req.user?._id,
+      action: 'REPROCESS_PAYROLL_RECORD',
+      module: 'PAYROLL',
+      details: `Reprocessed payroll for employee ${emp.name} (${cycle.cycleName}) - Prev Net: ₹${prevNet}, New Net: ₹${record.netSalary}`,
+    });
+  } catch (err) {}
+
+  res.json({
+    message: `Reprocessed salary for ${emp.name} successfully`,
+    record,
+  });
+}
+
+export async function markPaidPayrollRecord(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    res.status(400).json({ detail: 'Invalid payroll ID format.' });
+    return;
+  }
+
+  const record = await PayrollRecord.findById(id).populate('employee', 'name employeeCode');
+  if (!record) {
+    res.status(404).json({ detail: 'Payroll record not found.' });
+    return;
+  }
+
+  record.status = 'Paid';
+  await record.save();
+
+  try {
+    await AuditLog.create({
+      user: req.user?._id,
+      action: 'MARK_PAYROLL_PAID',
+      module: 'PAYROLL',
+      details: `Marked payroll as PAID for employee ${(record.employee as any)?.name} (${record.attendanceCycle.cycleName}) - Net Pay: ₹${record.netSalary}`,
+    });
+  } catch (err) {}
+
+  res.json(record);
+}
+
 export async function reopenPayrollRecord(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
   const { reason } = req.body;
+
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  if (!isSuper) {
+    res.status(403).json({ detail: 'Permission denied. Only Super Admins can unlock protected payroll records.' });
+    return;
+  }
+
+  if (!reason || String(reason).trim().length < 3) {
+    res.status(400).json({ detail: 'A valid reason (minimum 3 characters) is mandatory to unlock a payroll record.' });
+    return;
+  }
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     res.status(400).json({ detail: 'Invalid payroll ID format.' });
@@ -281,21 +380,22 @@ export async function reopenPayrollRecord(req: Request, res: Response): Promise<
   record.status = 'Calculated';
   record.approvedAt = null;
   record.approvedBy = null;
-  if (reason) {
-    record.notes = record.notes ? `${record.notes} | Reopened: ${reason}` : `Reopened: ${reason}`;
-  }
+  record.notes = record.notes ? `${record.notes} | Unlocked by Super Admin: ${reason}` : `Unlocked by Super Admin: ${reason}`;
   await record.save();
 
   try {
     await AuditLog.create({
       user: req.user?._id,
-      action: 'REOPEN_PAYROLL',
+      action: 'UNLOCK_PAYROLL_RECORD',
       module: 'PAYROLL',
-      details: `Reopened payroll (was ${prevStatus}) for employee ${(record.employee as any)?.name} (${record.attendanceCycle.cycleName}). Reason: ${reason || 'Not specified'}`,
+      details: `Unlocked payroll record (was ${prevStatus}) for employee ${(record.employee as any)?.name} (${record.attendanceCycle.cycleName}). Reason: ${reason}`,
     });
   } catch (err) {}
 
-  res.json(record);
+  res.json({
+    message: 'Payroll record unlocked and returned to Calculated status.',
+    record,
+  });
 }
 
 // --- Payroll Reports ---

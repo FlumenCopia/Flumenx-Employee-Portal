@@ -527,8 +527,8 @@ async function seed() {
   // 8. Seed Enterprise Payroll Setting
   const payrollSetting = new PayrollSetting({
     companyTimezone: 'Asia/Kolkata',
-    cycleStartDay: 25,
-    cycleEndDay: 24,
+    cycleStartDay: 26,
+    cycleEndDay: 25,
     salaryBasis: 'CalendarDays',
     officeStartTime: '09:30',
     gracePeriodMinutes: 5,

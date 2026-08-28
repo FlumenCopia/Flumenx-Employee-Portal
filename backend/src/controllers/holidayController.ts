@@ -5,7 +5,7 @@ import { AuditLog } from '../models/AuditLog.js';
 import { getISTParts, getCompanyStartOfDay } from '../utils/tzUtils.js';
 
 export async function getHolidays(req: Request, res: Response): Promise<void> {
-  const { year, month, start_date, end_date } = req.query;
+  const { year, month, start_date, end_date, department } = req.query;
 
   const filter: any = { isActive: true };
   if (year) {
@@ -29,6 +29,10 @@ export async function getHolidays(req: Request, res: Response): Promise<void> {
       holiday_type: h.holidayType,
       description: h.description,
       is_paid: h.isPaid,
+      applicable_to_all: h.applicableToAll,
+      departments: h.departments || [],
+      employees: h.employees || [],
+      recurring_annually: h.recurringAnnually,
       year: h.year,
     })),
   });
@@ -54,12 +58,26 @@ export async function getHolidayById(req: Request, res: Response): Promise<void>
     holiday_type: holiday.holidayType,
     description: holiday.description,
     is_paid: holiday.isPaid,
+    applicable_to_all: holiday.applicableToAll,
+    departments: holiday.departments || [],
+    employees: holiday.employees || [],
+    recurring_annually: holiday.recurringAnnually,
     year: holiday.year,
   });
 }
 
 export async function createHoliday(req: Request, res: Response): Promise<void> {
-  const { name, date, holiday_type, description, is_paid } = req.body;
+  const {
+    name,
+    date,
+    holiday_type,
+    description,
+    is_paid,
+    applicable_to_all,
+    departments,
+    employees,
+    recurring_annually,
+  } = req.body;
 
   if (!name || !date) {
     res.status(400).json({ detail: 'Name and date (YYYY-MM-DD) are required.' });
@@ -83,6 +101,10 @@ export async function createHoliday(req: Request, res: Response): Promise<void> 
     holidayType: holiday_type || 'Company',
     description: description ? String(description).trim() : '',
     isPaid: is_paid !== undefined ? Boolean(is_paid) : true,
+    applicableToAll: applicable_to_all !== undefined ? Boolean(applicable_to_all) : true,
+    departments: Array.isArray(departments) ? departments : [],
+    employees: Array.isArray(employees) ? employees : [],
+    recurringAnnually: Boolean(recurring_annually),
     year: ist.year,
     createdBy: req.user?._id,
   });
@@ -95,7 +117,7 @@ export async function createHoliday(req: Request, res: Response): Promise<void> 
       user: req.user?._id,
       action: 'CREATE_HOLIDAY',
       module: 'HOLIDAYS',
-      details: `Created company holiday: ${holiday.name} on ${holiday.dateStr}`,
+      details: `Created company holiday: ${holiday.name} on ${holiday.dateStr} (${holiday.holidayType})`,
     });
   } catch (err) {}
 
@@ -115,12 +137,26 @@ export async function updateHoliday(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  const { name, date, holiday_type, description, is_paid } = req.body;
+  const {
+    name,
+    date,
+    holiday_type,
+    description,
+    is_paid,
+    applicable_to_all,
+    departments,
+    employees,
+    recurring_annually,
+  } = req.body;
 
   if (name) holiday.name = String(name).trim();
   if (holiday_type) holiday.holidayType = holiday_type;
   if (description !== undefined) holiday.description = String(description).trim();
   if (is_paid !== undefined) holiday.isPaid = Boolean(is_paid);
+  if (applicable_to_all !== undefined) holiday.applicableToAll = Boolean(applicable_to_all);
+  if (Array.isArray(departments)) holiday.departments = departments;
+  if (Array.isArray(employees)) holiday.employees = employees;
+  if (recurring_annually !== undefined) holiday.recurringAnnually = Boolean(recurring_annually);
 
   if (date) {
     const dateStr = String(date).split('T')[0];

@@ -33,8 +33,8 @@ export function getAttendanceCycleForMonth(year: number, month: number) {
   const prevMonthStr = String(prevMonth).padStart(2, '0');
   const currMonthStr = String(month).padStart(2, '0');
 
-  const startStr = `${prevYear}-${prevMonthStr}-25`;
-  const endStr = `${year}-${currMonthStr}-24`;
+  const startStr = `${prevYear}-${prevMonthStr}-26`;
+  const endStr = `${year}-${currMonthStr}-25`;
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -43,11 +43,16 @@ export function getAttendanceCycleForMonth(year: number, month: number) {
 
   const cycleName = `${monthNames[month - 1]} ${year} (${startStr} to ${endStr})`;
 
+  const cycleStart = new Date(`${startStr}T00:00:00.000+05:30`);
+  const cycleEnd = new Date(`${endStr}T23:59:59.999+05:30`);
+  const totalCalendarDays = Math.round((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24));
+
   return {
     year,
     month,
     cycleName,
     startStr,
     endStr,
+    totalCalendarDays,
   };
 }

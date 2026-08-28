@@ -7,6 +7,7 @@ import { IEmployeeSalaryStructure } from '../models/EmployeeSalaryStructure.js';
 import { IAttendanceCycleSnapshot, ISalarySnapshot } from '../models/PayrollRecord.js';
 import { AttendanceCycleInfo, getISTDateString, getCompanyStartOfDay, getCompanyEndOfDay } from '../utils/tzUtils.js';
 import { convertThreeMonthUnusedLeaveToSalary } from './leaveEngine.js';
+import { evaluateFormula } from '../utils/formulaEvaluator.js';
 
 export interface CalculatedPayrollResult {
   attendanceCycle: IAttendanceCycleSnapshot;
@@ -29,6 +30,7 @@ export interface CalculatedPayrollResult {
 
 /**
  * Summarizes attendance facts for an employee across a specific attendance cycle in Asia/Kolkata.
+ * Cycle: 26th of previous month to 25th of current month.
  * Accounts for joining date and exit date proration, probation leave rules, and 3-late half-day deductions.
  */
 export async function calculateAttendanceForCycle(
@@ -180,7 +182,7 @@ export async function calculateAttendanceForCycle(
 }
 
 /**
- * Computes deterministic payroll breakdown for an employee based on their salary structure, attendance, and leave conversions.
+ * Computes deterministic payroll breakdown for an employee based on their salary structure, attendance, explicit statutory flags, and leave conversions.
  */
 export async function computePayroll(
   structure: IEmployeeSalaryStructure,
@@ -189,6 +191,7 @@ export async function computePayroll(
   year: number = 2026
 ): Promise<CalculatedPayrollResult> {
   const grossSalary = structure.grossSalary || 0;
+  const basicSalary = structure.basicSalary || 0;
   const totalDays = attendance.totalCalendarDays || 30;
 
   // Daily rate for unpaid days deduction
@@ -196,7 +199,7 @@ export async function computePayroll(
   const attendanceDeduction = Math.round(perDaySalary * attendance.unpaidDays * 100) / 100;
 
   // Check 3-month unused leave conversion
-  const dailyRate = totalDays > 0 ? (structure.basicSalary || grossSalary) / totalDays : 0;
+  const dailyRate = totalDays > 0 ? (basicSalary || grossSalary) / totalDays : 0;
   const conversion = await convertThreeMonthUnusedLeaveToSalary(
     structure.employee,
     month,
@@ -204,40 +207,58 @@ export async function computePayroll(
     Math.round(dailyRate * 100) / 100
   );
 
-  // PF Calculation
-  // Standard wage base: basicSalary (capped at pfWageCeiling if ceiling > 0)
-  let pfWageBase = structure.basicSalary || 0;
-  if (structure.pfWageCeiling && structure.pfWageCeiling > 0) {
-    pfWageBase = Math.min(pfWageBase, structure.pfWageCeiling);
+  // Context map for formula evaluation
+  const formulaContext: Record<string, number> = {
+    GROSS: grossSalary,
+    BASIC: basicSalary,
+    HRA: structure.hra || 0,
+    CONVEYANCE: structure.conveyance || 0,
+    SPECIAL: structure.specialAllowance || 0,
+    OTHER: structure.otherAllowances || 0,
+  };
+
+  // 1. Statutory PF Calculation
+  // Controlled explicitly by pfApplicable (or pfEnabled)
+  const isPfApplicable = structure.pfApplicable !== undefined ? structure.pfApplicable : structure.pfEnabled;
+  let pfEmployee = 0;
+  let pfEmployer = 0;
+
+  if (isPfApplicable) {
+    let pfWageBase = basicSalary;
+    // If voluntary PF above ceiling is false, cap at 15000
+    if (!structure.voluntaryPfAboveCeiling && structure.pfWageCeiling && structure.pfWageCeiling > 0) {
+      pfWageBase = Math.min(pfWageBase, structure.pfWageCeiling);
+    }
+    pfEmployee = Math.round(pfWageBase * ((structure.pfEmployeePercent || 12) / 100));
+    pfEmployer = Math.round(pfWageBase * ((structure.pfEmployerPercent || 12) / 100));
   }
 
-  const pfEmployee = structure.pfEnabled
-    ? Math.round(pfWageBase * ((structure.pfEmployeePercent || 12) / 100))
-    : 0;
+  // 2. Statutory ESI Calculation
+  // Controlled explicitly by esiApplicable (or esiEnabled)
+  const isEsiApplicable = structure.esiApplicable !== undefined ? structure.esiApplicable : structure.esiEnabled;
+  let esiEmployee = 0;
+  let esiEmployer = 0;
 
-  const pfEmployer = structure.pfEnabled
-    ? Math.round(pfWageBase * ((structure.pfEmployerPercent || 12) / 100))
-    : 0;
+  if (isEsiApplicable) {
+    // Only applies if grossSalary <= esiGrossCeiling (default 21000)
+    const ceiling = structure.esiGrossCeiling || 21000;
+    if (grossSalary <= ceiling) {
+      esiEmployee = Math.ceil(grossSalary * ((structure.esiEmployeePercent || 0.75) / 100));
+      esiEmployer = Math.ceil(grossSalary * ((structure.esiEmployerPercent || 3.25) / 100));
+    }
+  }
 
-  // ESI Calculation
-  // Eligible if gross <= esiGrossCeiling (default ₹21,000)
-  const isEsiEligible =
-    structure.esiEnabled && grossSalary <= (structure.esiGrossCeiling || 21000);
+  // 3. Professional Tax (Kerala / India Slabs)
+  const isPtApplicable = structure.professionalTaxApplicable !== undefined ? structure.professionalTaxApplicable : true;
+  const professionalTax = isPtApplicable ? (structure.professionalTax || 200) : 0;
 
-  const esiEmployee = isEsiEligible
-    ? Math.ceil(grossSalary * ((structure.esiEmployeePercent || 0.75) / 100))
-    : 0;
+  // 4. Tax Deducted at Source (TDS)
+  const isTdsApplicable = structure.tdsApplicable !== undefined ? structure.tdsApplicable : false;
+  const tds = isTdsApplicable ? (structure.tds || 0) : 0;
 
-  const esiEmployer = isEsiEligible
-    ? Math.ceil(grossSalary * ((structure.esiEmployerPercent || 3.25) / 100))
-    : 0;
-
-  const professionalTax = structure.professionalTax || 0;
-  const tds = structure.tds || 0;
-
-  // Custom salary heads
+  // 5. Earnings Breakdown
   const earnings: Array<{ code: string; name: string; amount: number }> = [
-    { code: 'BASIC', name: 'Basic Salary', amount: structure.basicSalary || 0 },
+    { code: 'BASIC', name: 'Basic Salary', amount: basicSalary },
     { code: 'HRA', name: 'House Rent Allowance (HRA)', amount: structure.hra || 0 },
   ];
   if (structure.conveyance) earnings.push({ code: 'CONVEYANCE', name: 'Conveyance Allowance', amount: structure.conveyance });
@@ -251,40 +272,46 @@ export async function computePayroll(
     });
   }
 
+  // 6. Deductions Breakdown
   const deductions: Array<{ code: string; name: string; amount: number }> = [];
   if (attendanceDeduction > 0) {
     deductions.push({ code: 'ATTENDANCE_DED', name: 'Attendance / LOP Deduction', amount: attendanceDeduction });
   }
   if (pfEmployee > 0) {
-    deductions.push({ code: 'PF_EMPLOYEE', name: 'Provident Fund (Employee)', amount: pfEmployee });
+    deductions.push({ code: 'PF_EMPLOYEE', name: 'Provident Fund (Employee 12%)', amount: pfEmployee });
   }
   if (esiEmployee > 0) {
-    deductions.push({ code: 'ESI_EMPLOYEE', name: 'ESI (Employee)', amount: esiEmployee });
+    deductions.push({ code: 'ESI_EMPLOYEE', name: 'ESI (Employee 0.75%)', amount: esiEmployee });
   }
   if (professionalTax > 0) {
-    deductions.push({ code: 'PROF_TAX', name: 'Professional Tax', amount: professionalTax });
+    deductions.push({ code: 'PROF_TAX', name: 'Professional Tax (Kerala)', amount: professionalTax });
   }
   if (tds > 0) {
     deductions.push({ code: 'TDS', name: 'Tax Deducted at Source (TDS)', amount: tds });
   }
 
+  // 7. Employer Contributions
   const employerContributions: Array<{ code: string; name: string; amount: number }> = [];
   if (pfEmployer > 0) {
-    employerContributions.push({ code: 'PF_EMPLOYER', name: 'Provident Fund (Employer)', amount: pfEmployer });
+    employerContributions.push({ code: 'PF_EMPLOYER', name: 'Provident Fund (Employer 12%)', amount: pfEmployer });
   }
   if (esiEmployer > 0) {
-    employerContributions.push({ code: 'ESI_EMPLOYER', name: 'ESI (Employer)', amount: esiEmployer });
+    employerContributions.push({ code: 'ESI_EMPLOYER', name: 'ESI (Employer 3.25%)', amount: esiEmployer });
   }
 
-  // Include custom heads if any
+  // 8. Custom Salary Heads (with Formula Evaluation if configured)
   if (structure.customHeads && Array.isArray(structure.customHeads)) {
-    structure.customHeads.forEach((ch) => {
+    structure.customHeads.forEach((ch: any) => {
+      let finalAmount = ch.amount || 0;
+      if (ch.formula) {
+        finalAmount = evaluateFormula(ch.formula, formulaContext);
+      }
       if (ch.type === 'Earning') {
-        earnings.push({ code: ch.headCode, name: ch.name, amount: ch.amount });
+        earnings.push({ code: ch.headCode, name: ch.name, amount: finalAmount });
       } else if (ch.type === 'Deduction') {
-        deductions.push({ code: ch.headCode, name: ch.name, amount: ch.amount });
+        deductions.push({ code: ch.headCode, name: ch.name, amount: finalAmount });
       } else if (ch.type === 'EmployerContribution') {
-        employerContributions.push({ code: ch.headCode, name: ch.name, amount: ch.amount });
+        employerContributions.push({ code: ch.headCode, name: ch.name, amount: finalAmount });
       }
     });
   }
@@ -295,7 +322,7 @@ export async function computePayroll(
   const employerCost = Math.round((totalEarnings + pfEmployer + esiEmployer) * 100) / 100;
 
   const salarySnapshot: ISalarySnapshot = {
-    basicSalary: structure.basicSalary || 0,
+    basicSalary,
     hra: structure.hra || 0,
     conveyance: structure.conveyance || 0,
     specialAllowance: structure.specialAllowance || 0,

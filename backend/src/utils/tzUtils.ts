@@ -123,9 +123,9 @@ export interface AttendanceCycleInfo {
 
 /**
  * Calculates the Attendance Cycle for a given target month & year.
- * Company Policy: 25th of (Month - 1) to 24th of (Month).
+ * Company Policy: 26th of (Month - 1) to 25th of (Month).
  * E.g., for Month = 8 (August), Year = 2026:
- * Cycle runs from 2026-07-25 00:00:00.000 IST to 2026-08-24 23:59:59.999 IST.
+ * Cycle runs from 2026-07-26 00:00:00.000 IST to 2026-08-25 23:59:59.999 IST.
  */
 export function getAttendanceCycleForMonth(year: number, month: number): AttendanceCycleInfo {
   // Previous month calculation
@@ -139,8 +139,8 @@ export function getAttendanceCycleForMonth(year: number, month: number): Attenda
   const prevMonthStr = String(prevMonth).padStart(2, '0');
   const currMonthStr = String(month).padStart(2, '0');
 
-  const startStr = `${prevYear}-${prevMonthStr}-25`;
-  const endStr = `${year}-${currMonthStr}-24`;
+  const startStr = `${prevYear}-${prevMonthStr}-26`;
+  const endStr = `${year}-${currMonthStr}-25`;
 
   const cycleStart = new Date(`${startStr}T00:00:00.000+05:30`);
   const cycleEnd = new Date(`${endStr}T23:59:59.999+05:30`);
@@ -169,8 +169,8 @@ export function getAttendanceCycleForMonth(year: number, month: number): Attenda
 
 /**
  * Determines which Attendance Cycle a given date belongs to in IST.
- * If date is >= 25th, it belongs to the NEXT month's cycle.
- * If date is < 25th, it belongs to the CURRENT month's cycle.
+ * If date is >= 26th, it belongs to the NEXT month's cycle.
+ * If date is <= 25th, it belongs to the CURRENT month's cycle.
  */
 export function getAttendanceCycleForDate(dateInput: Date | string = new Date()): AttendanceCycleInfo {
   const dateObj = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
@@ -179,7 +179,7 @@ export function getAttendanceCycleForDate(dateInput: Date | string = new Date())
   let targetYear = ist.year;
   let targetMonth = ist.month;
 
-  if (ist.day >= 25) {
+  if (ist.day >= 26) {
     targetMonth += 1;
     if (targetMonth > 12) {
       targetMonth = 1;

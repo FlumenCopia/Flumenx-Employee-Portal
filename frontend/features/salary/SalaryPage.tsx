@@ -15,6 +15,19 @@ import {
   Receipt,
   FileSpreadsheet,
   UserCheck,
+  RefreshCw,
+  Lock,
+  Unlock,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  ShieldAlert,
+  Info,
+  DollarSign,
+  Briefcase,
+  Sliders,
+  History,
+  FileText,
 } from "lucide-react";
 import { Employee, Paginated, SalarySlip } from "@/lib/types";
 import { api } from "@/lib/api";
@@ -23,50 +36,89 @@ import { EmptyState, PageHeader, PrimaryButton, Section } from "@/components/ui"
 import { Modal } from "@/features/common/Modal";
 import { getAttendanceCycleForMonth, getISTDateString } from "@/lib/tzUtils";
 
-const monthName = (m: number) =>
-  new Date(2024, m - 1).toLocaleDateString("en-US", { month: "long" });
+const monthNames = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 
 export function SalaryPage({ employee = false }: { employee?: boolean }) {
-  const [activeTab, setActiveTab] = useState<"slips" | "payroll" | "structures" | "holidays">("slips");
+  const [activeTab, setActiveTab] = useState<"slips" | "payroll" | "structures" | "heads" | "holidays" | "reports">("slips");
 
   // --- Slips State ---
   const [slipsData, setSlipsData] = useState<SalarySlip[]>([]);
   const [employeeOptions, setEmployeeOptions] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedSlipDetail, setSelectedSlipDetail] = useState<SalarySlip | null>(null);
 
   // --- Payroll Engine Tab State ---
   const [payrollRecords, setPayrollRecords] = useState<any[]>([]);
   const [payrollMonth, setPayrollMonth] = useState(new Date().getMonth() + 1);
   const [payrollYear, setPayrollYear] = useState(new Date().getFullYear());
   const [selectedPreview, setSelectedPreview] = useState<any | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
   const [processingCycle, setProcessingCycle] = useState(false);
+  const [reprocessingId, setReprocessingId] = useState<string | null>(null);
   const [payrollError, setPayrollError] = useState("");
   const [payrollSuccess, setPayrollSuccess] = useState("");
-  const [genEmployeeId, setGenEmployeeId] = useState("");
+  
+  // Unlock Modal
+  const [unlockModal, setUnlockModal] = useState(false);
+  const [unlockRecordId, setUnlockRecordId] = useState("");
+  const [unlockReason, setUnlockReason] = useState("");
 
   // --- Salary Structures Tab State ---
   const [structures, setStructures] = useState<any[]>([]);
   const [structModal, setStructModal] = useState(false);
   const [selectedEmpForStruct, setSelectedEmpForStruct] = useState("");
+  const [structEffectiveFrom, setStructEffectiveFrom] = useState(getISTDateString());
   const [structGross, setStructGross] = useState(50000);
   const [structBasic, setStructBasic] = useState(25000);
   const [structHra, setStructHra] = useState(12500);
   const [structConveyance, setStructConveyance] = useState(3000);
   const [structSpecial, setStructSpecial] = useState(9500);
-  const [structPfEnabled, setStructPfEnabled] = useState(true);
-  const [structEsiEnabled, setStructEsiEnabled] = useState(false);
+  const [structOther, setStructOther] = useState(0);
+  const [structPfApplicable, setStructPfApplicable] = useState(true);
+  const [structVoluntaryPf, setStructVoluntaryPf] = useState(false);
+  const [structEsiApplicable, setStructEsiApplicable] = useState(false);
+  const [structProfTaxApplicable, setStructProfTaxApplicable] = useState(true);
   const [structProfTax, setStructProfTax] = useState(200);
+  const [structTdsApplicable, setStructTdsApplicable] = useState(false);
+  const [structTds, setStructTds] = useState(0);
+  const [structNotes, setStructNotes] = useState("");
+  const [historyModal, setHistoryModal] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState<any[]>([]);
 
-  // --- Holidays Tab State ---
+  // --- Salary Heads Master State ---
+  const [salaryHeads, setSalaryHeads] = useState<any[]>([]);
+  const [headModal, setHeadModal] = useState(false);
+  const [headName, setHeadName] = useState("");
+  const [headCode, setHeadCode] = useState("");
+  const [headType, setHeadType] = useState<"Earning" | "Deduction" | "EmployerContribution">("Earning");
+  const [headCalcType, setHeadCalcType] = useState<"Fixed" | "Percentage" | "Formula">("Fixed");
+  const [headFormula, setHeadFormula] = useState("");
+  const [headPercentage, setHeadPercentage] = useState(0);
+  const [headAmount, setHeadAmount] = useState(0);
+  const [headTaxable, setHeadTaxable] = useState(true);
+  const [headPfEligible, setHeadPfEligible] = useState(false);
+  const [headEsiEligible, setHeadEsiEligible] = useState(false);
+
+  // --- Holidays Tab State (Visual Calendar) ---
   const [holidays, setHolidays] = useState<any[]>([]);
+  const [calMonth, setCalMonth] = useState(new Date().getMonth() + 1);
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [holidayModal, setHolidayModal] = useState(false);
   const [newHolidayName, setNewHolidayName] = useState("");
   const [newHolidayDate, setNewHolidayDate] = useState(getISTDateString());
   const [newHolidayType, setNewHolidayType] = useState("Company");
   const [newHolidayDesc, setNewHolidayDesc] = useState("");
   const [newHolidayPaid, setNewHolidayPaid] = useState(true);
+  const [newHolidayAll, setNewHolidayAll] = useState(true);
+  const [newHolidayRecurring, setNewHolidayRecurring] = useState(false);
+
+  // --- Reports Tab State ---
+  const [reportType, setReportType] = useState<"summary" | "statutory" | "attendance" | "leave">("summary");
+  const [reportData, setReportData] = useState<any | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
   const cycleInfo = getAttendanceCycleForMonth(payrollYear, payrollMonth);
 
@@ -97,60 +149,47 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
       .catch(() => setStructures([]));
   };
 
+  const loadSalaryHeads = () => {
+    api<{ results: any[] }>(`/salary-heads/`)
+      .then((res) => setSalaryHeads(res.results || []))
+      .catch(() => setSalaryHeads([]));
+  };
+
   const loadHolidays = () => {
-    api<{ results: any[] }>(`/holidays/?year=${payrollYear}`)
+    api<{ results: any[] }>(`/holidays/?year=${calYear}`)
       .then((res) => setHolidays(res.results || []))
       .catch(() => setHolidays([]));
   };
 
+  const loadReport = () => {
+    setReportLoading(true);
+    let endpoint = `/payroll/reports/summary/?month=${payrollMonth}&year=${payrollYear}`;
+    if (reportType === "statutory") endpoint = `/payroll/reports/statutory/?month=${payrollMonth}&year=${payrollYear}`;
+    if (reportType === "attendance") endpoint = `/payroll/reports/attendance-impact/?month=${payrollMonth}&year=${payrollYear}`;
+    if (reportType === "leave") endpoint = `/payroll/reports/leave-conversion/?month=${payrollMonth}&year=${payrollYear}`;
+
+    api<any>(endpoint)
+      .then((res) => setReportData(res))
+      .catch(() => setReportData(null))
+      .finally(() => setReportLoading(false));
+  };
+
   useEffect(() => {
     loadSlips();
-    if (!employee) {
-      api<Paginated<Employee> | Employee[]>("/employees/")
-        .then((result) => {
-          const list = Array.isArray(result) ? result : (result as any)?.results || [];
-          setEmployeeOptions(list);
-          if (list.length > 0) {
-            const firstId = list[0].id || (list[0] as any)._id;
-            setGenEmployeeId(firstId);
-            setSelectedEmpForStruct(firstId);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [employee]);
+    api<Paginated<Employee> | Employee[]>("/employees/?limit=100")
+      .then((res) => setEmployeeOptions(Array.isArray(res) ? res : res.results || []))
+      .catch(() => setEmployeeOptions([]));
+  }, []);
 
   useEffect(() => {
     if (activeTab === "payroll") loadPayrollRecords();
     if (activeTab === "structures") loadStructures();
+    if (activeTab === "heads") loadSalaryHeads();
     if (activeTab === "holidays") loadHolidays();
-  }, [activeTab, payrollMonth, payrollYear]);
+    if (activeTab === "reports") loadReport();
+  }, [activeTab, payrollMonth, payrollYear, calYear, reportType]);
 
-  // Preview Payroll Calculation
-  const handleCalculatePreview = async (empId: string) => {
-    if (!empId) return;
-    setPreviewLoading(true);
-    setPayrollError("");
-    setPayrollSuccess("");
-    try {
-      const res = await api<any>("/payroll/preview/", {
-        method: "POST",
-        body: JSON.stringify({
-          employee_id: empId,
-          month: payrollMonth,
-          year: payrollYear,
-        }),
-      });
-      setSelectedPreview(res);
-    } catch (err: any) {
-      setPayrollError(err.message || "Failed to calculate preview.");
-      setSelectedPreview(null);
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  // Process Cycle
+  // Actions: Process Cycle
   const handleProcessCycle = async () => {
     setProcessingCycle(true);
     setPayrollError("");
@@ -158,27 +197,73 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
     try {
       const res = await api<any>("/payroll/process-cycle/", {
         method: "POST",
-        body: JSON.stringify({
-          month: payrollMonth,
-          year: payrollYear,
-        }),
+        body: JSON.stringify({ month: payrollMonth, year: payrollYear }),
       });
-      setPayrollSuccess(res.message || "Payroll cycle processed successfully.");
+      setPayrollSuccess(`Payroll computed successfully for ${res.cycle} (${res.total_processed} processed)`);
       loadPayrollRecords();
     } catch (err: any) {
-      setPayrollError(err.message || "Failed to process payroll cycle.");
+      setPayrollError(err.message || "Failed to process payroll cycle");
     } finally {
       setProcessingCycle(false);
     }
   };
 
-  // Approve Payroll Record
-  const handleApprovePayroll = async (id: string) => {
+  // Actions: Reprocess Single Employee
+  const handleReprocessSingle = async (recordId: string) => {
+    setReprocessingId(recordId);
+    setPayrollError("");
+    setPayrollSuccess("");
     try {
-      await api(`/payroll/${id}/approve/`, { method: "POST" });
+      const res = await api<any>(`/payroll/${recordId}/reprocess/`, {
+        method: "POST",
+      });
+      setPayrollSuccess(res.message || "Salary reprocessed successfully");
       loadPayrollRecords();
     } catch (err: any) {
-      alert(err.message || "Failed to approve payroll.");
+      setPayrollError(err.message || "Failed to reprocess salary");
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
+  // Actions: Approve Record
+  const handleApproveRecord = async (recordId: string) => {
+    try {
+      await api<any>(`/payroll/${recordId}/approve/`, { method: "POST" });
+      loadPayrollRecords();
+    } catch (err: any) {
+      setPayrollError(err.message || "Failed to approve payroll");
+    }
+  };
+
+  // Actions: Mark Paid
+  const handleMarkPaid = async (recordId: string) => {
+    try {
+      await api<any>(`/payroll/${recordId}/pay/`, { method: "POST" });
+      loadPayrollRecords();
+    } catch (err: any) {
+      setPayrollError(err.message || "Failed to mark as paid");
+    }
+  };
+
+  // Actions: Unlock Reopen
+  const handleUnlockRecord = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!unlockReason.trim() || unlockReason.trim().length < 3) {
+      setPayrollError("Please provide a valid unlock reason (minimum 3 characters).");
+      return;
+    }
+    try {
+      await api<any>(`/payroll/${unlockRecordId}/unlock/`, {
+        method: "POST",
+        body: JSON.stringify({ reason: unlockReason }),
+      });
+      setUnlockModal(false);
+      setUnlockReason("");
+      setPayrollSuccess("Payroll record unlocked and returned to Calculated status.");
+      loadPayrollRecords();
+    } catch (err: any) {
+      setPayrollError(err.message || "Failed to unlock record");
     }
   };
 
@@ -190,21 +275,56 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
         method: "POST",
         body: JSON.stringify({
           employee: selectedEmpForStruct,
-          grossSalary: structGross,
-          basicSalary: structBasic,
-          hra: structHra,
-          conveyance: structConveyance,
-          specialAllowance: structSpecial,
-          pfEnabled: structPfEnabled,
-          esiEnabled: structEsiEnabled,
-          professionalTax: structProfTax,
-          tds: 0,
+          effectiveFrom: structEffectiveFrom,
+          grossSalary: Number(structGross),
+          basicSalary: Number(structBasic),
+          hra: Number(structHra),
+          conveyance: Number(structConveyance),
+          specialAllowance: Number(structSpecial),
+          otherAllowances: Number(structOther),
+          pfApplicable: structPfApplicable,
+          voluntaryPfAboveCeiling: structVoluntaryPf,
+          esiApplicable: structEsiApplicable,
+          professionalTaxApplicable: structProfTaxApplicable,
+          professionalTax: structProfTaxApplicable ? Number(structProfTax) : 0,
+          tdsApplicable: structTdsApplicable,
+          tds: structTdsApplicable ? Number(structTds) : 0,
+          notes: structNotes,
         }),
       });
       setStructModal(false);
       loadStructures();
     } catch (err: any) {
-      alert(err.message || "Failed to save salary structure.");
+      alert(err.message || "Failed to save salary structure");
+    }
+  };
+
+  // Save Salary Head
+  const handleSaveSalaryHead = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      await api("/salary-heads/", {
+        method: "POST",
+        body: JSON.stringify({
+          name: headName,
+          code: headCode.toUpperCase(),
+          type: headType,
+          calculation_type: headCalcType,
+          formula: headCalcType === "Formula" ? headFormula : "",
+          percentage: headCalcType === "Percentage" ? Number(headPercentage) : 0,
+          default_amount: headCalcType === "Fixed" ? Number(headAmount) : 0,
+          taxable: headTaxable,
+          pf_eligible: headPfEligible,
+          esi_eligible: headEsiEligible,
+        }),
+      });
+      setHeadModal(false);
+      setHeadName("");
+      setHeadCode("");
+      setHeadFormula("");
+      loadSalaryHeads();
+    } catch (err: any) {
+      alert(err.message || "Failed to create salary head");
     }
   };
 
@@ -220,740 +340,285 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
           holiday_type: newHolidayType,
           description: newHolidayDesc,
           is_paid: newHolidayPaid,
+          applicable_to_all: newHolidayAll,
+          recurring_annually: newHolidayRecurring,
         }),
       });
       setHolidayModal(false);
       setNewHolidayName("");
       loadHolidays();
     } catch (err: any) {
-      alert(err.message || "Failed to create holiday.");
+      alert(err.message || "Failed to create holiday");
     }
   };
 
-  const handleDeleteHoliday = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this holiday?")) return;
-    try {
-      await api(`/holidays/${id}/`, { method: "DELETE" });
-      loadHolidays();
-    } catch (err: any) {
-      alert(err.message || "Failed to delete holiday.");
+  // Visual Calendar Generator for Company Holidays
+  const renderVisualCalendar = () => {
+    const firstDay = new Date(calYear, calMonth - 1, 1);
+    const startingDayOfWeek = firstDay.getDay(); // 0 is Sunday
+    const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+
+    const holidayMap = new Map<string, any>();
+    holidays.forEach((h) => {
+      holidayMap.set(h.date, h);
+    });
+
+    const days = [];
+    // Leading empty cells
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(<div key={`empty-${i}`} style={{ height: "90px", backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "6px" }} />);
     }
+
+    // Actual month days
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${calYear}-${String(calMonth).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const dayDate = new Date(calYear, calMonth - 1, d);
+      const isSunday = dayDate.getDay() === 0;
+      const holiday = holidayMap.get(dateStr);
+
+      days.push(
+        <div
+          key={dateStr}
+          style={{
+            height: "90px",
+            padding: "8px",
+            backgroundColor: holiday ? "#F0FDF4" : isSunday ? "#FEF2F2" : "#FFFFFF",
+            border: holiday ? "1.5px solid #087A5B" : isSunday ? "1px solid #FECACA" : "1px solid #E2E8F0",
+            borderRadius: "8px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            transition: "all 0.15s ease",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "14px", fontWeight: 700, color: isSunday ? "#DC2626" : "#0F172A" }}>
+              {d}
+            </span>
+            {isSunday && (
+              <span style={{ fontSize: "10px", fontWeight: 600, color: "#DC2626", backgroundColor: "#FEE2E2", padding: "1px 6px", borderRadius: "10px" }}>
+                Sunday
+              </span>
+            )}
+            {holiday && (
+              <span style={{ fontSize: "10px", fontWeight: 700, color: "#087A5B", backgroundColor: "#D1FAE5", padding: "2px 6px", borderRadius: "10px" }}>
+                {holiday.holiday_type}
+              </span>
+            )}
+          </div>
+          {holiday && (
+            <div>
+              <div style={{ fontSize: "12px", fontWeight: 600, color: "#065F46", lineHeight: 1.2 }}>
+                {holiday.name}
+              </div>
+              <div style={{ fontSize: "10px", color: holiday.is_paid ? "#059669" : "#DC2626", marginTop: "2px" }}>
+                {holiday.is_paid ? "● Paid Holiday" : "○ Unpaid"}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px" }}>
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dayName, idx) => (
+          <div
+            key={dayName}
+            style={{
+              textAlign: "center",
+              padding: "8px",
+              fontWeight: 700,
+              fontSize: "13px",
+              color: idx === 0 ? "#DC2626" : "#475569",
+              backgroundColor: idx === 0 ? "#FEE2E2" : "#F1F5F9",
+              borderRadius: "6px",
+            }}
+          >
+            {dayName}
+          </div>
+        ))}
+        {days}
+      </div>
+    );
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+    <div>
       <PageHeader
-        title={employee ? "My Salary & Payslips" : "Payroll & Salary Management"}
-        subtitle={
-          employee
-            ? "View your attendance-calculated payroll breakdowns and monthly payslips."
-            : "Enterprise Attendance-Based Payroll, India (IST) Timezone, Salary Heads & Holiday Calendar."
-        }
+        title="Enterprise Payroll & Salary Operations"
+        subtitle={`Canonical Cycle: 26th of Previous Month → 25th of Current Month (Asia/Kolkata IST)`}
         action={
-          !employee ? (
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-                background: "#E2E8F0",
-                padding: "4px",
-                borderRadius: "10px",
-                border: "1.5px solid #CBD5E1",
-                maxWidth: "100%",
-                overflowX: "auto",
-                WebkitOverflowScrolling: "touch",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setActiveTab("payroll")}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "7px 14px",
-                  borderRadius: "8px",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "12.5px",
-                  whiteSpace: "nowrap",
-                  fontWeight: activeTab === "payroll" ? 800 : 600,
-                  background: activeTab === "payroll" ? "#087A5B" : "transparent",
-                  color: activeTab === "payroll" ? "#FFFFFF" : "#334155",
-                  boxShadow: activeTab === "payroll" ? "0 2px 8px rgba(8,122,91,0.3)" : "none",
-                  transition: "all 0.18s ease",
-                }}
-              >
-                <Calculator size={14} />
-                Payroll Engine
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("structures")}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "7px 14px",
-                  borderRadius: "8px",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "12.5px",
-                  whiteSpace: "nowrap",
-                  fontWeight: activeTab === "structures" ? 800 : 600,
-                  background: activeTab === "structures" ? "#087A5B" : "transparent",
-                  color: activeTab === "structures" ? "#FFFFFF" : "#334155",
-                  boxShadow: activeTab === "structures" ? "0 2px 8px rgba(8,122,91,0.3)" : "none",
-                  transition: "all 0.18s ease",
-                }}
-              >
-                <Layers size={14} />
-                Salary Structure
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("holidays")}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "7px 14px",
-                  borderRadius: "8px",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "12.5px",
-                  whiteSpace: "nowrap",
-                  fontWeight: activeTab === "holidays" ? 800 : 600,
-                  background: activeTab === "holidays" ? "#087A5B" : "transparent",
-                  color: activeTab === "holidays" ? "#FFFFFF" : "#334155",
-                  boxShadow: activeTab === "holidays" ? "0 2px 8px rgba(8,122,91,0.3)" : "none",
-                  transition: "all 0.18s ease",
-                }}
-              >
-                <Calendar size={14} />
-                Holiday Calendar
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("slips")}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "7px 14px",
-                  borderRadius: "8px",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "12.5px",
-                  whiteSpace: "nowrap",
-                  fontWeight: activeTab === "slips" ? 800 : 600,
-                  background: activeTab === "slips" ? "#087A5B" : "transparent",
-                  color: activeTab === "slips" ? "#FFFFFF" : "#334155",
-                  boxShadow: activeTab === "slips" ? "0 2px 8px rgba(8,122,91,0.3)" : "none",
-                  transition: "all 0.18s ease",
-                }}
-              >
-                <Receipt size={14} />
-                Payslips
-              </button>
-            </div>
-          ) : null
+          !employee && activeTab === "payroll" ? (
+            <PrimaryButton onClick={handleProcessCycle} disabled={processingCycle}>
+              <Calculator style={{ width: "16px", height: "16px", marginRight: "8px" }} />
+              {processingCycle ? "Computing Payroll..." : `Process ${monthNames[payrollMonth - 1]} ${payrollYear}`}
+            </PrimaryButton>
+          ) : !employee && activeTab === "structures" ? (
+            <PrimaryButton onClick={() => setStructModal(true)}>
+              <Plus style={{ width: "16px", height: "16px", marginRight: "8px" }} />
+              Configure Salary Profile
+            </PrimaryButton>
+          ) : !employee && activeTab === "heads" ? (
+            <PrimaryButton onClick={() => setHeadModal(true)}>
+              <Plus style={{ width: "16px", height: "16px", marginRight: "8px" }} />
+              New Salary Head
+            </PrimaryButton>
+          ) : !employee && activeTab === "holidays" ? (
+            <PrimaryButton onClick={() => setHolidayModal(true)}>
+              <Plus style={{ width: "16px", height: "16px", marginRight: "8px" }} />
+              Add Company Holiday
+            </PrimaryButton>
+          ) : undefined
         }
       />
 
-      {/* --- TAB 1: PAYROLL ENGINE --- */}
-      {activeTab === "payroll" && !employee && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          {/* Top Calculation Control Strip */}
-          <div
-            style={{
-              background: "var(--panel)",
-              border: "1px solid var(--border)",
-              borderRadius: "12px",
-              padding: "20px 24px",
-              boxShadow: "var(--shadow-sm)",
-            }}
-          >
-            <div
+      {/* Horizontal Tabs Header */}
+      <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "8px", marginBottom: "24px", overflowX: "auto", whiteSpace: "nowrap" }}>
+        {[
+          { key: "slips", label: "Payslips & History", icon: Receipt },
+          ...(!employee
+            ? [
+                { key: "payroll", label: "Payroll Engine", icon: Calculator },
+                { key: "structures", label: "Salary Master & Structures", icon: Sliders },
+                { key: "heads", label: "Salary Head Library", icon: Layers },
+                { key: "reports", label: "Statutory & Payroll Reports", icon: FileSpreadsheet },
+              ]
+            : []),
+          { key: "holidays", label: "Holiday Calendar", icon: Calendar },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: "16px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
-                  Cycle Month:
-                </span>
-                <select
-                  value={payrollMonth}
-                  onChange={(e) => setPayrollMonth(parseInt(e.target.value, 10))}
-                  style={{
-                    background: "#FFFFFF",
-                    border: "1.5px solid #CBD5E1",
-                    borderRadius: "8px",
-                    padding: "8px 14px",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    color: "var(--text)",
-                    outline: "none",
-                  }}
-                >
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                    <option key={m} value={m}>
-                      {monthName(m)}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={payrollYear}
-                  onChange={(e) => setPayrollYear(parseInt(e.target.value, 10))}
-                  style={{
-                    background: "#FFFFFF",
-                    border: "1.5px solid #CBD5E1",
-                    borderRadius: "8px",
-                    padding: "8px 14px",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    color: "var(--text)",
-                    outline: "none",
-                  }}
-                >
-                  {[2025, 2026, 2027].map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div
-                style={{
-                  background: "var(--soft-brand-bg)",
-                  color: "var(--amber)",
-                  border: "1px solid rgba(8,122,91,0.25)",
-                  padding: "6px 14px",
-                  borderRadius: "20px",
-                  fontSize: "11.5px",
-                  fontWeight: 700,
-                  fontFamily: "monospace",
-                }}
-              >
-                Active Cycle: {cycleInfo.cycleName} ({cycleInfo.startStr} to {cycleInfo.endStr})
-              </div>
-
-              <button
-                type="button"
-                className="primary-button"
-                onClick={handleProcessCycle}
-                disabled={processingCycle}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 20px",
-                  borderRadius: "8px",
-                  background: "linear-gradient(135deg, #087A5B 0%, #066349 100%)",
-                  color: "#ffffff",
-                  fontSize: "13px",
-                  fontWeight: 800,
-                  border: "none",
-                  cursor: "pointer",
-                  boxShadow: "0 2px 8px rgba(8,122,91,0.3)",
-                }}
-              >
-                <Sparkles size={16} />
-                {processingCycle ? "Processing Payroll Cycle..." : "Process Cycle Payroll"}
-              </button>
-            </div>
-
-            {payrollSuccess && (
-              <div
-                style={{
-                  marginTop: "16px",
-                  padding: "12px 16px",
-                  borderRadius: "8px",
-                  background: "rgba(22,133,91,0.1)",
-                  border: "1px solid rgba(22,133,91,0.3)",
-                  color: "var(--green)",
-                  fontSize: "12.5px",
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}
-              >
-                <CheckCircle2 size={16} /> {payrollSuccess}
-              </div>
-            )}
-            {payrollError && (
-              <div
-                style={{
-                  marginTop: "16px",
-                  padding: "12px 16px",
-                  borderRadius: "8px",
-                  background: "rgba(200,75,75,0.1)",
-                  border: "1px solid rgba(200,75,75,0.3)",
-                  color: "var(--red)",
-                  fontSize: "12.5px",
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}
-              >
-                <AlertCircle size={16} /> {payrollError}
-              </div>
-            )}
-          </div>
-
-          {/* Quick Preview Calculator */}
-          <div
-            style={{
-              background: "var(--panel)",
-              border: "1px solid var(--border)",
-              borderRadius: "12px",
-              padding: "20px 24px",
-              boxShadow: "var(--shadow-sm)",
-            }}
-          >
-            <h4
-              style={{
-                fontSize: "13.5px",
-                fontWeight: 700,
-                color: "var(--text)",
-                margin: "0 0 14px 0",
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 gap: "8px",
+                padding: "8px 16px",
+                borderRadius: "8px",
+                fontSize: "14px",
+                fontWeight: isActive ? 700 : 500,
+                color: isActive ? "#FFFFFF" : "#475569",
+                backgroundColor: isActive ? "#087A5B" : "transparent",
+                border: "none",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
               }}
             >
-              <Calculator size={16} color="var(--amber)" /> Individual Employee Payroll Preview & Attendance Breakdown
-            </h4>
+              <Icon style={{ width: "16px", height: "16px" }} />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-              <select
-                value={genEmployeeId}
-                onChange={(e) => setGenEmployeeId(e.target.value)}
-                style={{
-                  flex: 1,
-                  minWidth: "260px",
-                  background: "#FFFFFF",
-                  border: "1.5px solid #CBD5E1",
-                  borderRadius: "8px",
-                  padding: "9px 14px",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  color: "var(--text)",
-                }}
-              >
-                {employeeOptions.map((e) => (
-                  <option key={e.id || (e as any)._id} value={e.id || (e as any)._id}>
-                    {e.name} ({e.employee_code || (e as any).employeeCode}) — {e.department}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => handleCalculatePreview(genEmployeeId)}
-                disabled={previewLoading || !genEmployeeId}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "9px 16px",
-                  borderRadius: "8px",
-                  background: "#FFFFFF",
-                  border: "1.5px solid #CBD5E1",
-                  color: "#18231F",
-                  fontSize: "12.5px",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                {previewLoading ? "Calculating..." : "Calculate Preview"}
-              </button>
-            </div>
-
-            {selectedPreview && (
-              <div
-                style={{
-                  marginTop: "16px",
-                  padding: "16px 20px",
-                  background: "var(--panel2)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "10px",
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: "16px",
-                }}
-              >
-                <div>
-                  <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
-                    Employee
-                  </span>
-                  <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)", marginTop: "2px" }}>
-                    {selectedPreview.employee?.name}
-                  </div>
-                </div>
-                <div>
-                  <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
-                    Attendance Breakdown
-                  </span>
-                  <div style={{ fontSize: "12px", fontFamily: "monospace", color: "var(--text)", marginTop: "2px" }}>
-                    Working: {selectedPreview.attendanceCycle?.workingDays} | Holidays: {selectedPreview.attendanceCycle?.companyHolidays} | Lates: {selectedPreview.attendanceCycle?.lateArrivalsCount}
-                  </div>
-                </div>
-                <div>
-                  <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
-                    Late Deductions
-                  </span>
-                  <div style={{ fontSize: "12px", fontFamily: "monospace", color: "var(--warning)", fontWeight: 700, marginTop: "2px" }}>
-                    {selectedPreview.attendanceCycle?.lateHalfDayDeductions} Half-Days (every 3 lates)
-                  </div>
-                </div>
-                <div>
-                  <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
-                    Net Calculated Salary
-                  </span>
-                  <div style={{ fontSize: "16px", fontWeight: 800, color: "var(--green)", fontFamily: "monospace", marginTop: "2px" }}>
-                    ₹{selectedPreview.netSalary?.toLocaleString("en-IN")}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Processed Records Table */}
-          <Section title={`Cycle Payroll Register (${payrollRecords.length} Records)`}>
-            <div style={{ overflowX: "auto", width: "100%" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-                <thead>
-                  <tr style={{ background: "var(--panel2)", borderBottom: "1.5px solid var(--border)" }}>
-                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Employee</th>
-                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Department</th>
-                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Gross</th>
-                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Payable Days</th>
-                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Attendance LOP</th>
-                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>PF / PT</th>
-                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Net Pay</th>
-                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Status</th>
-                    <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payrollRecords.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} style={{ padding: "32px 16px", textAlign: "center", color: "var(--muted)", fontSize: "13px" }}>
-                        No payroll records generated for this cycle yet. Click &quot;Process Cycle Payroll&quot; above.
-                      </td>
-                    </tr>
-                  ) : (
-                    payrollRecords.map((r) => (
-                      <tr key={r._id} style={{ borderBottom: "1px solid var(--line)" }}>
-                        <td style={{ padding: "12px 16px", fontWeight: 700, color: "var(--text)", fontSize: "13px" }}>{r.employee?.name}</td>
-                        <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: "12.5px" }}>{r.employee?.department}</td>
-                        <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "13px", fontWeight: 700 }}>₹{r.grossSalary?.toLocaleString("en-IN")}</td>
-                        <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "12.5px" }}>{r.attendanceCycle?.payableDays} / {r.attendanceCycle?.totalCalendarDays}</td>
-                        <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "12.5px", color: "var(--warning)" }}>₹{r.attendanceDeduction?.toLocaleString("en-IN")}</td>
-                        <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "11.5px", color: "var(--muted)" }}>
-                          PF: ₹{r.pfEmployee} | PT: ₹{r.professionalTax}
-                        </td>
-                        <td style={{ padding: "12px 16px", fontWeight: 800, color: "var(--green)", fontFamily: "monospace", fontSize: "14px" }}>
-                          ₹{r.netSalary?.toLocaleString("en-IN")}
-                        </td>
-                        <td style={{ padding: "12px 16px" }}>
-                          <span
-                            style={{
-                              padding: "3px 10px",
-                              borderRadius: "20px",
-                              fontSize: "11px",
-                              fontWeight: 700,
-                              background: r.status === "Approved" ? "rgba(22,133,91,0.12)" : "rgba(201,135,23,0.12)",
-                              color: r.status === "Approved" ? "var(--green)" : "var(--warning)",
-                              border: `1px solid ${r.status === "Approved" ? "rgba(22,133,91,0.3)" : "rgba(201,135,23,0.3)"}`,
-                            }}
-                          >
-                            {r.status}
-                          </span>
-                        </td>
-                        <td style={{ padding: "12px 16px" }}>
-                          {r.status !== "Approved" && (
-                            <button
-                              type="button"
-                              onClick={() => handleApprovePayroll(r._id)}
-                              style={{
-                                padding: "5px 12px",
-                                borderRadius: "6px",
-                                background: "#087A5B",
-                                color: "#FFFFFF",
-                                border: "none",
-                                fontSize: "11.5px",
-                                fontWeight: 700,
-                                cursor: "pointer",
-                              }}
-                            >
-                              Approve
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Section>
+      {payrollSuccess && (
+        <div style={{ padding: "12px 16px", backgroundColor: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: "8px", color: "#065F46", marginBottom: "20px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <CheckCircle2 style={{ width: "18px", height: "18px", flexShrink: 0 }} />
+          <span>{payrollSuccess}</span>
         </div>
       )}
 
-      {/* --- TAB 2: SALARY STRUCTURES --- */}
-      {activeTab === "structures" && !employee && (
-        <Section
-          title="Employee Salary Structures & Heads"
-          action={
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => setStructModal(true)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "8px 16px",
-                borderRadius: "8px",
-                background: "linear-gradient(135deg, #087A5B 0%, #066349 100%)",
-                color: "#ffffff",
-                fontWeight: 700,
-                fontSize: "12.5px",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              <Plus size={14} /> Configure Structure
-            </button>
-          }
-        >
-          <div style={{ overflowX: "auto", width: "100%" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-              <thead>
-                <tr style={{ background: "var(--panel2)", borderBottom: "1.5px solid var(--border)" }}>
-                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Employee</th>
-                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Department</th>
-                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Gross Salary</th>
-                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Basic (₹)</th>
-                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>HRA (₹)</th>
-                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>PF Status</th>
-                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>ESI Status</th>
-                  <th style={{ padding: "12px 16px", fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Prof. Tax</th>
-                </tr>
-              </thead>
-              <tbody>
-                {structures.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} style={{ padding: "32px 16px", textAlign: "center", color: "var(--muted)", fontSize: "13px" }}>
-                      No salary structures configured yet.
-                    </td>
-                  </tr>
-                ) : (
-                  structures.map((s) => (
-                    <tr key={s._id} style={{ borderBottom: "1px solid var(--line)" }}>
-                      <td style={{ padding: "12px 16px", fontWeight: 700, color: "var(--text)", fontSize: "13px" }}>{s.employee?.name}</td>
-                      <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: "12.5px" }}>{s.employee?.department}</td>
-                      <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "13.5px", fontWeight: 800, color: "var(--text)" }}>
-                        ₹{s.grossSalary?.toLocaleString("en-IN")}
-                      </td>
-                      <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "13px" }}>₹{s.basicSalary?.toLocaleString("en-IN")}</td>
-                      <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "13px" }}>₹{s.hra?.toLocaleString("en-IN")}</td>
-                      <td style={{ padding: "12px 16px" }}>
-                        <span
-                          style={{
-                            padding: "3px 8px",
-                            borderRadius: "4px",
-                            fontSize: "11px",
-                            fontWeight: 700,
-                            background: s.pfEnabled ? "rgba(22,133,91,0.12)" : "rgba(100,116,139,0.12)",
-                            color: s.pfEnabled ? "var(--green)" : "var(--muted)",
-                          }}
-                        >
-                          {s.pfEnabled ? `Enabled (${s.pfEmployeePercent}%)` : "Disabled"}
-                        </span>
-                      </td>
-                      <td style={{ padding: "12px 16px" }}>
-                        <span
-                          style={{
-                            padding: "3px 8px",
-                            borderRadius: "4px",
-                            fontSize: "11px",
-                            fontWeight: 700,
-                            background: s.esiEnabled ? "rgba(22,133,91,0.12)" : "rgba(100,116,139,0.12)",
-                            color: s.esiEnabled ? "var(--green)" : "var(--muted)",
-                          }}
-                        >
-                          {s.esiEnabled ? `Enabled (${s.esiEmployeePercent}%)` : "Disabled"}
-                        </span>
-                      </td>
-                      <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "13px" }}>₹{s.professionalTax}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Section>
+      {payrollError && (
+        <div style={{ padding: "12px 16px", backgroundColor: "#FEF2F2", border: "1px solid #FECACA", borderRadius: "8px", color: "#991B1B", marginBottom: "20px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <AlertCircle style={{ width: "18px", height: "18px", flexShrink: 0 }} />
+          <span>{payrollError}</span>
+        </div>
       )}
 
-      {/* --- TAB 3: HOLIDAY CALENDAR --- */}
-      {activeTab === "holidays" && !employee && (
-        <Section
-          title="Company Holiday Calendar (Asia/Kolkata)"
-          action={
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => setHolidayModal(true)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "8px 16px",
-                borderRadius: "8px",
-                background: "linear-gradient(135deg, #087A5B 0%, #066349 100%)",
-                color: "#ffffff",
-                fontWeight: 700,
-                fontSize: "12.5px",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              <Plus size={14} /> Add Holiday
-            </button>
-          }
-        >
-          <div
-            style={{
-              padding: "16px 20px",
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-              gap: "16px",
-            }}
-          >
-            {holidays.map((h) => (
-              <div
-                key={h.id}
-                style={{
-                  background: "var(--panel)",
-                  border: "1.5px solid var(--border)",
-                  borderRadius: "10px",
-                  padding: "16px 18px",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-                  position: "relative",
-                }}
-              >
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        fontFamily: "monospace",
-                        background: "var(--soft-brand-bg)",
-                        color: "var(--amber)",
-                        padding: "3px 8px",
-                        borderRadius: "6px",
-                        border: "1px solid rgba(8,122,91,0.2)",
-                      }}
-                    >
-                      {h.date}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteHoliday(h.id)}
-                      title="Delete Holiday"
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "#94A3B8",
-                        cursor: "pointer",
-                        padding: "4px",
-                        borderRadius: "4px",
-                        display: "grid",
-                        placeItems: "center",
-                      }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                  <h4 style={{ margin: "4px 0", fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>{h.name}</h4>
-                  <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>{h.description || "Official Paid Holiday"}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {/* --- TAB 4: PAYSLIPS LIST --- */}
+      {/* TAB 1: PAYSLIPS */}
       {activeTab === "slips" && (
-        <Section title={employee ? "My Payslips" : "Generated Payslips"}>
-          {slipsData.length === 0 ? (
-            <EmptyState
-              title="No salary slips found"
-              text="Generated salary slips will appear here."
-            />
+        <Section title="Employee Salary Slips" kicker="Itemized monthly payslips with verified attendance and statutory breakdown">
+          {loading ? (
+            <div style={{ padding: "32px", textAlign: "center", color: "#64748B" }}>Loading payslips...</div>
+          ) : slipsData.length === 0 ? (
+            <EmptyState title="No salary slips issued" text="Payslips will appear here once payroll cycles are processed and finalized." />
           ) : (
-            <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px" }}>
               {slipsData.map((slip) => (
                 <div
                   key={slip.id}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "14px 20px",
-                    borderBottom: "1px solid var(--line)",
+                    backgroundColor: "#FFFFFF",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "12px",
+                    padding: "20px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <Avatar name={slip.employee_name} />
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: "13.5px", fontWeight: 700, color: "var(--text)" }}>{slip.employee_name}</h4>
-                      <p style={{ margin: "2px 0 0", fontSize: "11.5px", color: "var(--muted)" }}>
-                        {monthName(slip.month)} {slip.year} • Net Pay: <strong style={{ color: "var(--green)" }}>₹{Number(slip.net_salary).toLocaleString("en-IN")}</strong>
+                      <h4 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>
+                        {monthNames[slip.month - 1]} {slip.year}
+                      </h4>
+                      <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748B" }}>
+                        Period: {slip.cycle_start_date || "26th"} → {slip.cycle_end_date || "25th"}
                       </p>
                     </div>
+                    <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", borderRadius: "12px", backgroundColor: "#D1FAE5", color: "#065F46" }}>
+                      {slip.status || "Finalized"}
+                    </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const host = typeof window !== "undefined" ? window.location.hostname : "127.0.0.1";
-                      window.open(`http://${host}:8000/api/salary-slips/${slip.id}/download/`, "_blank");
-                    }}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      background: "var(--soft-brand-bg)",
-                      color: "var(--amber)",
-                      border: "1px solid rgba(8,122,91,0.25)",
-                      borderRadius: "6px",
-                      padding: "6px 12px",
-                      fontSize: "12px",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <Download size={14} /> Download PDF
-                  </button>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", margin: "16px 0", padding: "12px", backgroundColor: "#F8FAFC", borderRadius: "8px" }}>
+                    <div>
+                      <div style={{ fontSize: "11px", color: "#64748B" }}>Gross Pay</div>
+                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#0F172A" }}>₹{slip.gross_salary?.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: "11px", color: "#64748B" }}>Deductions</div>
+                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#DC2626" }}>₹{slip.total_deductions?.toLocaleString()}</div>
+                    </div>
+                    <div style={{ gridColumn: "span 2", borderTop: "1px solid #E2E8F0", paddingTop: "8px" }}>
+                      <div style={{ fontSize: "11px", color: "#64748B" }}>Net Payable Salary</div>
+                      <div style={{ fontSize: "18px", fontWeight: 800, color: "#087A5B" }}>₹{slip.net_salary?.toLocaleString()}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    {slip.pdf_url && (
+                      <a
+                        href={slip.pdf_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          flex: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "6px",
+                          padding: "8px",
+                          backgroundColor: "#087A5B",
+                          color: "#FFFFFF",
+                          borderRadius: "6px",
+                          fontSize: "13px",
+                          fontWeight: 600,
+                          textDecoration: "none",
+                        }}
+                      >
+                        <Download style={{ width: "14px", height: "14px" }} />
+                        Download PDF
+                      </a>
+                    )}
+                    <button
+                      onClick={() => setSelectedSlipDetail(slip)}
+                      style={{
+                        padding: "8px 12px",
+                        backgroundColor: "#F1F5F9",
+                        border: "1px solid #CBD5E1",
+                        borderRadius: "6px",
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        color: "#334155",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Eye style={{ width: "14px", height: "14px" }} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -961,164 +626,744 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
         </Section>
       )}
 
-      {/* Modal for Salary Structure Configuration */}
+      {/* TAB 2: PAYROLL ENGINE */}
+      {activeTab === "payroll" && !employee && (
+        <div>
+          {/* Month & Cycle Selector Banner */}
+          <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "20px", marginBottom: "24px" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#0F172A" }}>
+                  {monthNames[payrollMonth - 1]} {payrollYear} Cycle
+                </h3>
+                <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748B" }}>
+                  Active Period: <strong>{cycleInfo.startStr}</strong> (26th) to <strong>{cycleInfo.endStr}</strong> (25th) • Total Days: {cycleInfo.totalCalendarDays}
+                </p>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <select
+                  value={payrollMonth}
+                  onChange={(e) => setPayrollMonth(Number(e.target.value))}
+                  style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px", fontWeight: 600 }}
+                >
+                  {monthNames.map((name, idx) => (
+                    <option key={name} value={idx + 1}>{name}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={payrollYear}
+                  onChange={(e) => setPayrollYear(Number(e.target.value))}
+                  style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px", fontWeight: 600 }}
+                >
+                  {[2025, 2026, 2027].map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={loadPayrollRecords}
+                  style={{ padding: "8px", borderRadius: "6px", border: "1px solid #CBD5E1", backgroundColor: "#F8FAFC", cursor: "pointer" }}
+                >
+                  <RefreshCw style={{ width: "16px", height: "16px", color: "#475569" }} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Records Table */}
+          <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", overflow: "hidden" }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
+                <thead>
+                  <tr style={{ backgroundColor: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
+                    <th style={{ padding: "12px 16px", fontWeight: 700, color: "#475569" }}>Employee</th>
+                    <th style={{ padding: "12px 16px", fontWeight: 700, color: "#475569" }}>Present / Payable</th>
+                    <th style={{ padding: "12px 16px", fontWeight: 700, color: "#475569" }}>Gross Pay</th>
+                    <th style={{ padding: "12px 16px", fontWeight: 700, color: "#475569" }}>Deductions</th>
+                    <th style={{ padding: "12px 16px", fontWeight: 700, color: "#475569" }}>Net Salary</th>
+                    <th style={{ padding: "12px 16px", fontWeight: 700, color: "#475569" }}>Status</th>
+                    <th style={{ padding: "12px 16px", fontWeight: 700, color: "#475569", textAlign: "right" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payrollRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ padding: "32px", textAlign: "center", color: "#64748B" }}>
+                        No payroll computed for this cycle yet. Click "Process {monthNames[payrollMonth - 1]} {payrollYear}" above.
+                      </td>
+                    </tr>
+                  ) : (
+                    payrollRecords.map((r) => (
+                      <tr key={r._id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                        <td style={{ padding: "12px 16px" }}>
+                          <div style={{ fontWeight: 700, color: "#0F172A" }}>{r.employee?.name}</div>
+                          <div style={{ fontSize: "11px", color: "#64748B" }}>{r.employee?.employeeCode} • {r.employee?.department}</div>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <div style={{ fontWeight: 600, color: "#087A5B" }}>{r.attendanceCycle?.payableDays} Days</div>
+                          <div style={{ fontSize: "11px", color: "#64748B" }}>Present: {r.attendanceCycle?.presentDays} | LOP: {r.attendanceCycle?.unpaidDays}</div>
+                        </td>
+                        <td style={{ padding: "12px 16px", fontWeight: 600 }}>₹{r.grossSalary?.toLocaleString()}</td>
+                        <td style={{ padding: "12px 16px", fontWeight: 600, color: "#DC2626" }}>₹{r.totalDeductions?.toLocaleString()}</td>
+                        <td style={{ padding: "12px 16px", fontWeight: 800, color: "#087A5B", fontSize: "15px" }}>₹{r.netSalary?.toLocaleString()}</td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              padding: "3px 8px",
+                              borderRadius: "12px",
+                              backgroundColor: r.status === "Paid" ? "#D1FAE5" : r.status === "Approved" ? "#DBEAFE" : "#FEF3C7",
+                              color: r.status === "Paid" ? "#065F46" : r.status === "Approved" ? "#1E40AF" : "#92400E",
+                            }}
+                          >
+                            {r.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                          <div style={{ display: "inline-flex", gap: "6px" }}>
+                            {/* Reprocess Single Employee */}
+                            <button
+                              onClick={() => handleReprocessSingle(r._id)}
+                              disabled={reprocessingId === r._id || r.status === "Paid"}
+                              title="Reprocess Single Employee"
+                              style={{
+                                padding: "6px 10px",
+                                backgroundColor: "#F1F5F9",
+                                border: "1px solid #CBD5E1",
+                                borderRadius: "6px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                color: "#334155",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <RefreshCw style={{ width: "12px", height: "12px", marginRight: "4px" }} />
+                              {reprocessingId === r._id ? "Calculating..." : "Reprocess"}
+                            </button>
+
+                            {/* Approve */}
+                            {r.status === "Calculated" && (
+                              <button
+                                onClick={() => handleApproveRecord(r._id)}
+                                style={{
+                                  padding: "6px 10px",
+                                  backgroundColor: "#087A5B",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  color: "#FFFFFF",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Approve
+                              </button>
+                            )}
+
+                            {/* Mark Paid */}
+                            {r.status === "Approved" && (
+                              <button
+                                onClick={() => handleMarkPaid(r._id)}
+                                style={{
+                                  padding: "6px 10px",
+                                  backgroundColor: "#2563EB",
+                                  border: "none",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  color: "#FFFFFF",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Mark Paid
+                              </button>
+                            )}
+
+                            {/* Super Admin Unlock */}
+                            {(r.status === "Approved" || r.status === "Paid") && (
+                              <button
+                                onClick={() => {
+                                  setUnlockRecordId(r._id);
+                                  setUnlockModal(true);
+                                }}
+                                title="Super Admin Unlock"
+                                style={{
+                                  padding: "6px 10px",
+                                  backgroundColor: "#FEF2F2",
+                                  border: "1px solid #FECACA",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  color: "#DC2626",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <Unlock style={{ width: "12px", height: "12px" }} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: SALARY MASTER & STRUCTURES */}
+      {activeTab === "structures" && !employee && (
+        <Section title="Employee Salary Profiles" kicker="Manage effective-dated structures with explicit PF, ESI, PT, TDS statutory flags">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "16px" }}>
+            {structures.map((s) => (
+              <div key={s._id} style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>{s.employee?.name}</h4>
+                    <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748B" }}>{s.employee?.employeeCode} • {s.employee?.department}</p>
+                  </div>
+                  <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", borderRadius: "12px", backgroundColor: "#D1FAE5", color: "#065F46" }}>
+                    Active Structure
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", padding: "12px", backgroundColor: "#F8FAFC", borderRadius: "8px", margin: "12px 0" }}>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748B" }}>Fixed Gross</div>
+                    <div style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>₹{s.grossSalary?.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748B" }}>Basic Salary</div>
+                    <div style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>₹{s.basicSalary?.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748B" }}>HRA</div>
+                    <div style={{ fontSize: "13px", fontWeight: 600 }}>₹{s.hra?.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748B" }}>Special Allowance</div>
+                    <div style={{ fontSize: "13px", fontWeight: 600 }}>₹{s.specialAllowance?.toLocaleString()}</div>
+                  </div>
+                </div>
+
+                {/* Statutory Badges */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "6px", backgroundColor: s.pfApplicable ? "#ECFDF5" : "#F1F5F9", color: s.pfApplicable ? "#065F46" : "#94A3B8" }}>
+                    PF: {s.pfApplicable ? "Yes (12%)" : "No"}
+                  </span>
+                  <span style={{ fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "6px", backgroundColor: s.esiApplicable ? "#ECFDF5" : "#F1F5F9", color: s.esiApplicable ? "#065F46" : "#94A3B8" }}>
+                    ESI: {s.esiApplicable ? "Yes" : "No"}
+                  </span>
+                  <span style={{ fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "6px", backgroundColor: s.professionalTaxApplicable ? "#ECFDF5" : "#F1F5F9", color: s.professionalTaxApplicable ? "#065F46" : "#94A3B8" }}>
+                    PT: {s.professionalTaxApplicable ? `₹${s.professionalTax}` : "No"}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    onClick={() => {
+                      setSelectedEmpForStruct(s.employee?._id);
+                      setStructGross(s.grossSalary || 50000);
+                      setStructBasic(s.basicSalary || 25000);
+                      setStructHra(s.hra || 12500);
+                      setStructConveyance(s.conveyance || 3000);
+                      setStructSpecial(s.specialAllowance || 9500);
+                      setStructOther(s.otherAllowances || 0);
+                      setStructPfApplicable(s.pfApplicable !== undefined ? s.pfApplicable : s.pfEnabled);
+                      setStructVoluntaryPf(Boolean(s.voluntaryPfAboveCeiling));
+                      setStructEsiApplicable(s.esiApplicable !== undefined ? s.esiApplicable : s.esiEnabled);
+                      setStructProfTaxApplicable(s.professionalTaxApplicable !== undefined ? s.professionalTaxApplicable : true);
+                      setStructProfTax(s.professionalTax || 200);
+                      setStructTdsApplicable(Boolean(s.tdsApplicable));
+                      setStructTds(s.tds || 0);
+                      setStructModal(true);
+                    }}
+                    style={{ flex: 1, padding: "8px", backgroundColor: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "13px", fontWeight: 600, color: "#334155", cursor: "pointer" }}
+                  >
+                    Edit Profile
+                  </button>
+
+                  {s.salaryHistory && s.salaryHistory.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setSelectedHistory(s.salaryHistory);
+                        setHistoryModal(true);
+                      }}
+                      style={{ padding: "8px 12px", backgroundColor: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "13px", fontWeight: 600, color: "#334155", cursor: "pointer" }}
+                    >
+                      <History style={{ width: "14px", height: "14px" }} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* TAB 4: SALARY HEAD LIBRARY */}
+      {activeTab === "heads" && !employee && (
+        <Section title="Reusable Salary Head Master" kicker="Configure universal earnings, deductions, and formula-driven allowances">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "16px" }}>
+            {salaryHeads.map((h) => (
+              <div key={h.id} style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", backgroundColor: "#F1F5F9", color: "#334155" }}>
+                    {h.code}
+                  </span>
+                  <span style={{ fontSize: "11px", fontWeight: 600, color: h.type === "Earning" ? "#087A5B" : "#DC2626" }}>
+                    {h.type}
+                  </span>
+                </div>
+                <h4 style={{ margin: "0 0 6px", fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>{h.name}</h4>
+                <div style={{ fontSize: "12px", color: "#64748B", marginBottom: "12px" }}>
+                  Type: <strong>{h.calculation_type}</strong>
+                  {h.formula && <span> • Formula: <code>{h.formula}</code></span>}
+                  {h.percentage > 0 && <span> • {h.percentage}% of {h.percentage_base_head}</span>}
+                </div>
+                <div style={{ display: "flex", gap: "6px", fontSize: "10px", color: "#64748B" }}>
+                  <span>Taxable: {h.taxable ? "Yes" : "No"}</span>
+                  <span>• PF: {h.pf_eligible ? "Yes" : "No"}</span>
+                  <span>• ESI: {h.esi_eligible ? "Yes" : "No"}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* TAB 5: HOLIDAY CALENDAR */}
+      {activeTab === "holidays" && (
+        <div>
+          {/* Month/Year Calendar Header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", backgroundColor: "#FFFFFF", padding: "16px 20px", borderRadius: "12px", border: "1px solid #E2E8F0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <button
+                onClick={() => {
+                  if (calMonth === 1) {
+                    setCalMonth(12);
+                    setCalYear(calYear - 1);
+                  } else {
+                    setCalMonth(calMonth - 1);
+                  }
+                }}
+                style={{ padding: "6px", border: "1px solid #CBD5E1", borderRadius: "6px", backgroundColor: "#FFFFFF", cursor: "pointer" }}
+              >
+                <ChevronLeft style={{ width: "16px", height: "16px" }} />
+              </button>
+              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#0F172A" }}>
+                {monthNames[calMonth - 1]} {calYear}
+              </h3>
+              <button
+                onClick={() => {
+                  if (calMonth === 12) {
+                    setCalMonth(1);
+                    setCalYear(calYear + 1);
+                  } else {
+                    setCalMonth(calMonth + 1);
+                  }
+                }}
+                style={{ padding: "6px", border: "1px solid #CBD5E1", borderRadius: "6px", backgroundColor: "#FFFFFF", cursor: "pointer" }}
+              >
+                <ChevronRight style={{ width: "16px", height: "16px" }} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: "8px", fontSize: "12px", alignItems: "center" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", color: "#DC2626" }}>
+                <span style={{ width: "10px", height: "10px", backgroundColor: "#FEE2E2", border: "1px solid #FECACA", borderRadius: "2px" }} />
+                Sunday (Weekly Off)
+              </span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", color: "#087A5B", marginLeft: "12px" }}>
+                <span style={{ width: "10px", height: "10px", backgroundColor: "#D1FAE5", border: "1px solid #A7F3D0", borderRadius: "2px" }} />
+                Company Paid Holiday
+              </span>
+            </div>
+          </div>
+
+          {/* Real Calendar Grid */}
+          <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "16px" }}>
+            {renderVisualCalendar()}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 6: REPORTS */}
+      {activeTab === "reports" && !employee && (
+        <div>
+          <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
+            {[
+              { id: "summary", label: "Payroll Summary" },
+              { id: "statutory", label: "Statutory PF / ESI / PT" },
+              { id: "attendance", label: "Attendance Impact & LOP" },
+              { id: "leave", label: "3-Month Leave Conversion" },
+            ].map((r) => (
+              <button
+                key={r.id}
+                onClick={() => setReportType(r.id as any)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  fontSize: "13px",
+                  fontWeight: reportType === r.id ? 700 : 500,
+                  backgroundColor: reportType === r.id ? "#087A5B" : "#FFFFFF",
+                  color: reportType === r.id ? "#FFFFFF" : "#475569",
+                  border: "1px solid #CBD5E1",
+                  cursor: "pointer",
+                }}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+
+          {reportLoading ? (
+            <div style={{ padding: "32px", textAlign: "center", color: "#64748B" }}>Loading report data...</div>
+          ) : reportData?.summary ? (
+            <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "20px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "24px" }}>
+                <div style={{ padding: "16px", backgroundColor: "#F8FAFC", borderRadius: "8px" }}>
+                  <div style={{ fontSize: "12px", color: "#64748B" }}>Total Employees</div>
+                  <div style={{ fontSize: "20px", fontWeight: 800, color: "#0F172A" }}>{reportData.summary.total_employees}</div>
+                </div>
+                <div style={{ padding: "16px", backgroundColor: "#F8FAFC", borderRadius: "8px" }}>
+                  <div style={{ fontSize: "12px", color: "#64748B" }}>Total Gross Payroll</div>
+                  <div style={{ fontSize: "20px", fontWeight: 800, color: "#0F172A" }}>₹{reportData.summary.total_gross?.toLocaleString()}</div>
+                </div>
+                <div style={{ padding: "16px", backgroundColor: "#F8FAFC", borderRadius: "8px" }}>
+                  <div style={{ fontSize: "12px", color: "#64748B" }}>Total Deductions</div>
+                  <div style={{ fontSize: "20px", fontWeight: 800, color: "#DC2626" }}>₹{reportData.summary.total_deductions?.toLocaleString()}</div>
+                </div>
+                <div style={{ padding: "16px", backgroundColor: "#F0FDF4", borderRadius: "8px", border: "1px solid #A7F3D0" }}>
+                  <div style={{ fontSize: "12px", color: "#065F46" }}>Total Net Payout</div>
+                  <div style={{ fontSize: "20px", fontWeight: 800, color: "#087A5B" }}>₹{reportData.summary.total_net_payroll?.toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <EmptyState title="No report data" text="Process payroll for this cycle to generate real-time reports." />
+          )}
+        </div>
+      )}
+
+      {/* MODAL: Salary Structure Form */}
       {structModal && (
-        <Modal onClose={() => setStructModal(false)} title="Configure Salary Structure">
-          <form onSubmit={handleSaveStructure} className="form-grid">
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label>Select Employee</label>
+        <Modal onClose={() => setStructModal(false)} title="Configure Employee Salary Structure">
+          <form onSubmit={handleSaveStructure} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>Employee *</label>
               <select
                 value={selectedEmpForStruct}
                 onChange={(e) => setSelectedEmpForStruct(e.target.value)}
                 required
+                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
               >
+                <option value="">Select Employee...</option>
                 {employeeOptions.map((e) => (
-                  <option key={e.id || (e as any)._id} value={e.id || (e as any)._id}>
-                    {e.name} ({e.employee_code || (e as any).employeeCode})
-                  </option>
+                  <option key={e.id} value={e.id}>{e.name} ({e.employee_code || String(e.id).slice(-4)})</option>
                 ))}
               </select>
             </div>
 
-            <div>
-              <label>Monthly Gross (₹)</label>
-              <input
-                type="number"
-                value={structGross}
-                onChange={(e) => setStructGross(Number(e.target.value))}
-                required
-              />
-            </div>
-            <div>
-              <label>Basic Salary (₹)</label>
-              <input
-                type="number"
-                value={structBasic}
-                onChange={(e) => setStructBasic(Number(e.target.value))}
-                required
-              />
-            </div>
-
-            <div>
-              <label>HRA (₹)</label>
-              <input
-                type="number"
-                value={structHra}
-                onChange={(e) => setStructHra(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label>Conveyance (₹)</label>
-              <input
-                type="number"
-                value={structConveyance}
-                onChange={(e) => setStructConveyance(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label>Special Allowance (₹)</label>
-              <input
-                type="number"
-                value={structSpecial}
-                onChange={(e) => setStructSpecial(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label>Professional Tax (₹)</label>
-              <input
-                type="number"
-                value={structProfTax}
-                onChange={(e) => setStructProfTax(Number(e.target.value))}
-              />
-            </div>
-
-            <div style={{ gridColumn: "1 / -1", display: "flex", gap: "20px", marginTop: "10px" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "12px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>Monthly Fixed Gross (₹) *</label>
                 <input
-                  type="checkbox"
-                  checked={structPfEnabled}
-                  onChange={(e) => setStructPfEnabled(e.target.checked)}
+                  type="number"
+                  value={structGross}
+                  onChange={(e) => setStructGross(Number(e.target.value))}
+                  required
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
                 />
-                PF Enabled (12% capped at ₹15,000 ceiling)
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "12px" }}>
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>Basic Salary (₹) *</label>
                 <input
-                  type="checkbox"
-                  checked={structEsiEnabled}
-                  onChange={(e) => setStructEsiEnabled(e.target.checked)}
+                  type="number"
+                  value={structBasic}
+                  onChange={(e) => setStructBasic(Number(e.target.value))}
+                  required
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
                 />
-                ESI Enabled (0.75% / 3.25% if Gross ≤ ₹21k)
-              </label>
+              </div>
             </div>
 
-            <div className="form-actions" style={{ gridColumn: "1 / -1" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "4px" }}>HRA (₹)</label>
+                <input
+                  type="number"
+                  value={structHra}
+                  onChange={(e) => setStructHra(Number(e.target.value))}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "4px" }}>Conveyance (₹)</label>
+                <input
+                  type="number"
+                  value={structConveyance}
+                  onChange={(e) => setStructConveyance(Number(e.target.value))}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "4px" }}>Special Allowance (₹)</label>
+                <input
+                  type="number"
+                  value={structSpecial}
+                  onChange={(e) => setStructSpecial(Number(e.target.value))}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
+                />
+              </div>
+            </div>
+
+            {/* Statutory Flags Box */}
+            <div style={{ padding: "12px", backgroundColor: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
+              <h5 style={{ margin: "0 0 8px", fontSize: "13px", fontWeight: 700, color: "#0F172A" }}>Explicit Statutory Applicability</h5>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input type="checkbox" checked={structPfApplicable} onChange={(e) => setStructPfApplicable(e.target.checked)} />
+                  <span>PF Applicable (12% of Basic, ₹15,000 ceiling)</span>
+                </label>
+
+                {structPfApplicable && (
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "20px", fontSize: "12px", color: "#475569", cursor: "pointer" }}>
+                    <input type="checkbox" checked={structVoluntaryPf} onChange={(e) => setStructVoluntaryPf(e.target.checked)} />
+                    <span>Voluntary PF Above Ceiling (Uncapped 12% on full basic)</span>
+                  </label>
+                )}
+
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input type="checkbox" checked={structEsiApplicable} onChange={(e) => setStructEsiApplicable(e.target.checked)} />
+                  <span>ESI Applicable (0.75% Employee / 3.25% Employer if Gross ≤ ₹21,000)</span>
+                </label>
+
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input type="checkbox" checked={structProfTaxApplicable} onChange={(e) => setStructProfTaxApplicable(e.target.checked)} />
+                  <span>Professional Tax Applicable (Kerala Standard ₹200)</span>
+                </label>
+
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input type="checkbox" checked={structTdsApplicable} onChange={(e) => setStructTdsApplicable(e.target.checked)} />
+                  <span>TDS Applicable (Income Tax Deduction)</span>
+                </label>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "12px" }}>
               <button
                 type="button"
-                className="secondary-button"
                 onClick={() => setStructModal(false)}
+                style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #CBD5E1", backgroundColor: "#FFFFFF", cursor: "pointer" }}
               >
                 Cancel
               </button>
-              <PrimaryButton type="submit">Save Structure</PrimaryButton>
+              <PrimaryButton type="submit">Save Salary Profile</PrimaryButton>
             </div>
           </form>
         </Modal>
       )}
 
-      {/* Modal for Holiday Creation */}
+      {/* MODAL: Salary Head Form */}
+      {headModal && (
+        <Modal onClose={() => setHeadModal(false)} title="Create Master Salary Head">
+          <form onSubmit={handleSaveSalaryHead} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>Head Name *</label>
+              <input
+                type="text"
+                value={headName}
+                onChange={(e) => setHeadName(e.target.value)}
+                placeholder="e.g. Performance Incentive"
+                required
+                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
+              />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>Head Code *</label>
+                <input
+                  type="text"
+                  value={headCode}
+                  onChange={(e) => setHeadCode(e.target.value.toUpperCase())}
+                  placeholder="e.g. INCENTIVE"
+                  required
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>Type</label>
+                <select
+                  value={headType}
+                  onChange={(e) => setHeadType(e.target.value as any)}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
+                >
+                  <option value="Earning">Earning</option>
+                  <option value="Deduction">Deduction</option>
+                  <option value="EmployerContribution">Employer Contribution</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>Calculation Model</label>
+              <select
+                value={headCalcType}
+                onChange={(e) => setHeadCalcType(e.target.value as any)}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
+              >
+                <option value="Fixed">Fixed Amount</option>
+                <option value="Percentage">Percentage of Base</option>
+                <option value="Formula">Mathematical Formula</option>
+              </select>
+            </div>
+
+            {headCalcType === "Formula" && (
+              <div>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>Formula Expression</label>
+                <input
+                  type="text"
+                  value={headFormula}
+                  onChange={(e) => setHeadFormula(e.target.value)}
+                  placeholder="e.g. BASIC * 0.40 or (BASIC + HRA) * 0.10"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
+                />
+                <span style={{ fontSize: "11px", color: "#64748B" }}>Variables: BASIC, GROSS, HRA, SPECIAL, CONVEYANCE</span>
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "12px" }}>
+              <button type="button" onClick={() => setHeadModal(false)} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #CBD5E1", backgroundColor: "#FFFFFF", cursor: "pointer" }}>
+                Cancel
+              </button>
+              <PrimaryButton type="submit">Create Salary Head</PrimaryButton>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL: Holiday Form */}
       {holidayModal && (
         <Modal onClose={() => setHolidayModal(false)} title="Add Company Holiday">
-          <form onSubmit={handleSaveHoliday} className="form-grid">
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label>Holiday Name</label>
+          <form onSubmit={handleSaveHoliday} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>Holiday Name *</label>
               <input
                 type="text"
                 value={newHolidayName}
                 onChange={(e) => setNewHolidayName(e.target.value)}
-                placeholder="e.g. Independence Day"
+                placeholder="e.g. Kerala Piravi / Onam"
                 required
+                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
               />
             </div>
-            <div>
-              <label>Holiday Date (YYYY-MM-DD)</label>
-              <input
-                type="date"
-                value={newHolidayDate}
-                onChange={(e) => setNewHolidayDate(e.target.value)}
-                required
-              />
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>Holiday Date *</label>
+                <input
+                  type="date"
+                  value={newHolidayDate}
+                  onChange={(e) => setNewHolidayDate(e.target.value)}
+                  required
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>Category</label>
+                <select
+                  value={newHolidayType}
+                  onChange={(e) => setNewHolidayType(e.target.value)}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
+                >
+                  <option value="Company">Company Holiday</option>
+                  <option value="National">National Holiday</option>
+                  <option value="Regional">Kerala / Regional</option>
+                  <option value="Public">Public Holiday</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label>Holiday Type</label>
-              <select
-                value={newHolidayType}
-                onChange={(e) => setNewHolidayType(e.target.value)}
-              >
-                <option value="Company">Company Holiday</option>
-                <option value="Public">Public / National Holiday</option>
-                <option value="Restricted">Restricted Holiday</option>
-              </select>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                <input type="checkbox" checked={newHolidayPaid} onChange={(e) => setNewHolidayPaid(e.target.checked)} />
+                <span>Paid Holiday (Does not impact employee salary / LOP)</span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                <input type="checkbox" checked={newHolidayRecurring} onChange={(e) => setNewHolidayRecurring(e.target.checked)} />
+                <span>Recurring Annually (Applies every year)</span>
+              </label>
             </div>
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label>Description (Optional)</label>
-              <input
-                type="text"
-                value={newHolidayDesc}
-                onChange={(e) => setNewHolidayDesc(e.target.value)}
-                placeholder="e.g. Official Public celebration"
-              />
-            </div>
-            <div className="form-actions" style={{ gridColumn: "1 / -1" }}>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setHolidayModal(false)}
-              >
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "12px" }}>
+              <button type="button" onClick={() => setHolidayModal(false)} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #CBD5E1", backgroundColor: "#FFFFFF", cursor: "pointer" }}>
                 Cancel
               </button>
-              <PrimaryButton type="submit">Create Holiday</PrimaryButton>
+              <PrimaryButton type="submit">Save Holiday</PrimaryButton>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* MODAL: Super Admin Unlock */}
+      {unlockModal && (
+        <Modal onClose={() => setUnlockModal(false)} title="Super Admin Payroll Unlock">
+          <form onSubmit={handleUnlockRecord} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div style={{ padding: "12px", backgroundColor: "#FEF2F2", border: "1px solid #FECACA", borderRadius: "8px", color: "#991B1B", fontSize: "13px" }}>
+              <ShieldAlert style={{ width: "18px", height: "18px", marginBottom: "4px" }} />
+              <div>Unlocking this payroll record will revert it to <strong>Calculated (Draft)</strong> state and create an audit log.</div>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>Mandatory Reason for Unlock *</label>
+              <textarea
+                value={unlockReason}
+                onChange={(e) => setUnlockReason(e.target.value)}
+                placeholder="e.g. Correcting retroactive attendance punch error approved by HR..."
+                rows={3}
+                required
+                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+              <button type="button" onClick={() => setUnlockModal(false)} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #CBD5E1", backgroundColor: "#FFFFFF", cursor: "pointer" }}>
+                Cancel
+              </button>
+              <button type="submit" style={{ padding: "8px 16px", borderRadius: "6px", backgroundColor: "#DC2626", color: "#FFFFFF", border: "none", fontWeight: 600, cursor: "pointer" }}>
+                Confirm Unlock & Revert
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL: Salary History Viewer */}
+      {historyModal && (
+        <Modal onClose={() => setHistoryModal(false)} title="Effective Salary Structure History">
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {selectedHistory.map((h, i) => (
+              <div key={i} style={{ padding: "12px", backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "8px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748B", marginBottom: "4px" }}>
+                  <span>Effective: {new Date(h.effectiveFrom).toLocaleDateString()} {h.effectiveUntil ? `to ${new Date(h.effectiveUntil).toLocaleDateString()}` : "to Present"}</span>
+                  <span>Logged: {new Date(h.createdAt).toLocaleDateString()}</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginTop: "6px" }}>
+                  <div><strong>Gross:</strong> ₹{h.grossSalary?.toLocaleString()}</div>
+                  <div><strong>Basic:</strong> ₹{h.basicSalary?.toLocaleString()}</div>
+                  <div><strong>PF:</strong> {h.pfApplicable ? "Yes" : "No"}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </Modal>
       )}
     </div>

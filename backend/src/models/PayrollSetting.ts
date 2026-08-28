@@ -30,8 +30,8 @@ export interface IPayrollSetting extends Document {
 const payrollSettingSchema = new Schema<IPayrollSetting>(
   {
     timezone: { type: String, default: 'Asia/Kolkata' },
-    cycleStartDay: { type: Number, default: 25 },
-    cycleEndDay: { type: Number, default: 24 },
+    cycleStartDay: { type: Number, default: 26 },
+    cycleEndDay: { type: Number, default: 25 },
     officeStartTime: { type: String, default: '09:30' },
     gracePeriodMinutes: { type: Number, default: 5 },
     lateCountForHalfDay: { type: Number, default: 3 },

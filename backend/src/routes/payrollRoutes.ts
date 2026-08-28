@@ -14,6 +14,8 @@ import {
   calculateEmployeePayrollPreview,
   processPayrollCycleHandler,
   approvePayrollRecord,
+  reprocessEmployeePayrollRecord,
+  markPaidPayrollRecord,
   reopenPayrollRecord,
   getPayrollSummaryReport,
   getStatutoryReport,
@@ -50,7 +52,10 @@ router.get('/payroll/?', requirePermission('salary_slips', 'canView'), getPayrol
 router.get('/payroll/:id/?', requirePermission('salary_slips', 'canView'), getPayrollRecordById);
 router.post('/payroll/preview/?', requirePermission('salary_slips', 'canCreate'), calculateEmployeePayrollPreview);
 router.post('/payroll/process-cycle/?', requirePermission('salary_slips', 'canCreate'), processPayrollCycleHandler);
+router.post('/payroll/:id/reprocess/?', requirePermission('salary_slips', 'canEdit'), reprocessEmployeePayrollRecord);
 router.post('/payroll/:id/approve/?', requirePermission('salary_slips', 'canEdit'), approvePayrollRecord);
+router.post('/payroll/:id/pay/?', requirePermission('salary_slips', 'canEdit'), markPaidPayrollRecord);
+router.post('/payroll/:id/unlock/?', requirePermission('salary_slips', 'canEdit'), reopenPayrollRecord);
 router.post('/payroll/:id/reopen/?', requirePermission('salary_slips', 'canEdit'), reopenPayrollRecord);
 
 export default router;
