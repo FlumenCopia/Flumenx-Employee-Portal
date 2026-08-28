@@ -114,6 +114,7 @@ export interface AttendanceCycleInfo {
   year: number;
   month: number;
   cycleName: string;
+  readablePeriod?: string;
   startStr: string;
   endStr: string;
   cycleStart: Date;
