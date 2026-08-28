@@ -153,12 +153,15 @@ export function getAttendanceCycleForMonth(year: number, month: number): Attenda
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
+  const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const readablePeriod = `26 ${shortMonthNames[prevMonth - 1]} ${prevYear} → 25 ${shortMonthNames[month - 1]} ${year}`;
   const cycleName = `${monthNames[month - 1]} ${year} (${startStr} to ${endStr})`;
 
   return {
     year,
     month,
     cycleName,
+    readablePeriod,
     startStr,
     endStr,
     cycleStart,

@@ -634,10 +634,10 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
             <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#0F172A" }}>
-                  {monthNames[payrollMonth - 1]} {payrollYear} Cycle
+                  {monthNames[payrollMonth - 1]} {payrollYear}
                 </h3>
                 <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748B" }}>
-                  Active Period: <strong>{cycleInfo.startStr}</strong> (26th) to <strong>{cycleInfo.endStr}</strong> (25th) • Total Days: {cycleInfo.totalCalendarDays}
+                  Cycle Period: <strong style={{ color: "#0F172A" }}>{cycleInfo.readablePeriod || `${cycleInfo.startStr} → ${cycleInfo.endStr}`}</strong> • Total Days: {cycleInfo.totalCalendarDays}
                 </p>
               </div>
 

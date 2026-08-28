@@ -47,10 +47,14 @@ export function getAttendanceCycleForMonth(year: number, month: number) {
   const cycleEnd = new Date(`${endStr}T23:59:59.999+05:30`);
   const totalCalendarDays = Math.round((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24));
 
+  const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const readablePeriod = `26 ${shortMonthNames[prevMonth - 1]} ${prevYear} → 25 ${shortMonthNames[month - 1]} ${year}`;
+
   return {
     year,
     month,
     cycleName,
+    readablePeriod,
     startStr,
     endStr,
     totalCalendarDays,
