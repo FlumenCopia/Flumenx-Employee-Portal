@@ -231,7 +231,16 @@ async function seed() {
     await superAdminUser.save();
   }
 
-  let superAdminEmp = await Employee.findOne({ $or: [{ email: 'admin@flumenx.com' }, { employeeCode: 'FX-001' }] });
+  let superAdminEmp = await Employee.findOne({
+    $or: [{ user: superAdminUser._id }, { email: 'admin@flumenx.com' }, { employeeCode: 'FX-001' }],
+  });
+
+  // Clean any other employee holding FX-001 or superAdminUser._id
+  await Employee.deleteMany({
+    _id: { $ne: superAdminEmp?._id },
+    $or: [{ user: superAdminUser._id }, { employeeCode: 'FX-001' }],
+  });
+
   if (!superAdminEmp) {
     superAdminEmp = new Employee({
       user: superAdminUser._id,
@@ -430,8 +439,17 @@ async function seed() {
       await u.save();
     }
 
-    // Check if an employee exists with either this email or this employeeCode
-    let emp = await Employee.findOne({ $or: [{ email: cleanEmail }, { employeeCode: item.code }] });
+    // Check if an employee exists with user ID, email, or employeeCode
+    let emp = await Employee.findOne({
+      $or: [{ user: u._id }, { email: cleanEmail }, { employeeCode: item.code }],
+    });
+
+    // Delete any other employee documents holding this user ID or employeeCode to prevent index collisions
+    await Employee.deleteMany({
+      _id: { $ne: emp?._id },
+      $or: [{ user: u._id }, { employeeCode: item.code }],
+    });
+
     const deptObj = deptDocMap[item.department] || (await Department.findOne({ name: item.department }));
 
     if (!emp) {
