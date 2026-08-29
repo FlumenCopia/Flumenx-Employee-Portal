@@ -478,7 +478,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     }));
   }
 
-  async function syncDeliverables(assignmentId: number, deliverables: DeliverableFormState[]) {
+  async function syncDeliverables(assignmentId: number | string, deliverables: DeliverableFormState[]) {
     if (!isDeliverableWorkflow) return;
     const existingIds = new Set(deliverables.map(deliverable => String(deliverable.id)).filter(Boolean));
     const original = editing?.deliverables || [];
