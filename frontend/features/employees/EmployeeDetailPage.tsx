@@ -27,6 +27,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { toast } from "@/components/ToastContext";
 import { Avatar } from "@/components/icons";
 import { Badge, EmptyState, PageHeader, PrimaryButton, Section } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
@@ -174,9 +175,10 @@ export function EmployeeDetailPage({ id, role = "admin" }: { id: string; role?: 
         }),
       });
       setSalaryModalOpen(false);
+      toast.success("Salary structure saved successfully.");
       loadProfile();
     } catch (err: any) {
-      alert(err.message || "Failed to save salary structure");
+      toast.error(err.message || "Failed to save salary structure");
     } finally {
       setSavingSalary(false);
     }
@@ -266,9 +268,10 @@ export function EmployeeDetailPage({ id, role = "admin" }: { id: string; role?: 
                         method: "PUT",
                         body: JSON.stringify({ employment_status: "Permanent", confirmation_date: getISTDateString() }),
                       });
+                      toast.success("Employment status updated to Permanent!");
                       loadProfile();
                     } catch (err: any) {
-                      alert(err.message || "Failed to update employment status");
+                      toast.error(err.message || "Failed to update employment status");
                     }
                   }
                 }}

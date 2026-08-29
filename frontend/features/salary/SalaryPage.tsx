@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { Employee, Paginated, SalarySlip } from "@/lib/types";
 import { api } from "@/lib/api";
+import { toast } from "@/components/ToastContext";
 import { Avatar } from "@/components/icons";
 import { EmptyState, PageHeader, PrimaryButton, Section } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
@@ -254,7 +255,7 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
   const handleUnlockRecord = async (e: FormEvent) => {
     e.preventDefault();
     if (!unlockReason.trim()) {
-      alert("Mandatory reason is required for unlocking payroll record.");
+      toast.warning("Mandatory reason is required for unlocking payroll record.");
       return;
     }
     try {
@@ -265,9 +266,10 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
       setUnlockModal(false);
       setUnlockReason("");
       setPayrollSuccess("Payroll record unlocked successfully and reverted to Calculated status.");
+      toast.success("Payroll record unlocked successfully.");
       loadPayrollRecords();
     } catch (err: any) {
-      alert(err.message || "Failed to unlock record");
+      toast.error(err.message || "Failed to unlock record");
     }
   };
 
@@ -298,9 +300,10 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
         }),
       });
       setStructModal(false);
+      toast.success("Salary structure saved successfully.");
       loadStructures();
     } catch (err: any) {
-      alert(err.message || "Failed to save salary structure");
+      toast.error(err.message || "Failed to save salary structure");
     }
   };
 
@@ -327,9 +330,10 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
       setHeadName("");
       setHeadCode("");
       setHeadFormula("");
+      toast.success("Salary head created successfully.");
       loadSalaryHeads();
     } catch (err: any) {
-      alert(err.message || "Failed to create salary head");
+      toast.error(err.message || "Failed to create salary head");
     }
   };
 
@@ -367,9 +371,10 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
       setHolidayModal(false);
       setEditHolidayId(null);
       setNewHolidayName("");
+      toast.success("Company holiday saved successfully.");
       loadHolidays();
     } catch (err: any) {
-      alert(err.message || "Failed to save holiday");
+      toast.error(err.message || "Failed to save holiday");
     }
   };
 
@@ -378,9 +383,10 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
     if (!confirm("Are you sure you want to delete this company holiday?")) return;
     try {
       await api(`/holidays/${holidayId}/`, { method: "DELETE" });
+      toast.success("Holiday deleted.");
       loadHolidays();
     } catch (err: any) {
-      alert(err.message || "Failed to delete holiday");
+      toast.error(err.message || "Failed to delete holiday");
     }
   };
 

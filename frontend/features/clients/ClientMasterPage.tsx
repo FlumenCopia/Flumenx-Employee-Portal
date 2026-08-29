@@ -118,9 +118,10 @@ export function ClientMasterPage({ role = "admin" }: Props) {
       setNewClientName("");
       setNewClientIndustry("");
       setAddClientOpen(false);
+      toast.success("Client added successfully!");
       fetchData();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not add client.");
+      toast.error(err instanceof Error ? err.message : "Could not add client.");
     } finally {
       setSubmittingClient(false);
     }

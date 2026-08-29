@@ -11,6 +11,7 @@ import { SHOW_ADVANCED_WORKBOARD, normalizeDepartment } from "@/lib/types";
 import { Badge, EmptyState, PageHeader, PrimaryButton, StatCard } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
 import { useShellUser } from "@/components/shell";
+import { toast } from "@/components/ToastContext";
 import { ShareLinkModal } from "./ShareLinkModal";
 import { CommandCenterView } from "./CommandCenterView";
 
@@ -783,7 +784,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
                 setSelectedShareClient({ id: selectedC.id, name: selectedC.name });
                 setShareModalOpen(true);
               } else {
-                alert("No clients available to share.");
+                toast.warning("No clients available to share.");
               }
             }}
             style={{

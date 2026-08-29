@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, CheckCircle2, Clock3, FileBarChart, MapPin, TimerOff, UserX, X } from "lucide-react";
 import { api } from "@/lib/api";
+import { toast } from "@/components/ToastContext";
 import { AttendanceRecord, Paginated } from "@/lib/types";
 import { Avatar } from "@/components/icons";
 import { Badge, EmptyState, PageHeader, Section, StatCard } from "@/components/ui";
@@ -143,10 +144,13 @@ export function AdminAttendancePage() {
         method: "PATCH",
         body: JSON.stringify({ status, admin_note: note }),
       });
-      setActionMessage(`Attendance correction request successfully ${status.toLowerCase()}!`);
+      const msg = `Attendance correction request successfully ${status.toLowerCase()}!`;
+      setActionMessage(msg);
+      toast.success(msg);
       reloadAllAttendance();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update correction request status.");
+      const msg = err instanceof Error ? err.message : "Failed to update correction request status.";
+      toast.error(msg);
     } finally {
       setActionLoadingId(null);
     }

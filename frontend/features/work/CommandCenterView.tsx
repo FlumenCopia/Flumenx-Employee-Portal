@@ -35,6 +35,7 @@ import {
 
 import type { WorkAssignment, Client, WorkEmployeeOption, WorkPriority, WorkStatus, PortalRole, DepartmentItem, WorkSummary } from "@/lib/types";
 import { api } from "@/lib/api";
+import { toast } from "@/components/ToastContext";
 import { Modal } from "@/features/common/Modal";
 
 function isDateStrictlyPast(dateStr?: string): boolean {
@@ -532,18 +533,19 @@ export function CommandCenterView({
     const targetTask = tasks.find((t) => String(t.id) === String(taskId));
     const isSuper = (currentUser as any)?.is_superuser || (userRole || "").toUpperCase() === "SUPER_ADMIN";
     if (targetTask && !isAssignedToCurrentUser(targetTask) && !isSuper) {
-      alert("You can only start the timer for tasks assigned to you.");
+      toast.warning("You can only start the timer for tasks assigned to you.");
       return;
     }
     if (timerLoadingId) return;
     setTimerLoadingId(taskId);
     try {
       await api(`/timer/start/${taskId}/`, { method: "POST" });
+      toast.success("Timer started!");
       if (onStatusChange) {
         onStatusChange(taskId as any, "In Progress");
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not start task timer.");
+      toast.error(err instanceof Error ? err.message : "Could not start task timer.");
     } finally {
       setTimerLoadingId(null);
     }
@@ -555,11 +557,12 @@ export function CommandCenterView({
     setTimerLoadingId(taskId);
     try {
       await api(`/timer/stop/${taskId}/`, { method: "POST" });
+      toast.success("Timer stopped and time entry logged!");
       if (onStatusChange) {
         onStatusChange(taskId as any, "In Progress");
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not stop task timer.");
+      toast.error(err instanceof Error ? err.message : "Could not stop task timer.");
     } finally {
       setTimerLoadingId(null);
     }
@@ -1541,8 +1544,9 @@ export function CommandCenterView({
                                                 : task
                                             )
                                           );
+                                          toast.success("Task reassigned successfully.");
                                         } catch (err: any) {
-                                          alert(err.message || "Failed to reassign task");
+                                          toast.error(err.message || "Failed to reassign task");
                                         }
                                       }}
                                       style={{

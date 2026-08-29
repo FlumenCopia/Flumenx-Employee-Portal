@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { AlertCircle, Bell, Calendar, Megaphone, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { toast } from "@/components/ToastContext";
 import type { Announcement, Paginated } from "@/lib/types";
 import { EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
@@ -47,9 +48,10 @@ export function AnnouncementsPage({ employee = false }: { employee?: boolean }) 
         }),
       });
       setModal(false);
+      toast.success("Announcement broadcasted successfully!");
       loadAnnouncements();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not create announcement.");
+      toast.error(err instanceof Error ? err.message : "Could not create announcement.");
     } finally {
       setSubmitting(false);
     }
@@ -60,8 +62,9 @@ export function AnnouncementsPage({ employee = false }: { employee?: boolean }) 
     try {
       await api(`/announcements/${id}/`, { method: "DELETE" });
       setItems((current) => (current || []).filter((item) => item.id !== id));
+      toast.success("Announcement deleted.");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not delete announcement.");
+      toast.error(err instanceof Error ? err.message : "Could not delete announcement.");
     }
   }
 

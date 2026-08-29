@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { toast } from "@/components/ToastContext";
 import type { ShareLink, WorkAssignment } from "@/lib/types";
 import { Modal } from "@/features/common/Modal";
 import { PrimaryButton } from "@/components/ui";
@@ -97,18 +98,20 @@ export function ShareLinkModal({
   const handleRevoke = async (id: number) => {
     try {
       await api(`/work-share-links/${id}/revoke/`, { method: "POST" });
+      toast.success("Share link revoked successfully.");
       loadLinks();
     } catch (err) {
-      alert("Failed to revoke share link.");
+      toast.error("Failed to revoke share link.");
     }
   };
 
   const handleRegenerate = async (id: number) => {
     try {
       await api(`/work-share-links/${id}/regenerate/`, { method: "POST" });
+      toast.success("Share link regenerated successfully.");
       loadLinks();
     } catch (err) {
-      alert("Failed to regenerate share link.");
+      toast.error("Failed to regenerate share link.");
     }
   };
 
