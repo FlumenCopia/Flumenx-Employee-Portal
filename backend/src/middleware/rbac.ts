@@ -111,6 +111,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
     ANNOUNCEMENTS: READ_ONLY,
     TIMER: FULL_ACCESS,
     SALARY_SLIPS: READ_ONLY,
+    REPORTS: READ_ONLY,
   },
   BDO: {
     CLIENTS: FULL_ACCESS,
@@ -121,6 +122,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
     ANNOUNCEMENTS: READ_ONLY,
     TIMER: FULL_ACCESS,
     SALARY_SLIPS: READ_ONLY,
+    REPORTS: READ_ONLY,
   },
   EMPLOYEE: {
     TASKS: { canView: true, canCreate: false, canEdit: true, canDelete: false },
@@ -132,6 +134,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
     TIMER: FULL_ACCESS,
     EMPLOYEES: READ_ONLY,
     SALARY_SLIPS: READ_ONLY,
+    REPORTS: READ_ONLY,
   },
 };
 
