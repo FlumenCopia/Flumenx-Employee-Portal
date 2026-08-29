@@ -239,8 +239,9 @@ export async function startTaskTimer(req: Request, res: Response): Promise<void>
     return;
   }
 
+  const now = new Date();
   assignment.activeTimer = {
-    startedAt: new Date(),
+    startedAt: now,
     startedBy: req.user ? req.user._id : null,
   };
 
@@ -249,6 +250,29 @@ export async function startTaskTimer(req: Request, res: Response): Promise<void>
   }
 
   await assignment.save();
+
+  // Create corresponding TimeEntry so timer engine & work board remain 100% synced
+  try {
+    const { TimeEntry } = await import('../models/TimeEntry.js');
+    if (ownEmp) {
+      // Auto-pause any running timer for this employee
+      await TimeEntry.updateMany({ employee: ownEmp._id, status: 'RUNNING' }, { status: 'PAUSED' });
+      await TimeEntry.create({
+        employee: ownEmp._id,
+        user: req.user?._id || null,
+        client: assignment.client || null,
+        project: assignment.project || null,
+        task: assignment._id,
+        startTime: now,
+        status: 'RUNNING',
+        isBillable: true,
+        entryDate: now.toISOString().split('T')[0],
+      });
+    }
+  } catch (err) {
+    // Ignore non-critical TimeEntry creation error
+  }
+
   res.json(assignment);
 }
 
@@ -260,7 +284,26 @@ export async function stopTaskTimer(req: Request, res: Response): Promise<void> 
   }
 
   if (!assignment.activeTimer || !assignment.activeTimer.startedAt) {
-    res.status(400).json({ detail: 'No active timer found for this task.' });
+    // Check if TimeEntry model has an active entry for this task
+    const { TimeEntry } = await import('../models/TimeEntry.js');
+    const timeEntry = await TimeEntry.findOne({ task: assignment._id, status: { $in: ['RUNNING', 'PAUSED'] } });
+    if (timeEntry) {
+      const now = new Date();
+      timeEntry.endTime = now;
+      timeEntry.status = 'STOPPED';
+      const grossSec = Math.max(1, Math.round((now.getTime() - new Date(timeEntry.startTime).getTime()) / 1000));
+      timeEntry.durationSeconds = grossSec;
+      await timeEntry.save();
+      assignment.totalTimeSpentSeconds = (assignment.totalTimeSpentSeconds || 0) + grossSec;
+      assignment.activeTimer = null;
+      await assignment.save();
+      res.json(assignment);
+      return;
+    }
+    // Clean up assignment activeTimer state and return success so UI unlocks cleanly
+    assignment.activeTimer = null;
+    await assignment.save();
+    res.json(assignment);
     return;
   }
 

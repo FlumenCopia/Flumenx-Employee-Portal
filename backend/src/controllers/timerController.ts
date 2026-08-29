@@ -327,9 +327,48 @@ export async function stopTimer(req: Request, res: Response): Promise<void> {
       filter.task = taskId;
     }
 
-    const timeEntry = await TimeEntry.findOne(filter);
+    let timeEntry = await TimeEntry.findOne(filter);
+
     if (!timeEntry) {
-      res.status(400).json({ detail: 'No active timer found to stop.' });
+      // Fallback: Check if WorkAssignment itself has an activeTimer or stuck state
+      let taskToClean: any = null;
+      if (taskId) {
+        if (mongoose.Types.ObjectId.isValid(taskId)) {
+          taskToClean = await WorkAssignment.findById(taskId);
+        } else {
+          taskToClean = await WorkAssignment.findOne({ legacy_id: String(taskId) });
+        }
+      } else if (ownEmp) {
+        taskToClean = await WorkAssignment.findOne({ employee: ownEmp._id, 'activeTimer.startedAt': { $ne: null } });
+      }
+
+      if (taskToClean) {
+        const now = new Date();
+        let netSec = 0;
+        if (taskToClean.activeTimer && taskToClean.activeTimer.startedAt) {
+          const startedAt = new Date(taskToClean.activeTimer.startedAt);
+          netSec = Math.max(1, Math.round((now.getTime() - startedAt.getTime()) / 1000));
+          taskToClean.timeLogs = taskToClean.timeLogs || [];
+          taskToClean.timeLogs.push({
+            startTime: startedAt,
+            endTime: now,
+            durationSeconds: netSec,
+            loggedBy: req.user ? req.user._id : null,
+          });
+          taskToClean.totalTimeSpentSeconds = (taskToClean.totalTimeSpentSeconds || 0) + netSec;
+        }
+        taskToClean.activeTimer = null;
+        await taskToClean.save();
+        const actualHours = await recalculateTaskActualHours(taskToClean._id);
+        res.json({
+          detail: 'Timer stopped and active state reset successfully.',
+          taskActualHours: actualHours,
+        });
+        return;
+      }
+
+      // If no active timer or task state found at all, return status 200 clean confirmation so UI unlocks gracefully
+      res.json({ detail: 'No active timer found. Timer state cleared.' });
       return;
     }
 
