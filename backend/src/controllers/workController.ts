@@ -692,33 +692,60 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     }
   }
 
-  if (fields.status) {
-    assignment.status = fields.status;
-    if (['Completed', 'Approved', 'Published'].includes(fields.status)) {
-      if (assignment.assignedQuantity && assignment.assignedQuantity > 0) {
-        assignment.completedQuantity = assignment.assignedQuantity;
-        assignment.progress = 100;
-      }
-      if (!assignment.completedAt) {
-        assignment.completedAt = new Date();
+    const ownEmp = await Employee.findOne({ user: req.user?._id });
+    const isReviewer = (assignment.reviewer && ownEmp && String(assignment.reviewer) === String(ownEmp._id)) ||
+                       (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
+    const isAssignee = assignment.employee && ownEmp && String(assignment.employee) === String(ownEmp._id);
+    const hasAssignedReviewer = Boolean(assignment.reviewer);
+
+    if (fields.status) {
+      const isTargetingFinalState = ['Completed', 'Approved', 'Published'].includes(fields.status);
+
+      if (isTargetingFinalState) {
+        // Guard: If task has a designated reviewer, ONLY the designated reviewer or Super Admin can give final status confirmation!
+        if (hasAssignedReviewer && !isReviewer && !isSuper) {
+          assignment.status = 'PENDING_REVIEW';
+          assignment.reviewStatus = 'PENDING_REVIEW';
+          if (fields.review_note) assignment.reviewNote = fields.review_note;
+        } else {
+          assignment.status = fields.status;
+          assignment.reviewStatus = 'OK';
+          if (assignment.assignedQuantity && assignment.assignedQuantity > 0) {
+            assignment.completedQuantity = assignment.assignedQuantity;
+            assignment.progress = 100;
+          }
+          if (!assignment.completedAt) {
+            assignment.completedAt = new Date();
+          }
+        }
+      } else {
+        assignment.status = fields.status;
       }
     }
-  }
-  if (fields.completed_quantity !== undefined) assignment.completedQuantity = Math.max(0, fields.completed_quantity);
-  if (fields.deliverables && Array.isArray(fields.deliverables)) {
-    assignment.deliverables = fields.deliverables;
-  }
-  if (fields.employee !== undefined || fields.employee_id !== undefined) {
-    const empVal = fields.employee || fields.employee_id;
-    assignment.employee = empVal && mongoose.Types.ObjectId.isValid(empVal) ? empVal : null;
-  }
-  if (fields.client !== undefined || fields.client_id !== undefined) {
-    const clientVal = fields.client || fields.client_id;
-    assignment.client = clientVal && mongoose.Types.ObjectId.isValid(clientVal) ? clientVal : null;
-  }
-  if (fields.review_status) assignment.reviewStatus = fields.review_status;
-  if (fields.review_note !== undefined) assignment.reviewNote = fields.review_note;
-  if (fields.reviewer !== undefined) assignment.reviewer = mongoose.Types.ObjectId.isValid(fields.reviewer) ? fields.reviewer : null;
+    if (fields.completed_quantity !== undefined) assignment.completedQuantity = Math.max(0, fields.completed_quantity);
+    if (fields.deliverables && Array.isArray(fields.deliverables)) {
+      assignment.deliverables = fields.deliverables;
+    }
+    if (fields.employee !== undefined || fields.employee_id !== undefined) {
+      const empVal = fields.employee || fields.employee_id;
+      assignment.employee = empVal && mongoose.Types.ObjectId.isValid(empVal) ? empVal : null;
+    }
+    if (fields.client !== undefined || fields.client_id !== undefined) {
+      const clientVal = fields.client || fields.client_id;
+      assignment.client = clientVal && mongoose.Types.ObjectId.isValid(clientVal) ? clientVal : null;
+    }
+    if (fields.review_status) {
+      assignment.reviewStatus = fields.review_status;
+      if (fields.review_status === 'OK' && (isReviewer || isSuper)) {
+        assignment.status = 'Completed';
+        assignment.progress = 100;
+        if (!assignment.completedAt) assignment.completedAt = new Date();
+      } else if (fields.review_status === 'CORRECTION_NEEDED') {
+        assignment.status = 'In Progress';
+      }
+    }
+    if (fields.review_note !== undefined) assignment.reviewNote = fields.review_note;
+    if (fields.reviewer !== undefined) assignment.reviewer = mongoose.Types.ObjectId.isValid(fields.reviewer) ? fields.reviewer : null;
 
   if (assignment.deliverables && assignment.deliverables.length > 0) {
     syncFromDeliverables(assignment);
