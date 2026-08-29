@@ -173,7 +173,7 @@ export function AttendanceDetailModal({ record, onClose }: AttendanceDetailModal
               </div>
               <b style={{ fontSize: "16px" }}>{displayTime(record.check_in_time)}</b>
               <div style={{ fontSize: "11px", color: "var(--muted)" }}>
-                Status: <span style={{ color: record.is_late ? "var(--danger, #ef4444)" : "var(--text)" }}>{record.check_in_status || "Recorded"}</span>
+                Status: <span style={{ color: record.check_in_status === "Late" || record.is_late ? "var(--danger, #ef4444)" : record.check_in_status === "Grace Period" ? "var(--goldD, #d97706)" : "var(--text)" }}>{record.check_in_status || (record.is_late ? "Late" : "On Time")}</span>
               </div>
               {record.check_in_distance_meters !== null && record.check_in_distance_meters !== undefined && (
                 <div style={{ fontSize: "11px", color: "#4ade80", display: "flex", alignItems: "center", gap: "4px", marginTop: "4px" }}>
