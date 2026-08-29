@@ -26,7 +26,7 @@ const employeeKPIRatingSchema = new Schema<IEmployeeKPIRating>(
 );
 
 employeeKPIRatingSchema.index({ year: -1, month: -1 });
-employeeKPIRatingSchema.index({ employee: 1, month: 1, year: 1 }, { unique: true });
+employeeKPIRatingSchema.index({ employee: 1, month: 1, year: 1 }, { unique: true, partialFilterExpression: { employee: { $ne: null } } });
 
 export const EmployeeKPIRating = mongoose.model<IEmployeeKPIRating>(
   'EmployeeKPIRating',

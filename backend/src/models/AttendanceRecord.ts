@@ -83,6 +83,7 @@ const attendanceRecordSchema = new Schema<IAttendanceRecord>(
 
 attendanceRecordSchema.index({ attendanceDate: 1 });
 attendanceRecordSchema.index({ attendanceStatus: 1 });
-attendanceRecordSchema.index({ employee: 1, attendanceDate: 1 }, { unique: true });
+attendanceRecordSchema.index({ employee: 1, attendanceDate: 1 }, { unique: true, partialFilterExpression: { employee: { $ne: null } } });
+attendanceRecordSchema.index({ employee: 1, createdAt: -1 });
 
 export const AttendanceRecord = mongoose.model<IAttendanceRecord>('AttendanceRecord', attendanceRecordSchema);

@@ -197,5 +197,7 @@ const workAssignmentSchema = new Schema<IWorkAssignment>(
 
 workAssignmentSchema.index({ dueDate: 1, status: 1 });
 workAssignmentSchema.index({ status: 1, priority: 1 });
+workAssignmentSchema.index({ employee: 1, status: 1, dueDate: 1 });
+workAssignmentSchema.index({ client: 1, status: 1 });
 
 export const WorkAssignment = mongoose.model<IWorkAssignment>('WorkAssignment', workAssignmentSchema);

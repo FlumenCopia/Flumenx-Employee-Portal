@@ -42,6 +42,6 @@ const salarySlipSchema = new Schema<ISalarySlip>(
 );
 
 salarySlipSchema.index({ year: -1, month: -1 });
-salarySlipSchema.index({ employee: 1, month: 1, year: 1 }, { unique: true });
+salarySlipSchema.index({ employee: 1, month: 1, year: 1 }, { unique: true, partialFilterExpression: { employee: { $ne: null } } });
 
 export const SalarySlip = mongoose.model<ISalarySlip>('SalarySlip', salarySlipSchema);
