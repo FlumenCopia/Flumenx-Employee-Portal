@@ -398,15 +398,15 @@ export function AdminAttendancePage() {
                 </div>
                 <div className="time-value">
                   <b>{displayTime(r.check_in_time)}</b>
-                  {r.is_late && <small>Late Arrival</small>}
+                  {r.is_late && <small className="red">Late Arrival ({r.late_minutes}m)</small>}
                 </div>
                 <div className="time-value">
                   <b>{displayTime(r.check_out_time)}</b>
-                  {r.is_early_exit && <small className="red">Early Exit</small>}
+                  {r.is_early_exit && <small className="red">Early Exit ({r.early_exit_minutes}m)</small>}
                 </div>
                 <b>{Number(r.working_hours).toFixed(2)}h</b>
-                <Badge tone={statusTone(r)}>{r.is_late ? "Late (Half Day)" : (r.check_in_status || "No check-in")}</Badge>
-                <span className="daily-status" style={{ color: r.is_late || r.attendance_status === "Half Day" ? "var(--goldD)" : "inherit", fontWeight: r.is_late || r.attendance_status === "Half Day" ? 700 : 400 }}>{r.is_late ? "Half Day (Late)" : r.attendance_status}</span>
+                <Badge tone={statusTone(r)}>{r.check_in_status || (r.is_late ? "Late" : "On Time")}</Badge>
+                <span className="daily-status" style={{ color: r.attendance_status === "Half Day" || r.is_late ? "var(--goldD)" : "inherit", fontWeight: r.attendance_status === "Half Day" || r.is_late ? 700 : 400 }}>{r.attendance_status || (r.is_late ? "Present (Late)" : "Present")}</span>
                 <button type="button" onClick={() => setSelectedRecord(r)} style={{ background: "transparent", border: 0, padding: 0, cursor: "pointer", textAlign: "left" }}>
                   <span className={`verification ${r.location_verified ? "verified" : ""}`}>
                     <MapPin size={13} />

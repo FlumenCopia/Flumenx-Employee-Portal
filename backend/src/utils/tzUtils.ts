@@ -96,8 +96,16 @@ export function getCompanyEndOfDay(dateInput: Date | string = new Date()): Date 
  */
 export function timeStringToMinutes(timeStr?: string | null): number {
   if (!timeStr) return 0;
-  const [h, m] = timeStr.split(':').map((v) => parseInt(v, 10));
-  return (h || 0) * 60 + (m || 0);
+  const clean = timeStr.trim().toUpperCase();
+  const isPM = clean.includes('PM');
+  const isAM = clean.includes('AM');
+  const numPart = clean.replace(/[^\d:]/g, '');
+  const [hStr, mStr] = numPart.split(':');
+  let h = parseInt(hStr, 10) || 0;
+  const m = parseInt(mStr, 10) || 0;
+  if (isPM && h < 12) h += 12;
+  if (isAM && h === 12) h = 0;
+  return h * 60 + m;
 }
 
 /**

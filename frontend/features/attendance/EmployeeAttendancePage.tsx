@@ -375,7 +375,7 @@ export function EmployeeAttendancePage() {
             <span>TODAY'S RECORD</span>
             {record ? (
               <Badge tone={statusTone(record)}>
-                {record.is_late ? "Half Day (Late Arrival)" : record.attendance_status}
+                {record.attendance_status || (record.is_late ? "Present (Late)" : "Present")}
               </Badge>
             ) : (
               <Badge>No attendance recorded</Badge>
@@ -388,7 +388,7 @@ export function EmployeeAttendancePage() {
                 <span>OFFICE ENTRY</span>
                 <b>{displayTime(record.check_in_time)}</b>
                 <small style={{ color: record.is_late ? "var(--danger)" : "var(--muted)", fontWeight: record.is_late ? 700 : 400 }}>
-                  {record.is_late ? "Late Arrival" : record.check_in_status || "On Time"}
+                  {record.check_in_status || (record.is_late ? "Late Arrival" : "On Time")}
                 </small>
               </div>
               <div>
