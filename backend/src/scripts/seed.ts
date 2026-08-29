@@ -25,6 +25,7 @@ import { Announcement } from '../models/Announcement.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { EmployeeDocument } from '../models/EmployeeDocument.js';
 import { EmployeeKPIRating } from '../models/EmployeeKPIRating.js';
+import { seedAttendance } from './seed_attendance.js';
 
 async function seed() {
   await connectDB();
@@ -575,6 +576,8 @@ async function seed() {
   });
   await payrollSetting.save();
   console.log('[Seed] ✅ Created Enterprise Payroll & Statutory Setting.');
+
+  await seedAttendance();
 
   console.log('================================================================================');
   console.log('=== FLUMENX BOS CLEAN SYSTEM SEEDING COMPLETED SUCCESSFULLY ===');
