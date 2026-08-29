@@ -222,14 +222,32 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         setAudioInputDevices(devices.filter((d) => d.kind === "audioinput"));
         setVideoInputDevices(devices.filter((d) => d.kind === "videoinput"));
 
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-        });
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+          });
+        } catch {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+              video: false,
+            });
+            setIsVideoOff(true);
+          } catch {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                audio: false,
+                video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+              });
+              setIsAudioMuted(true);
+            } catch {
+              stream = new MediaStream();
+              setIsAudioMuted(true);
+              setIsVideoOff(true);
+            }
+          }
+        }
 
         setLocalStream(stream);
 
@@ -578,11 +596,36 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
   }
 
   // Media Controls
-  const toggleAudio = (forceMute?: boolean) => {
-    if (!localStream) return;
-    const audioTrack = localStream.getAudioTracks()[0];
+  const toggleAudio = async (forceMute?: boolean) => {
+    const nextState = forceMute !== undefined ? forceMute : !isAudioMuted;
+
+    let targetStream = localStream;
+    if (!targetStream) {
+      targetStream = new MediaStream();
+      setLocalStream(targetStream);
+    }
+
+    let audioTrack = targetStream.getAudioTracks()[0];
+    if (!audioTrack && !nextState) {
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: false,
+        });
+        const newTrack = audioStream.getAudioTracks()[0];
+        if (newTrack) {
+          targetStream.addTrack(newTrack);
+          audioTrack = newTrack;
+          peersRef.current.forEach((peer) => {
+            peer.pc.addTrack(newTrack, targetStream!);
+          });
+        }
+      } catch (err) {
+        console.warn("Could not acquire microphone track:", err);
+      }
+    }
+
     if (audioTrack) {
-      const nextState = forceMute !== undefined ? forceMute : !isAudioMuted;
       audioTrack.enabled = !nextState;
       setIsAudioMuted(nextState);
 
@@ -593,14 +636,50 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           isVideoOff,
         });
       }
+    } else {
+      setIsAudioMuted(nextState);
     }
   };
 
-  const toggleVideo = (forceOff?: boolean) => {
-    if (!localStream) return;
-    const videoTrack = localStream.getVideoTracks()[0];
+  const toggleVideo = async (forceOff?: boolean) => {
+    const nextState = forceOff !== undefined ? forceOff : !isVideoOff;
+
+    let targetStream = localStream;
+    if (!targetStream) {
+      targetStream = new MediaStream();
+      setLocalStream(targetStream);
+    }
+
+    let videoTrack = targetStream.getVideoTracks()[0];
+    if (!videoTrack && !nextState) {
+      try {
+        const profile = QUALITY_PROFILES[videoQuality] || QUALITY_PROFILES["auto"];
+        const videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: profile.width }, height: { ideal: profile.height }, frameRate: { ideal: profile.fps } },
+          audio: false,
+        });
+        const newTrack = videoStream.getVideoTracks()[0];
+        if (newTrack) {
+          targetStream.addTrack(newTrack);
+          videoTrack = newTrack;
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = targetStream;
+            localVideoRef.current.play().catch(() => {});
+          }
+          if (lobbyVideoRef.current) {
+            lobbyVideoRef.current.srcObject = targetStream;
+            lobbyVideoRef.current.play().catch(() => {});
+          }
+          peersRef.current.forEach((peer) => {
+            peer.pc.addTrack(newTrack, targetStream!);
+          });
+        }
+      } catch (err) {
+        console.warn("Could not acquire camera track:", err);
+      }
+    }
+
     if (videoTrack) {
-      const nextState = forceOff !== undefined ? forceOff : !isVideoOff;
       videoTrack.enabled = !nextState;
       setIsVideoOff(nextState);
 
@@ -611,6 +690,8 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           isVideoOff: nextState,
         });
       }
+    } else {
+      setIsVideoOff(nextState);
     }
   };
 
@@ -1530,14 +1611,17 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       {/* Floating Bottom Action Bar (Ultra-responsive on Mobile) */}
       <footer
         style={{
-          minHeight: "56px",
+          height: "64px",
+          minHeight: "64px",
+          flexShrink: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           padding: "6px 16px",
-          borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-          background: "rgba(10, 17, 15, 0.98)",
-          zIndex: 30,
+          borderTop: "1px solid rgba(255, 255, 255, 0.12)",
+          background: "#0A110F",
+          position: "relative",
+          zIndex: 300,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
