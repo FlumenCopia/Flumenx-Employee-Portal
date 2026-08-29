@@ -751,7 +751,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
       title={SHOW_ADVANCED_WORKBOARD ? "Work board & Command Center." : "Work Board"}
       subtitle={SHOW_ADVANCED_WORKBOARD ? "Assign client work, track taskboards, timeline phases, and KPI targets in real time." : "Assign client work, track taskboards, and update deliverable progress in real time."}
       action={
-        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+        <div className="work-header-actions" style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", maxWidth: "100%" }}>
           {canManageAll && (
             <button
               type="button"

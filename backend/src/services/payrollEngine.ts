@@ -152,16 +152,20 @@ export async function calculateAttendanceForCycle(
   // Every 3 late arrivals = 0.5 day deduction
   const lateHalfDayDeductions = Math.floor(lateArrivalsCount / 3) * 0.5;
 
+  // DYNAMIC RULE: Sundays of salary days are subtracted from month days dynamically every month
+  // salaryDays = totalCalendarDays - weekOffs (e.g. 31 - 5 = 26 days, 30 - 4 = 26 days)
+  const salaryDays = Math.max(1, cycle.totalCalendarDays - weekOffs);
+
   // CRITICAL RULE: If an employee has zero check-ins (present = 0, half = 0) and zero approved paid leaves in the cycle,
-  // payable days are strictly 0 (they cannot receive pay for Sundays/holidays with zero work performed).
+  // payable days are strictly 0 (they cannot receive pay for holidays/Sundays with zero work performed).
   let effectivePresentDays = 0;
   if (presentDays > 0 || halfDays > 0 || paidLeaveDays > 0) {
     effectivePresentDays =
-      presentDays + companyHolidays + weekOffs + paidLeaveDays + halfDays * 0.5 - lateHalfDayDeductions;
+      presentDays + companyHolidays + paidLeaveDays + halfDays * 0.5 - lateHalfDayDeductions;
   }
 
-  const payableDays = Math.max(0, Math.min(cycle.totalCalendarDays, Math.round(effectivePresentDays * 100) / 100));
-  const unpaidDays = Math.max(0, Math.round((cycle.totalCalendarDays - payableDays) * 100) / 100);
+  const payableDays = Math.max(0, Math.min(salaryDays, Math.round(effectivePresentDays * 100) / 100));
+  const unpaidDays = Math.max(0, Math.round((salaryDays - payableDays) * 100) / 100);
 
   return {
     cycleName: cycle.cycleName,
@@ -170,6 +174,7 @@ export async function calculateAttendanceForCycle(
     cycleStart: cycle.cycleStart,
     cycleEnd: cycle.cycleEnd,
     totalCalendarDays: cycle.totalCalendarDays,
+    salaryDays,
     workingDays,
     weekOffs,
     companyHolidays,
@@ -196,7 +201,8 @@ export async function computePayroll(
 ): Promise<CalculatedPayrollResult> {
   const grossSalary = structure.grossSalary || 0;
   const basicSalary = structure.basicSalary || 0;
-  const totalDays = attendance.totalCalendarDays || 30;
+  // Dynamic Month Days minus Sundays (weekOffs)
+  const totalDays = attendance.salaryDays || (attendance.totalCalendarDays - (attendance.weekOffs || 0)) || 26;
 
   // Daily rate for unpaid days deduction
   const perDaySalary = totalDays > 0 ? grossSalary / totalDays : 0;

@@ -47,6 +47,14 @@ export function getAttendanceCycleForMonth(year: number, month: number) {
   const cycleEnd = new Date(`${endStr}T23:59:59.999+05:30`);
   const totalCalendarDays = Math.round((cycleEnd.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24));
 
+  let cur = new Date(cycleStart.getTime());
+  let weekOffs = 0;
+  while (cur.getTime() <= cycleEnd.getTime()) {
+    if (cur.getDay() === 0) weekOffs += 1;
+    cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
+  }
+  const salaryDays = Math.max(1, totalCalendarDays - weekOffs);
+
   const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const readablePeriod = `26 ${shortMonthNames[prevMonth - 1]} ${prevYear} → 25 ${shortMonthNames[month - 1]} ${year}`;
 
@@ -58,5 +66,7 @@ export function getAttendanceCycleForMonth(year: number, month: number) {
     startStr,
     endStr,
     totalCalendarDays,
+    weekOffs,
+    salaryDays,
   };
 }

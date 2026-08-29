@@ -509,22 +509,27 @@ export function TaskTimerPage() {
                 style={{
                   background: "rgba(0, 0, 0, 0.45)",
                   border: `2px solid ${isCurrentSelectedRunning ? "#10b981" : "#334155"}`,
-                  padding: "1.25rem 2.25rem",
+                  padding: "1rem 0.75rem",
                   borderRadius: "1rem",
                   marginBottom: "1.5rem",
                   boxShadow: isCurrentSelectedRunning ? "0 0 25px rgba(16, 185, 129, 0.3)" : "none",
                   transition: "all 0.3s ease",
                   width: "100%",
                   maxWidth: "380px",
+                  boxSizing: "border-box",
+                  overflow: "hidden",
                 }}
               >
                 <div
                   style={{
                     fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-                    fontSize: "3.25rem",
+                    fontSize: "clamp(1.75rem, 6.5vw, 3.25rem)",
                     fontWeight: "800",
-                    letterSpacing: "0.05em",
+                    letterSpacing: "0.02em",
                     color: isCurrentSelectedRunning ? "#34d399" : "#f1f5f9",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                   }}
                 >
                   {formatSeconds(isCurrentSelectedRunning ? liveDurationSeconds : 0)}

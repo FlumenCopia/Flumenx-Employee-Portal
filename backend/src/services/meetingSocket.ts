@@ -262,6 +262,30 @@ export function setupMeetingSockets(io: SocketIOServer) {
       io.to(data.targetSocketId).emit('host-muted-you');
     });
 
+    // 8b. Host Action: Turn Off Remote Camera
+    socket.on('host-off-camera-peer', (data: { meetingCode: string; targetSocketId: string }) => {
+      io.to(data.targetSocketId).emit('host-camera-off-you');
+    });
+
+    // 8c. Host Action: Kick Remote Participant
+    socket.on('host-kick-peer', (data: { meetingCode: string; targetSocketId: string }) => {
+      const { meetingCode, targetSocketId } = data;
+      io.to(targetSocketId).emit('host-kicked-you');
+      const targetSocket = io.sockets.sockets.get(targetSocketId);
+      if (targetSocket) {
+        targetSocket.leave(`meeting:${meetingCode}`);
+      }
+      const room = activeRooms.get(meetingCode);
+      if (room && room.has(targetSocketId)) {
+        const peer = room.get(targetSocketId)!;
+        room.delete(targetSocketId);
+        io.to(`meeting:${meetingCode}`).emit('peer-left', {
+          socketId: targetSocketId,
+          name: peer.name,
+        });
+      }
+    });
+
     // 9. Host Action: End Meeting for All
     socket.on('host-end-meeting-all', async (data: { meetingCode: string }) => {
       const { meetingCode } = data;

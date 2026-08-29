@@ -130,9 +130,15 @@ export function normalizeDepartment(val?: string | null): CanonicalDepartmentKey
   return "design";
 }
 export type EmployeeStatus = "Active" | "On Leave" | "Inactive";
+export type EmploymentStatus = "Probation" | "Permanent" | "Contract" | "Intern";
+
 export type EmployeeProfile = {
   id: number; employee_code: string; name: string; email: string; phone: string;
   department: Department; designation: string; joining_date: string; status: EmployeeStatus;
+  employment_status?: EmploymentStatus;
+  probation_start_date?: string | null;
+  probation_end_date?: string | null;
+  confirmation_date?: string | null;
   location?: string;
 };
 export type AuthUser = {
@@ -149,6 +155,11 @@ export type PortalNotification = {
 export type Employee = {
   id: number | string; employee_code: string; name: string; email: string; phone: string;
   department: Department; designation: string; joining_date: string; status: EmployeeStatus;
+  employment_status?: EmploymentStatus;
+  probation_start_date?: string | null;
+  probation_end_date?: string | null;
+  confirmation_date?: string | null;
+  exit_date?: string | null;
   location?: string; portal_role?: PortalRole;
 };
 export type EmployeeDocumentItem = {

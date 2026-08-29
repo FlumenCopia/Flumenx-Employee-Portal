@@ -217,9 +217,24 @@ export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole
                 : "N/A"}
             </span>
 
-            <Badge tone={e.status}>
-              {e.status}
-            </Badge>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px", alignItems: "flex-start" }}>
+              <Badge tone={e.status}>
+                {e.status}
+              </Badge>
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  padding: "2px 6px",
+                  borderRadius: "4px",
+                  backgroundColor: (e.employment_status || "Probation") === "Permanent" ? "#EFF6FF" : "#FEF3C7",
+                  color: (e.employment_status || "Probation") === "Permanent" ? "#1E40AF" : "#92400E",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {e.employment_status || "Probation"}
+              </span>
+            </div>
 
             {canManageEmployees ? (
               <div className="row-actions">
@@ -488,7 +503,11 @@ export function EmployeeForm({
     const body = {
       employee_code: data.get("employee_code"), name: data.get("name"), email: data.get("email"),
       phone: data.get("phone"), department: data.get("department"), portal_role: data.get("portal_role"), designation: data.get("designation"),
-      joining_date: data.get("joining_date"), status: data.get("status"), location: data.get("location"),
+      joining_date: data.get("joining_date"), status: data.get("status"),
+      employment_status: data.get("employment_status"),
+      probation_end_date: data.get("probation_end_date") || null,
+      confirmation_date: data.get("confirmation_date") || null,
+      location: data.get("location"),
       ...(!currentEmployee ? { password: data.get("password") } : {}),
     };
     try {
@@ -577,7 +596,27 @@ export function EmployeeForm({
           {fieldErrors.joining_date && <small style={{ color: "#FF6B6B", display: "block", marginTop: "4px", fontSize: "11px", fontWeight: 600 }}>{fieldErrors.joining_date}</small>}
         </label>
         <label>
-          Status
+          Employment Status
+          <select name="employment_status" defaultValue={currentEmployee?.employment_status || "Probation"}>
+            <option value="Probation">Probation</option>
+            <option value="Permanent">Permanent (Confirmed)</option>
+            <option value="Contract">Contract</option>
+            <option value="Intern">Intern</option>
+          </select>
+          {fieldErrors.employment_status && <small style={{ color: "#FF6B6B", display: "block", marginTop: "4px", fontSize: "11px", fontWeight: 600 }}>{fieldErrors.employment_status}</small>}
+        </label>
+        <label>
+          Probation End Date
+          <input name="probation_end_date" defaultValue={currentEmployee?.probation_end_date || ""} type="date" />
+          <small style={{ color: "var(--muted)", display: "block", marginTop: "2px", fontSize: "10px" }}>Leave empty for default 90 days</small>
+        </label>
+        <label>
+          Confirmation Date
+          <input name="confirmation_date" defaultValue={currentEmployee?.confirmation_date || ""} type="date" />
+          <small style={{ color: "var(--muted)", display: "block", marginTop: "2px", fontSize: "10px" }}>Set when graduate from probation</small>
+        </label>
+        <label>
+          Account Status
           <select name="status" defaultValue={currentEmployee?.status || "Active"}>
             <option>Active</option>
             <option>On Leave</option>

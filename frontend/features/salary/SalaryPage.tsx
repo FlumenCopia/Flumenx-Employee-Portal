@@ -473,24 +473,26 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
     }
 
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px" }}>
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dayName, idx) => (
-          <div
-            key={dayName}
-            style={{
-              textAlign: "center",
-              padding: "8px",
-              fontWeight: 700,
-              fontSize: "13px",
-              color: idx === 0 ? "#DC2626" : "#475569",
-              backgroundColor: idx === 0 ? "#FEE2E2" : "#F1F5F9",
-              borderRadius: "6px",
-            }}
-          >
-            {dayName}
-          </div>
-        ))}
-        {days}
+      <div className="table-responsive-wrapper" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div style={{ minWidth: "640px", display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px" }}>
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dayName, idx) => (
+            <div
+              key={dayName}
+              style={{
+                textAlign: "center",
+                padding: "8px",
+                fontWeight: 700,
+                fontSize: "13px",
+                color: idx === 0 ? "#DC2626" : "#475569",
+                backgroundColor: idx === 0 ? "#FEE2E2" : "#F1F5F9",
+                borderRadius: "6px",
+              }}
+            >
+              {dayName}
+            </div>
+          ))}
+          {days}
+        </div>
       </div>
     );
   };
@@ -689,7 +691,7 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
                   {monthNames[payrollMonth - 1]} {payrollYear}
                 </h3>
                 <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748B" }}>
-                  Cycle Period: <strong style={{ color: "#0F172A" }}>{cycleInfo.readablePeriod || `${cycleInfo.startStr} → ${cycleInfo.endStr}`}</strong> • Total Days: {cycleInfo.totalCalendarDays}
+                  Cycle Period: <strong style={{ color: "#0F172A" }}>{cycleInfo.readablePeriod || `${cycleInfo.startStr} → ${cycleInfo.endStr}`}</strong> • Total Calendar Days: {cycleInfo.totalCalendarDays} • Week Offs (Sundays): {cycleInfo.weekOffs} • <strong>Salary Days: {cycleInfo.salaryDays}</strong>
                 </p>
               </div>
 
@@ -917,47 +919,47 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
               text="Click 'Configure Salary Profile' above to set up an employee's compensation breakdown."
             />
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "16px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
               {structures.map((s) => (
-                <div key={s._id} style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                <div key={s._id} style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: "8px", marginBottom: "12px" }}>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>{s.employee?.name}</h4>
-                      <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748B" }}>{s.employee?.employeeCode} • {s.employee?.department}</p>
+                      <h4 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>{s.employee?.name}</h4>
+                      <p style={{ margin: "2px 0 0", fontSize: "11.5px", color: "#64748B" }}>{s.employee?.employeeCode} • {s.employee?.department}</p>
                     </div>
-                    <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", borderRadius: "12px", backgroundColor: "#D1FAE5", color: "#065F46" }}>
+                    <span style={{ fontSize: "10.5px", fontWeight: 700, padding: "3px 8px", borderRadius: "12px", backgroundColor: "#D1FAE5", color: "#065F46", whiteSpace: "nowrap", flexShrink: 0 }}>
                       Active Structure
                     </span>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", padding: "12px", backgroundColor: "#F8FAFC", borderRadius: "8px", margin: "12px 0" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", padding: "10px", backgroundColor: "#F8FAFC", borderRadius: "8px", margin: "12px 0" }}>
                     <div>
-                      <div style={{ fontSize: "11px", color: "#64748B" }}>Fixed Gross</div>
-                      <div style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>₹{s.grossSalary?.toLocaleString()}</div>
+                      <div style={{ fontSize: "10.5px", color: "#64748B" }}>Fixed Gross</div>
+                      <div style={{ fontSize: "14px", fontWeight: 700, color: "#0F172A" }}>₹{s.grossSalary?.toLocaleString()}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "11px", color: "#64748B" }}>Basic Salary</div>
-                      <div style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>₹{s.basicSalary?.toLocaleString()}</div>
+                      <div style={{ fontSize: "10.5px", color: "#64748B" }}>Basic Salary</div>
+                      <div style={{ fontSize: "14px", fontWeight: 700, color: "#0F172A" }}>₹{s.basicSalary?.toLocaleString()}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "11px", color: "#64748B" }}>HRA</div>
-                      <div style={{ fontSize: "13px", fontWeight: 600 }}>₹{s.hra?.toLocaleString()}</div>
+                      <div style={{ fontSize: "10.5px", color: "#64748B" }}>HRA</div>
+                      <div style={{ fontSize: "12.5px", fontWeight: 600 }}>₹{s.hra?.toLocaleString()}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "11px", color: "#64748B" }}>Special Allowance</div>
-                      <div style={{ fontSize: "13px", fontWeight: 600 }}>₹{s.specialAllowance?.toLocaleString()}</div>
+                      <div style={{ fontSize: "10.5px", color: "#64748B" }}>Special Allowance</div>
+                      <div style={{ fontSize: "12.5px", fontWeight: 600 }}>₹{s.specialAllowance?.toLocaleString()}</div>
                     </div>
                   </div>
 
                   {/* Statutory Badges */}
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "16px" }}>
-                    <span style={{ fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "6px", backgroundColor: s.pfApplicable !== false && s.pfEnabled !== false ? "#ECFDF5" : "#F1F5F9", color: s.pfApplicable !== false && s.pfEnabled !== false ? "#065F46" : "#94A3B8" }}>
+                    <span style={{ fontSize: "10.5px", fontWeight: 600, padding: "2px 7px", borderRadius: "6px", backgroundColor: s.pfApplicable !== false && s.pfEnabled !== false ? "#ECFDF5" : "#F1F5F9", color: s.pfApplicable !== false && s.pfEnabled !== false ? "#065F46" : "#94A3B8" }}>
                       PF: {s.pfApplicable !== false && s.pfEnabled !== false ? "Yes (12%)" : "No"}
                     </span>
-                    <span style={{ fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "6px", backgroundColor: s.esiApplicable || s.esiEnabled ? "#ECFDF5" : "#F1F5F9", color: s.esiApplicable || s.esiEnabled ? "#065F46" : "#94A3B8" }}>
+                    <span style={{ fontSize: "10.5px", fontWeight: 600, padding: "2px 7px", borderRadius: "6px", backgroundColor: s.esiApplicable || s.esiEnabled ? "#ECFDF5" : "#F1F5F9", color: s.esiApplicable || s.esiEnabled ? "#065F46" : "#94A3B8" }}>
                       ESI: {s.esiApplicable || s.esiEnabled ? "Yes" : "No"}
                     </span>
-                    <span style={{ fontSize: "11px", fontWeight: 600, padding: "2px 8px", borderRadius: "6px", backgroundColor: s.professionalTaxApplicable !== false ? "#ECFDF5" : "#F1F5F9", color: s.professionalTaxApplicable !== false ? "#065F46" : "#94A3B8" }}>
+                    <span style={{ fontSize: "10.5px", fontWeight: 600, padding: "2px 7px", borderRadius: "6px", backgroundColor: s.professionalTaxApplicable !== false ? "#ECFDF5" : "#F1F5F9", color: s.professionalTaxApplicable !== false ? "#065F46" : "#94A3B8" }}>
                       PT: {s.professionalTaxApplicable !== false ? `₹${s.professionalTax || 200}` : "No"}
                     </span>
                   </div>

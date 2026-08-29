@@ -15,21 +15,22 @@ import {
   PhoneOff,
   Copy,
   Check,
-  ChevronUp,
   Settings,
   MoreVertical,
-  Volume2,
-  VolumeX,
   Sparkles,
   Shield,
   Clock,
   Calendar,
   Send,
   X,
-  Maximize2,
-  Minimize2,
   User as UserIcon,
   RefreshCw,
+  Pin,
+  PinOff,
+  UserX,
+  Volume2,
+  Wifi,
+  Zap,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Avatar } from "@/components/icons";
@@ -59,6 +60,23 @@ const ICE_SERVERS: RTCConfiguration = {
   iceCandidatePoolSize: 10,
 };
 
+export type VideoQualityPreset = "auto" | "720p" | "480p" | "360p";
+
+export const QUALITY_PROFILES: Record<VideoQualityPreset, { label: string; width: number; height: number; fps: number; maxBitrateBps: number }> = {
+  auto: { label: "Auto (Adaptive)", width: 1280, height: 720, fps: 30, maxBitrateBps: 1200000 },
+  "720p": { label: "High (720p HD)", width: 1280, height: 720, fps: 30, maxBitrateBps: 1500000 },
+  "480p": { label: "Medium (480p Standard)", width: 854, height: 480, fps: 24, maxBitrateBps: 600000 },
+  "360p": { label: "Low / Data Saver (360p)", width: 640, height: 360, fps: 15, maxBitrateBps: 250000 },
+};
+
+function optimizeSdpOpusAudio(sdp: string): string {
+  if (!sdp) return sdp;
+  return sdp.replace(
+    /a=fmtp:111 (.*)/g,
+    "a=fmtp:111 $1;useinbandfec=1;usedtx=1;minptime=10;maxaveragebitrate=64000"
+  );
+}
+
 export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
   const router = useRouter();
 
@@ -71,6 +89,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
   // Lobby vs Active Room vs Ended state
   const [isInLobby, setIsInLobby] = useState(true);
   const [isMeetingEnded, setIsMeetingEnded] = useState(false);
+  const [kickedMessage, setKickedMessage] = useState("");
   const [user, setUser] = useState<AuthUser | null>(null);
 
   // Local Media Stream State
@@ -79,6 +98,10 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const screenStreamRef = useRef<MediaStream | null>(null);
+
+  // Quality & Connection Sync State
+  const [videoQuality, setVideoQuality] = useState<VideoQualityPreset>("auto");
+  const [networkRtt, setNetworkRtt] = useState<number | null>(null);
 
   // Device selectors
   const [audioInputDevices, setAudioInputDevices] = useState<MediaDeviceInfo[]>([]);
@@ -94,17 +117,67 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
   const iceCandidatesQueue = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
   // UI Drawers & Controls
-  const [activeDrawer, setActiveDrawer] = useState<"none" | "chat" | "participants" | "settings">("none");
+  const [activeDrawer, setActiveDrawer] = useState<"none" | "chat" | "participants" | "settings" | "more">("none");
   const [chatMessages, setChatMessages] = useState<MeetingChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [pinnedSocketId, setPinnedSocketId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState("");
 
   // DOM Refs
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const lobbyVideoRef = useRef<HTMLVideoElement | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(""), 4000);
+  };
+
+  // Helper: Apply encoding quality parameters to RTCRtpSenders
+  const applyQualityToPeerSenders = useCallback((pc: RTCPeerConnection, preset: VideoQualityPreset) => {
+    const profile = QUALITY_PROFILES[preset];
+    pc.getSenders().forEach((sender) => {
+      if (sender.track && sender.track.kind === "video") {
+        try {
+          const params = sender.getParameters();
+          if (!params.encodings || params.encodings.length === 0) {
+            params.encodings = [{}];
+          }
+          params.encodings[0].maxBitrate = profile.maxBitrateBps;
+          params.encodings[0].maxFramerate = profile.fps;
+          params.degradationPreference = preset === "360p" ? "maintain-framerate" : "balanced";
+          sender.setParameters(params).catch(() => {});
+        } catch {}
+      }
+    });
+  }, []);
+
+  // Helper: Change quality preset dynamically
+  const handleQualityChange = useCallback((preset: VideoQualityPreset) => {
+    setVideoQuality(preset);
+    const profile = QUALITY_PROFILES[preset];
+
+    // 1. Update local video track constraints
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.applyConstraints({
+          width: { ideal: profile.width },
+          height: { ideal: profile.height },
+          frameRate: { ideal: profile.fps },
+        }).catch(() => {});
+      }
+    }
+
+    // 2. Update senders on all WebRTC connections
+    peersRef.current.forEach((peer) => {
+      applyQualityToPeerSenders(peer.pc, preset);
+    });
+
+    showToast(`Video stream set to: ${profile.label}`);
+  }, [localStream, applyQualityToPeerSenders]);
 
   // 1. Fetch meeting info & user session
   useEffect(() => {
@@ -139,7 +212,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     };
   }, [meetingCode]);
 
-  // 2. Initialize Lobby Media Stream & Enumerate Devices
+  // 2. Initialize Lobby Media Stream with Optimized Audio Settings
   useEffect(() => {
     let stream: MediaStream | null = null;
 
@@ -150,8 +223,12 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         setVideoInputDevices(devices.filter((d) => d.kind === "videoinput"));
 
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
         });
 
         setLocalStream(stream);
@@ -167,10 +244,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     if (isInLobby && !isMeetingEnded) {
       setupLobbyMedia();
     }
-
-    return () => {
-      // Do not stop stream if joining meeting
-    };
   }, [isInLobby, isMeetingEnded]);
 
   // Attach local stream whenever entering live meeting
@@ -181,6 +254,37 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     }
   }, [isInLobby, localStream]);
 
+  // Network Sync & Latency RTT Monitoring Loop
+  useEffect(() => {
+    if (isInLobby || isMeetingEnded) return;
+
+    const interval = setInterval(async () => {
+      let maxRtt = 0;
+      let peerCount = 0;
+      for (const [, peer] of peersRef.current) {
+        try {
+          const stats = await peer.pc.getStats();
+          stats.forEach((report) => {
+            if (report.type === "candidate-pair" && report.state === "succeeded") {
+              const rtt = report.currentRoundTripTime ? Math.round(report.currentRoundTripTime * 1000) : 0;
+              if (rtt > 0) {
+                maxRtt = Math.max(maxRtt, rtt);
+                peerCount++;
+              }
+            }
+          });
+        } catch {}
+      }
+      if (peerCount > 0) {
+        setNetworkRtt(maxRtt);
+      } else {
+        setNetworkRtt(null);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isInLobby, isMeetingEnded]);
+
   // 3. Connect to WebRTC Socket.io Room upon clicking "Join"
   const handleJoinMeeting = useCallback(async () => {
     setIsInLobby(false);
@@ -189,7 +293,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     if (!activeStream) {
       try {
         activeStream = await navigator.mediaDevices.getUserMedia({
-          audio: !isAudioMuted,
+          audio: !isAudioMuted ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : false,
           video: !isVideoOff ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
         });
         setLocalStream(activeStream);
@@ -203,7 +307,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       localVideoRef.current.play().catch(() => {});
     }
 
-    // Determine Socket URL based on current host
     const token = typeof window !== "undefined" ? (localStorage.getItem("flumenx_access_token") || localStorage.getItem("access_token") || "") : "";
     let socketUrl: string | undefined = undefined;
     if (typeof window !== "undefined") {
@@ -227,15 +330,12 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
     socketRef.current = socket;
 
-    // Join room
     socket.emit("join-meeting", {
       meetingCode,
       name: user?.employee?.name || user?.first_name || user?.username || "Participant",
     });
 
-    // Handle Join Success
     socket.on("joined-successfully", async (data: { meeting: any; self: any; peers: any[] }) => {
-      // Connect to existing peers (initiator)
       for (const peer of data.peers) {
         if (peer.socketId !== socket.id) {
           createPeerConnection(peer.socketId, peer.name, peer.role, true, activeStream);
@@ -243,14 +343,12 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       }
     });
 
-    // Handle New Peer Joined
     socket.on("peer-joined", (peer: { socketId: string; name: string; role: string }) => {
       if (peer.socketId !== socket.id) {
         createPeerConnection(peer.socketId, peer.name, peer.role, false, activeStream);
       }
     });
 
-    // WebRTC Signaling Handlers
     socket.on("signal-offer", async (data: { from: string; offer: RTCSessionDescriptionInit }) => {
       let peer = peersRef.current.get(data.from);
       if (!peer) {
@@ -261,10 +359,12 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         try {
           await peer.pc.setRemoteDescription(new RTCSessionDescription(data.offer));
           const answer = await peer.pc.createAnswer();
-          await peer.pc.setLocalDescription(answer);
-          socket.emit("signal-answer", { to: data.from, answer });
+          const optSdp = optimizeSdpOpusAudio(answer.sdp || "");
+          const newAnswer = new RTCSessionDescription({ type: answer.type, sdp: optSdp });
+          await peer.pc.setLocalDescription(newAnswer);
+          applyQualityToPeerSenders(peer.pc, videoQuality);
+          socket.emit("signal-answer", { to: data.from, answer: newAnswer });
 
-          // Drain queued ICE candidates
           const queued = iceCandidatesQueue.current.get(data.from) || [];
           for (const cand of queued) {
             try {
@@ -283,8 +383,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       if (peer) {
         try {
           await peer.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-
-          // Drain queued ICE candidates
           const queued = iceCandidatesQueue.current.get(data.from) || [];
           for (const cand of queued) {
             try {
@@ -308,7 +406,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
             console.error("Error adding ice candidate:", err);
           }
         } else {
-          // Queue candidate until remote description is ready
           if (!iceCandidatesQueue.current.has(data.from)) {
             iceCandidatesQueue.current.set(data.from, []);
           }
@@ -317,7 +414,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       }
     });
 
-    // Peer Media Status Toggles
     socket.on("peer-media-toggled", (data: { socketId: string; isAudioMuted: boolean; isVideoOff: boolean }) => {
       setPeers((prev) => {
         const next = new Map(prev);
@@ -348,7 +444,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       }
     });
 
-    // In-Meeting Chat Messages
     socket.on("new-chat-message", (msg: any) => {
       const formattedMsg: MeetingChatMessage = {
         id: String(msg.id || Date.now()),
@@ -367,18 +462,28 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       }
     });
 
-    // Host Muted You
+    // HOST ACTIONS INCOMING HANDLERS
     socket.on("host-muted-you", () => {
       toggleAudio(true);
+      showToast("Your microphone was muted by the meeting host.");
     });
 
-    // Meeting Ended by Host
+    socket.on("host-camera-off-you", () => {
+      toggleVideo(true);
+      showToast("Your camera was turned off by the meeting host.");
+    });
+
+    socket.on("host-kicked-you", () => {
+      cleanupMedia();
+      setKickedMessage("You were removed from the meeting by the host.");
+      setIsMeetingEnded(true);
+    });
+
     socket.on("meeting-ended-by-host", () => {
       cleanupMedia();
       setIsMeetingEnded(true);
     });
 
-    // Peer Left
     socket.on("peer-left", (data: { socketId: string; name: string }) => {
       const peer = peersRef.current.get(data.socketId);
       if (peer) {
@@ -391,13 +496,11 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       }
     });
 
-    // Load Chat History
     api<MeetingChatMessage[]>(`/meetings/code/${meetingCode}/messages/`)
       .then((history) => setChatMessages(history))
       .catch(() => {});
-  }, [localStream, isAudioMuted, isVideoOff, meetingCode, user, activeDrawer, pinnedSocketId]);
+  }, [localStream, isAudioMuted, isVideoOff, meetingCode, user, activeDrawer, pinnedSocketId, videoQuality, applyQualityToPeerSenders]);
 
-  // Helper: Create RTCPeerConnection
   function createPeerConnection(
     socketId: string,
     name: string,
@@ -411,14 +514,12 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
-    // Add local tracks to peer connection
     if (stream) {
       stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
     }
 
-    // ICE Candidate Exchange
     pc.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
         socketRef.current.emit("signal-ice-candidate", {
@@ -428,7 +529,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       }
     };
 
-    // Remote Stream Received
     pc.ontrack = (event) => {
       const remoteStream = event.streams[0] || new MediaStream([event.track]);
       setPeers((prev) => {
@@ -455,11 +555,15 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     peersRef.current.set(socketId, peerObj);
     setPeers(new Map(peersRef.current));
 
-    // If initiator, create and send Offer
     if (isInitiator) {
       pc.createOffer()
-        .then((offer) => pc.setLocalDescription(offer))
+        .then((offer) => {
+          const optSdp = optimizeSdpOpusAudio(offer.sdp || "");
+          const newOffer = new RTCSessionDescription({ type: offer.type, sdp: optSdp });
+          return pc.setLocalDescription(newOffer);
+        })
         .then(() => {
+          applyQualityToPeerSenders(pc, videoQuality);
           if (socketRef.current) {
             socketRef.current.emit("signal-offer", {
               to: socketId,
@@ -473,7 +577,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     return pc;
   }
 
-  // 4. Media Controls
+  // Media Controls
   const toggleAudio = (forceMute?: boolean) => {
     if (!localStream) return;
     const audioTrack = localStream.getAudioTracks()[0];
@@ -492,11 +596,11 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     }
   };
 
-  const toggleVideo = () => {
+  const toggleVideo = (forceOff?: boolean) => {
     if (!localStream) return;
     const videoTrack = localStream.getVideoTracks()[0];
     if (videoTrack) {
-      const nextState = !isVideoOff;
+      const nextState = forceOff !== undefined ? forceOff : !isVideoOff;
       videoTrack.enabled = !nextState;
       setIsVideoOff(nextState);
 
@@ -524,12 +628,13 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     setIsSwitchingCamera(true);
     try {
       const nextFacing = facingMode === "user" ? "environment" : "user";
+      const profile = QUALITY_PROFILES[videoQuality];
       const videoConstraint: MediaTrackConstraints = targetDeviceId
         ? { deviceId: { exact: targetDeviceId } }
         : { facingMode: { ideal: nextFacing } };
 
       const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { ...videoConstraint, width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { ...videoConstraint, width: { ideal: profile.width }, height: { ideal: profile.height }, frameRate: { ideal: profile.fps } },
         audio: false,
       });
 
@@ -555,7 +660,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           localVideoRef.current.play().catch(() => {});
         }
 
-        // Replace track in active WebRTC peer connections
         peersRef.current.forEach((peer) => {
           const sender = peer.pc.getSenders().find((s) => s.track?.kind === "video" || s.track === null);
           if (sender) {
@@ -575,7 +679,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     try {
       setSelectedAudioInput(targetDeviceId);
       const newStream = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId: { exact: targetDeviceId } },
+        audio: { deviceId: { exact: targetDeviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: false,
       });
 
@@ -591,7 +695,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         localStream.addTrack(newAudioTrack);
         newAudioTrack.enabled = !isAudioMuted;
 
-        // Replace track in active WebRTC peer connections
         peersRef.current.forEach((peer) => {
           const sender = peer.pc.getSenders().find((s) => s.track?.kind === "audio" || s.track === null);
           if (sender) {
@@ -607,7 +710,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
   const toggleScreenShare = async () => {
     if (isScreenSharing) {
-      // Stop Screen Share -> Revert to Camera Track
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((t) => t.stop());
         screenStreamRef.current = null;
@@ -631,7 +733,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         socketRef.current.emit("toggle-screen-share", { meetingCode, isSharing: false });
       }
     } else {
-      // Start Screen Share
       try {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
@@ -642,7 +743,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
         const screenVideoTrack = screenStream.getVideoTracks()[0];
 
-        // Replace track on all active peer connections
         peersRef.current.forEach((peer) => {
           const sender = peer.pc.getSenders().find((s) => s.track && s.track.kind === "video");
           if (sender) {
@@ -667,7 +767,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     }
   };
 
-  // 5. Send Chat Message
   const handleSendChat = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || !socketRef.current) return;
@@ -695,10 +794,27 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     }, 50);
   };
 
-  // 6. Host Actions
+  // Host Action Handlers
   const handleHostMutePeer = (targetSocketId: string) => {
     if (socketRef.current) {
       socketRef.current.emit("host-mute-peer", { meetingCode, targetSocketId });
+      showToast("Mute request sent to participant.");
+    }
+  };
+
+  const handleHostOffCameraPeer = (targetSocketId: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit("host-off-camera-peer", { meetingCode, targetSocketId });
+      showToast("Turned off participant's camera.");
+    }
+  };
+
+  const handleHostKickPeer = (targetSocketId: string, peerName: string) => {
+    if (window.confirm(`Are you sure you want to kick "${peerName}" out of this meeting?`)) {
+      if (socketRef.current) {
+        socketRef.current.emit("host-kick-peer", { meetingCode, targetSocketId });
+        showToast(`Kicked ${peerName} from the meeting.`);
+      }
     }
   };
 
@@ -712,7 +828,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     }
   };
 
-  // Cleanup helper
   const cleanupMedia = () => {
     if (localStream) {
       localStream.getTracks().forEach((t) => t.stop());
@@ -783,7 +898,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         </div>
         <h2 style={{ fontSize: "24px", fontWeight: 800, marginBottom: "8px" }}>Meeting Ended</h2>
         <p style={{ color: "#94A3B8", maxWidth: "420px", fontSize: "13.5px", marginBottom: "24px" }}>
-          Thank you for joining. The call has ended and meeting records are archived.
+          {kickedMessage || "Thank you for joining. The call has ended and meeting records are archived."}
         </p>
         <div style={{ display: "flex", gap: "12px" }}>
           <button
@@ -793,27 +908,17 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           >
             Back to Calendar
           </button>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            style={{ padding: "10px 22px", borderRadius: "10px", background: "rgba(255,255,255,0.08)", color: "#FFF", fontWeight: 700, border: "1px solid rgba(255,255,255,0.15)", cursor: "pointer" }}
-          >
-            Rejoin
-          </button>
         </div>
       </div>
     );
   }
 
-  // ==========================================
-  // VIEW 1: PRE-JOIN LOBBY VIEW
-  // ==========================================
+  // PRE-JOIN LOBBY VIEW
   if (isInLobby) {
     return (
-      <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 50% 30%, #13231F 0%, #080E0C 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", color: "#FFFFFF" }}>
-        <div style={{ maxWidth: "980px", width: "100%", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "32px", alignItems: "center" }}>
-          {/* Left: Video Preview Box */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 50% 30%, #13231F 0%, #080E0C 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", color: "#FFFFFF", boxSizing: "border-box" }}>
+        <div style={{ maxWidth: "880px", width: "100%", display: "flex", flexDirection: "column", gap: "20px", alignItems: "center" }}>
+          <div style={{ width: "100%", maxWidth: "560px", display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div
               style={{
                 width: "100%",
@@ -842,127 +947,79 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
               {isVideoOff && (
                 <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#15201D" }}>
-                  <Avatar name={user?.employee?.name || user?.first_name || "User"} size={72} />
+                  <Avatar name={user?.employee?.name || user?.first_name || "User"} size={64} />
                   <span style={{ marginTop: "12px", fontSize: "13px", color: "#94A3B8" }}>Camera is off</span>
                 </div>
               )}
 
-              {/* In-Preview Quick Toggle Floating Pill */}
-              <div style={{ position: "absolute", bottom: "16px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "12px", background: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(10px)", padding: "8px 14px", borderRadius: "99px", border: "1px solid rgba(255,255,255,0.15)" }}>
+              <div style={{ position: "absolute", bottom: "12px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "10px", background: "rgba(0, 0, 0, 0.7)", backdropFilter: "blur(10px)", padding: "6px 12px", borderRadius: "99px", border: "1px solid rgba(255,255,255,0.15)" }}>
                 <button
                   type="button"
                   onClick={() => toggleAudio()}
-                  style={{
-                    width: "42px",
-                    height: "42px",
-                    borderRadius: "50%",
-                    border: "none",
-                    background: isAudioMuted ? "#EF4444" : "rgba(255, 255, 255, 0.15)",
-                    color: "#FFFFFF",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
+                  style={{ width: "38px", height: "38px", borderRadius: "50%", border: "none", background: isAudioMuted ? "#EF4444" : "rgba(255, 255, 255, 0.15)", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                   title={isAudioMuted ? "Unmute Microphone" : "Mute Microphone"}
                 >
-                  {isAudioMuted ? <MicOff size={20} /> : <Mic size={20} />}
+                  {isAudioMuted ? <MicOff size={18} /> : <Mic size={18} />}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => toggleVideo()}
-                  style={{
-                    width: "42px",
-                    height: "42px",
-                    borderRadius: "50%",
-                    border: "none",
-                    background: isVideoOff ? "#EF4444" : "rgba(255, 255, 255, 0.15)",
-                    color: "#FFFFFF",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
+                  style={{ width: "38px", height: "38px", borderRadius: "50%", border: "none", background: isVideoOff ? "#EF4444" : "rgba(255, 255, 255, 0.15)", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                   title={isVideoOff ? "Turn On Camera" : "Turn Off Camera"}
                 >
-                  {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
+                  {isVideoOff ? <VideoOff size={18} /> : <Video size={18} />}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => switchCamera()}
                   disabled={isSwitchingCamera || isVideoOff}
-                  style={{
-                    width: "42px",
-                    height: "42px",
-                    borderRadius: "50%",
-                    border: "none",
-                    background: isSwitchingCamera ? "rgba(52, 211, 153, 0.25)" : "rgba(255, 255, 255, 0.15)",
-                    color: isVideoOff ? "#64748B" : "#FFFFFF",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: isVideoOff ? "not-allowed" : "pointer",
-                    transition: "all 0.15s ease",
-                  }}
+                  style={{ width: "38px", height: "38px", borderRadius: "50%", border: "none", background: isSwitchingCamera ? "rgba(52, 211, 153, 0.25)" : "rgba(255, 255, 255, 0.15)", color: isVideoOff ? "#64748B" : "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", cursor: isVideoOff ? "not-allowed" : "pointer" }}
                   title="Flip Camera (Front/Back)"
                 >
-                  <RefreshCw size={18} className={isSwitchingCamera ? "animate-spin" : ""} />
+                  <RefreshCw size={16} className={isSwitchingCamera ? "animate-spin" : ""} />
                 </button>
               </div>
             </div>
 
-            <div style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "#34D399" }}>
+            <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#34D399" }}>
               <Sparkles size={14} />
               <span>Camera & Microphone Ready</span>
             </div>
           </div>
 
-          {/* Right: Meeting Info & Join Action */}
-          <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(8, 122, 91, 0.2)", border: "1px solid rgba(8, 122, 91, 0.4)", padding: "4px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: 800, color: "#34D399", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "12px" }}>
-              <Shield size={13} />
-              FLUMENX BOS LIVE CALL
+          <div style={{ width: "100%", maxWidth: "560px", textAlign: "center" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(8, 122, 91, 0.2)", border: "1px solid rgba(8, 122, 91, 0.4)", padding: "4px 12px", borderRadius: "99px", fontSize: "10.5px", fontWeight: 800, color: "#34D399", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "10px" }}>
+              <Shield size={12} /> FLUMENX BOS LIVE CALL
             </div>
 
-            <h1 style={{ fontSize: "28px", fontWeight: 900, letterSpacing: "-0.02em", margin: "0 0 8px 0", color: "#FFFFFF" }}>
+            <h1 style={{ fontSize: "clamp(20px, 5vw, 28px)", fontWeight: 900, margin: "0 0 6px 0", color: "#FFFFFF" }}>
               {meeting.title}
             </h1>
 
-            {meeting.description && (
-              <p style={{ fontSize: "13.5px", color: "#94A3B8", margin: "0 0 16px 0", lineHeight: "1.5" }}>
-                {meeting.description}
-              </p>
-            )}
-
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", fontSize: "12.5px", color: "#CBD5E1", marginBottom: "28px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Calendar size={15} color="#34D399" />
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "12px", fontSize: "12px", color: "#CBD5E1", marginBottom: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <Calendar size={14} color="#34D399" />
                 <span>{meeting.date}</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Clock size={15} color="#34D399" />
+              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <Clock size={14} color="#34D399" />
                 <span>{meeting.time}</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Users size={15} color="#34D399" />
+              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <Users size={14} color="#34D399" />
                 <span>{meeting.department}</span>
               </div>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
               <button
                 type="button"
                 onClick={handleJoinMeeting}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "10px",
-                  padding: "14px 28px",
+                  width: "100%",
+                  padding: "13px 24px",
                   borderRadius: "12px",
                   background: "linear-gradient(135deg, #087A5B 0%, #055C44 100%)",
                   border: "1px solid #34D399",
@@ -971,7 +1028,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
                   fontWeight: 800,
                   cursor: "pointer",
                   boxShadow: "0 6px 20px rgba(8, 122, 91, 0.4)",
-                  transition: "all 0.15s ease",
                 }}
               >
                 Join Now
@@ -981,21 +1037,22 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
                 type="button"
                 onClick={handleCopyLink}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "8px",
-                  padding: "11px 20px",
+                  width: "100%",
+                  padding: "10px 18px",
                   borderRadius: "10px",
                   background: "rgba(255, 255, 255, 0.06)",
                   border: "1px solid rgba(255, 255, 255, 0.15)",
                   color: "#E2E8F0",
-                  fontSize: "13px",
+                  fontSize: "12.5px",
                   fontWeight: 700,
                   cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
                 }}
               >
-                {copied ? <Check size={16} color="#34D399" /> : <Copy size={16} />}
+                {copied ? <Check size={15} color="#34D399" /> : <Copy size={15} />}
                 <span>{copied ? "Link Copied!" : "Copy Meeting Link"}</span>
               </button>
             </div>
@@ -1005,141 +1062,229 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     );
   }
 
-  // ==========================================
-  // VIEW 2: LIVE IN-MEETING ROOM VIEW
-  // ==========================================
+  // LIVE IN-MEETING ROOM VIEW
   const peerList = Array.from(peers.values());
   const totalCount = peerList.length + 1; // +1 for local user
+  const isHostUser = Boolean(meeting.is_host || user?.role === "SUPER_ADMIN" || Boolean((user as any)?.is_superuser));
+
+  const isPinned = pinnedSocketId !== null;
+  const pinnedPeer = pinnedSocketId ? peerList.find((p) => p.socketId === pinnedSocketId) : null;
+  const isLocalPinned = pinnedSocketId === "local";
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0A110F", display: "flex", flexDirection: "column", overflow: "hidden", color: "#FFFFFF", zIndex: 99999 }}>
-      {/* Top Header Bar */}
-      <header style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", background: "rgba(10, 17, 15, 0.95)", zIndex: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+      {/* Toast Banner */}
+      {toastMessage && (
+        <div style={{ position: "absolute", top: "62px", left: "50%", transform: "translateX(-50%)", background: "rgba(8, 122, 91, 0.95)", border: "1px solid #34D399", color: "#FFFFFF", padding: "8px 16px", borderRadius: "99px", fontSize: "12px", fontWeight: 700, zIndex: 100, boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
+          {toastMessage}
+        </div>
+      )}
+
+      {/* Top Header Bar with Connection Sync Health Indicator */}
+      <header style={{ height: "50px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", background: "rgba(10, 17, 15, 0.98)", zIndex: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", maxWidth: "60%", overflow: "hidden" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/flumenx-mark-only.png" alt="FLUMENX" style={{ width: "24px", height: "24px" }} />
-          <div>
-            <span style={{ fontSize: "14px", fontWeight: 800, color: "#FFFFFF" }}>{meeting.title}</span>
-            <span style={{ marginLeft: "8px", fontSize: "11px", color: "#34D399", background: "rgba(8, 122, 91, 0.25)", padding: "2px 8px", borderRadius: "6px", fontFamily: "monospace" }}>
-              {meetingCode}
-            </span>
-          </div>
+          <img src="/flumenx-mark-only.png" alt="FLUMENX" style={{ width: "22px", height: "22px", flexShrink: 0 }} />
+          <span style={{ fontSize: "13px", fontWeight: 800, color: "#FFFFFF", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {meeting.title}
+          </span>
+          <span style={{ fontSize: "10.5px", color: "#34D399", background: "rgba(8, 122, 91, 0.25)", padding: "2px 6px", borderRadius: "6px", fontFamily: "monospace", flexShrink: 0 }}>
+            {meetingCode}
+          </span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {/* Network Connection Health Indicator */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "3px 8px",
+              borderRadius: "6px",
+              background: networkRtt === null ? "rgba(255,255,255,0.06)" : networkRtt < 100 ? "rgba(16, 185, 129, 0.15)" : networkRtt < 220 ? "rgba(245, 158, 11, 0.15)" : "rgba(239, 68, 68, 0.15)",
+              border: `1px solid ${networkRtt === null ? "rgba(255,255,255,0.1)" : networkRtt < 100 ? "#10B981" : networkRtt < 220 ? "#F59E0B" : "#EF4444"}`,
+              fontSize: "10.5px",
+              fontWeight: 700,
+              color: networkRtt === null ? "#94A3B8" : networkRtt < 100 ? "#34D399" : networkRtt < 220 ? "#FDE68A" : "#FCA5A5",
+            }}
+            title={networkRtt ? `Round trip delay: ${networkRtt}ms` : "Monitoring stream sync"}
+          >
+            <Wifi size={12} />
+            <span>{networkRtt ? `${networkRtt}ms` : "Sync OK"}</span>
+          </div>
+
           <button
             type="button"
             onClick={handleCopyLink}
-            style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.15)", borderRadius: "8px", padding: "6px 12px", color: "#E2E8F0", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
+            style={{ display: "flex", alignItems: "center", gap: "4px", background: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.15)", borderRadius: "6px", padding: "4px 8px", color: "#E2E8F0", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}
           >
-            {copied ? <Check size={14} color="#34D399" /> : <Copy size={14} />}
-            <span>{copied ? "Copied" : "Copy Link"}</span>
+            {copied ? <Check size={13} color="#34D399" /> : <Copy size={13} />}
+            <span className="hidden-xs">{copied ? "Copied" : "Copy Link"}</span>
           </button>
         </div>
       </header>
 
-      {/* Main Call Body (Grid + Drawers) */}
+      {/* Main Video Area */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
-        {/* Video Canvas Grid */}
-        <main
-          style={{
-            flex: 1,
-            padding: "16px",
-            display: "grid",
-            gap: "14px",
-            gridTemplateColumns:
-              totalCount === 1
-                ? "1fr"
-                : totalCount === 2
-                ? "repeat(auto-fit, minmax(320px, 1fr))"
-                : totalCount <= 4
-                ? "repeat(2, 1fr)"
-                : "repeat(auto-fit, minmax(280px, 1fr))",
-            alignItems: "center",
-            justifyContent: "center",
-            overflowY: "auto",
-          }}
-        >
-          {/* Local User Tile */}
-          <div
-            style={{
-              position: "relative",
-              width: "100%",
-              height: "100%",
-              minHeight: "220px",
-              background: "#13231F",
-              borderRadius: "16px",
-              overflow: "hidden",
-              border: `2px solid ${isAudioMuted ? "rgba(255,255,255,0.08)" : "#087A5B"}`,
-              boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                transform: isScreenSharing ? "none" : "scaleX(-1)",
-                display: isVideoOff && !isScreenSharing ? "none" : "block",
-              }}
-            />
+        <main style={{ flex: 1, padding: "10px", display: "flex", flexDirection: "column", gap: "10px", overflow: "hidden" }}>
+          {/* PINNED SPOTLIGHT VIEW */}
+          {isPinned ? (
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "10px", height: "100%", overflow: "hidden" }}>
+              <div style={{ flex: 1, position: "relative", background: "#13231F", borderRadius: "16px", overflow: "hidden", border: "2px solid #34D399", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {isLocalPinned ? (
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    style={{ width: "100%", height: "100%", objectFit: isScreenSharing ? "contain" : "cover", transform: isScreenSharing ? "none" : "scaleX(-1)" }}
+                  />
+                ) : (
+                  <RemotePinnedVideo peer={pinnedPeer} />
+                )}
 
-            {isVideoOff && !isScreenSharing && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                <Avatar name={user?.employee?.name || user?.first_name || "You"} size={64} />
+                <div style={{ position: "absolute", top: "12px", left: "12px", background: "rgba(8, 122, 91, 0.9)", backdropFilter: "blur(6px)", padding: "4px 10px", borderRadius: "8px", fontSize: "11px", fontWeight: 800, color: "#FFFFFF", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }} onClick={() => setPinnedSocketId(null)}>
+                  <Pin size={13} />
+                  <span>Pinned Spotlight ({isLocalPinned ? "You" : pinnedPeer?.name}) — Click to Unpin</span>
+                </div>
               </div>
-            )}
 
-            {/* Name Badge */}
-            <div style={{ position: "absolute", bottom: "12px", left: "14px", background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)", padding: "4px 10px", borderRadius: "8px", fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
-              <span>{user?.employee?.name || user?.first_name || "You (Me)"}</span>
-              {isAudioMuted && <MicOff size={13} color="#EF4444" />}
+              <div style={{ height: "100px", display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "2px" }}>
+                {!isLocalPinned && (
+                  <div
+                    onClick={() => setPinnedSocketId("local")}
+                    style={{ width: "130px", height: "100%", flexShrink: 0, background: "#13231F", borderRadius: "12px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.15)", position: "relative", cursor: "pointer" }}
+                  >
+                    <video ref={localVideoRef} autoPlay playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)", display: isVideoOff ? "none" : "block" }} />
+                    {isVideoOff && <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center" }}><Avatar name="Me" size={32} /></div>}
+                    <span style={{ position: "absolute", bottom: "4px", left: "6px", fontSize: "10px", background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: "4px" }}>You</span>
+                  </div>
+                )}
+
+                {peerList.filter((p) => p.socketId !== pinnedSocketId).map((peer) => (
+                  <div
+                    key={peer.socketId}
+                    onClick={() => setPinnedSocketId(peer.socketId)}
+                    style={{ width: "130px", height: "100%", flexShrink: 0, background: "#13231F", borderRadius: "12px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.15)", position: "relative", cursor: "pointer" }}
+                  >
+                    <RemotePeerTile peer={peer} isHost={isHostUser} onMute={() => handleHostMutePeer(peer.socketId)} onCameraOff={() => handleHostOffCameraPeer(peer.socketId)} onKick={() => handleHostKickPeer(peer.socketId, peer.name)} onPin={() => setPinnedSocketId(peer.socketId)} compact />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            /* STANDARD GRID VIEW */
+            <div
+              style={{
+                flex: 1,
+                display: "grid",
+                gap: "10px",
+                gridTemplateColumns:
+                  totalCount === 1
+                    ? "1fr"
+                    : totalCount === 2
+                    ? "1fr"
+                    : totalCount <= 4
+                    ? "repeat(2, 1fr)"
+                    : "repeat(auto-fit, minmax(220px, 1fr))",
+                alignItems: "center",
+                justifyContent: "center",
+                overflowY: "auto",
+              }}
+            >
+              {/* Local User Tile */}
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  height: "100%",
+                  minHeight: "180px",
+                  background: "#13231F",
+                  borderRadius: "16px",
+                  overflow: "hidden",
+                  border: `2px solid ${isAudioMuted ? "rgba(255,255,255,0.08)" : "#087A5B"}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    transform: isScreenSharing ? "none" : "scaleX(-1)",
+                    display: isVideoOff && !isScreenSharing ? "none" : "block",
+                  }}
+                />
 
-          {/* Remote Peer Tiles */}
-          {peerList.map((peer) => (
-            <RemotePeerTile
-              key={peer.socketId}
-              peer={peer}
-              isHost={Boolean(meeting.is_host)}
-              onMute={() => handleHostMutePeer(peer.socketId)}
-            />
-          ))}
+                {isVideoOff && !isScreenSharing && (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                    <Avatar name={user?.employee?.name || user?.first_name || "You"} size={56} />
+                  </div>
+                )}
+
+                <div style={{ position: "absolute", bottom: "10px", left: "10px", background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)", padding: "4px 8px", borderRadius: "6px", fontSize: "11.5px", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span>{user?.employee?.name || user?.first_name || "You (Me)"}</span>
+                  {isAudioMuted && <MicOff size={12} color="#EF4444" />}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setPinnedSocketId("local")}
+                  style={{ position: "absolute", top: "10px", right: "10px", background: "rgba(0,0,0,0.5)", border: "none", borderRadius: "6px", padding: "5px", color: "#FFFFFF", cursor: "pointer" }}
+                  title="Pin Video"
+                >
+                  <Pin size={13} />
+                </button>
+              </div>
+
+              {/* Remote Peer Tiles */}
+              {peerList.map((peer) => (
+                <RemotePeerTile
+                  key={peer.socketId}
+                  peer={peer}
+                  isHost={isHostUser}
+                  onMute={() => handleHostMutePeer(peer.socketId)}
+                  onCameraOff={() => handleHostOffCameraPeer(peer.socketId)}
+                  onKick={() => handleHostKickPeer(peer.socketId, peer.name)}
+                  onPin={() => setPinnedSocketId(peer.socketId)}
+                />
+              ))}
+            </div>
+          )}
         </main>
 
-        {/* In-Meeting Chat Drawer */}
+        {/* Chat Drawer */}
         {activeDrawer === "chat" && (
-          <aside style={{ width: "340px", maxWidth: "100%", background: "#0F1715", borderLeft: "1px solid rgba(255, 255, 255, 0.1)", display: "flex", flexDirection: "column", zIndex: 20 }}>
-            <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, fontSize: "14px" }}>
+          <aside style={{ width: "320px", maxWidth: "100%", background: "#0F1715", borderLeft: "1px solid rgba(255, 255, 255, 0.1)", display: "flex", flexDirection: "column", zIndex: 20 }}>
+            <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 800, fontSize: "13.5px" }}>
                 <MessageSquare size={16} color="#34D399" />
-                <span>In-Meeting Messages</span>
+                <span>In-Meeting Chat</span>
               </div>
               <button type="button" onClick={() => setActiveDrawer("none")} style={{ background: "none", border: "none", color: "#94A3B8", cursor: "pointer" }}>
                 <X size={18} />
               </button>
             </div>
 
-            <div style={{ flex: 1, padding: "14px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ flex: 1, padding: "12px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" }}>
               {chatMessages.length === 0 ? (
-                <div style={{ textAlign: "center", color: "#64748B", fontSize: "12.5px", marginTop: "40px" }}>
-                  No messages yet. Send a message to team members in call.
+                <div style={{ textAlign: "center", color: "#64748B", fontSize: "12px", marginTop: "30px" }}>
+                  No messages yet. Send a message to participants.
                 </div>
               ) : (
                 chatMessages.map((msg, i) => (
                   <div key={msg.id || i} style={{ display: "flex", flexDirection: "column", alignSelf: msg.is_self ? "flex-end" : "flex-start", maxWidth: "85%" }}>
-                    <div style={{ fontSize: "10.5px", color: msg.is_self ? "#34D399" : "#94A3B8", marginBottom: "2px", fontWeight: 700 }}>
+                    <div style={{ fontSize: "10px", color: msg.is_self ? "#34D399" : "#94A3B8", marginBottom: "2px", fontWeight: 700 }}>
                       {msg.is_self ? "You" : msg.sender_name}
                     </div>
-                    <div style={{ padding: "8px 12px", borderRadius: "12px", background: msg.is_self ? "#087A5B" : "rgba(255,255,255,0.08)", color: "#FFFFFF", fontSize: "13px", wordBreak: "break-word" }}>
+                    <div style={{ padding: "7px 11px", borderRadius: "10px", background: msg.is_self ? "#087A5B" : "rgba(255,255,255,0.08)", color: "#FFFFFF", fontSize: "12.5px", wordBreak: "break-word" }}>
                       {msg.text}
                     </div>
                   </div>
@@ -1148,26 +1293,26 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
               <div ref={chatBottomRef} />
             </div>
 
-            <form onSubmit={handleSendChat} style={{ padding: "12px", borderTop: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", gap: "8px" }}>
+            <form onSubmit={handleSendChat} style={{ padding: "10px", borderTop: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", gap: "6px" }}>
               <input
                 type="text"
-                placeholder="Send a message..."
+                placeholder="Type a message..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                style={{ flex: 1, padding: "9px 12px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#FFFFFF", fontSize: "13px", outline: "none" }}
+                style={{ flex: 1, padding: "8px 10px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#FFFFFF", fontSize: "12.5px", outline: "none" }}
               />
-              <button type="submit" style={{ width: "38px", height: "38px", borderRadius: "8px", background: "#087A5B", border: "none", color: "#FFF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+              <button type="submit" style={{ width: "36px", height: "36px", borderRadius: "8px", background: "#087A5B", border: "none", color: "#FFF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                 <Send size={15} />
               </button>
             </form>
           </aside>
         )}
 
-        {/* In-Meeting Participants Drawer */}
+        {/* Participants Drawer */}
         {activeDrawer === "participants" && (
           <aside style={{ width: "320px", maxWidth: "100%", background: "#0F1715", borderLeft: "1px solid rgba(255, 255, 255, 0.1)", display: "flex", flexDirection: "column", zIndex: 20 }}>
-            <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, fontSize: "14px" }}>
+            <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 800, fontSize: "13.5px" }}>
                 <Users size={16} color="#34D399" />
                 <span>Participants ({totalCount})</span>
               </div>
@@ -1176,52 +1321,67 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
               </button>
             </div>
 
-            <div style={{ flex: 1, padding: "14px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px" }}>
-              {/* Self */}
+            <div style={{ flex: 1, padding: "12px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: "8px", background: "rgba(255,255,255,0.04)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <Avatar name={user?.employee?.name || user?.first_name || "You"} size={32} />
                   <div>
-                    <div style={{ fontSize: "12.5px", fontWeight: 700 }}>{user?.employee?.name || user?.first_name || "You"} (Me)</div>
-                    <span style={{ fontSize: "10px", color: "#34D399" }}>{meeting.is_host ? "Host" : "Participant"}</span>
+                    <div style={{ fontSize: "12px", fontWeight: 700 }}>{user?.employee?.name || user?.first_name || "You"} (Me)</div>
+                    <span style={{ fontSize: "10px", color: "#34D399" }}>{isHostUser ? "Host / Organizer" : "Participant"}</span>
                   </div>
                 </div>
                 {isAudioMuted ? <MicOff size={15} color="#EF4444" /> : <Mic size={15} color="#34D399" />}
               </div>
 
-              {/* Peers */}
               {peerList.map((p) => (
-                <div key={p.socketId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: "8px", background: "rgba(255,255,255,0.04)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <Avatar name={p.name} size={32} />
-                    <div>
-                      <div style={{ fontSize: "12.5px", fontWeight: 700 }}>{p.name}</div>
-                      <span style={{ fontSize: "10px", color: "#94A3B8" }}>{p.role}</span>
+                <div key={p.socketId} style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "8px 10px", borderRadius: "8px", background: "rgba(255,255,255,0.04)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <Avatar name={p.name} size={32} />
+                      <div>
+                        <div style={{ fontSize: "12px", fontWeight: 700 }}>{p.name}</div>
+                        <span style={{ fontSize: "10px", color: "#94A3B8" }}>{p.role}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     {p.isAudioMuted ? <MicOff size={15} color="#EF4444" /> : <Mic size={15} color="#34D399" />}
-                    {meeting.is_host && (
+                  </div>
+
+                  {isHostUser && (
+                    <div style={{ display: "flex", gap: "6px", paddingTop: "4px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                       <button
                         type="button"
                         onClick={() => handleHostMutePeer(p.socketId)}
-                        style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "6px", padding: "3px 7px", color: "#FCA5A5", fontSize: "10px", fontWeight: 700, cursor: "pointer" }}
+                        style={{ flex: 1, padding: "3px 6px", background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "6px", color: "#FCA5A5", fontSize: "10px", fontWeight: 700, cursor: "pointer" }}
                       >
-                        Mute
+                        Mute Mic
                       </button>
-                    )}
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => handleHostOffCameraPeer(p.socketId)}
+                        style={{ flex: 1, padding: "3px 6px", background: "rgba(245, 158, 11, 0.15)", border: "1px solid rgba(245, 158, 11, 0.3)", borderRadius: "6px", color: "#FDE68A", fontSize: "10px", fontWeight: 700, cursor: "pointer" }}
+                      >
+                        Cam Off
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleHostKickPeer(p.socketId, p.name)}
+                        style={{ flex: 1, padding: "3px 6px", background: "#DC2626", border: "none", borderRadius: "6px", color: "#FFFFFF", fontSize: "10px", fontWeight: 800, cursor: "pointer" }}
+                      >
+                        Kick Out
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           </aside>
         )}
 
-        {/* Audio & Video Device Settings Drawer */}
+        {/* Device & Video Quality Settings Drawer */}
         {activeDrawer === "settings" && (
-          <aside style={{ width: "340px", maxWidth: "100%", background: "#0F1715", borderLeft: "1px solid rgba(255, 255, 255, 0.1)", display: "flex", flexDirection: "column", zIndex: 20 }}>
-            <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, fontSize: "14px" }}>
+          <aside style={{ width: "320px", maxWidth: "100%", background: "#0F1715", borderLeft: "1px solid rgba(255, 255, 255, 0.1)", display: "flex", flexDirection: "column", zIndex: 20 }}>
+            <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 800, fontSize: "13.5px" }}>
                 <Settings size={16} color="#34D399" />
                 <span>Audio & Video Settings</span>
               </div>
@@ -1230,93 +1390,49 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
               </button>
             </div>
 
-            <div style={{ flex: 1, padding: "16px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "18px" }}>
-              {/* Camera Selection */}
+            <div style={{ flex: 1, padding: "14px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* Network Adaptive Quality Selector */}
+              <div style={{ background: "rgba(255,255,255,0.04)", padding: "10px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <label style={{ fontSize: "11.5px", fontWeight: 700, color: "#34D399", display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+                  <Zap size={14} />
+                  Video Quality & Data Saver
+                </label>
+                <select
+                  value={videoQuality}
+                  onChange={(e) => handleQualityChange(e.target.value as VideoQualityPreset)}
+                  style={{ width: "100%", padding: "8px", borderRadius: "6px", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#FFF", fontSize: "12px", outline: "none" }}
+                >
+                  {(Object.keys(QUALITY_PROFILES) as VideoQualityPreset[]).map((key) => (
+                    <option key={key} value={key} style={{ background: "#0F1715" }}>
+                      {QUALITY_PROFILES[key].label}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: "10px", color: "#94A3B8", marginTop: "4px", display: "block" }}>
+                  Adjust bitrate to prevent video delay or buffer lag on slow networks.
+                </span>
+              </div>
+
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <label style={{ fontSize: "12px", fontWeight: 700, color: "#E2E8F0", display: "flex", alignItems: "center", gap: "6px" }}>
-                    <Video size={14} color="#34D399" />
-                    Camera Device
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => switchCamera()}
-                    disabled={isSwitchingCamera || isVideoOff}
-                    style={{
-                      background: "rgba(52, 211, 153, 0.15)",
-                      border: "1px solid rgba(52, 211, 153, 0.3)",
-                      borderRadius: "6px",
-                      padding: "4px 8px",
-                      color: "#34D399",
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
-                  >
-                    <RefreshCw size={11} className={isSwitchingCamera ? "animate-spin" : ""} />
-                    <span>Flip (Front/Back)</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <label style={{ fontSize: "11.5px", fontWeight: 700, color: "#E2E8F0" }}>Camera Device</label>
+                  <button type="button" onClick={() => switchCamera()} disabled={isSwitchingCamera || isVideoOff} style={{ background: "rgba(52, 211, 153, 0.15)", border: "1px solid rgba(52, 211, 153, 0.3)", borderRadius: "6px", padding: "3px 6px", color: "#34D399", fontSize: "10px", fontWeight: 700, cursor: "pointer" }}>
+                    Flip Camera
                   </button>
                 </div>
-                <select
-                  value={selectedVideoInput}
-                  onChange={(e) => switchCamera(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "9px 12px",
-                    borderRadius: "8px",
-                    background: "rgba(255, 255, 255, 0.08)",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    color: "#FFFFFF",
-                    fontSize: "12.5px",
-                    fontWeight: 600,
-                    outline: "none",
-                  }}
-                >
-                  {videoInputDevices.length === 0 ? (
-                    <option value="">Default Camera</option>
-                  ) : (
-                    videoInputDevices.map((d, i) => (
-                      <option key={d.deviceId || i} value={d.deviceId} style={{ background: "#0F1715", color: "#FFFFFF" }}>
-                        {d.label || `Camera ${i + 1}`}
-                      </option>
-                    ))
-                  )}
+                <select value={selectedVideoInput} onChange={(e) => switchCamera(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "6px", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#FFF", fontSize: "12px" }}>
+                  {videoInputDevices.map((d, i) => (
+                    <option key={d.deviceId || i} value={d.deviceId} style={{ background: "#0F1715" }}>{d.label || `Camera ${i + 1}`}</option>
+                  ))}
                 </select>
               </div>
 
-              {/* Microphone Selection */}
               <div>
-                <label style={{ fontSize: "12px", fontWeight: 700, color: "#E2E8F0", display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
-                  <Mic size={14} color="#34D399" />
-                  Microphone Device
-                </label>
-                <select
-                  value={selectedAudioInput}
-                  onChange={(e) => switchMicrophone(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "9px 12px",
-                    borderRadius: "8px",
-                    background: "rgba(255, 255, 255, 0.08)",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    color: "#FFFFFF",
-                    fontSize: "12.5px",
-                    fontWeight: 600,
-                    outline: "none",
-                  }}
-                >
-                  {audioInputDevices.length === 0 ? (
-                    <option value="">Default Microphone</option>
-                  ) : (
-                    audioInputDevices.map((d, i) => (
-                      <option key={d.deviceId || i} value={d.deviceId} style={{ background: "#0F1715", color: "#FFFFFF" }}>
-                        {d.label || `Microphone ${i + 1}`}
-                      </option>
-                    ))
-                  )}
+                <label style={{ fontSize: "11.5px", fontWeight: 700, color: "#E2E8F0", display: "block", marginBottom: "6px" }}>Microphone Device</label>
+                <select value={selectedAudioInput} onChange={(e) => switchMicrophone(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "6px", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#FFF", fontSize: "12px" }}>
+                  {audioInputDevices.map((d, i) => (
+                    <option key={d.deviceId || i} value={d.deviceId} style={{ background: "#0F1715" }}>{d.label || `Microphone ${i + 1}`}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -1324,201 +1440,179 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         )}
       </div>
 
+      {/* MOBILE MORE ACTIONS BOTTOM SHEET POPUP */}
+      {activeDrawer === "more" && (
+        <div style={{ position: "absolute", bottom: "60px", left: "50%", transform: "translateX(-50%)", width: "90%", maxWidth: "340px", background: "#0F1715", border: "1.5px solid rgba(52, 211, 153, 0.4)", borderRadius: "16px", padding: "14px", boxShadow: "0 10px 30px rgba(0,0,0,0.6)", zIndex: 40, display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "8px" }}>
+            <span style={{ fontSize: "12px", fontWeight: 800, color: "#34D399" }}>More Meeting Options</span>
+            <button type="button" onClick={() => setActiveDrawer("none")} style={{ background: "none", border: "none", color: "#94A3B8", cursor: "pointer" }}><X size={16} /></button>
+          </div>
+
+          {/* Network Adaptive Quality Quick Bar */}
+          <div style={{ background: "rgba(255,255,255,0.04)", padding: "8px 10px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "#34D399", display: "flex", alignItems: "center", gap: "4px", marginBottom: "4px" }}>
+              <Zap size={13} /> Quality Adjust (Prevent Delay)
+            </span>
+            <div style={{ display: "flex", gap: "4px" }}>
+              {(["auto", "720p", "480p", "360p"] as VideoQualityPreset[]).map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => handleQualityChange(q)}
+                  style={{
+                    flex: 1,
+                    padding: "4px 0",
+                    borderRadius: "6px",
+                    fontSize: "10.5px",
+                    fontWeight: 700,
+                    border: videoQuality === q ? "1px solid #34D399" : "1px solid rgba(255,255,255,0.1)",
+                    background: videoQuality === q ? "#087A5B" : "rgba(255,255,255,0.06)",
+                    color: "#FFFFFF",
+                    cursor: "pointer",
+                  }}
+                >
+                  {q === "auto" ? "Auto" : q === "360p" ? "Saver" : q}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "8px" }}>
+            <button
+              type="button"
+              onClick={() => { setActiveDrawer("chat"); setUnreadChatCount(0); }}
+              style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px", borderRadius: "10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFF", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+            >
+              <MessageSquare size={16} color="#34D399" />
+              <span>Chat {unreadChatCount > 0 ? `(${unreadChatCount})` : ""}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveDrawer("participants")}
+              style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px", borderRadius: "10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFF", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+            >
+              <Users size={16} color="#34D399" />
+              <span>Peers ({totalCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { toggleScreenShare(); setActiveDrawer("none"); }}
+              style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px", borderRadius: "10px", background: isScreenSharing ? "#087A5B" : "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFF", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+            >
+              {isScreenSharing ? <MonitorOff size={16} /> : <Monitor size={16} color="#34D399" />}
+              <span>{isScreenSharing ? "Stop Share" : "Share Screen"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { switchCamera(); setActiveDrawer("none"); }}
+              disabled={isSwitchingCamera || isVideoOff}
+              style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px", borderRadius: "10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: isVideoOff ? "#64748B" : "#FFF", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+            >
+              <RefreshCw size={16} color="#34D399" />
+              <span>Flip Camera</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => { refreshDevices(); setActiveDrawer("settings"); }}
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "10px", borderRadius: "10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFF", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+          >
+            <Settings size={16} color="#34D399" />
+            <span>Audio & Video Device Settings</span>
+          </button>
+        </div>
+      )}
+
       {/* Floating Bottom Action Bar (Ultra-responsive on Mobile) */}
       <footer
         style={{
-          minHeight: "64px",
+          minHeight: "56px",
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          gap: "8px",
-          padding: "8px 12px",
+          justifyContent: "space-between",
+          padding: "6px 16px",
           borderTop: "1px solid rgba(255, 255, 255, 0.08)",
           background: "rgba(10, 17, 15, 0.98)",
           zIndex: 30,
-          flexWrap: "nowrap",
-          overflowX: "auto",
         }}
       >
-        {/* Mic Toggle */}
-        <button
-          type="button"
-          onClick={() => toggleAudio()}
-          style={{
-            width: "42px",
-            height: "42px",
-            flexShrink: 0,
-            borderRadius: "50%",
-            border: "none",
-            background: isAudioMuted ? "#EF4444" : "rgba(255, 255, 255, 0.12)",
-            color: "#FFFFFF",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
-          title={isAudioMuted ? "Unmute Microphone" : "Mute Microphone"}
-        >
-          {isAudioMuted ? <MicOff size={18} /> : <Mic size={18} />}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button
+            type="button"
+            onClick={() => toggleAudio()}
+            style={{
+              width: "42px",
+              height: "42px",
+              borderRadius: "50%",
+              border: "none",
+              background: isAudioMuted ? "#EF4444" : "rgba(255, 255, 255, 0.14)",
+              color: "#FFFFFF",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+            title={isAudioMuted ? "Unmute Microphone" : "Mute Microphone"}
+          >
+            {isAudioMuted ? <MicOff size={19} /> : <Mic size={19} />}
+          </button>
 
-        {/* Video Toggle */}
-        <button
-          type="button"
-          onClick={() => toggleVideo()}
-          style={{
-            width: "42px",
-            height: "42px",
-            flexShrink: 0,
-            borderRadius: "50%",
-            border: "none",
-            background: isVideoOff ? "#EF4444" : "rgba(255, 255, 255, 0.12)",
-            color: "#FFFFFF",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
-          title={isVideoOff ? "Turn On Camera" : "Turn Off Camera"}
-        >
-          {isVideoOff ? <VideoOff size={18} /> : <Video size={18} />}
-        </button>
+          <button
+            type="button"
+            onClick={() => toggleVideo()}
+            style={{
+              width: "42px",
+              height: "42px",
+              borderRadius: "50%",
+              border: "none",
+              background: isVideoOff ? "#EF4444" : "rgba(255, 255, 255, 0.14)",
+              color: "#FFFFFF",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+            title={isVideoOff ? "Turn On Camera" : "Turn Off Camera"}
+          >
+            {isVideoOff ? <VideoOff size={19} /> : <Video size={19} />}
+          </button>
+        </div>
 
-        {/* Quick Flip Camera Button */}
-        <button
-          type="button"
-          onClick={() => switchCamera()}
-          disabled={isSwitchingCamera || isVideoOff}
-          style={{
-            width: "42px",
-            height: "42px",
-            flexShrink: 0,
-            borderRadius: "50%",
-            border: "none",
-            background: isSwitchingCamera ? "rgba(52, 211, 153, 0.25)" : "rgba(255, 255, 255, 0.12)",
-            color: isVideoOff ? "#64748B" : "#FFFFFF",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: isVideoOff ? "not-allowed" : "pointer",
-            transition: "all 0.15s ease",
-          }}
-          title="Flip Camera (Front/Back)"
-        >
-          <RefreshCw size={17} className={isSwitchingCamera ? "animate-spin" : ""} />
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <button
+            type="button"
+            onClick={() => setActiveDrawer(activeDrawer === "more" ? "none" : "more")}
+            style={{
+              width: "42px",
+              height: "42px",
+              borderRadius: "50%",
+              border: "1.5px solid rgba(52, 211, 153, 0.5)",
+              background: activeDrawer === "more" ? "#087A5B" : "rgba(255, 255, 255, 0.12)",
+              color: "#FFFFFF",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              position: "relative",
+            }}
+            title="More Options"
+          >
+            <MoreVertical size={19} />
+            {unreadChatCount > 0 && (
+              <span style={{ position: "absolute", top: "2px", right: "2px", width: "14px", height: "14px", borderRadius: "50%", background: "#34D399" }} />
+            )}
+          </button>
 
-        {/* Screen Share */}
-        <button
-          type="button"
-          onClick={toggleScreenShare}
-          style={{
-            width: "42px",
-            height: "42px",
-            flexShrink: 0,
-            borderRadius: "50%",
-            border: "none",
-            background: isScreenSharing ? "#34D399" : "rgba(255, 255, 255, 0.12)",
-            color: isScreenSharing ? "#0A110F" : "#FFFFFF",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
-          title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen"}
-        >
-          {isScreenSharing ? <MonitorOff size={18} /> : <Monitor size={18} />}
-        </button>
-
-        {/* In-Meeting Chat */}
-        <button
-          type="button"
-          onClick={() => {
-            setActiveDrawer(activeDrawer === "chat" ? "none" : "chat");
-            setUnreadChatCount(0);
-          }}
-          style={{
-            width: "42px",
-            height: "42px",
-            flexShrink: 0,
-            borderRadius: "50%",
-            border: "none",
-            background: activeDrawer === "chat" ? "#087A5B" : "rgba(255, 255, 255, 0.12)",
-            color: "#FFFFFF",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            position: "relative",
-          }}
-          title="Meeting Chat"
-        >
-          <MessageSquare size={18} />
-          {unreadChatCount > 0 && (
-            <span style={{ position: "absolute", top: "1px", right: "1px", width: "16px", height: "16px", borderRadius: "50%", background: "#34D399", color: "#0A110F", fontSize: "10px", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {unreadChatCount}
-            </span>
-          )}
-        </button>
-
-        {/* Participants */}
-        <button
-          type="button"
-          onClick={() => setActiveDrawer(activeDrawer === "participants" ? "none" : "participants")}
-          style={{
-            width: "42px",
-            height: "42px",
-            flexShrink: 0,
-            borderRadius: "50%",
-            border: "none",
-            background: activeDrawer === "participants" ? "#087A5B" : "rgba(255, 255, 255, 0.12)",
-            color: "#FFFFFF",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-          }}
-          title="Participants List"
-        >
-          <Users size={18} />
-        </button>
-
-        {/* Audio & Video Device Settings */}
-        <button
-          type="button"
-          onClick={() => {
-            refreshDevices();
-            setActiveDrawer(activeDrawer === "settings" ? "none" : "settings");
-          }}
-          style={{
-            width: "42px",
-            height: "42px",
-            flexShrink: 0,
-            borderRadius: "50%",
-            border: "none",
-            background: activeDrawer === "settings" ? "#087A5B" : "rgba(255, 255, 255, 0.12)",
-            color: "#FFFFFF",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-          }}
-          title="Device Settings (Mic & Camera)"
-        >
-          <Settings size={18} />
-        </button>
-
-        {/* Leave or End Meeting */}
-        <div style={{ display: "flex", gap: "6px", flexShrink: 0, marginLeft: "4px" }}>
           <button
             type="button"
             onClick={handleLeaveMeeting}
             style={{
               padding: "0 14px",
-              height: "40px",
+              height: "42px",
               borderRadius: "99px",
               background: "#EF4444",
               border: "none",
@@ -1531,17 +1625,17 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
               gap: "5px",
             }}
           >
-            <PhoneOff size={14} />
-            <span>Leave</span>
+            <PhoneOff size={15} />
+            <span>End</span>
           </button>
 
-          {meeting.is_host && (
+          {isHostUser && (
             <button
               type="button"
               onClick={handleEndMeetingAll}
               style={{
                 padding: "0 10px",
-                height: "40px",
+                height: "42px",
                 borderRadius: "99px",
                 background: "rgba(239, 68, 68, 0.2)",
                 border: "1px solid #EF4444",
@@ -1553,7 +1647,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
               }}
               title="End call for all participants"
             >
-              End All
+              All
             </button>
           )}
         </div>
@@ -1562,7 +1656,23 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
   );
 }
 
-function RemotePeerTile({ peer, isHost, onMute }: { peer: PeerConnection; isHost: boolean; onMute: () => void }) {
+function RemotePeerTile({
+  peer,
+  isHost,
+  onMute,
+  onCameraOff,
+  onKick,
+  onPin,
+  compact,
+}: {
+  peer: PeerConnection;
+  isHost: boolean;
+  onMute: () => void;
+  onCameraOff: () => void;
+  onKick: () => void;
+  onPin: () => void;
+  compact?: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -1578,7 +1688,7 @@ function RemotePeerTile({ peer, isHost, onMute }: { peer: PeerConnection; isHost
         position: "relative",
         width: "100%",
         height: "100%",
-        minHeight: "220px",
+        minHeight: compact ? "90px" : "180px",
         background: "#13231F",
         borderRadius: "16px",
         overflow: "hidden",
@@ -1596,23 +1706,73 @@ function RemotePeerTile({ peer, isHost, onMute }: { peer: PeerConnection; isHost
         style={{
           width: "100%",
           height: "100%",
-          objectFit: "cover",
-          display: peer.isVideoOff ? "none" : "block",
+          objectFit: peer.isScreenSharing ? "contain" : "cover",
+          display: peer.isVideoOff && !peer.isScreenSharing ? "none" : "block",
         }}
       />
 
-      {peer.isVideoOff && (
+      {peer.isVideoOff && !peer.isScreenSharing && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-          <Avatar name={peer.name} size={64} />
+          <Avatar name={peer.name} size={compact ? 36 : 56} />
         </div>
       )}
 
-      {/* Name Badge */}
-      <div style={{ position: "absolute", bottom: "12px", left: "14px", background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)", padding: "4px 10px", borderRadius: "8px", fontSize: "12px", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
+      <div style={{ position: "absolute", bottom: "8px", left: "10px", background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)", padding: "3px 7px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, display: "flex", alignItems: "center", gap: "5px" }}>
         <span>{peer.name}</span>
-        <span style={{ fontSize: "9.5px", color: "#34D399", opacity: 0.8 }}>({peer.role})</span>
-        {peer.isAudioMuted && <MicOff size={13} color="#EF4444" />}
+        {peer.isAudioMuted && <MicOff size={11} color="#EF4444" />}
       </div>
+
+      {!compact && (
+        <div style={{ position: "absolute", top: "8px", right: "8px", display: "flex", gap: "4px" }}>
+          <button
+            type="button"
+            onClick={onPin}
+            style={{ background: "rgba(0,0,0,0.6)", border: "none", borderRadius: "6px", padding: "5px", color: "#FFFFFF", cursor: "pointer" }}
+            title="Pin Video"
+          >
+            <Pin size={13} />
+          </button>
+
+          {isHost && (
+            <button
+              type="button"
+              onClick={onKick}
+              style={{ background: "#DC2626", border: "none", borderRadius: "6px", padding: "5px", color: "#FFFFFF", cursor: "pointer" }}
+              title="Kick Participant Out"
+            >
+              <UserX size={13} />
+            </button>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+function RemotePinnedVideo({ peer }: { peer?: PeerConnection | null }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (videoRef.current && peer?.stream) {
+      videoRef.current.srcObject = peer.stream;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [peer?.stream]);
+
+  if (!peer) {
+    return <div style={{ color: "#94A3B8", fontSize: "13px" }}>Pinned participant not available</div>;
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: peer.isScreenSharing ? "contain" : "cover",
+      }}
+    />
   );
 }

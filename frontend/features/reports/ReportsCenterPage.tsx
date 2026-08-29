@@ -124,40 +124,41 @@ export function ReportsCenterPage() {
   return (
     <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "16px 20px" }}>
       {/* Header Banner */}
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "20px" }}>
-        <div>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+        <div style={{ minWidth: "260px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <FileSpreadsheet size={24} color="#087A5B" />
-            <h1 style={{ fontSize: "22px", fontWeight: 800, margin: 0, color: "var(--text)" }}>
+            <FileSpreadsheet size={22} color="#087A5B" />
+            <h1 style={{ fontSize: "clamp(18px, 4vw, 22px)", fontWeight: 800, margin: 0, color: "var(--text)" }}>
               Enterprise Reports Center
             </h1>
           </div>
-          <p style={{ fontSize: "12.5px", color: "var(--muted)", margin: "4px 0 0" }}>
+          <p style={{ fontSize: "12px", color: "var(--muted)", margin: "4px 0 0" }}>
             Export comprehensive analytics, attendance timesheets, work deliverables, payroll and KPI reports in Excel &amp; PDF.
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px", width: "100%", maxWidth: "fit-content" }}>
           <button
             type="button"
             onClick={fetchReport}
             disabled={loading}
             style={{
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
               gap: "6px",
-              padding: "8px 14px",
+              padding: "7px 12px",
               borderRadius: "8px",
               background: "var(--panel)",
               border: "1px solid var(--border)",
               color: "var(--text)",
-              fontSize: "12px",
+              fontSize: "11.5px",
               fontWeight: 600,
               cursor: "pointer",
+              whiteSpace: "nowrap",
             }}
           >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
             <span>Refresh</span>
           </button>
 
@@ -166,21 +167,22 @@ export function ReportsCenterPage() {
             onClick={handleExportExcel}
             disabled={!report || report.rows.length === 0}
             style={{
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
               gap: "6px",
-              padding: "8px 14px",
+              padding: "7px 12px",
               borderRadius: "8px",
               background: "#087A5B",
               border: "none",
               color: "#FFFFFF",
-              fontSize: "12px",
+              fontSize: "11.5px",
               fontWeight: 700,
               cursor: "pointer",
               boxShadow: "0 2px 8px rgba(8, 122, 91, 0.3)",
+              whiteSpace: "nowrap",
             }}
           >
-            <Download size={14} />
+            <Download size={13} />
             <span>Export Excel (.csv)</span>
           </button>
 
@@ -189,62 +191,66 @@ export function ReportsCenterPage() {
             onClick={handlePrintPDF}
             disabled={!report || report.rows.length === 0}
             style={{
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
               gap: "6px",
-              padding: "8px 14px",
+              padding: "7px 12px",
               borderRadius: "8px",
               background: "var(--panel)",
               border: "1px solid var(--border)",
               color: "var(--text)",
-              fontSize: "12px",
+              fontSize: "11.5px",
               fontWeight: 600,
               cursor: "pointer",
+              whiteSpace: "nowrap",
             }}
           >
-            <Printer size={14} />
+            <Printer size={13} />
             <span>Print / PDF</span>
           </button>
         </div>
       </div>
 
       {/* Tabs Navigation */}
-      <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "8px", marginBottom: "16px", borderBottom: "1px solid var(--border)" }}>
-        {availableTabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeType === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveType(tab.id)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "8px 14px",
-                borderRadius: "8px",
-                background: isActive ? "rgba(8, 122, 91, 0.15)" : "var(--panel)",
-                border: `1px solid ${isActive ? "#087A5B" : "var(--border)"}`,
-                color: isActive ? "#087A5B" : "var(--text)",
-                fontSize: "12.5px",
-                fontWeight: isActive ? 700 : 500,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                transition: "all 0.15s ease",
-              }}
-            >
-              <Icon size={15} color={isActive ? "#087A5B" : "var(--muted)"} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      <div className="table-responsive-wrapper" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: "8px", marginBottom: "16px", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ display: "flex", gap: "8px", whiteSpace: "nowrap" }}>
+          {availableTabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeType === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveType(tab.id)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "7px 12px",
+                  borderRadius: "8px",
+                  background: isActive ? "rgba(8, 122, 91, 0.15)" : "var(--panel)",
+                  border: `1px solid ${isActive ? "#087A5B" : "var(--border)"}`,
+                  color: isActive ? "#087A5B" : "var(--text)",
+                  fontSize: "12px",
+                  fontWeight: isActive ? 700 : 500,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s ease",
+                  flexShrink: 0,
+                }}
+              >
+                <Icon size={14} color={isActive ? "#087A5B" : "var(--muted)"} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Filter Toolbar */}
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "12px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "12px", padding: "12px 16px", marginBottom: "16px" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "12px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "12px", padding: "12px", marginBottom: "16px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px", width: "100%", maxWidth: "100%" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: "1 1 140px" }}>
             <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>From:</span>
             <input
               type="date"

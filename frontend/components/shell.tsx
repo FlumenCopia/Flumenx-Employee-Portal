@@ -619,7 +619,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
               title="View Profile & Settings"
             >
               <Avatar name={user?.employee?.name || user?.first_name || user?.username || name} size={20} />
-              <span>{user?.employee?.name || user?.first_name || user?.username || name}</span>
+              <span className="topbar-user-name">{user?.employee?.name || user?.first_name || user?.username || name}</span>
             </Link>
             <button
               type="button"

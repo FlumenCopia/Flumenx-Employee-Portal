@@ -94,6 +94,23 @@ export async function createLeave(req: Request, res: Response): Promise<void> {
   }
 
   if (empId) {
+    const targetEmp = await Employee.findById(empId);
+    if (targetEmp) {
+      const isProbation =
+        targetEmp.employmentStatus === 'Probation' ||
+        (targetEmp.probationEndDate && new Date(targetEmp.probationEndDate) > new Date() && targetEmp.employmentStatus !== 'Permanent');
+
+      if (isProbation) {
+        const typeLower = (leave_type || '').toLowerCase();
+        if (typeLower.includes('sick') || typeLower.includes('casual')) {
+          res.status(400).json({
+            detail: `Employees on Probation (${targetEmp.name}) are not eligible for Sick or Casual leave. Only Unpaid (Loss of Pay) or Emergency leave is permitted during probation.`,
+          });
+          return;
+        }
+      }
+    }
+
     const existingOverlap = await LeaveRequest.findOne({
       employee: empId,
       status: { $ne: 'Rejected' },

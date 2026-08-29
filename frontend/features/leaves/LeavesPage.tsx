@@ -233,13 +233,19 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
     {modal && (
       <Modal title="Request time off" onClose={() => setModal(false)}>
         <form onSubmit={requestLeave} className="modal-form">
+          {user?.employee?.employment_status === "Probation" && (
+            <div style={{ background: "#FEF3C7", border: "1px solid #FCD34D", color: "#92400E", padding: "10px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 600, marginBottom: "14px" }}>
+              ⚠️ <strong>Probation Period Policy:</strong> Employees on Probation are not eligible for Sick or Casual leave. Only Unpaid (Loss of Pay) or Emergency leave is permitted until formal confirmation.
+            </div>
+          )}
           <label>
             Leave type
             <select name="leave_type">
-              <option>Annual</option>
-              <option>Sick</option>
-              <option>Personal</option>
-              <option>Unpaid</option>
+              <option value="Casual">Casual Leave</option>
+              <option value="Sick">Sick Leave</option>
+              <option value="Annual">Annual / Earned Leave</option>
+              <option value="Unpaid">Unpaid / Loss of Pay (LOP)</option>
+              <option value="Emergency">Emergency Leave</option>
             </select>
           </label>
           <div className="two-col">

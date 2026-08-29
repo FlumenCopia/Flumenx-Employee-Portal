@@ -96,12 +96,17 @@ export default function LoginPage() {
     setLoading(true);
     try {
       clearCachedAuthUser();
-      const res = await api<{ user: AuthUser; access?: string }>("/auth/login/", {
+      const res = await api<{ user: AuthUser; access?: string; refresh?: string }>("/auth/login/", {
         method: "POST",
         body: JSON.stringify({ email: email.trim(), password }),
       });
       if (res?.access) {
         localStorage.setItem("flumenx_access_token", res.access);
+        localStorage.setItem("access_token", res.access);
+      }
+      if (res?.refresh) {
+        localStorage.setItem("flumenx_refresh_token", res.refresh);
+        localStorage.setItem("refresh_token", res.refresh);
       }
       const loggedUser = res?.user;
       if (loggedUser) {

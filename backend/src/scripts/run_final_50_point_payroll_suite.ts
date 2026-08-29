@@ -273,6 +273,7 @@ async function runSuite() {
     cycleStart: new Date(),
     cycleEnd: new Date(),
     totalCalendarDays: 31,
+    salaryDays: 26,
     workingDays: 26,
     weekOffs: 5,
     companyHolidays: 0,
@@ -283,7 +284,7 @@ async function runSuite() {
     absentDays: 0,
     lateArrivalsCount: 0,
     lateHalfDayDeductions: 0,
-    payableDays: 31,
+    payableDays: 26,
     unpaidDays: 0,
   };
   const payPfOff = await computePayroll(struct, mockAttendance, 8, 2026);

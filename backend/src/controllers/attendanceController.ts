@@ -391,18 +391,43 @@ export async function checkOutAttendance(req: Request, res: Response): Promise<v
 
 // --- Attendance Corrections ---
 export async function getAttendanceCorrections(req: Request, res: Response): Promise<void> {
-  const corrections = await AttendanceCorrection.find()
+  const { status, my_corrections } = req.query;
+  const query: any = {};
+
+  if (status) {
+    query.status = status;
+  }
+
+  const empId = (req.user as any)?.employee || (req.user as any)?.employeeId;
+  if (my_corrections === 'true' && empId) {
+    query.employee = empId;
+  }
+
+  const corrections = await AttendanceCorrection.find(query)
     .populate('employee attendanceRecord reviewedBy')
     .sort({ createdAt: -1 });
   res.json(corrections);
 }
 
 export async function createAttendanceCorrection(req: Request, res: Response): Promise<void> {
-  const { attendance_record_id, requested_check_in, requested_check_out, reason } = req.body;
+  const recordId = req.body.attendance_record_id || req.body.attendance_record || req.body.attendanceRecord;
+  const requested_check_in = req.body.requested_check_in || req.body.requestedCheckIn;
+  const requested_check_out = req.body.requested_check_out || req.body.requestedCheckOut;
+  const reason = req.body.reason || req.body.note || "Correction requested";
 
-  const record = await AttendanceRecord.findById(attendance_record_id);
+  let record = null;
+  if (recordId) {
+    record = await AttendanceRecord.findById(recordId);
+  }
+
+  const empId = (req.user as any)?.employee || (req.user as any)?.employeeId;
+  if (!record && empId) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    record = await AttendanceRecord.findOne({ employee: empId, attendanceDate: todayStr });
+  }
+
   if (!record) {
-    res.status(404).json({ detail: 'Attendance record not found.' });
+    res.status(404).json({ detail: 'Attendance record not found for correction request.' });
     return;
   }
 
@@ -411,12 +436,13 @@ export async function createAttendanceCorrection(req: Request, res: Response): P
     attendanceRecord: record._id,
     requestedCheckIn: requested_check_in || null,
     requestedCheckOut: requested_check_out || null,
-    reason: reason.trim(),
+    reason: String(reason).trim(),
     status: 'Pending',
   });
 
   await correction.save();
-  res.status(201).json(correction);
+  const populated = await AttendanceCorrection.findById(correction._id).populate('employee attendanceRecord');
+  res.status(201).json(populated || correction);
 }
 
 export async function updateAttendanceCorrection(req: Request, res: Response): Promise<void> {
@@ -444,5 +470,6 @@ export async function updateAttendanceCorrection(req: Request, res: Response): P
   }
 
   await correction.save();
-  res.json(correction);
+  const populated = await AttendanceCorrection.findById(correction._id).populate('employee attendanceRecord reviewedBy');
+  res.json(populated || correction);
 }

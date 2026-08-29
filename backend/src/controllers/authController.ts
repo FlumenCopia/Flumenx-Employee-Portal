@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { Employee } from '../models/Employee.js';
+import { AuditLog } from '../models/AuditLog.js';
 import { config } from '../config/env.js';
 
 export async function login(req: Request, res: Response): Promise<void> {
@@ -42,19 +43,40 @@ export async function login(req: Request, res: Response): Promise<void> {
     isSuperuser: user.isSuperuser,
   };
 
-  const accessToken = jwt.sign(payload, config.jwtSecret, { expiresIn: '15m' });
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const accessToken = jwt.sign(payload, config.jwtSecret, { expiresIn: '7d' });
   const refreshToken = jwt.sign(payload, config.jwtRefreshSecret, { expiresIn: '7d' });
 
   res.cookie('access_token', accessToken, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
+    maxAge: SEVEN_DAYS_MS,
   });
   res.cookie('refresh_token', refreshToken, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
+    maxAge: SEVEN_DAYS_MS,
   });
+
+  // Log user authentication to AuditLog
+  try {
+    await AuditLog.create({
+      actor: user._id,
+      action: 'USER_LOGIN',
+      entityType: 'UserSession',
+      entityId: user._id.toString(),
+      details: {
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        ip: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+      },
+    });
+  } catch (err) {
+    console.error('Failed to write login audit log:', err);
+  }
 
   const employee = await Employee.findOne({
     $or: [{ user: user._id }, { email: user.email }],
@@ -175,17 +197,18 @@ export async function refresh(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
     const newAccessToken = jwt.sign(
       { id: user._id.toString(), userId: user._id.toString(), role: user.role, username: user.username, email: user.email, isSuperuser: user.isSuperuser },
       config.jwtSecret,
-      { expiresIn: '15m' }
+      { expiresIn: '7d' }
     );
 
     res.cookie(config.accessCookieName, newAccessToken, {
       httpOnly: true,
       sameSite: 'lax',
       path: '/',
-      maxAge: 15 * 60 * 1000,
+      maxAge: SEVEN_DAYS_MS,
     });
 
     res.json({ access: newAccessToken });

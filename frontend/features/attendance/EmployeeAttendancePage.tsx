@@ -250,7 +250,7 @@ export function EmployeeAttendancePage() {
         title="Your attendance."
         subtitle="A transparent view of your time, status, and monthly rhythm."
         action={
-          <button className="secondary-button" disabled={!record} onClick={() => setCorrection(true)}>
+          <button className="secondary-button" onClick={() => setCorrection(true)}>
             Request correction
           </button>
         }
@@ -414,21 +414,23 @@ export function EmployeeAttendancePage() {
       </div>
 
       <Section title="Attendance history" kicker="RECENT / RECORDS">
-        <div className="data-table employee-attendance-table">
-          <div className="table-head">
-            <span>Date</span>
-            <span>Check in</span>
-            <span>Check out</span>
-            <span>Status</span>
-          </div>
-          {!loading && !recordsError && records.slice(0, 7).map(r => (
-            <div className="table-row" key={r.id}>
-              <b>{new Date(r.attendance_date).toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" })}</b>
-              <span>{displayTime(r.check_in_time)}</span>
-              <span>{displayTime(r.check_out_time)}</span>
-              <Badge tone={statusTone(r)}>{r.attendance_status}</Badge>
+        <div className="table-responsive-wrapper" style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch", borderRadius: "8px" }}>
+          <div className="data-table employee-attendance-table" style={{ minWidth: "550px" }}>
+            <div className="table-head">
+              <span>Date</span>
+              <span>Check in</span>
+              <span>Check out</span>
+              <span>Status</span>
             </div>
-          ))}
+            {!loading && !recordsError && records.slice(0, 7).map(r => (
+              <div className="table-row" key={r.id}>
+                <b>{new Date(r.attendance_date).toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" })}</b>
+                <span>{displayTime(r.check_in_time)}</span>
+                <span>{displayTime(r.check_out_time)}</span>
+                <Badge tone={statusTone(r)}>{r.attendance_status}</Badge>
+              </div>
+            ))}
+          </div>
         </div>
         {loading && <EmptyState title="Loading attendance history" text="Fetching attendance records." />}
         {!loading && !recordsError && !records.length && <EmptyState title="No attendance history" text="No attendance records are available." />}
@@ -449,13 +451,13 @@ export function EmployeeAttendancePage() {
       )}
 
       {/* Correction Modal */}
-      {correction && record && (
+      {correction && (
         <div className="modal-backdrop" onMouseDown={() => setCorrection(false)}>
           <div className="modal" onMouseDown={e => e.stopPropagation()}>
             <div className="modal-head">
               <div>
                 <span>ATTENDANCE / CORRECTION</span>
-                <h2>Correct today's record</h2>
+                <h2>Request attendance correction</h2>
               </div>
               <button onClick={() => setCorrection(false)}>x</button>
             </div>
@@ -468,23 +470,23 @@ export function EmployeeAttendancePage() {
                   await api("/attendance-corrections/", {
                     method: "POST",
                     body: JSON.stringify({
-                      attendance_record: record.id,
+                      attendance_record_id: record?.id || null,
                       requested_check_in: data.get("check_in") || null,
                       requested_check_out: data.get("check_out") || null,
                       reason: data.get("reason"),
                     }),
                   });
-                  setMessage("Correction request sent to your administrator.");
+                  setMessage("Correction request submitted successfully! Your administrator will review and approve it.");
                   setCorrection(false);
                 } catch (err) {
-                  setMessage(err instanceof Error ? err.message : "Could not submit correction.");
+                  setErrorMessage(err instanceof Error ? err.message : "Could not submit correction request.");
                 }
               }}
             >
               <label>Requested office entry<input name="check_in" type="time" /></label>
               <label>Requested office exit<input name="check_out" type="time" /></label>
-              <label>Reason<textarea name="reason" required placeholder="Explain what needs to be corrected" /></label>
-              <PrimaryButton type="submit">Send request</PrimaryButton>
+              <label>Reason<textarea name="reason" required placeholder="Explain why entry/exit time needs correction" /></label>
+              <PrimaryButton type="submit">Submit Correction Request</PrimaryButton>
             </form>
           </div>
         </div>

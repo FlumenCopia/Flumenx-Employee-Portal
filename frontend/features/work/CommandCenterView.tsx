@@ -843,8 +843,8 @@ export function CommandCenterView({
                 boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
               }}
             >
-              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px", maxWidth: "100%", overflow: "hidden" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px", maxWidth: "100%" }}>
                   <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", letterSpacing: "0.2px" }}>
                     {trackerTitle}
                   </span>
@@ -1510,7 +1510,7 @@ export function CommandCenterView({
                                     ⏳ Pending Review
                                   </span>
                                 )}
-                                <span className="tc-code" style={{ marginLeft: "auto", fontSize: "11px", color: "var(--muted)", fontFamily: "monospace", fontWeight: 700 }}>{t.code}</span>
+                                <span className="tc-code" title={t.code} style={{ marginLeft: "auto", fontSize: "10.5px", color: "var(--muted)", fontFamily: "monospace", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "110px", flexShrink: 1 }}>{t.code}</span>
                               </div>
 
                               <div className="tc-title" style={{ fontWeight: 800, fontSize: "15px", color: "var(--text)", marginBottom: "8px", lineHeight: "1.4" }}>{t.title}</div>

@@ -257,6 +257,39 @@ export function EmployeeDetailPage({ id, role = "admin" }: { id: string; role?: 
               <Wallet size={15} />
               {s ? "Update Salary Structure" : "Configure Salary"}
             </button>
+            {profile.employment_status === "Probation" && (
+              <button
+                onClick={async () => {
+                  if (confirm(`Confirm ${profile.name} as Permanent employee? This will graduate them from probation and unlock leave benefits.`)) {
+                    try {
+                      await api(`/employees/${profile.id}/`, {
+                        method: "PUT",
+                        body: JSON.stringify({ employment_status: "Permanent", confirmation_date: getISTDateString() }),
+                      });
+                      loadProfile();
+                    } catch (err: any) {
+                      alert(err.message || "Failed to update employment status");
+                    }
+                  }
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 14px",
+                  backgroundColor: "#EFF6FF",
+                  border: "1px solid #93C5FD",
+                  borderRadius: "8px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#1D4ED8",
+                  cursor: "pointer",
+                }}
+              >
+                <UserCheck size={15} />
+                Confirm Employee
+              </button>
+            )}
             <button
               onClick={() => setEditModalOpen(true)}
               style={{
@@ -373,7 +406,7 @@ export function EmployeeDetailPage({ id, role = "admin" }: { id: string; role?: 
       </div>
 
       {/* Tabs Header */}
-      <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "8px" }}>
+      <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "8px", overflowX: "auto", WebkitOverflowScrolling: "touch", whiteSpace: "nowrap" }}>
         {[
           { key: "salary", label: "Salary & Compensation", icon: Wallet },
           { key: "personal", label: "Personal & Job Details", icon: User },
@@ -399,6 +432,7 @@ export function EmployeeDetailPage({ id, role = "admin" }: { id: string; role?: 
                 border: "none",
                 cursor: "pointer",
                 transition: "all 0.15s ease",
+                flexShrink: 0,
               }}
             >
               <Icon size={16} />
@@ -412,7 +446,7 @@ export function EmployeeDetailPage({ id, role = "admin" }: { id: string; role?: 
       {activeTab === "salary" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           {s ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "20px" }}>
               {/* Earnings Card */}
               <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "14px", padding: "20px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
@@ -542,7 +576,7 @@ export function EmployeeDetailPage({ id, role = "admin" }: { id: string; role?: 
 
       {/* TAB 2: PERSONAL & JOB DETAILS */}
       {activeTab === "personal" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "20px" }}>
           <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "14px", padding: "20px" }}>
             <h4 style={{ margin: "0 0 16px", fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Job Information</h4>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px" }}>

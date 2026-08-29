@@ -70,6 +70,10 @@ export async function getEmployees(req: Request, res: Response): Promise<void> {
     designation: e.designation,
     joining_date: e.joiningDate ? e.joiningDate.toISOString().split('T')[0] : '',
     status: e.status,
+    employment_status: e.employmentStatus || 'Probation',
+    probation_start_date: e.probationStartDate ? e.probationStartDate.toISOString().split('T')[0] : null,
+    probation_end_date: e.probationEndDate ? e.probationEndDate.toISOString().split('T')[0] : null,
+    confirmation_date: e.confirmationDate ? e.confirmationDate.toISOString().split('T')[0] : null,
     location: e.location,
     avatar: e.avatar,
     user: e.user ? (e.user as any)._id : null,
@@ -161,6 +165,10 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
     designation,
     joining_date,
     status,
+    employment_status,
+    probation_start_date,
+    probation_end_date,
+    confirmation_date,
     avatar,
     location,
     team_lead,
@@ -191,6 +199,11 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
 
   const deptObj = await Department.findOne({ name: department });
 
+  const empStatus = employment_status || 'Probation';
+  const joinDateObj = new Date(joining_date);
+  const pStart = probation_start_date ? new Date(probation_start_date) : joinDateObj;
+  const pEnd = probation_end_date ? new Date(probation_end_date) : new Date(joinDateObj.getTime() + 90 * 24 * 3600 * 1000);
+
   const employee = new Employee({
     employeeCode: code,
     name: name.trim(),
@@ -199,8 +212,12 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
     department,
     departmentRef: deptObj ? deptObj._id : null,
     designation: designation.trim(),
-    joiningDate: new Date(joining_date),
+    joiningDate: joinDateObj,
     status: status || 'Active',
+    employmentStatus: empStatus,
+    probationStartDate: pStart,
+    probationEndDate: empStatus === 'Probation' ? pEnd : null,
+    confirmationDate: empStatus === 'Permanent' ? (confirmation_date ? new Date(confirmation_date) : new Date()) : null,
     avatar: avatar || '',
     location: location || '',
     teamLead: team_lead || null,
@@ -218,6 +235,9 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
     designation: employee.designation,
     joining_date: employee.joiningDate.toISOString().split('T')[0],
     status: employee.status,
+    employment_status: employee.employmentStatus,
+    probation_end_date: employee.probationEndDate ? employee.probationEndDate.toISOString().split('T')[0] : null,
+    confirmation_date: employee.confirmationDate ? employee.confirmationDate.toISOString().split('T')[0] : null,
   });
 }
 
@@ -236,6 +256,10 @@ export async function updateEmployee(req: Request, res: Response): Promise<void>
     designation,
     joining_date,
     status,
+    employment_status,
+    probation_start_date,
+    probation_end_date,
+    confirmation_date,
     avatar,
     location,
     team_lead,
@@ -252,6 +276,23 @@ export async function updateEmployee(req: Request, res: Response): Promise<void>
   if (designation) employee.designation = designation.trim();
   if (joining_date) employee.joiningDate = new Date(joining_date);
   if (status) employee.status = status;
+
+  if (employment_status) {
+    employee.employmentStatus = employment_status;
+    if (employment_status === 'Permanent' && !employee.confirmationDate) {
+      employee.confirmationDate = confirmation_date ? new Date(confirmation_date) : new Date();
+    }
+  }
+  if (probation_start_date !== undefined) {
+    employee.probationStartDate = probation_start_date ? new Date(probation_start_date) : null;
+  }
+  if (probation_end_date !== undefined) {
+    employee.probationEndDate = probation_end_date ? new Date(probation_end_date) : null;
+  }
+  if (confirmation_date !== undefined) {
+    employee.confirmationDate = confirmation_date ? new Date(confirmation_date) : null;
+  }
+
   if (avatar !== undefined) employee.avatar = avatar;
   if (location !== undefined) employee.location = location;
   if (team_lead !== undefined) employee.teamLead = team_lead || null;
@@ -267,6 +308,10 @@ export async function updateEmployee(req: Request, res: Response): Promise<void>
     designation: employee.designation,
     joining_date: employee.joiningDate ? employee.joiningDate.toISOString().split('T')[0] : '',
     status: employee.status,
+    employment_status: employee.employmentStatus,
+    probation_start_date: employee.probationStartDate ? employee.probationStartDate.toISOString().split('T')[0] : null,
+    probation_end_date: employee.probationEndDate ? employee.probationEndDate.toISOString().split('T')[0] : null,
+    confirmation_date: employee.confirmationDate ? employee.confirmationDate.toISOString().split('T')[0] : null,
   });
 }
 

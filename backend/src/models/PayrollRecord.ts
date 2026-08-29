@@ -15,6 +15,7 @@ export interface IAttendanceCycleSnapshot {
   cycleStart: Date;
   cycleEnd: Date;
   totalCalendarDays: number;
+  salaryDays: number; // Dynamic Month Days minus Sundays
   workingDays: number;
   weekOffs: number;
   companyHolidays: number;
@@ -83,6 +84,7 @@ const payrollRecordSchema = new Schema<IPayrollRecord>(
       cycleStart: { type: Date, required: true },
       cycleEnd: { type: Date, required: true },
       totalCalendarDays: { type: Number, default: 30 },
+      salaryDays: { type: Number, default: 26 },
       workingDays: { type: Number, default: 0 },
       weekOffs: { type: Number, default: 0 },
       companyHolidays: { type: Number, default: 0 },
