@@ -210,8 +210,67 @@ export type AttendanceRecord = {
   photo?: string | null;
 };
 export type Client = {
-  id: number; name: string; created_at: string; updated_at: string;
+  id: number | string; name: string; created_at?: string; updated_at?: string;
 };
+export type ProjectStatus = "Planning" | "Active" | "On Hold" | "Completed" | "Archived";
+export type Project = {
+  id: number | string;
+  name: string;
+  code?: string;
+  description?: string;
+  status: ProjectStatus;
+  client_id: number | string;
+  client_name: string;
+  project_manager?: { id: number | string; name: string; email: string } | null;
+  start_date?: string;
+  target_end_date?: string;
+  budget_hours?: number;
+  total_tasks?: number;
+  completed_tasks?: number;
+  estimated_hours?: number;
+  actual_hours?: number;
+  progress_percentage?: number;
+  created_at?: string;
+};
+
+export type TimerStatus = "RUNNING" | "PAUSED" | "STOPPED";
+export type TimeEntry = {
+  id: number | string;
+  employee: number | string;
+  user: number | string;
+  client?: number | string | null;
+  project?: number | string | null;
+  task: number | string;
+  startTime: string;
+  endTime?: string | null;
+  durationSeconds: number;
+  status: TimerStatus;
+  description?: string;
+  isBillable: boolean;
+  isManualEntry: boolean;
+  entryDate: string;
+};
+
+export type DepartmentCategory = "Development" | "Digital Marketing" | "Video Editing" | "Design" | "HR" | "General";
+export type DepartmentData = {
+  videoCount?: number;
+  videoDurationSeconds?: number;
+  editingType?: string;
+  revisionCount?: number;
+  platforms?: string[];
+  campaignName?: string;
+  postCount?: number;
+  targetDate?: string;
+  repositoryUrl?: string;
+  environment?: "Development" | "Staging" | "Production";
+  featureBugType?: "Feature" | "Bug" | "Improvement" | "Refactor";
+  techStack?: string[];
+  designType?: string;
+  creativesCount?: number;
+  dimensions?: string;
+  customNotes?: string;
+};
+
 export type WorkPriority = "Low" | "Normal" | "High" | "Urgent";
 export type WorkStatus = "Backlog" | "Assigned" | "In Progress" | "In Review" | "Approved" | "Published" | "Pending" | "Ongoing" | "Blocked" | "Changes Requested" | "Rejected" | "Completed";
 export type DeliverableItem = {
@@ -242,11 +301,15 @@ export type WorkDeliverable = DeliverableItem;
 export type ReviewStatus = "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED";
 
 export type WorkAssignment = {
-  id: number; employee: number; employee_name: string; employee_department?: string; client: number; client_name: string;
+  id: number | string; employee: number | string; employee_name: string; employee_department?: string; client: number | string; client_name: string;
+  project?: number | string | null; project_name?: string;
+  department_category?: DepartmentCategory;
   parent_task?: number | string | null; parent_task_title?: string; is_master_client_task?: boolean;
   title: string; description: string; priority: WorkPriority; assigned_date: string; due_date: string;
   status: WorkStatus; progress: number; assigned_quantity: number; completed_quantity: number;
   remaining_quantity: number; unit: string; completed_at: string | null;
+  estimated_hours?: number; actual_hours?: number; overrun_hours?: number; is_overrun?: boolean;
+  department_data?: DepartmentData;
   assigned_by: number | null; assigned_by_name: string;
   reviewer?: number | null; reviewer_name?: string;
   reviewer_details?: { id: number | null; name: string; username: string } | null;

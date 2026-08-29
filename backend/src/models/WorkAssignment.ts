@@ -45,12 +45,38 @@ export interface ITimeLog {
   loggedBy?: mongoose.Types.ObjectId | null;
 }
 
+export interface IDepartmentData {
+  // Video Editing
+  videoCount?: number;
+  videoDurationSeconds?: number;
+  editingType?: string;
+  revisionCount?: number;
+  // Digital Marketing
+  platforms?: string[];
+  campaignName?: string;
+  postCount?: number;
+  targetDate?: Date | null;
+  // Development
+  repositoryUrl?: string;
+  environment?: 'Development' | 'Staging' | 'Production';
+  featureBugType?: 'Feature' | 'Bug' | 'Improvement' | 'Refactor';
+  techStack?: string[];
+  // Design
+  designType?: string;
+  creativesCount?: number;
+  dimensions?: string;
+  // General
+  customNotes?: string;
+}
+
 export interface IWorkAssignment extends Document {
   legacyId?: number;
   employee?: mongoose.Types.ObjectId | null;
   client?: mongoose.Types.ObjectId | null;
+  project?: mongoose.Types.ObjectId | null;
   parentTask?: mongoose.Types.ObjectId | IWorkAssignment | null;
   isMasterClientTask?: boolean;
+  departmentCategory?: 'Development' | 'Digital Marketing' | 'Video Editing' | 'Design' | 'HR' | 'General';
   title: string;
   description?: string;
   priority: WorkPriorityType;
@@ -61,6 +87,11 @@ export interface IWorkAssignment extends Document {
   assignedQuantity: number;
   completedQuantity: number;
   unit: string;
+  estimatedHours: number;
+  actualHours: number;
+  overrunHours: number;
+  isOverrun: boolean;
+  departmentData?: IDepartmentData;
   completedAt?: Date | null;
   assignedBy?: mongoose.Types.ObjectId | null;
   reviewer?: mongoose.Types.ObjectId | null;
@@ -115,9 +146,16 @@ const workAssignmentSchema = new Schema<IWorkAssignment>(
   {
     legacyId: { type: Number, unique: true, sparse: true, index: true },
     employee: { type: Schema.Types.ObjectId, ref: 'Employee', default: null },
-    client: { type: Schema.Types.ObjectId, ref: 'Client', default: null },
+    client: { type: Schema.Types.ObjectId, ref: 'Client', default: null, index: true },
+    project: { type: Schema.Types.ObjectId, ref: 'Project', default: null, index: true },
     parentTask: { type: Schema.Types.ObjectId, ref: 'WorkAssignment', default: null },
     isMasterClientTask: { type: Boolean, default: false },
+    departmentCategory: {
+      type: String,
+      enum: ['Development', 'Digital Marketing', 'Video Editing', 'Design', 'HR', 'General'],
+      default: 'General',
+      index: true,
+    },
     title: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
     priority: { type: String, enum: WORK_PRIORITIES, default: 'Normal' },
@@ -128,6 +166,11 @@ const workAssignmentSchema = new Schema<IWorkAssignment>(
     assignedQuantity: { type: Number, default: 100, min: 1 },
     completedQuantity: { type: Number, default: 0, min: 0 },
     unit: { type: String, default: '%' },
+    estimatedHours: { type: Number, default: 0, min: 0 },
+    actualHours: { type: Number, default: 0, min: 0 },
+    overrunHours: { type: Number, default: 0, min: 0 },
+    isOverrun: { type: Boolean, default: false },
+    departmentData: { type: Schema.Types.Mixed, default: {} },
     completedAt: { type: Date, default: null },
     assignedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     reviewer: { type: Schema.Types.ObjectId, ref: 'User', default: null },

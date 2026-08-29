@@ -8,11 +8,16 @@ import portalRoutes from './portalRoutes.js';
 import otherRoutes from './otherRoutes.js';
 import holidayRoutes from './holidayRoutes.js';
 import payrollRoutes from './payrollRoutes.js';
+import projectRoutes from './projectRoutes.js';
+import timerRoutes from './timerRoutes.js';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/employees', employeeRoutes);
+router.use('/projects', projectRoutes);
+router.use('/timer', timerRoutes);
+router.use('/time-entries', timerRoutes);
 router.use('/', workRoutes);
 router.use('/', attendanceRoutes);
 router.use('/', kpiRoutes);

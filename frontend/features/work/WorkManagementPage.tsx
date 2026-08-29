@@ -731,7 +731,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     }
   };
 
-  const handleDeleteWork = async (id: number): Promise<boolean> => {
+  const handleDeleteWork = async (id: number | string): Promise<boolean> => {
     try {
       await api(`/work-assignments/${id}/`, { method: "DELETE" });
       setMessage("Work assignment deleted.");

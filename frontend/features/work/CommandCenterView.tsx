@@ -538,9 +538,9 @@ export function CommandCenterView({
     if (timerLoadingId) return;
     setTimerLoadingId(taskId);
     try {
-      await api(`/work-assignments/${taskId}/start-timer/`, { method: "POST" });
+      await api(`/timer/start/${taskId}/`, { method: "POST" });
       if (onStatusChange) {
-        onStatusChange(Number(taskId), "In Progress");
+        onStatusChange(taskId as any, "In Progress");
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Could not start task timer.");
@@ -554,9 +554,9 @@ export function CommandCenterView({
     if (timerLoadingId) return;
     setTimerLoadingId(taskId);
     try {
-      await api(`/work-assignments/${taskId}/stop-timer/`, { method: "POST" });
+      await api(`/timer/stop/${taskId}/`, { method: "POST" });
       if (onStatusChange) {
-        onStatusChange(Number(taskId), "In Progress");
+        onStatusChange(taskId as any, "In Progress");
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Could not stop task timer.");
@@ -594,7 +594,7 @@ export function CommandCenterView({
   const [statusError, setStatusError] = useState("");
 
   const handleWorkStatusChange = async (id: string, newStatus: WorkStatus) => {
-    if (!onStatusChange || isNaN(Number(id)) || isUpdatingStatus) return;
+    if (!onStatusChange || !id || isUpdatingStatus) return;
     if (newStatus === "Backlog") {
       setStatusError("Backlog status is automatically calculated for overdue tasks after midnight and cannot be set manually.");
       return;
@@ -617,15 +617,14 @@ export function CommandCenterView({
     };
 
     try {
-      await onStatusChange(Number(id), newStatus);
+      await onStatusChange(id as any, newStatus);
       const kanbanStatus = statusMap[newStatus] || "progress";
       const todayStr = new Date().toISOString().split("T")[0];
       setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, rawStatus: newStatus, status: kanbanStatus, is_backlog: false, due: t.due < todayStr ? todayStr : t.due } : t)));
       if (selectedTask && selectedTask.id === id) {
-        setSelectedTask(null);
+        setSelectedTask((prev) => prev ? { ...prev, rawStatus: newStatus, status: kanbanStatus, is_backlog: false } : null);
       }
     } catch (err: any) {
-
       setStatusError(err?.message || "Could not update status.");
     } finally {
       setIsUpdatingStatus(false);

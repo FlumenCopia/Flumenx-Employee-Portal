@@ -13,6 +13,7 @@ import {
   Layers,
   ListChecks,
   Minus,
+  Pause,
   Play,
   Plus,
   RefreshCw,
@@ -116,7 +117,7 @@ export function TaskTimerPage() {
     setActionMessage(null);
     startTransition(async () => {
       try {
-        await api(`/work-assignments/${taskId}/start-timer/`, { method: "POST" });
+        await api(`/timer/start/${taskId}/`, { method: "POST" });
         setActionMessage({ type: "success", text: "Timer started successfully!" });
         await fetchTasks();
       } catch (err: any) {
@@ -125,12 +126,38 @@ export function TaskTimerPage() {
     });
   };
 
+  const handlePauseTimer = (taskId: string) => {
+    setActionMessage(null);
+    startTransition(async () => {
+      try {
+        await api(`/timer/pause/${taskId}/`, { method: "POST" });
+        setActionMessage({ type: "success", text: "Timer paused." });
+        await fetchTasks();
+      } catch (err: any) {
+        setActionMessage({ type: "error", text: err.message || "Failed to pause timer." });
+      }
+    });
+  };
+
+  const handleResumeTimer = (taskId: string) => {
+    setActionMessage(null);
+    startTransition(async () => {
+      try {
+        await api(`/timer/resume/${taskId}/`, { method: "POST" });
+        setActionMessage({ type: "success", text: "Timer resumed." });
+        await fetchTasks();
+      } catch (err: any) {
+        setActionMessage({ type: "error", text: err.message || "Failed to resume timer." });
+      }
+    });
+  };
+
   const handleStopTimer = (taskId: string) => {
     setActionMessage(null);
     startTransition(async () => {
       try {
-        await api(`/work-assignments/${taskId}/stop-timer/`, { method: "POST" });
-        setActionMessage({ type: "success", text: "Timer stopped and time session logged!" });
+        await api(`/timer/stop/${taskId}/`, { method: "POST" });
+        setActionMessage({ type: "success", text: "Timer stopped and time entry logged!" });
         await fetchTasks();
       } catch (err: any) {
         setActionMessage({ type: "error", text: err.message || "Failed to stop timer." });

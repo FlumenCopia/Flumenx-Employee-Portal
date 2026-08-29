@@ -127,7 +127,7 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
   if (status) filter.status = status;
   if (priority) filter.priority = priority;
 
-  const { is_master_client_task } = req.query;
+  const { is_master_client_task, project_id, project, department_category } = req.query;
   if (is_master_client_task === 'true') {
     filter.isMasterClientTask = true;
   } else if (is_master_client_task === 'all') {
@@ -136,13 +136,22 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
     filter.isMasterClientTask = { $ne: true };
   }
 
+  const projId = project_id || project;
+  if (projId && mongoose.Types.ObjectId.isValid(projId as string)) {
+    filter.project = projId;
+  }
+  if (department_category) {
+    filter.departmentCategory = department_category;
+  }
+
   const assignments = await WorkAssignment.find(filter)
-    .populate('employee client assignedBy reviewer reviewedBy parentTask')
+    .populate('employee client project assignedBy reviewer reviewedBy parentTask')
     .sort({ dueDate: 1 });
 
   const formatted = assignments.map((a) => {
     const emp = a.employee as any;
     const clientObj = a.client as any;
+    const projectObj = a.project as any;
     const reviewerObj = a.reviewer as any;
     const parentObj = a.parentTask as any;
     const progressPct = a.assignedQuantity ? Math.round(((a.completedQuantity || 0) / a.assignedQuantity) * 100) : 0;
@@ -153,16 +162,24 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
       description: a.description,
       priority: a.priority,
       status: a.status,
-      assigned_date: a.assignedDate.toISOString().split('T')[0],
-      due_date: a.dueDate.toISOString().split('T')[0],
+      assigned_date: a.assignedDate ? a.assignedDate.toISOString().split('T')[0] : '',
+      due_date: a.dueDate ? a.dueDate.toISOString().split('T')[0] : '',
       assigned_quantity: a.assignedQuantity,
       completed_quantity: a.completedQuantity,
       progress_percentage: progressPct,
       unit: a.unit,
+      department_category: a.departmentCategory || 'General',
+      estimated_hours: a.estimatedHours || 0,
+      actual_hours: a.actualHours || 0,
+      overrun_hours: a.overrunHours || 0,
+      is_overrun: Boolean(a.isOverrun),
+      department_data: a.departmentData || {},
       employee: emp ? emp._id : null,
       employee_name: emp ? emp.name : 'Unassigned',
       client: clientObj ? clientObj._id : null,
       client_name: clientObj ? clientObj.name : 'General',
+      project: projectObj ? projectObj._id : null,
+      project_name: projectObj ? projectObj.name : '',
       parent_task: parentObj ? parentObj._id : null,
       parent_task_title: parentObj ? parentObj.title : '',
       is_master_client_task: Boolean(a.isMasterClientTask),
@@ -373,9 +390,17 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
   const {
     employee,
     client,
+    project,
+    project_id,
     parent_task,
     parentTask,
     is_master_client_task,
+    department_category,
+    departmentCategory,
+    estimated_hours,
+    estimatedHours,
+    department_data,
+    departmentData,
     title,
     description,
     priority,
@@ -405,6 +430,10 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
   }
 
   const parentId = parent_task || parentTask;
+  const targetProjectId = project || project_id;
+  const targetDepartmentCat = department_category || departmentCategory || 'General';
+  const targetEstHours = Number(estimated_hours || estimatedHours || 0);
+  const targetDeptData = department_data || departmentData || {};
 
   const rawDeliverables = Array.isArray(req.body.deliverables) ? req.body.deliverables : [];
   const sanitizedDeliverables = rawDeliverables.map((d: any) => {
@@ -426,8 +455,12 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
   const assignment = new WorkAssignment({
     employee: employee && mongoose.Types.ObjectId.isValid(employee) ? employee : null,
     client: client && mongoose.Types.ObjectId.isValid(client) ? client : null,
+    project: targetProjectId && mongoose.Types.ObjectId.isValid(targetProjectId) ? targetProjectId : null,
     parentTask: parentId && mongoose.Types.ObjectId.isValid(parentId) ? parentId : null,
     isMasterClientTask: Boolean(is_master_client_task),
+    departmentCategory: targetDepartmentCat,
+    estimatedHours: targetEstHours,
+    departmentData: targetDeptData,
     title: title.trim(),
     description: description || '',
     priority: priority || 'Normal',
@@ -589,6 +622,30 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     if (fields.client !== undefined || fields.client_id !== undefined) {
       const clientVal = fields.client || fields.client_id;
       assignment.client = clientVal && mongoose.Types.ObjectId.isValid(clientVal) ? clientVal : null;
+    }
+    if (fields.project !== undefined || fields.project_id !== undefined) {
+      const projVal = fields.project || fields.project_id;
+      assignment.project = projVal && mongoose.Types.ObjectId.isValid(projVal) ? projVal : null;
+    }
+    if (fields.department_category || fields.departmentCategory) {
+      assignment.departmentCategory = fields.department_category || fields.departmentCategory;
+    }
+    if (fields.estimated_hours !== undefined || fields.estimatedHours !== undefined) {
+      const est = Number(fields.estimated_hours ?? fields.estimatedHours ?? 0);
+      assignment.estimatedHours = est;
+      if (est > 0 && (assignment.actualHours || 0) > est) {
+        assignment.isOverrun = true;
+        assignment.overrunHours = Number(((assignment.actualHours || 0) - est).toFixed(2));
+      } else {
+        assignment.isOverrun = false;
+        assignment.overrunHours = 0;
+      }
+    }
+    if (fields.department_data || fields.departmentData) {
+      assignment.departmentData = {
+        ...(assignment.departmentData || {}),
+        ...(fields.department_data || fields.departmentData || {}),
+      };
     }
   }
 

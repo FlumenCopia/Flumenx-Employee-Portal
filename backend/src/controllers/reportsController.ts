@@ -87,39 +87,52 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
     // 2. WORK & TASKS PERFORMANCE REPORT
     else if (type === 'work') {
       reportTitle = 'Deliverables & Task Performance Report';
-      headers = ['Task Title', 'Client', 'Assigned To', 'Department', 'Status', 'Priority', 'Assigned Qty', 'Completed Qty', 'Due Date'];
+      headers = ['Task Title', 'Client', 'Project', 'Assigned To', 'Dept Category', 'Status', 'Priority', 'Est (hrs)', 'Actual (hrs)', 'Overrun', 'Due Date'];
 
       const query: any = {};
       if (clientId) query.client = clientId;
       if (employeeId) query.employee = employeeId;
-      if (department) query.department = department;
+      if (department) query.departmentCategory = department;
 
       const assignments = await WorkAssignment.find(query)
         .populate('client', 'name companyName')
+        .populate('project', 'name')
         .populate('employee', 'name employeeCode department')
         .sort({ createdAt: -1 })
         .limit(1000);
 
       let completedTasks = 0;
       let pendingTasks = 0;
+      let totalEstHours = 0;
+      let totalActualHours = 0;
+      let totalOverrunTasks = 0;
 
       rows = assignments.map((a: any) => {
         const client = a.client || {};
+        const project = a.project || {};
         const emp = a.employee || {};
         const isDone = (a.status || '').toLowerCase() === 'completed' || (a.status || '').toLowerCase() === 'published';
         if (isDone) completedTasks++;
         else pendingTasks++;
 
+        const est = a.estimatedHours || 0;
+        const act = a.actualHours || 0;
+        totalEstHours += est;
+        totalActualHours += act;
+        if (a.isOverrun) totalOverrunTasks++;
+
         return {
           task_title: a.title || 'Untitled Task',
-          client: client.companyName || client.name || a.client_name || 'N/A',
-          assigned_to: emp.name || a.employee_name || 'Unassigned',
-          department: a.department || emp.department || 'General',
+          client: client.companyName || client.name || 'N/A',
+          project: project.name || 'General / Direct Task',
+          assigned_to: emp.name || 'Unassigned',
+          department_category: a.departmentCategory || emp.department || 'General',
           status: (a.status || 'Assigned').toUpperCase(),
           priority: (a.priority || 'Normal').toUpperCase(),
-          assigned_qty: a.assigned_quantity || 0,
-          completed_qty: a.completed_quantity || 0,
-          due_date: a.due_date ? new Date(a.due_date).toISOString().split('T')[0] : 'N/A',
+          estimated_hours: est,
+          actual_hours: act,
+          is_overrun: a.isOverrun ? 'YES' : 'NO',
+          due_date: a.dueDate ? new Date(a.dueDate).toISOString().split('T')[0] : 'N/A',
         };
       });
 
@@ -127,7 +140,110 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
         totalTasks: rows.length,
         completedTasks,
         pendingTasks,
+        totalEstHours,
+        totalActualHours,
+        totalOverrunTasks,
         completionRate: rows.length > 0 ? Math.round((completedTasks / rows.length) * 100) : 0,
+      };
+    }
+
+    // 2B. CLIENT HIERARCHY SUMMARY REPORT
+    else if (type === 'client_summary') {
+      reportTitle = 'Client Project & Work Utilization Report';
+      headers = ['Client Name', 'Total Projects', 'Total Tasks', 'Completed Tasks', 'Pending Tasks', 'Est Hours', 'Actual Hours', 'Billable Hours', 'Overrun Tasks'];
+
+      const clients = await Client.find().sort({ name: 1 });
+      const { Project } = await import('../models/Project.js');
+      const { TimeEntry } = await import('../models/TimeEntry.js');
+
+      rows = await Promise.all(
+        clients.map(async (c: any) => {
+          const projectsCount = await Project.countDocuments({ client: c._id });
+          const tasks = await WorkAssignment.find({ client: c._id });
+
+          const totalTasks = tasks.length;
+          const completedTasks = tasks.filter((t) => ['Completed', 'Approved', 'Published'].includes(t.status)).length;
+          const pendingTasks = totalTasks - completedTasks;
+          const estHours = tasks.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
+          const actHours = tasks.reduce((sum, t) => sum + (t.actualHours || 0), 0);
+          const overrunTasks = tasks.filter((t) => t.isOverrun).length;
+
+          const billableEntries = await TimeEntry.find({ client: c._id, isBillable: true, status: 'STOPPED' });
+          const billableSeconds = billableEntries.reduce((sum, te) => sum + (te.durationSeconds || 0), 0);
+          const billableHours = Number((billableSeconds / 3600).toFixed(2));
+
+          return {
+            client_name: c.name,
+            total_projects: projectsCount,
+            total_tasks: totalTasks,
+            completed_tasks: completedTasks,
+            pending_tasks: pendingTasks,
+            estimated_hours: estHours,
+            actual_hours: actHours,
+            billable_hours: billableHours,
+            overrun_tasks: overrunTasks,
+          };
+        })
+      );
+
+      summary = {
+        totalClients: clients.length,
+        totalProjects: rows.reduce((s, r) => s + r.total_projects, 0),
+        totalTasks: rows.reduce((s, r) => s + r.total_tasks, 0),
+        totalHours: rows.reduce((s, r) => s + r.actual_hours, 0),
+      };
+    }
+
+    // 2C. TIME ENTRIES AUDIT REPORT
+    else if (type === 'time_entries') {
+      reportTitle = 'Time Entries & Tracked Hours Audit Report';
+      headers = ['Date', 'Employee', 'Client', 'Project', 'Task Title', 'Status', 'Duration (hrs)', 'Billable', 'Entry Type'];
+
+      const { TimeEntry } = await import('../models/TimeEntry.js');
+      const query: any = { status: 'STOPPED' };
+      if (clientId) query.client = clientId;
+      if (employeeId) query.employee = employeeId;
+      if (startDate && endDate) {
+        query.entryDate = { $gte: startDate, $lte: endDate };
+      }
+
+      const entries = await TimeEntry.find(query)
+        .populate('employee', 'name employeeCode')
+        .populate('client', 'name')
+        .populate('project', 'name')
+        .populate('task', 'title')
+        .sort({ entryDate: -1, startTime: -1 })
+        .limit(1000);
+
+      let totalSeconds = 0;
+      let billableSeconds = 0;
+
+      rows = entries.map((te: any) => {
+        const emp = te.employee || {};
+        const client = te.client || {};
+        const proj = te.project || {};
+        const task = te.task || {};
+        const hrs = Number(((te.durationSeconds || 0) / 3600).toFixed(2));
+        totalSeconds += te.durationSeconds || 0;
+        if (te.isBillable) billableSeconds += te.durationSeconds || 0;
+
+        return {
+          date: te.entryDate || 'N/A',
+          employee: emp.name || 'Unknown',
+          client: client.name || 'General',
+          project: proj.name || 'Direct Task',
+          task_title: task.title || 'Untitled Task',
+          status: te.status,
+          duration_hours: hrs,
+          billable: te.isBillable ? 'YES' : 'NO',
+          entry_type: te.isManualEntry ? 'MANUAL' : 'TIMER',
+        };
+      });
+
+      summary = {
+        totalEntries: rows.length,
+        totalHours: Number((totalSeconds / 3600).toFixed(2)),
+        billableHours: Number((billableSeconds / 3600).toFixed(2)),
       };
     }
 

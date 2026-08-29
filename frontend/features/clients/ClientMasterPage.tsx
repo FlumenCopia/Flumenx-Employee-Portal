@@ -62,7 +62,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
 
   // Modal 3: Share Link
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [shareClient, setShareClient] = useState<{ id: number; name: string } | null>(null);
+  const [shareClient, setShareClient] = useState<{ id: number | string; name: string } | null>(null);
 
   const fetchData = async () => {
     setLoading(true);

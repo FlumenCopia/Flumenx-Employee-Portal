@@ -57,6 +57,8 @@ export function ReportsCenterPage() {
   const availableTabs = [
     { id: "attendance", label: "Attendance & Timesheets", icon: Clock, allowed: true },
     { id: "work", label: "Work & Deliverables", icon: Briefcase, allowed: true },
+    { id: "time_entries", label: "Time Tracked Audit", icon: Clock, allowed: true },
+    { id: "client_summary", label: "Client & Project Utilization", icon: FileText, allowed: isSuperadmin || isAccountant || isTeamLead },
     { id: "kpi", label: "KPI & Ratings", icon: TrendingUp, allowed: true },
     { id: "leaves", label: "Leaves & Absenteeism", icon: Calendar, allowed: true },
     { id: "employees", label: "Employee Directory", icon: Users, allowed: isSuperadmin || isHR || isTeamLead },
