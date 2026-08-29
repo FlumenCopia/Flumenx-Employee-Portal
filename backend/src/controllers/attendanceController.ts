@@ -46,14 +46,19 @@ export function getISTTimeString(date: Date = new Date()): string {
 /**
  * Return start and end of day in IST (Asia/Kolkata)
  */
-export function getISTDateRange(date: Date = new Date()) {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  const dateStr = formatter.format(date); // YYYY-MM-DD in IST
+export function getISTDateRange(dateInput?: Date | string) {
+  let dateStr = '';
+  if (typeof dateInput === 'string' && dateInput.includes('-')) {
+    dateStr = dateInput.trim().split('T')[0];
+  } else {
+    const d = dateInput instanceof Date ? dateInput : new Date();
+    dateStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d);
+  }
   const startOfDay = new Date(`${dateStr}T00:00:00.000+05:30`);
   const endOfDay = new Date(`${dateStr}T23:59:59.999+05:30`);
   return { startOfDay, endOfDay, dateStr };
@@ -144,10 +149,8 @@ export async function getAttendanceRecords(req: Request, res: Response): Promise
   }
 
   if (date) {
-    const targetDate = new Date(date as string);
-    const startDate = new Date(targetDate.setHours(0, 0, 0, 0));
-    const endDate = new Date(targetDate.setHours(23, 59, 59, 999));
-    filter.attendanceDate = { $gte: startDate, $lte: endDate };
+    const { startOfDay, endOfDay } = getISTDateRange(date as string);
+    filter.attendanceDate = { $gte: startOfDay, $lte: endOfDay };
   } else if (month && typeof month === 'string' && month.includes('-')) {
     const [y, m] = month.split('-').map((v) => parseInt(v, 10));
     filter.attendanceDate = {
@@ -188,15 +191,11 @@ export async function getAttendanceSummary(req: Request, res: Response): Promise
   }
 
   if (date) {
-    const targetDate = new Date(date as string);
-    const startDate = new Date(targetDate.setHours(0, 0, 0, 0));
-    const endDate = new Date(targetDate.setHours(23, 59, 59, 999));
-    filter.attendanceDate = { $gte: startDate, $lte: endDate };
+    const { startOfDay, endOfDay } = getISTDateRange(date as string);
+    filter.attendanceDate = { $gte: startOfDay, $lte: endOfDay };
   } else {
-    const today = new Date();
-    const startDate = new Date(today.setHours(0, 0, 0, 0));
-    const endDate = new Date(today.setHours(23, 59, 59, 999));
-    filter.attendanceDate = { $gte: startDate, $lte: endDate };
+    const { startOfDay, endOfDay } = getISTDateRange();
+    filter.attendanceDate = { $gte: startOfDay, $lte: endOfDay };
   }
 
   const records = await AttendanceRecord.find(filter);
