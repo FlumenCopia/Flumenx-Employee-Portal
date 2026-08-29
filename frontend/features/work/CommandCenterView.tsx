@@ -75,10 +75,10 @@ export interface TaskItem {
   type: string;
   phase: string;
   assignee: string;
-  assigneeId?: number | null;
+  assigneeId?: number | string | null;
   assigneeName: string;
   reviewer: string;
-  reviewerId?: number | null;
+  reviewerId?: number | string | null;
   due: string;
   hours: number;
   deliverable?: string | null;
@@ -87,11 +87,11 @@ export interface TaskItem {
   rawStatus?: WorkStatus;
   reviewStatus?: "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED";
   reviewNote?: string;
-  reviewedBy?: number | null;
+  reviewedBy?: number | string | null;
   reviewedAt?: string | null;
   reviewedByName?: string;
   clientName?: string;
-  clientId?: number;
+  clientId?: number | string;
   parentTask?: string;
   parentTaskTitle?: string;
   isMasterClientTask?: boolean;

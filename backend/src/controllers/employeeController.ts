@@ -374,6 +374,8 @@ export async function getEmployeeDocuments(req: Request, res: Response): Promise
   }
 }
 
+import { optimizeImageFile } from '../utils/imageOptimizer.js';
+
 export async function uploadEmployeeDocument(req: Request, res: Response): Promise<void> {
   const employeeId = req.params.id;
   const employee = await Employee.findById(employeeId);
@@ -386,6 +388,9 @@ export async function uploadEmployeeDocument(req: Request, res: Response): Promi
     res.status(400).json({ detail: 'No document file uploaded.' });
     return;
   }
+
+  // Optimize image files with sharp (max 1600x1600, quality 82)
+  await optimizeImageFile(req.file.path, { maxWidth: 1600, maxHeight: 1600, quality: 82 });
 
   const { title, document_type, documentType } = req.body;
   const docTitle = title ? title.trim() : req.file.originalname;

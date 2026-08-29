@@ -279,12 +279,18 @@ export async function exportAttendanceCSV(req: Request, res: Response): Promise<
   res.send(csvString);
 }
 
+import { optimizeImageFile } from '../utils/imageOptimizer.js';
+
 export async function checkInAttendance(req: Request, res: Response): Promise<void> {
   const { latitude, longitude, qr_reference, source, notes } = req.body;
 
   if (!req.user) {
     res.status(401).json({ detail: 'Authentication required.' });
     return;
+  }
+
+  if (req.file) {
+    await optimizeImageFile(req.file.path, { maxWidth: 800, maxHeight: 800, quality: 80 });
   }
 
   const employee = await Employee.findOne({ user: req.user._id });

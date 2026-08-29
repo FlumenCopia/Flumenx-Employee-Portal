@@ -259,6 +259,8 @@ export async function getMe(req: Request, res: Response): Promise<void> {
   });
 }
 
+import { optimizeImageFile } from '../utils/imageOptimizer.js';
+
 export async function uploadAvatar(req: Request, res: Response): Promise<void> {
   try {
     if (!req.user) {
@@ -270,6 +272,9 @@ export async function uploadAvatar(req: Request, res: Response): Promise<void> {
       res.status(400).json({ detail: 'No image file uploaded.' });
       return;
     }
+
+    // Sharp Image Optimization (auto-rotate, max 400x400, high compression)
+    await optimizeImageFile(req.file.path, { maxWidth: 400, maxHeight: 400, quality: 85 });
 
     const avatarUrl = `/media/avatars/${req.file.filename}`;
 

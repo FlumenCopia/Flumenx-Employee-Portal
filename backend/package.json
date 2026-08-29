@@ -23,6 +23,7 @@
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^9.0.5",
     "pdfkit": "^0.20.1",
+    "sharp": "^0.35.4",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
@@ -33,6 +34,7 @@
     "@types/jsonwebtoken": "^9.0.8",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.10.10",
+    "@types/sharp": "^0.31.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }

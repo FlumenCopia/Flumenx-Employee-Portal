@@ -25,7 +25,7 @@ export function ShareLinkModal({
   open,
   onClose,
 }: {
-  clientId: number;
+  clientId: number | string;
   clientName: string;
   assignments?: WorkAssignment[];
   open: boolean;

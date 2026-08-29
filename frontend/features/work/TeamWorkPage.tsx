@@ -98,7 +98,7 @@ function getStatusProgressPct(status: string, assignedQty: number, completedQty:
 
 async function fetchAllWorkAssignments(): Promise<WorkAssignment[]> {
   const allItems: WorkAssignment[] = [];
-  const seenIds = new Set<number>();
+  const seenIds = new Set<number | string>();
   let page = 1;
   const pageSize = 200;
   let hasMore = true;

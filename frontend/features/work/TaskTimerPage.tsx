@@ -227,7 +227,7 @@ export function TaskTimerPage() {
   const totalItemsCompleted = tasks.reduce((sum, t) => sum + (t.completed_quantity || 0), 0);
 
   return (
-    <Shell>
+    <>
       <div style={{ padding: "1.5rem", maxWidth: "1350px", margin: "0 auto", color: "#0f172a" }}>
         {/* Page Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
@@ -906,6 +906,6 @@ export function TaskTimerPage() {
           </div>
         </div>
       </div>
-    </Shell>
+    </>
   );
 }
