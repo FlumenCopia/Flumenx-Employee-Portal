@@ -575,3 +575,122 @@ export async function deleteTimeEntry(req: Request, res: Response): Promise<void
     res.status(500).json({ detail: error.message || 'Failed to delete time entry.' });
   }
 }
+
+export async function updateTimeEntry(req: Request, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ detail: 'Authentication required.' });
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      res.status(404).json({ detail: 'Time entry not found.' });
+      return;
+    }
+
+    const timeEntry = await TimeEntry.findById(req.params.id);
+    if (!timeEntry) {
+      res.status(404).json({ detail: 'Time entry not found.' });
+      return;
+    }
+
+    const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+    const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
+    const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+
+    if (!isSuper && !isManagement) {
+      if (!ownEmp || String(timeEntry.employee) !== String(ownEmp._id)) {
+        res.status(403).json({ detail: 'You do not have permission to edit this time entry.' });
+        return;
+      }
+    }
+
+    const {
+      description,
+      is_billable,
+      isBillable,
+      duration_seconds,
+      durationSeconds,
+      hours,
+      minutes,
+      start_time,
+      startTime,
+      end_time,
+      endTime,
+      entry_date,
+      entryDate,
+    } = req.body;
+
+    if (description !== undefined) timeEntry.description = String(description).trim();
+    if (is_billable !== undefined) timeEntry.isBillable = Boolean(is_billable);
+    if (isBillable !== undefined) timeEntry.isBillable = Boolean(isBillable);
+
+    let startObj = timeEntry.startTime;
+    const rawStart = start_time || startTime;
+    if (rawStart) {
+      const parsedStart = new Date(rawStart);
+      if (!isNaN(parsedStart.getTime())) {
+        startObj = parsedStart;
+        timeEntry.startTime = parsedStart;
+      }
+    }
+
+    let endObj = timeEntry.endTime;
+    const rawEnd = end_time || endTime;
+    if (rawEnd) {
+      const parsedEnd = new Date(rawEnd);
+      if (!isNaN(parsedEnd.getTime())) {
+        endObj = parsedEnd;
+        timeEntry.endTime = parsedEnd;
+      }
+    }
+
+    let newDuration = timeEntry.durationSeconds;
+    const rawSec = duration_seconds ?? durationSeconds;
+
+    if (rawSec !== undefined && !isNaN(Number(rawSec))) {
+      newDuration = Math.max(0, Number(rawSec));
+    } else if (hours !== undefined || minutes !== undefined) {
+      const h = Number(hours || 0);
+      const m = Number(minutes || 0);
+      newDuration = Math.max(0, h * 3600 + m * 60);
+    } else if (startObj && endObj && endObj.getTime() >= startObj.getTime()) {
+      newDuration = Math.max(0, Math.round((endObj.getTime() - startObj.getTime()) / 1000));
+    }
+
+    timeEntry.durationSeconds = newDuration;
+
+    if (rawStart && !rawEnd && newDuration > 0) {
+      timeEntry.endTime = new Date(new Date(rawStart).getTime() + newDuration * 1000);
+    }
+
+    const rawEntryDate = entry_date || entryDate;
+    if (rawEntryDate) {
+      timeEntry.entryDate = String(rawEntryDate);
+    } else if (timeEntry.startTime) {
+      timeEntry.entryDate = timeEntry.startTime.toISOString().split('T')[0];
+    }
+
+    await timeEntry.save();
+
+    const actualHours = await recalculateTaskActualHours(timeEntry.task);
+
+    await AuditLog.create({
+      actor: req.user._id,
+      action: 'TIME_ENTRY_UPDATED',
+      entityType: 'TimeEntry',
+      entityId: String(timeEntry._id),
+      details: { newDuration, actualHours, taskId: timeEntry.task },
+    });
+
+    const populated = await TimeEntry.findById(timeEntry._id)
+      .populate('employee', 'name employeeCode department')
+      .populate('client', 'name')
+      .populate('project', 'name')
+      .populate('task', 'title status priority estimatedHours actualHours');
+
+    res.json(populated || timeEntry);
+  } catch (error: any) {
+    res.status(500).json({ detail: error.message || 'Failed to update time entry.' });
+  }
+}

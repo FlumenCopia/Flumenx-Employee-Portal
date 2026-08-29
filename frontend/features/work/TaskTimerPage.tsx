@@ -23,6 +23,11 @@ import {
   User,
   ChevronRight,
   Zap,
+  Edit3,
+  Trash2,
+  DollarSign,
+  PlusCircle,
+  X,
 } from "lucide-react";
 import { Shell } from "@/components/shell";
 import { api, ApiError } from "@/lib/api";
@@ -64,6 +69,26 @@ export function TaskTimerPage() {
   // Ticking live timer state
   const [liveDurationSeconds, setLiveDurationSeconds] = useState(0);
 
+  // Clockify Mode State & Time Entries List
+  const [timeEntriesList, setTimeEntriesList] = useState<any[]>([]);
+  const [editingEntry, setEditingEntry] = useState<any | null>(null);
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualHours, setManualHours] = useState("1");
+  const [manualMinutes, setManualMinutes] = useState("0");
+  const [manualDescription, setManualDescription] = useState("Clockify manual time log");
+  const [manualDate, setManualDate] = useState(() => new Date().toISOString().split("T")[0]);
+
+  const fetchTimeEntries = async (taskId: string) => {
+    if (!taskId) return;
+    try {
+      const res = await api<any>(`/timer/entries/?task_id=${taskId}`);
+      const raw = Array.isArray(res) ? res : res?.results || [];
+      setTimeEntriesList(raw);
+    } catch {
+      setTimeEntriesList([]);
+    }
+  };
+
   const fetchTasks = async () => {
     setLoading(true);
     try {
@@ -88,6 +113,79 @@ export function TaskTimerPage() {
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  useEffect(() => {
+    if (selectedTaskId) {
+      fetchTimeEntries(selectedTaskId);
+    }
+  }, [selectedTaskId]);
+
+  const handleSaveEditEntry = async () => {
+    if (!editingEntry) return;
+    try {
+      const h = Number(editingEntry.hours || 0);
+      const m = Number(editingEntry.minutes || 0);
+      const seconds = h * 3600 + m * 60;
+
+      await api(`/timer/entries/${editingEntry._id || editingEntry.id}/`, {
+        method: "PUT",
+        body: JSON.stringify({
+          duration_seconds: seconds,
+          description: editingEntry.description,
+          is_billable: editingEntry.isBillable,
+        }),
+      });
+
+      setActionMessage({ type: "success", text: "Time entry updated successfully!" });
+      setEditingEntry(null);
+      await fetchTasks();
+      if (selectedTaskId) await fetchTimeEntries(selectedTaskId);
+    } catch (err: any) {
+      setActionMessage({ type: "error", text: err.message || "Failed to update time entry." });
+    }
+  };
+
+  const handleDeleteEntry = async (entryId: string) => {
+    try {
+      await api(`/timer/entries/${entryId}/`, { method: "DELETE" });
+      setActionMessage({ type: "success", text: "Time entry deleted." });
+      await fetchTasks();
+      if (selectedTaskId) await fetchTimeEntries(selectedTaskId);
+    } catch (err: any) {
+      setActionMessage({ type: "error", text: err.message || "Failed to delete time entry." });
+    }
+  };
+
+  const handleCreateManualEntry = async () => {
+    if (!selectedTaskId) return;
+    try {
+      const h = Number(manualHours || 0);
+      const m = Number(manualMinutes || 0);
+      const seconds = h * 3600 + m * 60;
+
+      if (seconds <= 0) {
+        setActionMessage({ type: "error", text: "Duration must be greater than 0 minutes." });
+        return;
+      }
+
+      await api("/timer/entries/manual/", {
+        method: "POST",
+        body: JSON.stringify({
+          taskId: selectedTaskId,
+          duration_seconds: seconds,
+          entry_date: manualDate,
+          description: manualDescription,
+        }),
+      });
+
+      setActionMessage({ type: "success", text: "Manual time entry logged successfully!" });
+      setShowManualModal(false);
+      await fetchTasks();
+      if (selectedTaskId) await fetchTimeEntries(selectedTaskId);
+    } catch (err: any) {
+      setActionMessage({ type: "error", text: err.message || "Failed to add manual time entry." });
+    }
+  };
 
   const selectedTask = tasks.find((t) => String(t.id) === String(selectedTaskId));
   const activeTaskRunning = tasks.find((t) => t.active_timer && t.active_timer.started_at);
@@ -827,12 +925,33 @@ export function TaskTimerPage() {
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <Clock size={18} color="#059669" />
                     <h3 style={{ fontSize: "1rem", fontWeight: "700", color: "#0f172a", margin: 0 }}>
-                      Session Time Logs ({selectedTask.time_logs?.length || 0})
+                      Session Time Logs ({timeEntriesList.length || selectedTask.time_logs?.length || 0})
                     </h3>
                   </div>
-                  <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#059669", background: "#ecfdf5", padding: "3px 10px", borderRadius: "12px" }}>
-                    Total: {formatDurationReadable(currentTotalTimeSeconds)}
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualModal(true)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "3px 8px",
+                        borderRadius: "6px",
+                        background: "#087A5B",
+                        color: "#fff",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        border: "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <PlusCircle size={12} /> + Add Manual Log
+                    </button>
+                    <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#059669", background: "#ecfdf5", padding: "3px 10px", borderRadius: "12px" }}>
+                      Total: {formatDurationReadable(currentTotalTimeSeconds)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Efficiency metrics summary */}
@@ -853,21 +972,82 @@ export function TaskTimerPage() {
                   </div>
                 </div>
 
-                {!selectedTask.time_logs || selectedTask.time_logs.length === 0 ? (
+                {/* Clockify Manual Entry Modal */}
+                {showManualModal && (
+                  <div style={{ marginBottom: "1rem", padding: "1rem", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <b style={{ fontSize: "0.85rem", color: "#166534" }}>Clockify Mode: Add Manual Time Log</b>
+                      <button type="button" onClick={() => setShowManualModal(false)} style={{ background: "transparent", border: 0, cursor: "pointer" }}><X size={14} /></button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 2fr", gap: "8px", marginBottom: "8px" }}>
+                      <div>
+                        <label style={{ fontSize: "11px", color: "#475569", fontWeight: 600 }}>Date</label>
+                        <input type="date" value={manualDate} onChange={(e) => setManualDate(e.target.value)} style={{ width: "100%", padding: "4px 8px", fontSize: "12px", borderRadius: "4px", border: "1px solid #cbd5e1" }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "11px", color: "#475569", fontWeight: 600 }}>Hours</label>
+                        <input type="number" min="0" value={manualHours} onChange={(e) => setManualHours(e.target.value)} style={{ width: "100%", padding: "4px 8px", fontSize: "12px", borderRadius: "4px", border: "1px solid #cbd5e1" }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "11px", color: "#475569", fontWeight: 600 }}>Minutes</label>
+                        <input type="number" min="0" max="59" value={manualMinutes} onChange={(e) => setManualMinutes(e.target.value)} style={{ width: "100%", padding: "4px 8px", fontSize: "12px", borderRadius: "4px", border: "1px solid #cbd5e1" }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "11px", color: "#475569", fontWeight: 600 }}>Description</label>
+                        <input type="text" value={manualDescription} onChange={(e) => setManualDescription(e.target.value)} style={{ width: "100%", padding: "4px 8px", fontSize: "12px", borderRadius: "4px", border: "1px solid #cbd5e1" }} />
+                      </div>
+                    </div>
+                    <button type="button" onClick={handleCreateManualEntry} style={{ padding: "5px 12px", borderRadius: "6px", background: "#166534", color: "#fff", border: "none", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>Save Manual Entry</button>
+                  </div>
+                )}
+
+                {/* Inline Editing Entry Modal */}
+                {editingEntry && (
+                  <div style={{ marginBottom: "1rem", padding: "1rem", background: "#fffbebf5", border: "1px solid #fde68a", borderRadius: "8px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <b style={{ fontSize: "0.85rem", color: "#92400e" }}>Edit Time Entry #{editingEntry._id || editingEntry.id}</b>
+                      <button type="button" onClick={() => setEditingEntry(null)} style={{ background: "transparent", border: 0, cursor: "pointer" }}><X size={14} /></button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: "8px", marginBottom: "8px" }}>
+                      <div>
+                        <label style={{ fontSize: "11px", color: "#475569", fontWeight: 600 }}>Hours</label>
+                        <input type="number" min="0" value={editingEntry.hours || 0} onChange={(e) => setEditingEntry({ ...editingEntry, hours: e.target.value })} style={{ width: "100%", padding: "4px 8px", fontSize: "12px", borderRadius: "4px", border: "1px solid #cbd5e1" }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "11px", color: "#475569", fontWeight: 600 }}>Minutes</label>
+                        <input type="number" min="0" max="59" value={editingEntry.minutes || 0} onChange={(e) => setEditingEntry({ ...editingEntry, minutes: e.target.value })} style={{ width: "100%", padding: "4px 8px", fontSize: "12px", borderRadius: "4px", border: "1px solid #cbd5e1" }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "11px", color: "#475569", fontWeight: 600 }}>Description</label>
+                        <input type="text" value={editingEntry.description || ""} onChange={(e) => setEditingEntry({ ...editingEntry, description: e.target.value })} style={{ width: "100%", padding: "4px 8px", fontSize: "12px", borderRadius: "4px", border: "1px solid #cbd5e1" }} />
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button type="button" onClick={handleSaveEditEntry} style={{ padding: "5px 12px", borderRadius: "6px", background: "#d97706", color: "#fff", border: "none", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>Update Entry</button>
+                      <button type="button" onClick={() => setEditingEntry(null)} style={{ padding: "5px 12px", borderRadius: "6px", background: "#e2e8f0", color: "#475569", border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {timeEntriesList.length === 0 && (!selectedTask.time_logs || selectedTask.time_logs.length === 0) ? (
                   <div style={{ padding: "1.25rem", textAlign: "center", color: "#94a3b8", fontSize: "0.85rem" }}>
-                    No previous work sessions recorded. Click &quot;Start Session Timer&quot; to begin tracking time.
+                    No previous work sessions recorded. Click &quot;Start Session Timer&quot; or &quot;+ Add Manual Log&quot; to begin tracking time.
                   </div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", maxHeight: "250px", overflowY: "auto" }}>
-                    {selectedTask.time_logs.slice().reverse().map((log, idx) => {
-                      const sessionNum = (selectedTask.time_logs?.length || 0) - idx;
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", maxHeight: "300px", overflowY: "auto" }}>
+                    {(timeEntriesList.length > 0 ? timeEntriesList : selectedTask.time_logs || []).slice().reverse().map((log: any, idx: number) => {
+                      const entryId = log._id || log.id;
+                      const sessionNum = (timeEntriesList.length || selectedTask.time_logs?.length || 0) - idx;
                       const start = log.startTime || log.started_at;
-                      const end = log.endTime || log.stopped_at || (log as any).ended_at;
+                      const end = log.endTime || log.stopped_at || log.ended_at;
                       const duration = log.durationSeconds || log.duration_seconds || 0;
+                      const desc = log.description || "Work session";
+                      const h = Math.floor(duration / 3600);
+                      const m = Math.floor((duration % 3600) / 60);
 
                       return (
                         <div
-                          key={log.id || idx}
+                          key={entryId || idx}
                           style={{
                             padding: "0.75rem 1rem",
                             borderRadius: "0.5rem",
@@ -879,8 +1059,9 @@ export function TaskTimerPage() {
                           }}
                         >
                           <div>
-                            <div style={{ fontSize: "0.825rem", fontWeight: 700, color: "#1e293b" }}>
-                              Session #{sessionNum}
+                            <div style={{ fontSize: "0.825rem", fontWeight: 700, color: "#1e293b", display: "flex", alignItems: "center", gap: "6px" }}>
+                              <span>Session #{sessionNum}</span>
+                              <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 400 }}>• {desc}</span>
                             </div>
                             <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
                               {start ? new Date(start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Started"}
@@ -888,13 +1069,35 @@ export function TaskTimerPage() {
                               {start ? ` • ${new Date(start).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}` : ""}
                             </div>
                           </div>
-                          <div style={{ textAlign: "right" }}>
-                            <div style={{ fontFamily: "monospace", fontSize: "0.95rem", fontWeight: 800, color: "#059669" }}>
-                              {formatDurationReadable(duration)}
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontFamily: "monospace", fontSize: "0.95rem", fontWeight: 800, color: "#059669" }}>
+                                {formatDurationReadable(duration)}
+                              </div>
+                              <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
+                                {formatSeconds(duration)}
+                              </div>
                             </div>
-                            <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
-                              {formatSeconds(duration)}
-                            </div>
+                            {entryId && (
+                              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                <button
+                                  type="button"
+                                  title="Edit entry (Clockify mode)"
+                                  onClick={() => setEditingEntry({ _id: entryId, hours: h, minutes: m, description: desc, isBillable: log.isBillable !== false })}
+                                  style={{ background: "#e0f2fe", border: "none", borderRadius: "4px", padding: "4px 6px", cursor: "pointer", color: "#0369a1" }}
+                                >
+                                  <Edit3 size={13} />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Delete entry"
+                                  onClick={() => handleDeleteEntry(String(entryId))}
+                                  style={{ background: "#fee2e2", border: "none", borderRadius: "4px", padding: "4px 6px", cursor: "pointer", color: "#b91c1c" }}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

@@ -48,10 +48,22 @@ export function ReportsCenterPage() {
     return d.toISOString().split("T")[0];
   });
   const [endDate, setEndDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
+  const [selectedYear, setSelectedYear] = useState<string>("2026");
+  const [selectedClient, setSelectedClient] = useState<string>("");
+  const [clientsList, setClientsList] = useState<{ id: string; name: string }[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [report, setReport] = useState<ReportData | null>(null);
+
+  useEffect(() => {
+    api<any>("/clients/")
+      .then((res) => {
+        const raw = Array.isArray(res) ? res : res?.results || [];
+        setClientsList(raw.map((c: any) => ({ id: c._id || c.id, name: c.name || c.companyName || "Unnamed Client" })));
+      })
+      .catch(() => {});
+  }, []);
 
   // Available report types based on user role
   const availableTabs = [
@@ -77,6 +89,9 @@ export function ReportsCenterPage() {
         endDate,
       });
 
+      if (selectedYear) params.append("year", selectedYear);
+      if (selectedClient) params.append("clientId", selectedClient);
+
       const res = await api<ReportData>(`/reports/?${params.toString()}`);
       setReport(res);
     } catch (err: any) {
@@ -85,7 +100,7 @@ export function ReportsCenterPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeType, startDate, endDate]);
+  }, [activeType, startDate, endDate, selectedYear, selectedClient]);
 
   useEffect(() => {
     fetchReport();
@@ -252,7 +267,37 @@ export function ReportsCenterPage() {
       {/* Filter Toolbar */}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "12px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "12px", padding: "12px", marginBottom: "16px" }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px", width: "100%", maxWidth: "100%" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: "1 1 140px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Year:</span>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              style={{ padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--panel2)", color: "var(--text)", fontSize: "12px" }}
+            >
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+              <option value="">All Years</option>
+            </select>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Client:</span>
+            <select
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+              style={{ padding: "6px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--panel2)", color: "var(--text)", fontSize: "12px", maxWidth: "200px" }}
+            >
+              <option value="">All Clients</option>
+              {clientsList.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>From:</span>
             <input
               type="date"

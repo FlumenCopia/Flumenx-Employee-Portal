@@ -489,6 +489,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     for (const deliverable of deliverables) {
       const payload = {
         assignment: assignmentId,
+        assignment_id: assignmentId,
         client: Number(deliverable.client),
         title: deliverable.title.trim(),
         brief: deliverable.brief,
@@ -623,18 +624,11 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
         method: "PATCH",
         body: JSON.stringify(payload),
       });
-      const savedClient = String(saved.client);
-      const deliverablesToSync: DeliverableFormState[] = form.deliverables.length > 0
-        ? form.deliverables.map(deliverable => ({ ...deliverable, client: deliverable.client || savedClient }))
-        : [{
-            title: saved.title,
-            brief: saved.description,
-            work_type: form.work_type || "web_development",
-            due_date: saved.due_date,
-            status: saved.status === "Approved" || saved.status === "Completed" ? "Approved" : "Pending",
-            client: savedClient,
-          }];
-      await syncDeliverables(saved.id, deliverablesToSync);
+      if (isDeliverableWorkflow && form.deliverables.length > 0) {
+        const savedClient = String(saved.client);
+        const deliverablesToSync: DeliverableFormState[] = form.deliverables.map(deliverable => ({ ...deliverable, client: deliverable.client || savedClient }));
+        await syncDeliverables(saved.id, deliverablesToSync);
+      }
       setMessage("Saved work assignment successfully.");
       setModalOpen(false);
       setEditing(null);

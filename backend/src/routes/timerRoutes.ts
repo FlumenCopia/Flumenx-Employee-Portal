@@ -7,6 +7,7 @@ import {
   stopTimer,
   getTimeEntries,
   createManualTimeEntry,
+  updateTimeEntry,
   deleteTimeEntry,
 } from '../controllers/timerController.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -23,6 +24,8 @@ router.post('/stop/:id?/?', authenticateToken, stopTimer);
 // Time Entry History Routes
 router.get('/entries/?', authenticateToken, getTimeEntries);
 router.post('/entries/manual/?', authenticateToken, createManualTimeEntry);
+router.put('/entries/:id/?', authenticateToken, updateTimeEntry);
+router.patch('/entries/:id/?', authenticateToken, updateTimeEntry);
 router.delete('/entries/:id/?', authenticateToken, deleteTimeEntry);
 
 export default router;

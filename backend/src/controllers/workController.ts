@@ -832,14 +832,16 @@ export async function getWorkDeliverables(req: Request, res: Response): Promise<
 }
 
 export async function createWorkDeliverable(req: Request, res: Response): Promise<void> {
-  const { assignment_id, client_id, title, brief, work_type, due_date, status } = req.body;
+  const { assignment_id, assignment: rawAssignment, client_id, client: rawClient, title, brief, work_type, due_date, status } = req.body;
+  const targetId = assignment_id || rawAssignment;
+  const validId = targetId && typeof targetId === 'object' && '_id' in targetId ? targetId._id : targetId;
 
-  if (!assignment_id || !mongoose.Types.ObjectId.isValid(assignment_id)) {
+  if (!validId || !mongoose.Types.ObjectId.isValid(String(validId))) {
     res.status(404).json({ detail: 'Parent work assignment not found.' });
     return;
   }
 
-  const assignment = await WorkAssignment.findById(assignment_id);
+  const assignment = await WorkAssignment.findById(validId);
   if (!assignment) {
     res.status(404).json({ detail: 'Parent work assignment not found.' });
     return;

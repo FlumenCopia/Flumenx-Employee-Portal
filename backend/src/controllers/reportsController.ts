@@ -120,6 +120,13 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
       if (clientId) query.client = clientId;
       if (targetEmpFilter) query.employee = targetEmpFilter;
       if (department) query.departmentCategory = department;
+      if (year && !isNaN(parseInt(year, 10))) {
+        const y = parseInt(year, 10);
+        query.createdAt = {
+          $gte: new Date(`${y}-01-01T00:00:00.000+05:30`),
+          $lte: new Date(`${y}-12-31T23:59:59.999+05:30`),
+        };
+      }
 
       const assignments = await WorkAssignment.find(query)
         .populate('client', 'name companyName')
@@ -237,6 +244,12 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
 
       if (startD && endD) {
         query.startTime = { $gte: startD, $lte: endD };
+      } else if (year && !isNaN(parseInt(year, 10))) {
+        const y = parseInt(year, 10);
+        query.startTime = {
+          $gte: new Date(`${y}-01-01T00:00:00.000+05:30`),
+          $lte: new Date(`${y}-12-31T23:59:59.999+05:30`),
+        };
       }
 
       const entries = await TimeEntry.find(query)
