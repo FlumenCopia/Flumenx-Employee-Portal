@@ -21,12 +21,39 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
   const isAccountant = role === 'ACCOUNTANT';
   const isTeamLead = role === 'TEAM_LEAD';
 
-  if (!isSuperadmin && !isHR && !isAccountant && !isTeamLead) {
-    res.status(403).json({ detail: 'You do not have permission to access the Enterprise Reports Center.' });
-    return;
+  const ownEmployee = await Employee.findOne({ user: user._id });
+  let targetEmpFilter: any = null;
+
+  if (!isSuperadmin && !isHR && !isAccountant) {
+    if (isTeamLead && ownEmployee?.department) {
+      const deptRegex = new RegExp(`^${ownEmployee.department.trim()}$`, 'i');
+      const teamEmployees = await Employee.find({ department: deptRegex }).select('_id');
+      const teamEmpIds = teamEmployees.map((e) => e._id.toString());
+      if (req.query.employeeId && teamEmpIds.includes(req.query.employeeId as string)) {
+        targetEmpFilter = req.query.employeeId;
+      } else if (!req.query.employeeId) {
+        targetEmpFilter = { $in: teamEmpIds };
+      } else {
+        res.status(403).json({ detail: 'Permission denied. Team leads can only view reports for their department.' });
+        return;
+      }
+    } else if (ownEmployee) {
+      targetEmpFilter = ownEmployee._id;
+    } else {
+      res.status(403).json({ detail: 'No linked employee profile found.' });
+      return;
+    }
+  } else if (req.query.employeeId) {
+    targetEmpFilter = req.query.employeeId;
   }
 
-  const { type = 'attendance', startDate, endDate, month, year, department, employeeId, clientId, format } = req.query as Record<string, string>;
+  const { type = 'attendance', startDate, endDate, month, year, department, clientId, format } = req.query as Record<string, string>;
+
+  let startD: Date | null = startDate ? new Date(startDate) : null;
+  let endD: Date | null = endDate ? new Date(endDate) : null;
+  if (endD) {
+    endD.setHours(23, 59, 59, 999);
+  }
 
   try {
     let reportTitle = 'Enterprise Report';
@@ -40,11 +67,11 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
       headers = ['Employee Code', 'Employee Name', 'Department', 'Date', 'Check In', 'Check Out', 'Status', 'Late (Mins)', 'Working Hours'];
 
       const query: any = {};
-      if (startDate && endDate) {
-        query.attendanceDate = { $gte: new Date(startDate), $lte: new Date(endDate) };
+      if (startD && endD) {
+        query.attendanceDate = { $gte: startD, $lte: endD };
       }
-      if (employeeId) {
-        query.employee = employeeId;
+      if (targetEmpFilter) {
+        query.employee = targetEmpFilter;
       }
 
       const records = await AttendanceRecord.find(query)
@@ -91,7 +118,7 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
 
       const query: any = {};
       if (clientId) query.client = clientId;
-      if (employeeId) query.employee = employeeId;
+      if (targetEmpFilter) query.employee = targetEmpFilter;
       if (department) query.departmentCategory = department;
 
       const assignments = await WorkAssignment.find(query)
@@ -159,7 +186,9 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
       rows = await Promise.all(
         clients.map(async (c: any) => {
           const projectsCount = await Project.countDocuments({ client: c._id });
-          const tasks = await WorkAssignment.find({ client: c._id });
+          const taskQuery: any = { client: c._id };
+          if (targetEmpFilter) taskQuery.employee = targetEmpFilter;
+          const tasks = await WorkAssignment.find(taskQuery);
 
           const totalTasks = tasks.length;
           const completedTasks = tasks.filter((t) => ['Completed', 'Approved', 'Published'].includes(t.status)).length;
@@ -168,7 +197,9 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
           const actHours = tasks.reduce((sum, t) => sum + (t.actualHours || 0), 0);
           const overrunTasks = tasks.filter((t) => t.isOverrun).length;
 
-          const billableEntries = await TimeEntry.find({ client: c._id, isBillable: true, status: 'STOPPED' });
+          const teQuery: any = { client: c._id, isBillable: true, status: 'STOPPED' };
+          if (targetEmpFilter) teQuery.employee = targetEmpFilter;
+          const billableEntries = await TimeEntry.find(teQuery);
           const billableSeconds = billableEntries.reduce((sum, te) => sum + (te.durationSeconds || 0), 0);
           const billableHours = Number((billableSeconds / 3600).toFixed(2));
 
@@ -200,11 +231,12 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
       headers = ['Date', 'Employee', 'Client', 'Project', 'Task Title', 'Status', 'Duration (hrs)', 'Billable', 'Entry Type'];
 
       const { TimeEntry } = await import('../models/TimeEntry.js');
-      const query: any = { status: 'STOPPED' };
+      const query: any = {};
+      if (targetEmpFilter) query.employee = targetEmpFilter;
       if (clientId) query.client = clientId;
-      if (employeeId) query.employee = employeeId;
-      if (startDate && endDate) {
-        query.entryDate = { $gte: startDate, $lte: endDate };
+
+      if (startD && endD) {
+        query.startTime = { $gte: startD, $lte: endD };
       }
 
       const entries = await TimeEntry.find(query)
@@ -212,7 +244,7 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
         .populate('client', 'name')
         .populate('project', 'name')
         .populate('task', 'title')
-        .sort({ entryDate: -1, startTime: -1 })
+        .sort({ startTime: -1 })
         .limit(1000);
 
       let totalSeconds = 0;
@@ -223,22 +255,52 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
         const client = te.client || {};
         const proj = te.project || {};
         const task = te.task || {};
-        const hrs = Number(((te.durationSeconds || 0) / 3600).toFixed(2));
-        totalSeconds += te.durationSeconds || 0;
-        if (te.isBillable) billableSeconds += te.durationSeconds || 0;
+        const sec = te.durationSeconds || 0;
+        const hrs = Number((sec / 3600).toFixed(2));
+        totalSeconds += sec;
+        if (te.isBillable !== false) billableSeconds += sec;
 
         return {
-          date: te.entryDate || 'N/A',
+          date: te.entryDate || (te.startTime ? new Date(te.startTime).toISOString().split('T')[0] : 'N/A'),
           employee: emp.name || 'Unknown',
           client: client.name || 'General',
           project: proj.name || 'Direct Task',
           task_title: task.title || 'Untitled Task',
-          status: te.status,
+          status: te.status || 'STOPPED',
           duration_hours: hrs,
-          billable: te.isBillable ? 'YES' : 'NO',
+          billable: te.isBillable !== false ? 'YES' : 'NO',
           entry_type: te.isManualEntry ? 'MANUAL' : 'TIMER',
         };
       });
+
+      // Fallback: If no TimeEntry records were found, check WorkAssignment timeLogs
+      if (rows.length === 0) {
+        const workQuery: any = {};
+        if (targetEmpFilter) workQuery.employee = targetEmpFilter;
+        if (clientId) workQuery.client = clientId;
+        const tasks = await WorkAssignment.find(workQuery).populate('employee', 'name').populate('client', 'name');
+        for (const t of tasks) {
+          for (const tl of (t.timeLogs || [])) {
+            const logStart = tl.startTime ? new Date(tl.startTime) : null;
+            if (startD && endD && logStart && (logStart < startD || logStart > endD)) continue;
+            const sec = tl.durationSeconds || 0;
+            const hrs = Number((sec / 3600).toFixed(2));
+            totalSeconds += sec;
+            billableSeconds += sec;
+            rows.push({
+              date: logStart ? logStart.toISOString().split('T')[0] : 'N/A',
+              employee: (t.employee as any)?.name || 'Unknown',
+              client: (t.client as any)?.name || 'General',
+              project: 'Direct Task',
+              task_title: t.title || 'Untitled Task',
+              status: 'STOPPED',
+              duration_hours: hrs,
+              billable: 'YES',
+              entry_type: 'TIMER',
+            });
+          }
+        }
+      }
 
       summary = {
         totalEntries: rows.length,
@@ -255,7 +317,7 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
       const query: any = {};
       if (month) query.month = parseInt(month, 10);
       if (year) query.year = parseInt(year, 10);
-      if (employeeId) query.employee = employeeId;
+      if (targetEmpFilter) query.employee = targetEmpFilter;
 
       const evaluations = await EmployeeKPIRating.find(query)
         .populate('employee', 'name employeeCode department')
@@ -298,7 +360,7 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
       const query: any = {};
       if (month) query.month = parseInt(month, 10);
       if (year) query.year = parseInt(year, 10);
-      if (employeeId) query.employee = employeeId;
+      if (targetEmpFilter) query.employee = targetEmpFilter;
 
       const slips = await SalarySlip.find(query)
         .populate('employee', 'name employeeCode department')
@@ -336,10 +398,10 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
       headers = ['Employee Code', 'Employee Name', 'Department', 'Leave Type', 'Start Date', 'End Date', 'Days', 'Reason', 'Status'];
 
       const query: any = {};
-      if (startDate && endDate) {
-        query.startDate = { $gte: new Date(startDate) };
+      if (startD && endD) {
+        query.startDate = { $gte: startD, $lte: endD };
       }
-      if (employeeId) query.employee = employeeId;
+      if (targetEmpFilter) query.employee = targetEmpFilter;
 
       const leaves = await LeaveRequest.find(query)
         .populate('employee', 'name employeeCode department')
