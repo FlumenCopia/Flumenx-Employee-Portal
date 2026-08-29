@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Modal } from "@/features/common/Modal";
 import { api } from "@/lib/api";
+import { toast } from "@/components/ToastContext";
 import type { Employee, EmployeeDocumentItem } from "@/lib/types";
 
 const DOCUMENT_TYPES = [
@@ -172,9 +173,12 @@ export function EmployeeDocumentsModal({
       setTitle("");
       setSelectedFile(null);
       setFilePreview(null);
+      toast.success("Employee document uploaded successfully!");
       loadDocuments();
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Failed to upload document.");
+      const msg = err instanceof Error ? err.message : "Failed to upload document.";
+      setUploadError(msg);
+      toast.error(msg, "Upload Failed");
     } finally {
       setUploading(false);
     }
@@ -185,9 +189,11 @@ export function EmployeeDocumentsModal({
     setDeletingId(docId);
     try {
       await api(`/employees/${employee.id}/documents/${docId}/`, { method: "DELETE" });
+      toast.success("Document deleted successfully.");
       loadDocuments();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete document.");
+      const msg = err instanceof Error ? err.message : "Failed to delete document.";
+      toast.error(msg);
     } finally {
       setDeletingId(null);
     }

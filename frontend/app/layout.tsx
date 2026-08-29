@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { AppInitialLoader } from "@/components/AppInitialLoader";
+import { ToastProvider } from "@/components/ToastContext";
 import "./globals.css";
 
 const inter = Inter({
@@ -36,7 +37,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={`${inter.variable} ${plusJakarta.variable}`}>
       <body className={inter.className}>
-        <AppInitialLoader>{children}</AppInitialLoader>
+        <ToastProvider>
+          <AppInitialLoader>{children}</AppInitialLoader>
+        </ToastProvider>
       </body>
     </html>
   );

@@ -23,6 +23,7 @@ import { Shell } from "@/components/shell";
 import { PageHeader, PrimaryButton, StatCard, Badge } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
 import { api } from "@/lib/api";
+import { toast } from "@/components/ToastContext";
 import type { Client, WorkAssignment, ClientKPIHealth, WorkspaceRole } from "@/lib/types";
 import { ShareLinkModal } from "@/features/work/ShareLinkModal";
 
@@ -183,9 +184,11 @@ export function ClientMasterPage({ role = "admin" }: Props) {
 
       setMasterTaskTitle("");
       setAddTaskModalOpen(false);
+      toast.success("Master task created successfully!");
       fetchData();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not create master task.");
+      const msg = err instanceof Error ? err.message : "Could not create master task.";
+      toast.error(msg);
     } finally {
       setSubmittingMasterTask(false);
     }
@@ -198,9 +201,11 @@ export function ClientMasterPage({ role = "admin" }: Props) {
         method: "POST",
         body: JSON.stringify({ delta: nextDelivered > 0 ? 1 : -1 }),
       });
+      toast.success("Milestone item updated!");
       fetchData();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Could not update milestone item.");
+      const msg = err instanceof Error ? err.message : "Could not update milestone item.";
+      toast.error(msg);
     }
   };
 

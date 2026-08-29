@@ -20,6 +20,7 @@ import { Avatar } from "@/components/icons";
 import { EmptyState } from "@/components/ui";
 import { useShellUser } from "@/components/shell";
 import { api } from "@/lib/api";
+import { toast } from "@/components/ToastContext";
 import type { WorkAssignment, Paginated, KPIEmployeeData, Client } from "@/lib/types";
 import { EmployeeDocumentsModal } from "@/features/employees/EmployeeDocumentsModal";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
@@ -153,6 +154,11 @@ export function ProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selected file is not an image. Please select a valid JPEG, PNG, or WebP image.");
+      return;
+    }
+
     setUploadingAvatar(true);
     setAvatarSuccess("");
     try {
@@ -165,12 +171,13 @@ export function ProfilePage() {
       });
 
       setAvatarSuccess("Profile picture updated!");
+      toast.success("Profile picture updated successfully!");
       setTimeout(() => setAvatarSuccess(""), 4000);
       if (typeof window !== "undefined") {
         window.location.reload();
       }
     } catch (err: any) {
-      alert(err.message || "Failed to upload profile picture.");
+      toast.error(err.message || "Could not upload profile picture. Please check the image format and size.", "Upload Failed");
     } finally {
       setUploadingAvatar(false);
     }

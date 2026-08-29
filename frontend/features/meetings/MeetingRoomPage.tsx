@@ -41,6 +41,7 @@ interface PeerConnection {
   pc: RTCPeerConnection;
   stream?: MediaStream;
   name: string;
+  avatar?: string;
   role: string;
   isAudioMuted: boolean;
   isVideoOff: boolean;
@@ -94,10 +95,25 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
   // Local Media Stream State
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const isAudioMutedRef = useRef(isAudioMuted);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const isVideoOffRef = useRef(isVideoOff);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const screenStreamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    localStreamRef.current = localStream;
+  }, [localStream]);
+
+  useEffect(() => {
+    isAudioMutedRef.current = isAudioMuted;
+  }, [isAudioMuted]);
+
+  useEffect(() => {
+    isVideoOffRef.current = isVideoOff;
+  }, [isVideoOff]);
 
   // Quality & Connection Sync State
   const [videoQuality, setVideoQuality] = useState<VideoQualityPreset>("auto");
@@ -303,11 +319,125 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     return () => clearInterval(interval);
   }, [isInLobby, isMeetingEnded]);
 
+  const renegotiatePeer = useCallback(async (peer: PeerConnection) => {
+    try {
+      if (peer.pc.signalingState !== "stable") return;
+      const offer = await peer.pc.createOffer();
+      const optSdp = optimizeSdpOpusAudio(offer.sdp || "");
+      const newOffer = new RTCSessionDescription({ type: offer.type, sdp: optSdp });
+      await peer.pc.setLocalDescription(newOffer);
+      applyQualityToPeerSenders(peer.pc, videoQuality);
+      if (socketRef.current) {
+        socketRef.current.emit("signal-offer", {
+          to: peer.socketId,
+          offer: peer.pc.localDescription,
+        });
+      }
+    } catch (err) {
+      console.error("Error renegotiating peer connection:", err);
+    }
+  }, [applyQualityToPeerSenders, videoQuality]);
+
+  const createPeerConnection = useCallback(
+    (socketId: string, name: string, role: string, avatar: string, isInitiator: boolean) => {
+      if (peersRef.current.has(socketId)) {
+        return peersRef.current.get(socketId)!.pc;
+      }
+
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+
+      const activeStream = localStreamRef.current;
+      if (activeStream) {
+        activeStream.getTracks().forEach((track) => {
+          if (track.kind === "audio") track.enabled = !isAudioMutedRef.current;
+          if (track.kind === "video") track.enabled = !isVideoOffRef.current;
+          pc.addTrack(track, activeStream);
+        });
+      }
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate && socketRef.current) {
+          socketRef.current.emit("signal-ice-candidate", {
+            to: socketId,
+            candidate: event.candidate,
+          });
+        }
+      };
+
+      pc.onnegotiationneeded = async () => {
+        const p = peersRef.current.get(socketId);
+        if (p) {
+          await renegotiatePeer(p);
+        }
+      };
+
+      pc.ontrack = (event) => {
+        const peerObj = peersRef.current.get(socketId);
+        let remoteStream = peerObj?.stream;
+        if (!remoteStream) {
+          remoteStream = event.streams[0] || new MediaStream();
+        }
+        if (!remoteStream.getTracks().some((t) => t.id === event.track.id)) {
+          remoteStream.addTrack(event.track);
+        }
+        const freshStream = new MediaStream(remoteStream.getTracks());
+        setPeers((prev) => {
+          const next = new Map(prev);
+          const p = next.get(socketId);
+          if (p) {
+            p.stream = freshStream;
+            next.set(socketId, { ...p, stream: freshStream });
+          }
+          return next;
+        });
+        if (peerObj) {
+          peerObj.stream = freshStream;
+        }
+      };
+
+      const peerObj: PeerConnection = {
+        socketId,
+        pc,
+        name,
+        avatar,
+        role,
+        isAudioMuted: false,
+        isVideoOff: false,
+        isScreenSharing: false,
+      };
+
+      peersRef.current.set(socketId, peerObj);
+      setPeers(new Map(peersRef.current));
+
+      if (isInitiator) {
+        pc.createOffer()
+          .then((offer) => {
+            const optSdp = optimizeSdpOpusAudio(offer.sdp || "");
+            const newOffer = new RTCSessionDescription({ type: offer.type, sdp: optSdp });
+            return pc.setLocalDescription(newOffer);
+          })
+          .then(() => {
+            applyQualityToPeerSenders(pc, videoQuality);
+            if (socketRef.current) {
+              socketRef.current.emit("signal-offer", {
+                to: socketId,
+                offer: pc.localDescription,
+              });
+            }
+          })
+          .catch((err) => console.error("Error creating WebRTC offer:", err));
+      }
+
+      return pc;
+    },
+    [applyQualityToPeerSenders, videoQuality, renegotiatePeer]
+  );
+
   // 3. Connect to WebRTC Socket.io Room upon clicking "Join"
   const handleJoinMeeting = useCallback(async () => {
     setIsInLobby(false);
 
-    let activeStream = localStream;
+    let activeStream = localStreamRef.current;
     if (!activeStream) {
       try {
         activeStream = await navigator.mediaDevices.getUserMedia({
@@ -356,21 +486,21 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     socket.on("joined-successfully", async (data: { meeting: any; self: any; peers: any[] }) => {
       for (const peer of data.peers) {
         if (peer.socketId !== socket.id) {
-          createPeerConnection(peer.socketId, peer.name, peer.role, true, activeStream);
+          createPeerConnection(peer.socketId, peer.name, peer.role, peer.avatar || "", true);
         }
       }
     });
 
-    socket.on("peer-joined", (peer: { socketId: string; name: string; role: string }) => {
+    socket.on("peer-joined", (peer: { socketId: string; name: string; role: string; avatar?: string }) => {
       if (peer.socketId !== socket.id) {
-        createPeerConnection(peer.socketId, peer.name, peer.role, false, activeStream);
+        createPeerConnection(peer.socketId, peer.name, peer.role, peer.avatar || "", false);
       }
     });
 
     socket.on("signal-offer", async (data: { from: string; offer: RTCSessionDescriptionInit }) => {
       let peer = peersRef.current.get(data.from);
       if (!peer) {
-        createPeerConnection(data.from, "Participant", "PARTICIPANT", false, activeStream);
+        createPeerConnection(data.from, "Participant", "PARTICIPANT", "", false);
         peer = peersRef.current.get(data.from);
       }
       if (peer) {
@@ -519,87 +649,13 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       .catch(() => {});
   }, [localStream, isAudioMuted, isVideoOff, meetingCode, user, activeDrawer, pinnedSocketId, videoQuality, applyQualityToPeerSenders]);
 
-  function createPeerConnection(
-    socketId: string,
-    name: string,
-    role: string,
-    isInitiator: boolean,
-    stream: MediaStream | null
-  ) {
-    if (peersRef.current.has(socketId)) {
-      return peersRef.current.get(socketId)!.pc;
-    }
 
-    const pc = new RTCPeerConnection(ICE_SERVERS);
-
-    if (stream) {
-      stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream);
-      });
-    }
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate && socketRef.current) {
-        socketRef.current.emit("signal-ice-candidate", {
-          to: socketId,
-          candidate: event.candidate,
-        });
-      }
-    };
-
-    pc.ontrack = (event) => {
-      const remoteStream = event.streams[0] || new MediaStream([event.track]);
-      setPeers((prev) => {
-        const next = new Map(prev);
-        const p = next.get(socketId);
-        if (p) {
-          p.stream = remoteStream;
-          next.set(socketId, { ...p });
-        }
-        return next;
-      });
-    };
-
-    const peerObj: PeerConnection = {
-      socketId,
-      pc,
-      name,
-      role,
-      isAudioMuted: false,
-      isVideoOff: false,
-      isScreenSharing: false,
-    };
-
-    peersRef.current.set(socketId, peerObj);
-    setPeers(new Map(peersRef.current));
-
-    if (isInitiator) {
-      pc.createOffer()
-        .then((offer) => {
-          const optSdp = optimizeSdpOpusAudio(offer.sdp || "");
-          const newOffer = new RTCSessionDescription({ type: offer.type, sdp: optSdp });
-          return pc.setLocalDescription(newOffer);
-        })
-        .then(() => {
-          applyQualityToPeerSenders(pc, videoQuality);
-          if (socketRef.current) {
-            socketRef.current.emit("signal-offer", {
-              to: socketId,
-              offer: pc.localDescription,
-            });
-          }
-        })
-        .catch((err) => console.error("Error creating WebRTC offer:", err));
-    }
-
-    return pc;
-  }
 
   // Media Controls
   const toggleAudio = async (forceMute?: boolean) => {
     const nextState = forceMute !== undefined ? forceMute : !isAudioMuted;
 
-    let targetStream = localStream;
+    let targetStream = localStreamRef.current;
     if (!targetStream) {
       targetStream = new MediaStream();
       setLocalStream(targetStream);
@@ -618,6 +674,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           audioTrack = newTrack;
           peersRef.current.forEach((peer) => {
             peer.pc.addTrack(newTrack, targetStream!);
+            renegotiatePeer(peer);
           });
         }
       } catch (err) {
@@ -644,7 +701,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
   const toggleVideo = async (forceOff?: boolean) => {
     const nextState = forceOff !== undefined ? forceOff : !isVideoOff;
 
-    let targetStream = localStream;
+    let targetStream = localStreamRef.current;
     if (!targetStream) {
       targetStream = new MediaStream();
       setLocalStream(targetStream);
@@ -672,6 +729,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           }
           peersRef.current.forEach((peer) => {
             peer.pc.addTrack(newTrack, targetStream!);
+            renegotiatePeer(peer);
           });
         }
       } catch (err) {
@@ -1028,7 +1086,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
               {isVideoOff && (
                 <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#15201D" }}>
-                  <Avatar name={user?.employee?.name || user?.first_name || "User"} size={64} />
+                  <Avatar name={user?.employee?.name || user?.first_name || "User"} avatar={user?.avatar || user?.employee?.avatar} size={64} />
                   <span style={{ marginTop: "12px", fontSize: "13px", color: "#94A3B8" }}>Camera is off</span>
                 </div>
               )}
@@ -1238,7 +1296,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
                     style={{ width: "130px", height: "100%", flexShrink: 0, background: "#13231F", borderRadius: "12px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.15)", position: "relative", cursor: "pointer" }}
                   >
                     <video ref={localVideoRef} autoPlay playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)", display: isVideoOff ? "none" : "block" }} />
-                    {isVideoOff && <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center" }}><Avatar name="Me" size={32} /></div>}
+                    {isVideoOff && <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center" }}><Avatar name="Me" avatar={user?.avatar || user?.employee?.avatar} size={32} /></div>}
                     <span style={{ position: "absolute", bottom: "4px", left: "6px", fontSize: "10px", background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: "4px" }}>You</span>
                   </div>
                 )}
@@ -1306,7 +1364,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
                 {isVideoOff && !isScreenSharing && (
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                    <Avatar name={user?.employee?.name || user?.first_name || "You"} size={56} />
+                    <Avatar name={user?.employee?.name || user?.first_name || "You"} avatar={user?.avatar || user?.employee?.avatar} size={56} />
                   </div>
                 )}
 
@@ -1405,7 +1463,9 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
             <div style={{ flex: 1, padding: "12px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: "8px", background: "rgba(255,255,255,0.04)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Avatar name={user?.employee?.name || user?.first_name || "You"} size={32} />
+                  <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#087A5B", display: "grid", placeItems: "center", fontWeight: 700, fontSize: "12px" }}>
+                    <Avatar name={user?.employee?.name || user?.first_name || "You"} avatar={user?.avatar || user?.employee?.avatar} size={32} />
+                  </div>
                   <div>
                     <div style={{ fontSize: "12px", fontWeight: 700 }}>{user?.employee?.name || user?.first_name || "You"} (Me)</div>
                     <span style={{ fontSize: "10px", color: "#34D399" }}>{isHostUser ? "Host / Organizer" : "Participant"}</span>
@@ -1418,7 +1478,9 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
                 <div key={p.socketId} style={{ display: "flex", flexDirection: "column", gap: "6px", padding: "8px 10px", borderRadius: "8px", background: "rgba(255,255,255,0.04)" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <Avatar name={p.name} size={32} />
+                      <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#1E293B", display: "grid", placeItems: "center", fontWeight: 700, fontSize: "12px" }}>
+                        <Avatar name={p.name} avatar={p.avatar} size={32} />
+                      </div>
                       <div>
                         <div style={{ fontSize: "12px", fontWeight: 700 }}>{p.name}</div>
                         <span style={{ fontSize: "10px", color: "#94A3B8" }}>{p.role}</span>
@@ -1760,10 +1822,28 @@ function RemotePeerTile({
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
-    if (videoRef.current && peer.stream) {
-      videoRef.current.srcObject = peer.stream;
-      videoRef.current.play().catch(() => {});
-    }
+    const videoEl = videoRef.current;
+    if (!videoEl || !peer.stream) return;
+
+    videoEl.srcObject = peer.stream;
+    videoEl.play().catch((err) => console.warn("Remote peer video playback catch:", err));
+
+    const handleStreamTrackEvent = () => {
+      if (videoEl && peer.stream) {
+        videoEl.srcObject = peer.stream;
+        videoEl.play().catch(() => {});
+      }
+    };
+
+    peer.stream.addEventListener("addtrack", handleStreamTrackEvent);
+    peer.stream.addEventListener("removetrack", handleStreamTrackEvent);
+
+    return () => {
+      if (peer.stream) {
+        peer.stream.removeEventListener("addtrack", handleStreamTrackEvent);
+        peer.stream.removeEventListener("removetrack", handleStreamTrackEvent);
+      }
+    };
   }, [peer.stream]);
 
   return (
@@ -1797,7 +1877,7 @@ function RemotePeerTile({
 
       {peer.isVideoOff && !peer.isScreenSharing && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-          <Avatar name={peer.name} size={compact ? 36 : 56} />
+          <Avatar name={peer.name} avatar={peer.avatar} size={compact ? 36 : 56} />
         </div>
       )}
 
@@ -1837,10 +1917,28 @@ function RemotePinnedVideo({ peer }: { peer?: PeerConnection | null }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
-    if (videoRef.current && peer?.stream) {
-      videoRef.current.srcObject = peer.stream;
-      videoRef.current.play().catch(() => {});
-    }
+    const videoEl = videoRef.current;
+    if (!videoEl || !peer?.stream) return;
+
+    videoEl.srcObject = peer.stream;
+    videoEl.play().catch((err) => console.warn("Remote pinned video playback catch:", err));
+
+    const handleStreamTrackEvent = () => {
+      if (videoEl && peer?.stream) {
+        videoEl.srcObject = peer.stream;
+        videoEl.play().catch(() => {});
+      }
+    };
+
+    peer.stream.addEventListener("addtrack", handleStreamTrackEvent);
+    peer.stream.addEventListener("removetrack", handleStreamTrackEvent);
+
+    return () => {
+      if (peer?.stream) {
+        peer.stream.removeEventListener("addtrack", handleStreamTrackEvent);
+        peer.stream.removeEventListener("removetrack", handleStreamTrackEvent);
+      }
+    };
   }, [peer?.stream]);
 
   if (!peer) {
@@ -1848,15 +1946,23 @@ function RemotePinnedVideo({ peer }: { peer?: PeerConnection | null }) {
   }
 
   return (
-    <video
-      ref={videoRef}
-      autoPlay
-      playsInline
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: peer.isScreenSharing ? "contain" : "cover",
-      }}
-    />
+    <div style={{ width: "100%", height: "100%", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: peer.isScreenSharing ? "contain" : "cover",
+          display: peer.isVideoOff && !peer.isScreenSharing ? "none" : "block",
+        }}
+      />
+      {peer.isVideoOff && !peer.isScreenSharing && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <Avatar name={peer.name} avatar={peer.avatar} size={64} />
+        </div>
+      )}
+    </div>
   );
 }

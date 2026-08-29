@@ -129,6 +129,7 @@ export function setupMeetingSockets(io: SocketIOServer) {
           userId: socket.user?._id?.toString(),
           name: participantName,
           role: participantRole,
+          avatar: socket.user?.avatar || socket.user?.employee?.avatar || '',
           isAudioMuted: false,
           isVideoOff: false,
           isScreenSharing: false,
