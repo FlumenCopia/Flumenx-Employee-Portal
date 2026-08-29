@@ -5,11 +5,11 @@ import { CalendarCheck, Clock3, ShieldCheck, TimerOff } from "lucide-react";
 import { api, apiBlob } from "@/lib/api";
 import { PageHeader, PrimaryButton, Section, StatCard } from "@/components/ui";
 import { AttendanceChart } from "./AttendanceChart";
-import { defaultSummary } from "./helpers";
+import { defaultSummary, getCurrentISTMonthString } from "./helpers";
 import { MonthlyStatistics } from "./types";
 
 export function AttendanceReportsPage(){
-  const [report,setReport]=useState("Monthly Attendance"); const [month,setMonth]=useState(new Date().toISOString().slice(0,7));
+  const [report,setReport]=useState("Monthly Attendance"); const [month,setMonth]=useState(() => getCurrentISTMonthString());
   const [monthly, setMonthly] = useState<MonthlyStatistics | null>(null);
   useEffect(()=>{
     const controller = new AbortController();

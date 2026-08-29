@@ -8,7 +8,7 @@ import { toast } from "@/components/ToastContext";
 import { AttendanceRecord, Paginated } from "@/lib/types";
 import { Avatar } from "@/components/icons";
 import { Badge, EmptyState, PageHeader, Section, StatCard } from "@/components/ui";
-import { defaultSummary, displayTime, statusTone } from "./helpers";
+import { defaultSummary, displayTime, statusTone, getTodayISTDateString } from "./helpers";
 import { AttendanceSummary } from "./types";
 import { AttendanceDetailModal } from "./AttendanceDetailModal";
 
@@ -48,7 +48,7 @@ export interface AttendanceCorrectionItem {
 
 export function AdminAttendancePage() {
   const [filter, setFilter] = useState("All");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => getTodayISTDateString());
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [summary, setSummary] = useState<AttendanceSummary>(defaultSummary);
   const [recordsLoading, setRecordsLoading] = useState(true);

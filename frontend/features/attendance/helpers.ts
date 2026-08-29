@@ -37,3 +37,16 @@ export const formatMinutesDuration = (mins: number): string => {
   }
   return `${hours}h ${remainingMins}m`;
 };
+
+export const getTodayISTDateString = (date: Date = new Date()): string => {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+};
+
+export const getCurrentISTMonthString = (date: Date = new Date()): string => {
+  return getTodayISTDateString(date).slice(0, 7);
+};

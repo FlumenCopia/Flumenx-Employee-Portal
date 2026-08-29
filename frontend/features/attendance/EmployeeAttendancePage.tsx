@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { AttendanceRecord, Paginated } from "@/lib/types";
 import { Badge, EmptyState, PageHeader, PrimaryButton, Section, StatCard } from "@/components/ui";
 import { AttendanceChart } from "./AttendanceChart";
-import { defaultSummary, displayTime, formatMinutesDuration, statusTone } from "./helpers";
+import { defaultSummary, displayTime, formatMinutesDuration, statusTone, getTodayISTDateString, getCurrentISTMonthString } from "./helpers";
 import { AttendanceSummary, MonthlyStatistics } from "./types";
 import { AttendanceCameraModal } from "./AttendanceCameraModal";
 
@@ -23,8 +23,8 @@ function calculateHaversine(lat1: number, lon1: number, lat2: number, lon2: numb
 }
 
 export function EmployeeAttendancePage() {
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const today = new Date().toISOString().slice(0, 10);
+  const currentMonth = getCurrentISTMonthString();
+  const today = getTodayISTDateString();
   const [record, setRecord] = useState<AttendanceRecord | null>(null);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
