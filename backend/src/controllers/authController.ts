@@ -224,6 +224,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
   }
 
   const employee = await Employee.findOne({ user: req.user._id });
+  const avatarUrl = req.user.avatar || (employee ? employee.avatar : null) || '';
 
   res.json({
     id: req.user._id,
@@ -239,7 +240,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
     employee_code: employee ? employee.employeeCode : null,
     department: employee ? employee.department : null,
     designation: employee ? employee.designation : null,
-    avatar: employee ? employee.avatar : null,
+    avatar: avatarUrl,
     employee: employee
       ? {
           id: employee._id,
@@ -252,9 +253,41 @@ export async function getMe(req: Request, res: Response): Promise<void> {
           joining_date: employee.joiningDate,
           status: employee.status,
           location: employee.location,
+          avatar: avatarUrl,
         }
       : null,
   });
+}
+
+export async function uploadAvatar(req: Request, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ detail: 'Authentication credentials were not provided.' });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ detail: 'No image file uploaded.' });
+      return;
+    }
+
+    const avatarUrl = `/media/avatars/${req.file.filename}`;
+
+    await User.findByIdAndUpdate(req.user._id, { avatar: avatarUrl });
+    const employee = await Employee.findOneAndUpdate(
+      { user: req.user._id },
+      { avatar: avatarUrl },
+      { new: true }
+    );
+
+    res.json({
+      detail: 'Profile picture updated successfully.',
+      avatar: avatarUrl,
+      employee,
+    });
+  } catch (error: any) {
+    res.status(500).json({ detail: error.message || 'Failed to upload profile picture.' });
+  }
 }
 
 import { sendPasswordResetEmail } from '../utils/mailer.js';

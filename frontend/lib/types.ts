@@ -140,10 +140,12 @@ export type EmployeeProfile = {
   probation_end_date?: string | null;
   confirmation_date?: string | null;
   location?: string;
+  avatar?: string;
 };
 export type AuthUser = {
   id: number; username: string; email: string; first_name?: string;
   role: string; portal_role: PortalRole; employee?: EmployeeProfile | null;
+  avatar?: string;
 };
 export type Paginated<T> = {
   count: number; next: string | null; previous: string | null; results: T[];
@@ -161,6 +163,7 @@ export type Employee = {
   confirmation_date?: string | null;
   exit_date?: string | null;
   location?: string; portal_role?: PortalRole;
+  avatar?: string;
 };
 export type EmployeeDocumentItem = {
   id: string | number;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
   Briefcase,
   Building2,
@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   FileText,
   KeyRound,
+  Camera,
 } from "lucide-react";
 import { Avatar } from "@/components/icons";
 import { EmptyState } from "@/components/ui";
@@ -143,6 +144,37 @@ export function ProfilePage() {
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"pending" | "current" | "corrections" | "completed" | "all">("pending");
+
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarSuccess, setAvatarSuccess] = useState("");
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    setAvatarSuccess("");
+    try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      await api<{ detail: string; avatar: string }>("/auth/upload-avatar/", {
+        method: "POST",
+        body: formData,
+      });
+
+      setAvatarSuccess("Profile picture updated!");
+      setTimeout(() => setAvatarSuccess(""), 4000);
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to upload profile picture.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
 
   const employeeId = user?.employee?.id;
@@ -423,7 +455,40 @@ export function ProfilePage() {
           </button>
 
           <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--r)", padding: "8px 12px" }}>
-            <Avatar name={name} size={36} />
+            <input
+              type="file"
+              ref={avatarInputRef}
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              style={{ display: "none" }}
+            />
+
+            <div
+              onClick={() => avatarInputRef.current?.click()}
+              style={{ position: "relative", cursor: "pointer" }}
+              title="Click to Upload or Change Profile Photo"
+            >
+              <Avatar name={name} avatar={user.avatar || user.employee?.avatar} size={40} />
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "-2px",
+                  right: "-2px",
+                  background: "#087A5B",
+                  borderRadius: "50%",
+                  width: "18px",
+                  height: "18px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: "1.5px solid #FFFFFF",
+                  boxShadow: "0 2px 5px rgba(0,0,0,0.4)",
+                }}
+              >
+                <Camera size={11} color="#FFFFFF" />
+              </div>
+            </div>
+
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                 <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)" }}>{name}</span>
@@ -431,7 +496,27 @@ export function ProfilePage() {
                   {code}
                 </span>
               </div>
-              <p style={{ fontSize: "11px", color: "var(--muted)", margin: "2px 0 0" }}>{designation} &bull; {department}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+                <span style={{ fontSize: "11px", color: "var(--muted)" }}>{designation} &bull; {department}</span>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#34D399",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    padding: 0,
+                    textDecoration: "underline",
+                  }}
+                >
+                  {uploadingAvatar ? "Uploading..." : "Photo"}
+                </button>
+              </div>
+              {avatarSuccess && <span style={{ fontSize: "10px", color: "#34D399", fontWeight: 700, display: "block", marginTop: "2px" }}>{avatarSuccess}</span>}
             </div>
           </div>
         </div>

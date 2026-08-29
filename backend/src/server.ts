@@ -63,9 +63,9 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve media files statically (Protected by Authentication)
+// Serve media files statically (Avatars, documents, photos)
 const mediaPath = path.join(process.cwd(), 'media');
-app.use('/media', authenticateToken, express.static(mediaPath));
+app.use('/media', express.static(mediaPath));
 
 // CSRF Verification for state-changing requests
 app.use(verifyCsrf);

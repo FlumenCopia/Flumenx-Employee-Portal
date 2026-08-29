@@ -25,6 +25,7 @@ export interface IUser extends Document {
   isSuperuser: boolean;
   role: UserRoleType;
   dynamicRole?: mongoose.Types.ObjectId | null;
+  avatar?: string;
   dateJoined: Date;
   resetPasswordTokenHash?: string;
   resetPasswordExpires?: Date;
@@ -40,6 +41,7 @@ const userSchema = new Schema<IUser>(
     password: { type: String, required: true },
     firstName: { type: String, default: '' },
     lastName: { type: String, default: '' },
+    avatar: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
     isStaff: { type: Boolean, default: false },
     isSuperuser: { type: Boolean, default: false },

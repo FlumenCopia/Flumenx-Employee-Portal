@@ -597,7 +597,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
             }}
             title="View Profile & Settings"
           >
-            <Avatar name={name} />
+            <Avatar name={name} avatar={user?.avatar || (user as any)?.employee?.avatar} />
             <div>
               <b>{name}</b>
               <span>{roleLabel}</span>
@@ -618,7 +618,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
               className="topbar-user-pill"
               title="View Profile & Settings"
             >
-              <Avatar name={user?.employee?.name || user?.first_name || user?.username || name} size={20} />
+              <Avatar name={user?.employee?.name || user?.first_name || user?.username || name} avatar={user?.avatar || (user as any)?.employee?.avatar} size={20} />
               <span className="topbar-user-name">{user?.employee?.name || user?.first_name || user?.username || name}</span>
             </Link>
             <button
