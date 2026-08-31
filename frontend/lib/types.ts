@@ -635,3 +635,126 @@ export type MeetingChatMessage = {
   is_self?: boolean;
 };
 
+export type ChatConversationType = "DIRECT" | "GROUP" | "DEPARTMENT" | "CLIENT";
+
+export type ChatParticipant = {
+  user_id: string | number;
+  name: string;
+  avatar?: string;
+  role: "ADMIN" | "MEMBER";
+  portal_role?: string;
+  department?: string;
+};
+
+export type ChatConversationItem = {
+  id: string;
+  type: ChatConversationType;
+  name: string;
+  description?: string;
+  avatar?: string;
+  department?: string;
+  client_id?: string | number | null;
+  client_name?: string;
+  created_by?: string | number;
+  participants: ChatParticipant[];
+  pinned_messages?: string[];
+  last_message_text?: string;
+  last_message_at?: string;
+  last_message_sender_name?: string;
+  has_unread?: boolean;
+  is_admin?: boolean;
+  other_participant?: {
+    id: string | number;
+    name: string;
+    avatar?: string;
+    role?: string;
+    department?: string;
+  } | null;
+};
+
+export type ChatMessageAttachment = {
+  name: string;
+  url: string;
+  file_type: string;
+  file_size?: number;
+};
+
+export type ChatMessageTaskEmbed = {
+  id: string | number;
+  title: string;
+  status: string;
+  priority: string;
+  completedQuantity?: number;
+  assignedQuantity?: number;
+  unit?: string;
+  employeeName?: string;
+  clientName?: string;
+};
+
+export type ChatMessageClientEmbed = {
+  id: string | number;
+  name: string;
+  industry?: string;
+  contactPerson?: string;
+};
+
+export type ChatMessageStandupData = {
+  date: string;
+  completedTasks: string[];
+  inProgressTasks: string[];
+  blockers: string[];
+  note?: string;
+};
+
+export type ChatMessageItem = {
+  id: string;
+  conversation_id: string;
+  sender_id: string | number | null;
+  sender_name: string;
+  sender_role?: string;
+  sender_avatar?: string;
+  message_type:
+    | "TEXT"
+    | "IMAGE"
+    | "VIDEO"
+    | "FILE"
+    | "TASK_EMBED"
+    | "CLIENT_EMBED"
+    | "STANDUP_UPDATE"
+    | "MEETING_LINK"
+    | "CALL_LOG"
+    | "SYSTEM";
+  text: string;
+  attachments?: ChatMessageAttachment[];
+  task_embed?: ChatMessageTaskEmbed;
+  client_embed?: ChatMessageClientEmbed;
+  standup_data?: ChatMessageStandupData;
+  meeting_code?: string;
+  is_pinned?: boolean;
+  pinned_at?: string | null;
+  reactions?: { emoji: string; user: string | number; userName?: string }[];
+  reply_to?: string | null;
+  reply_to_snapshot?: { id: string; senderName: string; text: string };
+  created_at: string;
+  is_self?: boolean;
+};
+
+export type ChatUserOption = {
+  id: string | number;
+  name: string;
+  username: string;
+  email: string;
+  portal_role: string;
+  department: string;
+  designation: string;
+  avatar?: string;
+};
+
+export type StandupWorkSummary = {
+  date: string;
+  employee_name: string;
+  completed_tasks: string[];
+  in_progress_tasks: string[];
+  blockers: string[];
+};
+

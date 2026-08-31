@@ -339,5 +339,98 @@ export function setupMeetingSockets(io: SocketIOServer) {
 
     socket.on('leave-meeting', handleLeave);
     socket.on('disconnect', handleLeave);
+
+    // ==========================================
+    // 💬 TEAM CHAT & DIRECT CALLING REALTIME EVENTS
+    // ==========================================
+
+    // Auto-join personal user room for direct calls & inbox notifications
+    if (socket.user?._id) {
+      socket.join(`user:${socket.user._id}`);
+    }
+
+    // Join Conversation Room
+    socket.on('join-chat-conversation', (data: { conversationId: string }) => {
+      if (data?.conversationId) {
+        socket.join(`chat:${data.conversationId}`);
+      }
+    });
+
+    // Leave Conversation Room
+    socket.on('leave-chat-conversation', (data: { conversationId: string }) => {
+      if (data?.conversationId) {
+        socket.leave(`chat:${data.conversationId}`);
+      }
+    });
+
+    // Broadcast Chat Message
+    socket.on('send-chat-msg', (data: { conversationId: string; message: any }) => {
+      if (data?.conversationId && data?.message) {
+        io.to(`chat:${data.conversationId}`).emit('new-chat-msg', data.message);
+        // Also notify user inbox channels
+        socket.broadcast.emit('inbox-updated', { conversationId: data.conversationId, lastMessage: data.message });
+      }
+    });
+
+    // Typing Indicators
+    socket.on('chat-typing', (data: { conversationId: string; userName: string; isTyping: boolean }) => {
+      if (data?.conversationId) {
+        socket.to(`chat:${data.conversationId}`).emit('user-chat-typing', {
+          conversationId: data.conversationId,
+          userName: data.userName || socket.user?.name || 'Someone',
+          isTyping: data.isTyping,
+        });
+      }
+    });
+
+    // 1-to-1 Direct Calling Signaling
+    socket.on('initiate-direct-call', (data: {
+      targetUserId: string;
+      callType: 'audio' | 'video';
+      conversationId?: string;
+    }) => {
+      const callerName = socket.user?.name || socket.user?.first_name || socket.user?.username || 'Colleague';
+      const callerAvatar = socket.user?.avatar || '';
+      const callerId = socket.user?._id?.toString() || '';
+
+      io.to(`user:${data.targetUserId}`).emit('incoming-direct-call', {
+        callerId,
+        callerName,
+        callerAvatar,
+        callType: data.callType || 'video',
+        conversationId: data.conversationId,
+        callerSocketId: socket.id,
+      });
+    });
+
+    socket.on('accept-direct-call', (data: { callerId: string; callerSocketId: string; conversationId?: string }) => {
+      io.to(`user:${data.callerId}`).emit('direct-call-accepted', {
+        receiverId: socket.user?._id?.toString(),
+        receiverName: socket.user?.name || socket.user?.username,
+        receiverSocketId: socket.id,
+        conversationId: data.conversationId,
+      });
+    });
+
+    socket.on('decline-direct-call', (data: { callerId: string; reason?: string }) => {
+      io.to(`user:${data.callerId}`).emit('direct-call-declined', {
+        receiverId: socket.user?._id?.toString(),
+        reason: data.reason || 'Call declined',
+      });
+    });
+
+    socket.on('end-direct-call', (data: { targetUserId: string }) => {
+      io.to(`user:${data.targetUserId}`).emit('direct-call-ended');
+    });
+
+    // WebRTC Direct Peer P2P Signaling for 1-to-1 Call
+    socket.on('direct-call-signal', (data: { targetSocketId: string; signal: any }) => {
+      if (data.targetSocketId) {
+        io.to(data.targetSocketId).emit('direct-call-signal', {
+          senderSocketId: socket.id,
+          signal: data.signal,
+        });
+      }
+    });
   });
 }

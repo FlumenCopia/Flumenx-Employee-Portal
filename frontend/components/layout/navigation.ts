@@ -16,6 +16,7 @@ import {
   Layers,
   LayoutDashboard,
   Megaphone,
+  MessageSquare,
   Pencil,
   Settings,
   Shield,
@@ -45,6 +46,7 @@ export const iconMap: Record<string, LucideIcon> = {
   Clock3,
   BriefcaseBusiness,
   Megaphone,
+  MessageSquare,
   BarChart3,
   FileSpreadsheet,
   CheckSquare,
@@ -76,6 +78,7 @@ export type DynamicApiNavItem = {
 
 const adminNav = [
   ["Command Center", "/admin/work?view=command-center", Sparkles],
+  ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/admin/work?view=kanban", Kanban],
   ["Approvals Queue", "/admin/work?view=approvals", CheckSquare],
   ["Client Tasks & Calendar", "/clients/tasks", Calendar],
@@ -99,6 +102,7 @@ const adminNav = [
 ] as const satisfies readonly NavigationItem[];
 
 const employeeNav = [
+  ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/employee/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
   ["Timeline", "/employee/work?view=timeline", Layers],
@@ -112,6 +116,7 @@ const employeeNav = [
 ] as const satisfies readonly NavigationItem[];
 
 const hrNav = [
+  ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/hr/work?view=kanban", Kanban],
   ["Client Tasks & Calendar", "/clients/tasks", Calendar],
   ["Time Tracker", "/timer", Clock3],
@@ -127,6 +132,7 @@ const hrNav = [
 ] as const satisfies readonly NavigationItem[];
 
 const accountantNav = [
+  ["Team Chat Hub", "/chat", MessageSquare],
   ["Salary Slips Hub", "/accountant/salary-slips", FileSpreadsheet],
   ["Employees Directory", "/employees", Users],
   ["Attendance", "/accountant/attendance", CalendarCheck],
@@ -137,6 +143,7 @@ const accountantNav = [
 ] as const satisfies readonly NavigationItem[];
 
 const bdoNav = [
+  ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/bdo/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
   ["Clients Master", "/clients", BriefcaseBusiness],
@@ -148,6 +155,7 @@ const bdoNav = [
 ] as const satisfies readonly NavigationItem[];
 
 const teamLeadNav = [
+  ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/team-lead/work?view=kanban", Kanban],
   ["Approvals Queue", "/team-lead/work?view=approvals", CheckSquare],
   ["Time Tracker", "/timer", Clock3],
