@@ -145,6 +145,7 @@ const accountantNav = [
 const bdoNav = [
   ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/bdo/work?view=kanban", Kanban],
+  ["Client Tasks & Calendar", "/clients/tasks", Calendar],
   ["Time Tracker", "/timer", Clock3],
   ["Clients Master", "/clients", BriefcaseBusiness],
   ["My Attendance", "/bdo/attendance", CalendarCheck],
@@ -158,6 +159,7 @@ const teamLeadNav = [
   ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/team-lead/work?view=kanban", Kanban],
   ["Approvals Queue", "/team-lead/work?view=approvals", CheckSquare],
+  ["Client Tasks & Calendar", "/clients/tasks", Calendar],
   ["Time Tracker", "/timer", Clock3],
   ["Team Work", "/team-lead/team-work", Users],
   ["Attendance", "/team-lead/attendance", CalendarCheck],
@@ -261,6 +263,12 @@ export function normalizeWorkspaceRoute(routePath: string, workspaceRole: Worksp
   }
   if (pathname === "/timer" || pathname === "/work/timer" || pathname === "/admin/timer") {
     return "/timer";
+  }
+  if (pathname === "/chat" || pathname === "/admin/chat" || pathname.endsWith("/chat")) {
+    return "/chat";
+  }
+  if (pathname === "/clients/tasks" || pathname === "/admin/clients/tasks" || pathname.endsWith("/clients/tasks")) {
+    return "/clients/tasks";
   }
   if (pathname === "/clients" || pathname === "/admin/clients") {
     return "/clients";

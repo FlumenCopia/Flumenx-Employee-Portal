@@ -11,6 +11,7 @@ import { verifyCsrf } from './middleware/csrf.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authenticateToken } from './middleware/auth.js';
 import { setupMeetingSockets } from './services/meetingSocket.js';
+import { syncDefaultPortalPages } from './services/portalSync.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -81,6 +82,7 @@ const PORT = config.port;
 
 async function startServer() {
   await connectDB();
+  await syncDefaultPortalPages();
   server.listen(PORT, () => {
     console.log(`[Express Backend] Server running on http://127.0.0.1:${PORT}`);
     console.log(`[Express Backend] API Base URL: http://127.0.0.1:${PORT}/api`);
