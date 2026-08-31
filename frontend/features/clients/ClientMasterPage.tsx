@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Globe,
   ListTodo,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -64,6 +65,49 @@ export function ClientMasterPage({ role = "admin" }: Props) {
   // Modal 3: Share Link
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareClient, setShareClient] = useState<{ id: number | string; name: string } | null>(null);
+
+  // Modal 4: Edit Client
+  const [editClientOpen, setEditClientOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editClientName, setEditClientName] = useState("");
+  const [editClientIndustry, setEditClientIndustry] = useState("");
+  const [editClientIsActive, setEditClientIsActive] = useState(true);
+  const [editClientNotes, setEditClientNotes] = useState("");
+  const [submittingEditClient, setSubmittingEditClient] = useState(false);
+  const [clientStatusFilter, setClientStatusFilter] = useState<"all" | "active" | "inactive">("all");
+
+  const openEditClient = (c: Client) => {
+    setEditingClient(c);
+    setEditClientName(c.name);
+    setEditClientIndustry((c as any).industry || "General");
+    setEditClientIsActive((c as any).is_active ?? (c as any).isActive ?? true);
+    setEditClientNotes((c as any).notes || "");
+    setEditClientOpen(true);
+  };
+
+  const handleUpdateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient || !editClientName.trim()) return;
+    setSubmittingEditClient(true);
+    try {
+      await api(`/clients/${editingClient.id}/`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: editClientName.trim(),
+          industry: editClientIndustry.trim() || "General",
+          is_active: editClientIsActive,
+          notes: editClientNotes.trim(),
+        }),
+      });
+      toast.success("Client updated successfully!");
+      setEditClientOpen(false);
+      fetchData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update client.");
+    } finally {
+      setSubmittingEditClient(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -492,6 +536,28 @@ export function ClientMasterPage({ role = "admin" }: Props) {
 
                     <button
                       type="button"
+                      onClick={() => openEditClient(client)}
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: "6px",
+                        background: "rgba(100, 116, 139, 0.1)",
+                        color: "#475569",
+                        border: "1px solid rgba(100, 116, 139, 0.25)",
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "4px",
+                      }}
+                      title="Edit Client Details & Status"
+                    >
+                      <Pencil size={13} /> Edit
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => {
                         setShareClient({ id: client.id, name: client.name });
                         setShareModalOpen(true);
@@ -519,6 +585,64 @@ export function ClientMasterPage({ role = "admin" }: Props) {
               );
             })}
           </div>
+        )}
+
+        {/* Modal 4: Edit Client Account */}
+        {editClientOpen && editingClient && (
+          <Modal title={`Edit Client — ${editingClient.name}`} size="md" onClose={() => setEditClientOpen(false)}>
+            <form onSubmit={handleUpdateClient} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                CLIENT NAME *
+                <input
+                  type="text"
+                  value={editClientName}
+                  onChange={(e) => setEditClientName(e.target.value)}
+                  required
+                  className="fi"
+                />
+              </label>
+
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                INDUSTRY / CATEGORY
+                <input
+                  type="text"
+                  value={editClientIndustry}
+                  onChange={(e) => setEditClientIndustry(e.target.value)}
+                  className="fi"
+                />
+              </label>
+
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                NOTES / ACCOUNT CONTEXT
+                <textarea
+                  value={editClientNotes}
+                  onChange={(e) => setEditClientNotes(e.target.value)}
+                  rows={3}
+                  className="fi"
+                  placeholder="Key account details, monthly retainers, or specific client instructions..."
+                />
+              </label>
+
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", fontWeight: 700, color: "#334155", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={editClientIsActive}
+                  onChange={(e) => setEditClientIsActive(e.target.checked)}
+                  style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                />
+                Active Client (Visible in active assignment dropdowns)
+              </label>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
+                <button type="button" className="secondary-button" onClick={() => setEditClientOpen(false)}>
+                  Cancel
+                </button>
+                <PrimaryButton type="submit" disabled={submittingEditClient}>
+                  {submittingEditClient ? "Saving..." : "Save Changes"}
+                </PrimaryButton>
+              </div>
+            </form>
+          </Modal>
         )}
 
         {/* Modal 1: Add New Client */}

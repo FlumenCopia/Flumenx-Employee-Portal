@@ -20,7 +20,7 @@ type WorkFormState = {
   employee: string; client: string; parent_task?: string; is_master_client_task?: boolean; title: string; description: string; priority: WorkPriority;
   assigned_date: string; due_date: string; assigned_quantity: string; completed_quantity: string;
   unit: string; statusMode: "AUTO" | "Blocked"; deliverables: DeliverableFormState[];
-  work_type?: string; reviewer?: string; phase?: string; estimated_hours?: string;
+  work_type?: string; reviewer?: string; reviewer_name?: string; phase?: string; estimated_hours?: string;
 };
 type DeliverableFormState = {
   id?: number; client: string; title: string; brief: string; work_type: string; due_date: string; status: WorkStatus;
@@ -40,14 +40,16 @@ function today() {
 
 type TaskRowState = {
   id: string;
+  client: string;
   title: string;
   assigned_quantity: string;
   unit: string;
   due_date: string;
 };
 
-const defaultTaskRow = (dueDate?: string, defaultUnit?: string): TaskRowState => ({
+const defaultTaskRow = (defaultClient?: string, dueDate?: string, defaultUnit?: string): TaskRowState => ({
   id: String(Math.random()),
+  client: defaultClient || "",
   title: "",
   assigned_quantity: "1",
   unit: defaultUnit || "tasks",
@@ -262,15 +264,18 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
   }, [clients]);
 
   const addTaskRow = () => {
-    const lastDate = tasksToAssign.length ? tasksToAssign[tasksToAssign.length - 1].due_date : form.due_date;
-    setTasksToAssign(current => [...current, defaultTaskRow(lastDate)]);
+    const lastRow = tasksToAssign[tasksToAssign.length - 1];
+    const defaultClient = lastRow?.client || (clients.length > 0 ? String(clients[0].id) : "");
+    const lastDate = lastRow?.due_date || form.due_date;
+    const lastUnit = lastRow?.unit || "tasks";
+    setTasksToAssign(current => [...current, defaultTaskRow(defaultClient, lastDate, lastUnit)]);
   };
 
   const removeTaskRow = (id: string) => {
     setTasksToAssign(current => (current.length > 1 ? current.filter(t => t.id !== id) : current));
   };
 
-  const updateTaskRow = (id: string, field: "title" | "assigned_quantity" | "unit" | "due_date", value: string) => {
+  const updateTaskRow = (id: string, field: "client" | "title" | "assigned_quantity" | "unit" | "due_date", value: string) => {
     setTasksToAssign(current => current.map(t => (t.id === id ? { ...t, [field]: value } : t)));
   };
 
@@ -379,11 +384,11 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     loadOptions();
     setEditing(null);
     const initialForm = defaultForm();
-    if (clients.length > 0) {
-      initialForm.client = String(clients[0].id);
-    }
+    const defaultClientId = clients.length > 0 ? String(clients[0].id) : "";
+    initialForm.client = defaultClientId;
     setForm(initialForm);
-    setTasksToAssign([defaultTaskRow(initialForm.due_date)]);
+    setTasksToAssign([defaultTaskRow(defaultClientId, initialForm.due_date)]);
+    setSmartBannerInfo(null);
     setFormErrors({});
     setActionError("");
     setClientName("");
@@ -417,9 +422,37 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     setModalOpen(true);
   }
 
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [smartBannerInfo, setSmartBannerInfo] = useState<{ department: string; reviewerName: string } | null>(null);
+
   function changeEmployee(employeeId: string) {
-    const employee = employees.find(option => String(option.id) === employeeId);
-    setForm(current => ({ ...current, employee: employeeId }));
+    const employee = employees.find(option => String(option.id) === String(employeeId));
+    let autoReviewer = form.reviewer;
+    let autoReviewerName = form.reviewer_name || "";
+
+    if (employee) {
+      const empData = employee as any;
+      if (empData.team_lead_user_id) {
+        autoReviewer = empData.team_lead_user_id;
+        autoReviewerName = empData.team_lead_name || "";
+      } else if (empData.team_lead_id) {
+        autoReviewer = empData.team_lead_id;
+        autoReviewerName = empData.team_lead_name || "";
+      }
+      setSmartBannerInfo({
+        department: employee.department || "General",
+        reviewerName: autoReviewerName || "Department Team Lead",
+      });
+    } else {
+      setSmartBannerInfo(null);
+    }
+
+    setForm(current => ({
+      ...current,
+      employee: employeeId,
+      reviewer: autoReviewer || current.reviewer,
+      reviewer_name: autoReviewerName || current.reviewer_name,
+    }));
     if (employee?.department === "Design" || employee?.department === "Video Editing") {
       setDeliverableDraft(defaultDeliverable(form.client, form.due_date));
     }
@@ -518,25 +551,28 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     const fullDesc = `${cleanDesc ? cleanDesc + "\n\n" : ""}${phaseTag} ${estTag}`.trim();
 
     if (!editing) {
-      if (!effectiveClient) {
-        setFormErrors({ client: "Client is required." });
-        setActionError("Client is required.");
-        setSubmitting(false);
-        return;
-      }
       if (!form.employee) {
         setFormErrors({ employee: "Assigned employee is required." });
-        setActionError("Assigned employee is required.");
+        setActionError("Please select an employee first.");
         setSubmitting(false);
         return;
       }
       for (let i = 0; i < tasksToAssign.length; i++) {
-        if (!tasksToAssign[i].title.trim()) {
+        const row = tasksToAssign[i];
+        if (!row.client && clients.length > 0) {
+          row.client = String(clients[0].id);
+        }
+        if (!row.client) {
+          setActionError(`Please select a client for Task #${i + 1}.`);
+          setSubmitting(false);
+          return;
+        }
+        if (!row.title.trim()) {
           setActionError(`Please enter a title for Task #${i + 1}.`);
           setSubmitting(false);
           return;
         }
-        if (!tasksToAssign[i].due_date) {
+        if (!row.due_date) {
           setActionError(`Please select a due date for Task #${i + 1}.`);
           setSubmitting(false);
           return;
@@ -544,11 +580,9 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
       }
 
       const safeEmpId = form.employee ? (isNaN(Number(form.employee)) ? form.employee : Number(form.employee)) : null;
-      const safeClientId = effectiveClient ? (isNaN(Number(effectiveClient)) ? effectiveClient : Number(effectiveClient)) : null;
       const safeReviewerId = form.reviewer ? (isNaN(Number(form.reviewer)) ? form.reviewer : Number(form.reviewer)) : null;
 
       const bulkPayload = {
-        client: safeClientId,
         employee: safeEmpId,
         reviewer: safeReviewerId,
         work_type: form.work_type || "web_development",
@@ -556,12 +590,16 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
         description: fullDesc,
         parent_task: form.parent_task || null,
         is_master_client_task: Boolean(form.is_master_client_task),
-        tasks: tasksToAssign.map(t => ({
-          title: t.title.trim(),
-          assigned_quantity: Number(t.assigned_quantity || 1),
-          unit: t.unit || "tasks",
-          due_date: t.due_date,
-        })),
+        tasks: tasksToAssign.map(t => {
+          const safeCId = t.client ? (isNaN(Number(t.client)) ? t.client : Number(t.client)) : null;
+          return {
+            client: safeCId,
+            title: t.title.trim(),
+            assigned_quantity: Number(t.assigned_quantity || 1),
+            unit: t.unit || "tasks",
+            due_date: t.due_date,
+          };
+        }),
       };
 
       try {
@@ -569,9 +607,10 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
           method: "POST",
           body: JSON.stringify(bulkPayload),
         });
+        toast.success(`Successfully created ${tasksToAssign.length} separate tasks!`);
         setMessage(
           tasksToAssign.length > 1
-            ? `Successfully created ${tasksToAssign.length} tasks.`
+            ? `Successfully created ${tasksToAssign.length} separate tasks.`
             : "Successfully created task."
         );
         setModalOpen(false);
@@ -1093,267 +1132,252 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
           </>
         ) : (
           <>
-            {/* BULK NEW TASK CREATION FORM */}
-            <div className="form-row-2">
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-                CLIENT / ACCOUNT *
-                <select
-                  value={form.client}
-                  onChange={event => setForm(current => ({ ...current, client: event.target.value }))}
-                  required
-                  className="fs"
-                >
-                  <option value="" disabled>
-                    {optionsLoading ? "Loading clients..." : clients.length ? "Select Client" : "No clients available"}
-                  </option>
-                  {clients.map(c => (
-                    <option key={c.id} value={String(c.id)}>{c.name}</option>
-                  ))}
-                </select>
-                {formErrors.client && <small style={{ color: "#EF4444" }}>{formErrors.client}</small>}
-              </label>
-
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-                WORK TYPE / DEPARTMENT
-                <select
-                  value={form.work_type || "web_development"}
-                  onChange={event => setForm(current => ({ ...current, work_type: event.target.value }))}
-                  className="fs"
-                >
-                  {dynamicWorkTypeOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            {canAddClient && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "-4px" }}>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                  <input
-                    type="text"
-                    value={clientName}
-                    onChange={e => setClientName(e.target.value)}
-                    placeholder="+ Or type new client name to add dynamically..."
-                    className="fi"
-                    style={{ flex: 1, padding: "7px 10px", fontSize: "11px" }}
-                    onKeyDown={e => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addClient();
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={addClient}
-                    disabled={clientPending || !clientName.trim()}
-                    style={{
-                      padding: "7px 12px",
-                      borderRadius: "8px",
-                      background: "rgba(5, 150, 105, 0.1)",
-                      color: "#059669",
-                      border: "1px solid rgba(5, 150, 105, 0.3)",
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      cursor: clientName.trim() ? "pointer" : "not-allowed",
-                      whiteSpace: "nowrap",
-                      opacity: clientName.trim() ? 1 : 0.6,
-                    }}
-                  >
-                    {clientPending ? "Adding..." : "+ Add Client"}
-                  </button>
+            {/* EMPLOYEE-FIRST MULTI-CLIENT TASK CREATION FORM */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              {/* STEP 1: SELECT EMPLOYEE FIRST */}
+              <div style={{ background: "var(--panel2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--amber)", letterSpacing: "0.5px" }}>
+                    STEP 1: SELECT EMPLOYEE (WHO IS DOING THE WORK?)
+                  </span>
+                  {selectedEmployee && (
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#059669", background: "rgba(16,185,129,0.12)", padding: "2px 8px", borderRadius: "4px" }}>
+                      Assignee: {selectedEmployee.display_name} ({selectedEmployee.department})
+                    </span>
+                  )}
                 </div>
-                {clientError && <small style={{ color: "#EF4444", fontSize: "10.5px" }}>{clientError}</small>}
+
+                <div className="form-row-3">
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+                    ASSIGN TO EMPLOYEE *
+                    <select
+                      value={form.employee}
+                      onChange={event => changeEmployee(event.target.value)}
+                      required
+                      disabled={optionsLoading}
+                      className="fs"
+                      style={{ fontWeight: 700, fontSize: "12.5px" }}
+                    >
+                      <option value="" disabled>
+                        {optionsLoading ? "Loading employees..." : visibleEmployees.length ? "Select employee..." : "No active employees"}
+                      </option>
+                      {visibleEmployees.map(employee => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.display_name} — {employee.department}
+                        </option>
+                      ))}
+                    </select>
+                    {formErrors.employee && <small style={{ color: "#EF4444" }}>{formErrors.employee}</small>}
+                  </label>
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+                    REVIEWER (DEFAULT: TEAM LEAD)
+                    <select
+                      value={form.reviewer || ""}
+                      onChange={event => setForm(current => ({ ...current, reviewer: event.target.value }))}
+                      className="fs"
+                    >
+                      <option value="">Default Reviewer (Team Lead / Admin)</option>
+                      {reviewers.map(r => (
+                        <option key={r.id} value={r.id}>{r.display_name} ({r.username})</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
+                    PRIORITY
+                    <select
+                      value={form.priority}
+                      onChange={event => setForm(current => ({ ...current, priority: event.target.value as WorkPriority }))}
+                      className="fs"
+                    >
+                      <option value="Urgent">P0 Critical</option>
+                      <option value="High">P1 High</option>
+                      <option value="Normal">P2 Normal</option>
+                      <option value="Low">P2 Low</option>
+                    </select>
+                  </label>
+                </div>
+
+                {smartBannerInfo && (
+                  <div style={{ background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.25)", borderRadius: "6px", padding: "8px 12px", fontSize: "11.5px", color: "#065f46", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span>⚡ <b>Smart Derivation:</b> Dept: {smartBannerInfo.department}</span>
+                    <span>· Default Reviewer: <b>{smartBannerInfo.reviewerName}</b> (Auto-Assigned)</span>
+                  </div>
+                )}
               </div>
-            )}
 
-            <div className="form-row-3">
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-                ASSIGN TO *
-                <select
-                  value={form.employee}
-                  onChange={event => changeEmployee(event.target.value)}
-                  required
-                  disabled={optionsLoading}
-                  className="fs"
-                >
-                  <option value="" disabled>
-                    {optionsLoading ? "Loading employees..." : visibleEmployees.length ? "Select employee" : "No active employees available"}
-                  </option>
-                  {visibleEmployees.map(employee => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.display_name} — {employee.department}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.employee && <small style={{ color: "#EF4444" }}>{formErrors.employee}</small>}
-              </label>
-
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-                REVIEWER
-                <select
-                  value={form.reviewer || ""}
-                  onChange={event => setForm(current => ({ ...current, reviewer: event.target.value }))}
-                  className="fs"
-                >
-                  <option value="">Default Reviewer (Admin)</option>
-                  {reviewers.map(r => (
-                    <option key={r.id} value={r.id}>{r.display_name} ({r.username})</option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-                PRIORITY
-                <select
-                  value={form.priority}
-                  onChange={event => setForm(current => ({ ...current, priority: event.target.value as WorkPriority }))}
-                  className="fs"
-                >
-                  <option value="Urgent">P0 Critical</option>
-                  <option value="High">P1 High</option>
-                  <option value="Normal">P2 Normal</option>
-                  <option value="Low">P2 Low</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="form-row-2" style={{ background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-                PARENT CLIENT GOAL / MASTER TASK
-                <select
-                  value={form.parent_task || ""}
-                  onChange={event => setForm(current => ({ ...current, parent_task: event.target.value }))}
-                  className="fs"
-                >
-                  <option value="">None (Independent Task)</option>
-                  {availableMasterTasks.map(t => (
-                    <option key={t.id} value={String(t.id)}>
-                      {t.title} ({t.client_name || "Client"}) [{t.completed_quantity}/{t.assigned_quantity} {t.unit}]
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", fontWeight: 600, color: "#334155", marginTop: "18px" }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(form.is_master_client_task)}
-                  onChange={e => setForm(current => ({ ...current, is_master_client_task: e.target.checked }))}
-                  style={{ width: "16px", height: "16px", cursor: "pointer" }}
-                />
-                Is Master Client Goal (Monthly Scope)
-              </label>
-            </div>
-
-            {/* TASKS TO ASSIGN SECTION */}
-            <div style={{ marginTop: "6px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                <div style={{ fontSize: "11px", fontWeight: 800, letterSpacing: "0.05em", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "8px" }}>
-                  TASKS TO ASSIGN & QUANTITY SET COUNT
+              {/* STEP 2: ADD CLIENT TASKS FOR THIS EMPLOYEE */}
+              <div style={{ background: "var(--panel2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--amber)", letterSpacing: "0.5px" }}>
+                    STEP 2: ADD CLIENT TASKS (SAVED AS INDEPENDENT SEPARATE TASKS)
+                  </span>
                   <span className="badge active" style={{ fontSize: "10px", padding: "2px 8px" }}>
                     {tasksToAssign.length} {tasksToAssign.length === 1 ? "Task" : "Tasks"}
                   </span>
                 </div>
-              </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {tasksToAssign.map((taskRow, idx) => (
-                  <div
-                    key={taskRow.id}
-                    className="task-assign-row"
-                  >
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", minWidth: "18px" }}>
-                      #{idx + 1}
-                    </span>
+                {/* Tasks List */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {tasksToAssign.map((taskRow, idx) => (
+                    <div key={taskRow.id} className="task-assign-row">
+                      <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--muted)", minWidth: "18px" }}>
+                        #{idx + 1}
+                      </span>
 
-                    <input
-                      type="text"
-                      value={taskRow.title}
-                      onChange={e => updateTaskRow(taskRow.id, "title", e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          if (idx === tasksToAssign.length - 1 && taskRow.title.trim()) {
-                            addTaskRow();
+                      {/* Client Selector per task */}
+                      <select
+                        value={taskRow.client || (clients.length > 0 ? String(clients[0].id) : "")}
+                        onChange={e => updateTaskRow(taskRow.id, "client", e.target.value)}
+                        className="fs"
+                        style={{ fontWeight: 600, fontSize: "11.5px" }}
+                        required
+                      >
+                        {clients.map(c => (
+                          <option key={c.id} value={String(c.id)}>
+                            🏢 {c.name}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Task Title */}
+                      <input
+                        type="text"
+                        value={taskRow.title}
+                        onChange={e => updateTaskRow(taskRow.id, "title", e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            if (idx === tasksToAssign.length - 1 && taskRow.title.trim()) {
+                              addTaskRow();
+                            }
                           }
-                        }
-                      }}
-                      placeholder="Task Title (e.g. 10 Photos / 2 Videos)"
-                      required
-                      className="fi"
-                      style={{ width: "100%" }}
-                    />
+                        }}
+                        placeholder="Task Title (e.g. 10 Photos / Reel Edit)"
+                        required
+                        className="fi"
+                        style={{ width: "100%" }}
+                      />
 
-                    <input
-                      type="number"
-                      min="1"
-                      value={taskRow.assigned_quantity || "1"}
-                      onChange={e => updateTaskRow(taskRow.id, "assigned_quantity", e.target.value)}
-                      placeholder="Qty"
-                      title="Set Item Quantity (e.g. 10 or 4)"
-                      required
-                      className="fi"
-                    />
+                      {/* Quantity */}
+                      <input
+                        type="number"
+                        min="1"
+                        value={taskRow.assigned_quantity || "1"}
+                        onChange={e => updateTaskRow(taskRow.id, "assigned_quantity", e.target.value)}
+                        placeholder="Qty"
+                        title="Set Item Quantity (e.g. 10 or 4)"
+                        required
+                        className="fi"
+                      />
 
-                    <select
-                      value={taskRow.unit || "tasks"}
-                      onChange={e => updateTaskRow(taskRow.id, "unit", e.target.value)}
-                      className="fs"
-                      title="Deliverable Unit"
-                    >
-                      <option value="tasks">Tasks</option>
-                      <option value="Videos">Videos</option>
-                      <option value="Photos">Photos</option>
-                      <option value="Creatives">Creatives</option>
-                      <option value="Reels">Reels</option>
-                      <option value="Posts">Posts</option>
-                      <option value="Documents">Documents</option>
-                    </select>
+                      {/* Unit */}
+                      <select
+                        value={taskRow.unit || "tasks"}
+                        onChange={e => updateTaskRow(taskRow.id, "unit", e.target.value)}
+                        className="fs"
+                        title="Deliverable Unit"
+                      >
+                        <option value="tasks">Tasks</option>
+                        <option value="Videos">Videos</option>
+                        <option value="Photos">Photos</option>
+                        <option value="Creatives">Creatives</option>
+                        <option value="Reels">Reels</option>
+                        <option value="Posts">Posts</option>
+                        <option value="Documents">Documents</option>
+                      </select>
 
-                    <input
-                      type="date"
-                      value={taskRow.due_date}
-                      onChange={e => updateTaskRow(taskRow.id, "due_date", e.target.value)}
-                      required
-                      className="fi"
-                    />
+                      {/* Due Date */}
+                      <input
+                        type="date"
+                        value={taskRow.due_date}
+                        onChange={e => updateTaskRow(taskRow.id, "due_date", e.target.value)}
+                        required
+                        className="fi"
+                      />
 
-                    {tasksToAssign.length > 1 ? (
+                      {/* Delete row */}
+                      {tasksToAssign.length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => removeTaskRow(taskRow.id)}
+                          title="Remove Task"
+                          style={{
+                            background: "rgba(239, 68, 68, 0.08)",
+                            color: "#EF4444",
+                            border: "1px solid rgba(239, 68, 68, 0.2)",
+                            borderRadius: "6px",
+                            padding: "6px 8px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      ) : (
+                        <div style={{ width: "28px" }} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add Another Task Button & Quick Add Client */}
+                <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "4px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={addTaskRow}
+                    style={{ flex: 1, justifyContent: "center", gap: "6px", padding: "8px 14px", fontWeight: 700 }}
+                  >
+                    <Plus size={14} /> + Add Task for Another Client
+                  </button>
+
+                  {canAddClient && (
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                      <input
+                        type="text"
+                        value={clientName}
+                        onChange={e => setClientName(e.target.value)}
+                        placeholder="+ Add client dynamically..."
+                        className="fi"
+                        style={{ padding: "6px 10px", fontSize: "11px", width: "170px" }}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addClient();
+                          }
+                        }}
+                      />
                       <button
                         type="button"
-                        onClick={() => removeTaskRow(taskRow.id)}
-                        title="Remove Task"
+                        onClick={addClient}
+                        disabled={clientPending || !clientName.trim()}
                         style={{
-                          background: "rgba(239, 68, 68, 0.08)",
-                          color: "#EF4444",
-                          border: "1px solid rgba(239, 68, 68, 0.2)",
+                          padding: "6px 10px",
                           borderRadius: "6px",
-                          padding: "6px 8px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
+                          background: "rgba(5, 150, 105, 0.1)",
+                          color: "#059669",
+                          border: "1px solid rgba(5, 150, 105, 0.3)",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          cursor: clientName.trim() ? "pointer" : "not-allowed",
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        <Trash2 size={14} />
+                        {clientPending ? "..." : "+ Add"}
                       </button>
-                    ) : (
-                      <div style={{ width: "28px" }} />
-                    )}
-                  </div>
-                ))}
-              </div>
+                    </div>
+                  )}
+                </div>
 
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={addTaskRow}
-                style={{ marginTop: "10px", width: "100%", justifyContent: "center", gap: "6px" }}
-              >
-                <Plus size={14} /> + Add Another Task
-              </button>
+                {/* Live Summary Preview */}
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", padding: "8px 12px", fontSize: "11.5px", color: "#166534", fontWeight: 700 }}>
+                  ⚡ <b>Batch Dispatch:</b> Creating {tasksToAssign.length} independent {tasksToAssign.length === 1 ? "task" : "tasks"} for {selectedEmployee ? selectedEmployee.display_name : "the selected employee"} across {new Set(tasksToAssign.map(t => t.client || (clients[0]?.id))).size} {new Set(tasksToAssign.map(t => t.client || (clients[0]?.id))).size === 1 ? "client" : "clients"}.
+                </div>
+              </div>
             </div>
           </>
         )}

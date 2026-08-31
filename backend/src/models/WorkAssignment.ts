@@ -69,6 +69,16 @@ export interface IDepartmentData {
   customNotes?: string;
 }
 
+export interface ITimeAdjustment {
+  _id?: mongoose.Types.ObjectId;
+  adjustedAt: Date;
+  adjustedBy?: mongoose.Types.ObjectId | null;
+  adjustedByName?: string;
+  previousSeconds: number;
+  newSeconds: number;
+  reason: string;
+}
+
 export interface IWorkAssignment extends Document {
   legacyId?: number;
   employee?: mongoose.Types.ObjectId | null;
@@ -107,6 +117,7 @@ export interface IWorkAssignment extends Document {
     startedBy?: mongoose.Types.ObjectId | null;
   } | null;
   timeLogs: ITimeLog[];
+  timeAdjustments?: ITimeAdjustment[];
 }
 
 const workDeliverableSchema = new Schema(
@@ -140,6 +151,18 @@ const timeLogSchema = new Schema<ITimeLog>(
   {
     timestamps: true,
   }
+);
+
+const timeAdjustmentSchema = new Schema<ITimeAdjustment>(
+  {
+    adjustedAt: { type: Date, default: () => new Date() },
+    adjustedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    adjustedByName: { type: String, default: '' },
+    previousSeconds: { type: Number, required: true },
+    newSeconds: { type: Number, required: true },
+    reason: { type: String, required: true, trim: true },
+  },
+  { _id: true }
 );
 
 const workAssignmentSchema = new Schema<IWorkAssignment>(
@@ -189,6 +212,7 @@ const workAssignmentSchema = new Schema<IWorkAssignment>(
       default: null,
     },
     timeLogs: [timeLogSchema],
+    timeAdjustments: [timeAdjustmentSchema],
   },
   {
     timestamps: true,

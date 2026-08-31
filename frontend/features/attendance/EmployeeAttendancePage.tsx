@@ -415,7 +415,7 @@ export function EmployeeAttendancePage() {
 
       <Section title="Attendance history" kicker="RECENT / RECORDS">
         <div className="table-responsive-wrapper" style={{ width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch", borderRadius: "8px" }}>
-          <div className="data-table employee-attendance-table" style={{ minWidth: "550px" }}>
+          <div className="data-table employee-attendance-table" style={{ width: "100%" }}>
             <div className="table-head">
               <span>Date</span>
               <span>Check in</span>

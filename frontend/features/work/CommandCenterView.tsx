@@ -264,14 +264,14 @@ export function CommandCenterView({
   clients: Client[];
   members?: WorkEmployeeOption[];
   userRole?: PortalRole | string;
-  currentUser?: { id?: number; employeeId?: number | null; name?: string; username?: string; role?: string };
+  currentUser?: { id?: number | string; employeeId?: number | string | null; name?: string; username?: string; role?: string };
   workSummary?: WorkSummary;
   selectedClientName?: string;
   selectedClientId?: string;
   onClientChange?: (clientId: string) => void;
-  onStatusChange?: (id: number, status: WorkStatus) => Promise<void> | void;
-  onReviewCheck?: (id: number, reviewStatus: "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED", note?: string) => Promise<unknown>;
-  onDeleteWork?: (id: number) => Promise<boolean>;
+  onStatusChange?: (id: number | string, status: WorkStatus) => Promise<void> | void;
+  onReviewCheck?: (id: number | string, reviewStatus: "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED", note?: string) => Promise<unknown>;
+  onDeleteWork?: (id: number | string) => Promise<boolean>;
   onEditWork?: (assignment: WorkAssignment) => void;
   initialTab?: string;
 }) {
@@ -308,6 +308,14 @@ export function CommandCenterView({
   const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusPillFilter, setStatusPillFilter] = useState<string>("all");
+  const [timeAdjustmentModalOpen, setTimeAdjustmentModalOpen] = useState(false);
+  const [adjustingTask, setAdjustingTask] = useState<TaskItem | null>(null);
+  const [adjustHours, setAdjustHours] = useState("");
+  const [adjustMinutes, setAdjustMinutes] = useState("");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [submittingAdjustTime, setSubmittingAdjustTime] = useState(false);
+  const [approvalsSubTab, setApprovalsSubTab] = useState<"pending" | "corrections" | "approved">("pending");
+  const [quickNoteInputs, setQuickNoteInputs] = useState<Record<string, string>>({});
 
   const [openPhases, setOpenPhases] = useState<Record<string, boolean>>({
     ph1: true,
@@ -329,10 +337,10 @@ export function CommandCenterView({
     const workPerms = (currentUser as any)?.permissions?.WORK_BOARD || (currentUser as any)?.permissions?.["*"];
     if (workPerms?.can_edit || workPerms?.can_create) return true;
 
-    if (currentUser?.id && task.reviewerId && Number(task.reviewerId) === Number(currentUser.id)) {
+    if (currentUser?.id && task.reviewerId && (String(task.reviewerId) === String(currentUser.id) || Number(task.reviewerId) === Number(currentUser.id))) {
       return true;
     }
-    if (currentUser?.employeeId && task.reviewerId && Number(task.reviewerId) === Number(currentUser.employeeId)) {
+    if (currentUser?.employeeId && task.reviewerId && (String(task.reviewerId) === String(currentUser.employeeId) || Number(task.reviewerId) === Number(currentUser.employeeId))) {
       return true;
     }
     if (task.reviewer) {
@@ -565,6 +573,45 @@ export function CommandCenterView({
       toast.error(err instanceof Error ? err.message : "Could not stop task timer.");
     } finally {
       setTimerLoadingId(null);
+    }
+  };
+
+  const openTimeAdjustment = (e: React.MouseEvent, t: TaskItem) => {
+    e.stopPropagation();
+    setAdjustingTask(t);
+    const curSec = t.totalTimeSpentSeconds || 0;
+    setAdjustHours(String(Math.floor(curSec / 3600)));
+    setAdjustMinutes(String(Math.floor((curSec % 3600) / 60)));
+    setAdjustReason("");
+    setTimeAdjustmentModalOpen(true);
+  };
+
+  const handleSaveTimeAdjustment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustingTask || !adjustReason.trim()) {
+      toast.warning("Please provide a valid reason for the time adjustment.");
+      return;
+    }
+    setSubmittingAdjustTime(true);
+    const totalSec = (parseInt(adjustHours || "0", 10) * 3600) + (parseInt(adjustMinutes || "0", 10) * 60);
+    try {
+      await api(`/work-assignments/${adjustingTask.id}/adjust-time/`, {
+        method: "POST",
+        body: JSON.stringify({
+          new_seconds: totalSec,
+          reason: adjustReason.trim(),
+        }),
+      });
+      toast.success("Time adjusted and audit-logged!");
+      setTasks((prev) => prev.map((t) => (t.id === adjustingTask.id ? { ...t, totalTimeSpentSeconds: totalSec, hours: Number((totalSec / 3600).toFixed(2)) } : t)));
+      if (selectedTask && selectedTask.id === adjustingTask.id) {
+        setSelectedTask((prev) => prev ? { ...prev, totalTimeSpentSeconds: totalSec, hours: Number((totalSec / 3600).toFixed(2)) } : null);
+      }
+      setTimeAdjustmentModalOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to adjust time.");
+    } finally {
+      setSubmittingAdjustTime(false);
     }
   };
 
@@ -1925,6 +1972,305 @@ export function CommandCenterView({
         </div>
       )}
 
+      {/* 9. APPROVALS / REVIEW CENTER */}
+      {currentActiveTab === "approvals" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {/* Top Sub-Filter Navigation */}
+          <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", padding: "12px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {[
+                { id: "pending", label: `Pending Review (${tasks.filter((t) => t.reviewStatus === "PENDING_REVIEW" || t.status === "review" || t.rawStatus === "In Review").length})` },
+                { id: "corrections", label: `Changes Requested (${tasks.filter((t) => t.reviewStatus === "CORRECTION_NEEDED" || t.rawStatus === "Changes Requested").length})` },
+                { id: "approved", label: `Approved (${tasks.filter((t) => t.reviewStatus === "OK" || t.status === "approved" || t.status === "published").length})` },
+              ].map((sub) => {
+                const active = approvalsSubTab === sub.id;
+                return (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => setApprovalsSubTab(sub.id as any)}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      background: active ? "var(--amber)" : "var(--panel2)",
+                      color: active ? "#FFFFFF" : "var(--text)",
+                      border: active ? "1px solid var(--amber)" : "1px solid var(--border)",
+                    }}
+                  >
+                    {sub.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+              Showing {tasks.filter((t) => {
+                if (approvalsSubTab === "pending") return t.reviewStatus === "PENDING_REVIEW" || t.status === "review" || t.rawStatus === "In Review";
+                if (approvalsSubTab === "corrections") return t.reviewStatus === "CORRECTION_NEEDED" || t.rawStatus === "Changes Requested";
+                return t.reviewStatus === "OK" || t.status === "approved" || t.status === "published";
+              }).length} tasks
+            </div>
+          </div>
+
+          {/* Cards List */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "14px" }}>
+            {tasks
+              .filter((t) => {
+                if (approvalsSubTab === "pending") return t.reviewStatus === "PENDING_REVIEW" || t.status === "review" || t.rawStatus === "In Review";
+                if (approvalsSubTab === "corrections") return t.reviewStatus === "CORRECTION_NEEDED" || t.rawStatus === "Changes Requested";
+                return t.reviewStatus === "OK" || t.status === "approved" || t.status === "published";
+              })
+              .map((task) => {
+                const isReviewer = isReviewerOrManager(task);
+                const quickNote = quickNoteInputs[task.id] || "";
+                return (
+                  <div
+                    key={task.id}
+                    className="card"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
+                      padding: "16px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "10px",
+                      background: "var(--panel)",
+                    }}
+                  >
+                    {/* Header */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: 800, color: "var(--amber)", fontFamily: "monospace" }}>
+                          {task.code} · {task.clientName || "General"}
+                        </div>
+                        <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)", marginTop: "2px" }}>
+                          {task.title}
+                        </div>
+                      </div>
+                      <span className="chip" style={getPriorityBadgeStyle(task.priority)}>
+                        {(task.priority || "NORMAL").toUpperCase()}
+                      </span>
+                    </div>
+
+                    {/* Metadata summary */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", fontSize: "11.5px", color: "var(--muted)" }}>
+                      <span>👤 <b>{task.assigneeName || "Unassigned"}</b></span>
+                      <span>📅 Due: <b>{task.due || "—"}</b></span>
+                      <span>⏱️ <b>{formatTimeSpent(task.totalTimeSpentSeconds || 0)}</b> ({task.hours || 0}h est)</span>
+                    </div>
+
+                    {/* Preset Feedback Tags */}
+                    {isReviewer && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                        {["Needs UI Polish", "Missing Deliverables", "Fix Responsiveness", "Check Quality"].map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => setQuickNoteInputs((prev) => ({ ...prev, [task.id]: prev[task.id] ? `${prev[task.id]} · [${tag}]` : `[${tag}]` }))}
+                            style={{
+                              padding: "2px 6px",
+                              borderRadius: "4px",
+                              background: "var(--panel2)",
+                              border: "1px solid var(--border)",
+                              color: "var(--text)",
+                              fontSize: "10.5px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            + {tag}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Quick Correction Input for Reviewer */}
+                    {isReviewer && (
+                      <input
+                        type="text"
+                        placeholder="Type feedback or select tags above..."
+                        value={quickNote}
+                        onChange={(e) => setQuickNoteInputs((prev) => ({ ...prev, [task.id]: e.target.value }))}
+                        className="fi"
+                        style={{ padding: "6px 10px", fontSize: "11.5px" }}
+                      />
+                    )}
+
+                    {/* Action Buttons */}
+                    <div style={{ display: "flex", gap: "8px", marginTop: "auto", paddingTop: "8px", borderTop: "1px solid var(--border)" }}>
+                      {isReviewer && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!onReviewCheck) return;
+                              await onReviewCheck(task.id, "OK", quickNote || "Approved");
+                              setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, reviewStatus: "OK", status: "approved", rawStatus: "Approved" } : t)));
+                              toast.success(`Task ${task.code} approved!`);
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: "7px 12px",
+                              borderRadius: "6px",
+                              background: "var(--amber)",
+                              color: "#FFFFFF",
+                              border: "none",
+                              fontWeight: 800,
+                              fontSize: "12px",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            <CheckCircle2 size={14} /> 1-Click Approve
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!onReviewCheck) return;
+                              const noteToSave = quickNote.trim() || "Correction requested.";
+                              await onReviewCheck(task.id, "CORRECTION_NEEDED", noteToSave);
+                              setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, reviewStatus: "CORRECTION_NEEDED", reviewNote: noteToSave, status: "progress", rawStatus: "In Progress" } : t)));
+                              toast.success(`Changes requested for ${task.code}`);
+                            }}
+                            style={{
+                              padding: "7px 12px",
+                              borderRadius: "6px",
+                              background: "rgba(239, 68, 68, 0.1)",
+                              color: "#dc2626",
+                              border: "1px solid rgba(239, 68, 68, 0.3)",
+                              fontWeight: 700,
+                              fontSize: "12px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            ↩ Request Changes
+                          </button>
+                        </>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={(e) => openTimeAdjustment(e, task)}
+                        style={{
+                          padding: "7px 10px",
+                          borderRadius: "6px",
+                          background: "var(--panel2)",
+                          color: "var(--text)",
+                          border: "1px solid var(--border)",
+                          fontSize: "11.5px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                        title="Adjust Logged Time"
+                      >
+                        ⏱️ Adjust
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTask(task)}
+                        style={{
+                          padding: "7px 10px",
+                          borderRadius: "6px",
+                          background: "var(--panel2)",
+                          color: "var(--text)",
+                          border: "1px solid var(--border)",
+                          fontSize: "11.5px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                        title="View Full Task Details"
+                      >
+                        <Eye size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* TIME ADJUSTMENT MODAL */}
+      {timeAdjustmentModalOpen && adjustingTask && (
+        <Modal title={`Adjust Logged Time — ${adjustingTask.code}`} size="md" onClose={() => setTimeAdjustmentModalOpen(false)}>
+          <form onSubmit={handleSaveTimeAdjustment} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div style={{ fontSize: "12.5px", color: "var(--muted)", lineHeight: "1.4" }}>
+              Task: <b>{adjustingTask.title}</b><br />
+              Assignee: <b>{adjustingTask.assigneeName || "Unassigned"}</b> · Current Tracked Time: <b>{formatTimeSpent(adjustingTask.totalTimeSpentSeconds || 0)}</b>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--muted)" }}>
+                HOURS
+                <input
+                  type="number"
+                  min="0"
+                  value={adjustHours}
+                  onChange={(e) => setAdjustHours(e.target.value)}
+                  className="fi"
+                  required
+                />
+              </label>
+
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--muted)" }}>
+                MINUTES
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={adjustMinutes}
+                  onChange={(e) => setAdjustMinutes(e.target.value)}
+                  className="fi"
+                  required
+                />
+              </label>
+            </div>
+
+            <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--muted)" }}>
+              REASON FOR ADJUSTMENT * (Audit Trail)
+              <textarea
+                rows={3}
+                value={adjustReason}
+                onChange={(e) => setAdjustReason(e.target.value)}
+                placeholder="e.g. Employee forgot to stop timer during lunch break / manual timesheet reconciliation"
+                required
+                className="fi"
+              />
+            </label>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+              <button type="button" className="secondary-button" onClick={() => setTimeAdjustmentModalOpen(false)}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingAdjustTime || !adjustReason.trim()}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  background: "var(--amber)",
+                  color: "#FFFFFF",
+                  fontWeight: 800,
+                  fontSize: "12px",
+                  border: "none",
+                  cursor: submittingAdjustTime || !adjustReason.trim() ? "not-allowed" : "pointer",
+                }}
+              >
+                {submittingAdjustTime ? "Saving..." : "Save Time Adjustment ✓"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {/* TASK DETAIL MODAL */}
       {selectedTask && (
         <Modal title={selectedTask.title} eyebrow="FLUMENX / TASK DETAILS" size="xl" onClose={() => setSelectedTask(null)}>
@@ -2176,7 +2522,7 @@ export function CommandCenterView({
                         if (!onReviewCheck || isSubmittingReview) return;
                         setIsSubmittingReview(true);
                         try {
-                          await onReviewCheck(Number(selectedTask.id), "OK", reviewNoteInput);
+                          await onReviewCheck(selectedTask.id, "OK", reviewNoteInput);
                           setSelectedTask((prev) => prev ? { ...prev, reviewStatus: "OK", reviewNote: reviewNoteInput } : null);
                         } finally {
                           setIsSubmittingReview(false);
@@ -2194,7 +2540,7 @@ export function CommandCenterView({
                         if (!onReviewCheck || isSubmittingReview || !reviewNoteInput.trim()) return;
                         setIsSubmittingReview(true);
                         try {
-                          await onReviewCheck(Number(selectedTask.id), "CORRECTION_NEEDED", reviewNoteInput);
+                          await onReviewCheck(selectedTask.id, "CORRECTION_NEEDED", reviewNoteInput);
                           setSelectedTask((prev) => prev ? { ...prev, reviewStatus: "CORRECTION_NEEDED", reviewNote: reviewNoteInput } : null);
                         } finally {
                           setIsSubmittingReview(false);
@@ -2229,9 +2575,9 @@ export function CommandCenterView({
                     border: "1px solid #B91C1C",
                     padding: "0 18px",
                     height: "38px",
-                    borderRadius: "8px",
-                    fontWeight: 800,
+                    borderRadius: "6px",
                     fontSize: "12.5px",
+                    fontWeight: 700,
                     cursor: "pointer",
                     boxShadow: "0 2px 6px rgba(220, 38, 38, 0.28)",
                     transition: "all 0.18s ease",
@@ -2239,7 +2585,7 @@ export function CommandCenterView({
                   onClick={async () => {
                     if (confirm("Delete this task?")) {
                       if (onDeleteWork) {
-                        const ok = await onDeleteWork(Number(selectedTask.id));
+                        const ok = await onDeleteWork(selectedTask.id);
                         if (ok) {
                           setTasks((prev) => prev.filter((t) => t.id !== selectedTask.id));
                           setSelectedTask(null);
@@ -2457,7 +2803,7 @@ export function CommandCenterView({
                                 setPendingCorrectionNote(gt.reviewNote || "");
                               } else {
                                 if (pendingCorrectionTaskId === gt.id) setPendingCorrectionTaskId(null);
-                                await onReviewCheck(Number(gt.id), newRev, "");
+                                await onReviewCheck(gt.id, newRev, "");
                                 setSelectedTaskGroup((prev) => {
                                   if (!prev) return null;
                                   return {
@@ -2491,7 +2837,7 @@ export function CommandCenterView({
                           type="button"
                           onClick={async () => {
                             if (confirm(`Delete task "${gt.title}"?`)) {
-                              const ok = await onDeleteWork(Number(gt.id));
+                              const ok = await onDeleteWork(gt.id);
                               if (ok) {
                                 setTasks((prev) => prev.filter((t) => t.id !== gt.id));
                                 setSelectedTaskGroup((prev) => {
@@ -2554,7 +2900,7 @@ export function CommandCenterView({
                               e.preventDefault();
                               const noteToSave = pendingCorrectionNote.trim();
                               if (!onReviewCheck) return;
-                              await onReviewCheck(Number(gt.id), "CORRECTION_NEEDED", noteToSave);
+                              await onReviewCheck(gt.id, "CORRECTION_NEEDED", noteToSave);
                               setSelectedTaskGroup((prev) => {
                                 if (!prev) return null;
                                 return {
@@ -2596,7 +2942,7 @@ export function CommandCenterView({
                             onClick={async () => {
                               const noteToSave = pendingCorrectionNote.trim();
                               if (!noteToSave || !onReviewCheck) return;
-                              await onReviewCheck(Number(gt.id), "CORRECTION_NEEDED", noteToSave);
+                              await onReviewCheck(gt.id, "CORRECTION_NEEDED", noteToSave);
                               setSelectedTaskGroup((prev) => {
                                 if (!prev) return null;
                                 return {

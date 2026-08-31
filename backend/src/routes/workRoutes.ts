@@ -15,6 +15,7 @@ import {
   deleteWorkAssignment,
   startTaskTimer,
   stopTaskTimer,
+  adjustTaskTime,
   getWorkDeliverables,
   createWorkDeliverable,
   getWorkEmployeeOptions,
@@ -54,6 +55,7 @@ router.post('/work-assignments/?', requirePermission('tasks', 'canCreate'), crea
 router.get('/work-assignments/:id/?', requirePermission('tasks', 'canView'), getWorkAssignmentById);
 router.post('/work-assignments/:id/start-timer/?', requirePermission('timer', 'canView'), startTaskTimer);
 router.post('/work-assignments/:id/stop-timer/?', requirePermission('timer', 'canView'), stopTaskTimer);
+router.post('/work-assignments/:id/adjust-time/?', requirePermission('tasks', 'canEdit'), adjustTaskTime);
 router.put('/work-assignments/:id/?', requirePermission('tasks', 'canEdit'), updateWorkAssignment);
 router.patch('/work-assignments/:id/?', requirePermission('tasks', 'canEdit'), updateWorkAssignment);
 router.post('/work-assignments/:id/review/?', requirePermission('tasks', 'canEdit'), reviewWorkAssignment);

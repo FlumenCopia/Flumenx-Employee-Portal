@@ -182,17 +182,40 @@ export async function getAttendanceRecords(req: Request, res: Response): Promise
 }
 
 export async function getAttendanceSummary(req: Request, res: Response): Promise<void> {
-  const { date, month, my_attendance } = req.query;
+  const { date, month, year, my_attendance, employee_id } = req.query;
 
   const filter: any = {};
+  let isSingleEmployee = false;
+
   if (my_attendance === 'true' && req.user) {
     const emp = await Employee.findOne({ user: req.user._id });
-    if (emp) filter.employee = emp._id;
+    if (emp) {
+      filter.employee = emp._id;
+      isSingleEmployee = true;
+    }
+  } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
+    filter.employee = employee_id;
+    isSingleEmployee = true;
   }
 
   if (date) {
     const { startOfDay, endOfDay } = getISTDateRange(date as string);
     filter.attendanceDate = { $gte: startOfDay, $lte: endOfDay };
+  } else if (month && typeof month === 'string' && month.includes('-')) {
+    const [y, m] = month.split('-').map((v) => parseInt(v, 10));
+    const lastDay = new Date(y, m, 0).getDate();
+    filter.attendanceDate = {
+      $gte: new Date(`${y}-${String(m).padStart(2, '0')}-01T00:00:00.000+05:30`),
+      $lte: new Date(`${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999+05:30`),
+    };
+  } else if (month && year) {
+    const m = parseInt(month as string, 10);
+    const y = parseInt(year as string, 10);
+    const lastDay = new Date(y, m, 0).getDate();
+    filter.attendanceDate = {
+      $gte: new Date(`${y}-${String(m).padStart(2, '0')}-01T00:00:00.000+05:30`),
+      $lte: new Date(`${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999+05:30`),
+    };
   } else {
     const { startOfDay, endOfDay } = getISTDateRange();
     filter.attendanceDate = { $gte: startOfDay, $lte: endOfDay };
@@ -201,14 +224,20 @@ export async function getAttendanceSummary(req: Request, res: Response): Promise
   const records = await AttendanceRecord.find(filter);
   const totalEmployees = await Employee.countDocuments({ status: 'Active' });
 
-  const present = records.filter((r) => r.attendanceStatus.startsWith('Present')).length;
+  const present = records.filter((r) => r.attendanceStatus && r.attendanceStatus.startsWith('Present')).length;
   const late = records.filter((r) => r.isLate).length;
   const earlyExits = records.filter((r) => r.isEarlyExit).length;
   const absent = records.filter((r) => r.attendanceStatus === 'Absent').length;
   const halfDays = records.filter((r) => r.attendanceStatus === 'Half Day').length;
   const leave = records.filter((r) => r.attendanceStatus === 'Leave').length;
 
-  const denominator = totalEmployees || records.length || 1;
+  let denominator = 1;
+  if (isSingleEmployee) {
+    denominator = records.length || 1;
+  } else {
+    denominator = date ? (totalEmployees || 1) : (records.length || 1);
+  }
+
   const pct = Math.round(((present + halfDays * 0.5) / denominator) * 100 * 10) / 10;
 
   res.json({
@@ -227,21 +256,112 @@ export async function getAttendanceSummary(req: Request, res: Response): Promise
 }
 
 export async function getMonthlyStatistics(req: Request, res: Response): Promise<void> {
-  const { month, my_attendance } = req.query;
+  const { month, year, my_attendance, employee_id } = req.query;
 
   const filter: any = {};
+  let isSingleEmployee = false;
+
   if (my_attendance === 'true' && req.user) {
     const emp = await Employee.findOne({ user: req.user._id });
-    if (emp) filter.employee = emp._id;
+    if (emp) {
+      filter.employee = emp._id;
+      isSingleEmployee = true;
+    }
+  } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
+    filter.employee = employee_id;
+    isSingleEmployee = true;
   }
 
+  let y: number;
+  let m: number;
+
+  if (month && typeof month === 'string' && month.includes('-')) {
+    const parts = month.split('-').map(Number);
+    y = parts[0];
+    m = parts[1];
+  } else if (month && year) {
+    y = parseInt(year as string, 10);
+    m = parseInt(month as string, 10);
+  } else {
+    const now = new Date();
+    const istDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+    const [currY, currM] = istDate.split('-').map(Number);
+    y = currY;
+    m = currM;
+  }
+
+  const lastDay = new Date(y, m, 0).getDate();
+  const startOfMonth = new Date(`${y}-${String(m).padStart(2, '0')}-01T00:00:00.000+05:30`);
+  const endOfMonth = new Date(`${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999+05:30`);
+
+  filter.attendanceDate = { $gte: startOfMonth, $lte: endOfMonth };
+
   const records = await AttendanceRecord.find(filter);
-  const present = records.filter((r) => r.attendanceStatus.startsWith('Present')).length;
+  const totalEmployees = await Employee.countDocuments({ status: 'Active' });
+
+  const present = records.filter((r) => r.attendanceStatus && r.attendanceStatus.startsWith('Present')).length;
   const late = records.filter((r) => r.isLate).length;
+  const earlyExits = records.filter((r) => r.isEarlyExit).length;
   const absent = records.filter((r) => r.attendanceStatus === 'Absent').length;
+  const halfDays = records.filter((r) => r.attendanceStatus === 'Half Day').length;
   const leave = records.filter((r) => r.attendanceStatus === 'Leave').length;
 
+  let denominator = 1;
+  if (isSingleEmployee) {
+    denominator = records.length || 1;
+  } else {
+    denominator = records.length || 1;
+  }
+
+  const pct = Math.round(((present + halfDays * 0.5) / denominator) * 100 * 10) / 10;
+  const monthStr = `${y}-${String(m).padStart(2, '0')}`;
+
+  const summary = {
+    present,
+    late,
+    early_exits: earlyExits,
+    absent,
+    half_days: halfDays,
+    leave,
+    attendance_percentage: pct,
+    total_employees: totalEmployees,
+  };
+
+  const days: Array<{ day: number } & typeof summary> = [];
+  for (let d = 1; d <= lastDay; d++) {
+    const dayRecords = records.filter((r) => {
+      if (!r.attendanceDate) return false;
+      const dateVal = r.attendanceDate instanceof Date ? r.attendanceDate : new Date(r.attendanceDate);
+      const istDayStr = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', day: 'numeric' }).format(dateVal);
+      return parseInt(istDayStr, 10) === d;
+    });
+
+    const dPresent = dayRecords.filter((r) => r.attendanceStatus && r.attendanceStatus.startsWith('Present')).length;
+    const dLate = dayRecords.filter((r) => r.isLate).length;
+    const dEarlyExits = dayRecords.filter((r) => r.isEarlyExit).length;
+    const dAbsent = dayRecords.filter((r) => r.attendanceStatus === 'Absent').length;
+    const dHalfDays = dayRecords.filter((r) => r.attendanceStatus === 'Half Day').length;
+    const dLeave = dayRecords.filter((r) => r.attendanceStatus === 'Leave').length;
+    const dDenom = isSingleEmployee ? (dayRecords.length || 1) : (totalEmployees || dayRecords.length || 1);
+    const dPct = dayRecords.length ? Math.round(((dPresent + dHalfDays * 0.5) / dDenom) * 100 * 10) / 10 : 0;
+
+    days.push({
+      day: d,
+      present: dPresent,
+      late: dLate,
+      early_exits: dEarlyExits,
+      absent: dAbsent,
+      half_days: dHalfDays,
+      leave: dLeave,
+      attendance_percentage: dPct,
+      total_employees: totalEmployees,
+    });
+  }
+
   res.json({
+    month: monthStr,
+    summary,
+    days,
     present_count: present,
     late_count: late,
     absent_count: absent,
@@ -251,7 +371,18 @@ export async function getMonthlyStatistics(req: Request, res: Response): Promise
 }
 
 export async function exportAttendanceCSV(req: Request, res: Response): Promise<void> {
-  const records = await AttendanceRecord.find().populate('employee').sort({ attendanceDate: -1 });
+  const { month } = req.query;
+  const filter: any = {};
+
+  if (month && typeof month === 'string' && month.includes('-')) {
+    const [y, m] = month.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    const startOfMonth = new Date(`${y}-${String(m).padStart(2, '0')}-01T00:00:00.000+05:30`);
+    const endOfMonth = new Date(`${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999+05:30`);
+    filter.attendanceDate = { $gte: startOfMonth, $lte: endOfMonth };
+  }
+
+  const records = await AttendanceRecord.find(filter).populate('employee').sort({ attendanceDate: -1 });
 
   const rows = [
     ['Employee Code', 'Employee Name', 'Department', 'Date', 'Check-In', 'Check-Out', 'Working Hours', 'Status'],
