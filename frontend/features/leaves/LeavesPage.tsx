@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Check, Trash2, X } from "lucide-react";
+import { Check, RotateCcw, Trash2, X } from "lucide-react";
 import { Leave, Paginated } from "@/lib/types";
 import { api } from "@/lib/api";
 import { Avatar } from "@/components/icons";
@@ -33,6 +33,15 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
+  const [employees, setEmployees] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!isEmployee) {
+      api<any[]>("/employees/").then(data => {
+        setEmployees(Array.isArray(data) ? data : (data as any)?.results || []);
+      }).catch(() => {});
+    }
+  }, [isEmployee]);
 
   const loadLeaves = () => {
     setLoading(true);
@@ -58,7 +67,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
 
   useEffect(() => { loadLeaves(); }, [page]);
 
-  async function decide(id: number, status: "Approved" | "Rejected") {
+  async function decide(id: number, status: "Approved" | "Rejected" | "Pending") {
     if (decisionPendingId !== null) return;
     setDecisionPendingId(id);
     setMessage("");
@@ -66,9 +75,9 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
     try {
       const updated = await api<Leave>(`/leaves/${id}/decide/`, { method: "POST", body: JSON.stringify({ status }) });
       setItems(current => current.map(x => x.id === id ? updated : x));
-      setMessage(`Leave request ${status.toLowerCase()}.`);
+      setMessage(`Leave request status updated to ${status}.`);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : `Could not ${status.toLowerCase()} leave request.`);
+      setActionError(err instanceof Error ? err.message : `Could not update leave request to ${status}.`);
     } finally {
       setDecisionPendingId(null);
     }
@@ -100,14 +109,18 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
     setActionError("");
     const data = new FormData(e.currentTarget);
     try {
+      const payload: any = {
+        leave_type: data.get("leave_type"),
+        start_date: data.get("start_date"),
+        end_date: data.get("end_date"),
+        reason: data.get("reason"),
+      };
+      const empId = data.get("employee_id");
+      if (empId) payload.employee_id = empId;
+
       await api<Leave>("/leaves/", {
         method: "POST",
-        body: JSON.stringify({
-          leave_type: data.get("leave_type"),
-          start_date: data.get("start_date"),
-          end_date: data.get("end_date"),
-          reason: data.get("reason"),
-        }),
+        body: JSON.stringify(payload),
       });
       setModal(false);
       setMessage("Leave request submitted.");
@@ -180,20 +193,98 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
             <span className="truncate">{l.reason}</span>
             <Badge tone={l.status}>{l.status}</Badge>
             {!isEmployee && (canEdit || canDelete) && (
-              <div className="decision-buttons" style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                {canEdit && l.status === "Pending" && (
+              <div className="decision-buttons" style={{ display: "flex", gap: "5px", alignItems: "center", justifyContent: "flex-end" }}>
+                {canEdit && (
                   <>
-                    <button className="approve" title="Approve Leave" disabled={decisionPendingId !== null} onClick={() => decide(l.id, "Approved")}>
-                      <Check size={16} />
-                    </button>
-                    <button className="reject" title="Reject Leave" disabled={decisionPendingId !== null} onClick={() => decide(l.id, "Rejected")}>
-                      <X size={16} />
-                    </button>
+                    {l.status !== "Approved" && (
+                      <button
+                        className="approve"
+                        title={l.status === "Rejected" ? "Re-Approve Leave" : "Approve Leave"}
+                        disabled={decisionPendingId !== null}
+                        onClick={() => decide(l.id, "Approved")}
+                        style={{
+                          width: "28px",
+                          height: "28px",
+                          borderRadius: "6px",
+                          border: "1px solid rgba(16, 185, 129, 0.4)",
+                          background: "rgba(16, 185, 129, 0.1)",
+                          color: "#10b981",
+                          cursor: decisionPendingId !== null ? "not-allowed" : "pointer",
+                          display: "grid",
+                          placeItems: "center",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <Check size={15} />
+                      </button>
+                    )}
+
+                    {l.status !== "Rejected" && (
+                      <button
+                        className="reject"
+                        title={l.status === "Approved" ? "Revoke / Reject Leave" : "Reject Leave"}
+                        disabled={decisionPendingId !== null}
+                        onClick={() => decide(l.id, "Rejected")}
+                        style={{
+                          width: "28px",
+                          height: "28px",
+                          borderRadius: "6px",
+                          border: "1px solid rgba(239, 68, 68, 0.4)",
+                          background: "rgba(239, 68, 68, 0.1)",
+                          color: "#ef4444",
+                          cursor: decisionPendingId !== null ? "not-allowed" : "pointer",
+                          display: "grid",
+                          placeItems: "center",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <X size={15} />
+                      </button>
+                    )}
+
+                    {l.status !== "Pending" && (
+                      <button
+                        title="Reset to Pending"
+                        disabled={decisionPendingId !== null}
+                        onClick={() => decide(l.id, "Pending")}
+                        style={{
+                          width: "28px",
+                          height: "28px",
+                          borderRadius: "6px",
+                          border: "1px solid rgba(245, 158, 11, 0.4)",
+                          background: "rgba(245, 158, 11, 0.1)",
+                          color: "#f59e0b",
+                          cursor: decisionPendingId !== null ? "not-allowed" : "pointer",
+                          display: "grid",
+                          placeItems: "center",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <RotateCcw size={13} />
+                      </button>
+                    )}
                   </>
                 )}
+
                 {canDelete && (
-                  <button className="reject" title="Delete Leave Request" style={{ color: "#ff5f6d", borderColor: "rgba(255,95,109,0.3)" }} disabled={decisionPendingId !== null} onClick={() => deleteLeave(l.id)}>
-                    <Trash2 size={15} />
+                  <button
+                    className="reject"
+                    title="Delete Leave Request"
+                    style={{
+                      width: "28px",
+                      height: "28px",
+                      borderRadius: "6px",
+                      color: "#ff5f6d",
+                      borderColor: "rgba(255,95,109,0.3)",
+                      background: "rgba(255,95,109,0.08)",
+                      cursor: decisionPendingId !== null ? "not-allowed" : "pointer",
+                      display: "grid",
+                      placeItems: "center",
+                    }}
+                    disabled={decisionPendingId !== null}
+                    onClick={() => deleteLeave(l.id)}
+                  >
+                    <Trash2 size={14} />
                   </button>
                 )}
               </div>
@@ -233,6 +324,20 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
     {modal && (
       <Modal title="Request time off" onClose={() => setModal(false)}>
         <form onSubmit={requestLeave} className="modal-form">
+          {!isEmployee && employees.length > 0 && (
+            <label>
+              Employee
+              <select name="employee_id" defaultValue="">
+                <option value="">Myself / Default</option>
+                {employees.map(e => (
+                  <option key={e.id || e._id} value={e.id || e._id}>
+                    {e.name || e.display_name} ({e.employee_code || e.employeeCode || "EMP"})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
           {user?.employee?.employment_status === "Probation" && (
             <div style={{ background: "#FEF3C7", border: "1px solid #FCD34D", color: "#92400E", padding: "10px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 600, marginBottom: "14px" }}>
               ⚠️ <strong>Probation Period Policy:</strong> Employees on Probation are not eligible for Sick or Casual leave. Only Unpaid (Loss of Pay) or Emergency leave is permitted until formal confirmation.
