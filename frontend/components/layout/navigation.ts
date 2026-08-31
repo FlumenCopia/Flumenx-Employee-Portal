@@ -75,6 +75,7 @@ export type DynamicApiNavItem = {
 const adminNav = [
   ["Command Center", "/admin/work?view=command-center", Sparkles],
   ["Task Board", "/admin/work?view=kanban", Kanban],
+  ["Approvals Queue", "/admin/work?view=approvals", CheckSquare],
   ["Time Tracker", "/timer", Clock3],
   ["Team Work", "/team-work", Users],
   ["Clients Master", "/clients", BriefcaseBusiness],
@@ -109,6 +110,7 @@ const employeeNav = [
 
 const hrNav = [
   ["Task Board", "/hr/work?view=kanban", Kanban],
+  ["Approvals Queue", "/hr/work?view=approvals", CheckSquare],
   ["Time Tracker", "/timer", Clock3],
   ["Employees Directory", "/employees", Users],
   ["Attendance", "/hr/attendance", CalendarCheck],
@@ -144,6 +146,7 @@ const bdoNav = [
 
 const teamLeadNav = [
   ["Task Board", "/team-lead/work?view=kanban", Kanban],
+  ["Approvals Queue", "/team-lead/work?view=approvals", CheckSquare],
   ["Time Tracker", "/timer", Clock3],
   ["Team Work", "/team-lead/team-work", Users],
   ["Attendance", "/team-lead/attendance", CalendarCheck],

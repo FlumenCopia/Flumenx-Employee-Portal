@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BriefcaseBusiness, Clock, Globe, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
+import { BriefcaseBusiness, Clock, Copy, Globe, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import type { Client, DepartmentItem, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary, WorkspaceRole } from "@/lib/types";
 import { SHOW_ADVANCED_WORKBOARD, normalizeDepartment } from "@/lib/types";
@@ -55,6 +55,80 @@ const defaultTaskRow = (defaultClient?: string, dueDate?: string, defaultUnit?: 
   unit: defaultUnit || "tasks",
   due_date: dueDate || today(),
 });
+
+const DEPARTMENT_TEMPLATES: Record<string, Array<{ title: string; qty: string; unit: string }>> = {
+  design: [
+    { title: "10 Social Media Creatives", qty: "10", unit: "Creatives" },
+    { title: "Brand Identity Logo Concept", qty: "1", unit: "tasks" },
+    { title: "Product Packaging Design", qty: "2", unit: "Creatives" },
+    { title: "Brochure & Print Collateral", qty: "1", unit: "Documents" },
+    { title: "Landing Page UI Assets", qty: "5", unit: "Photos" },
+  ],
+  "video editing": [
+    { title: "3 Instagram Reels with Captions", qty: "3", unit: "Reels" },
+    { title: "YouTube Longform Video Edit", qty: "1", unit: "Videos" },
+    { title: "Motion Graphics Product Explainer", qty: "1", unit: "Videos" },
+    { title: "Podcast Highlight Cut & Polish", qty: "2", unit: "Videos" },
+  ],
+  "web development": [
+    { title: "Responsive Frontend Page UI", qty: "1", unit: "tasks" },
+    { title: "REST API Endpoint & Schema Integration", qty: "2", unit: "tasks" },
+    { title: "Critical Bug Fix & Performance Tune", qty: "1", unit: "tasks" },
+    { title: "Portal Form & Validation Flow", qty: "1", unit: "tasks" },
+  ],
+  accounts: [
+    { title: "Monthly Client Invoicing & Reconciliation", qty: "1", unit: "Documents" },
+    { title: "Vendor Payment Audit & Clearance", qty: "1", unit: "Documents" },
+    { title: "Quarterly Financial Ledger Report", qty: "1", unit: "Documents" },
+  ],
+  marketing: [
+    { title: "Meta & Google Ads Campaign Audit", qty: "1", unit: "tasks" },
+    { title: "Weekly Social Media Content Schedule", qty: "7", unit: "Posts" },
+    { title: "Influencer Outreach & Collab Pitching", qty: "5", unit: "tasks" },
+  ],
+};
+
+function parseTaskTitle(text: string): { title: string; qty?: string; unit?: string } {
+  const regex = /^(\d+)\s+(photos?|videos?|creatives?|reels?|posts?|docs?|documents?|tasks?)\b/i;
+  const match = text.match(regex);
+  if (match) {
+    const qty = match[1];
+    const rawUnit = match[2].toLowerCase();
+    let unit = "tasks";
+    if (rawUnit.startsWith("photo")) unit = "Photos";
+    else if (rawUnit.startsWith("video")) unit = "Videos";
+    else if (rawUnit.startsWith("creative")) unit = "Creatives";
+    else if (rawUnit.startsWith("reel")) unit = "Reels";
+    else if (rawUnit.startsWith("post")) unit = "Posts";
+    else if (rawUnit.startsWith("doc")) unit = "Documents";
+    return { title: text, qty, unit };
+  }
+  return { title: text };
+}
+
+function getQuickDate(type: "today" | "tomorrow" | "friday" | "next_week" | "month_end"): string {
+  const d = new Date();
+  if (type === "today") return d.toISOString().slice(0, 10);
+  if (type === "tomorrow") {
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+  if (type === "friday") {
+    const day = d.getDay();
+    const diff = (5 - day + 7) % 7 || 7;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+  }
+  if (type === "next_week") {
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  }
+  if (type === "month_end") {
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    return lastDay.toISOString().slice(0, 10);
+  }
+  return d.toISOString().slice(0, 10);
+}
 
 function defaultForm(): WorkFormState {
   return {
@@ -155,7 +229,7 @@ function ProgressMeter({ value }: { value: number }) {
   return <div className="work-progress"><div><i style={{ width: `${width}%` }} /></div><span>{value}%</span></div>;
 }
 
-export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
+export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole; defaultTab?: string } = {}) {
   const currentShellUser = useShellUser();
   const effectiveRole = role || (currentShellUser ? (["SUPER_ADMIN", "ADMIN", "OPERATIONS", "OPERATIONS_HEAD"].includes((currentShellUser.portal_role || "").toUpperCase()) ? "admin" : (currentShellUser.portal_role || "").toLowerCase() as WorkspaceRole) : "admin");
   const isEmployeeWorkspace = effectiveRole === "employee";
@@ -275,8 +349,55 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
     setTasksToAssign(current => (current.length > 1 ? current.filter(t => t.id !== id) : current));
   };
 
+  const duplicateTaskRow = (id: string) => {
+    const target = tasksToAssign.find(t => t.id === id);
+    if (!target) return;
+    setTasksToAssign(current => [
+      ...current,
+      {
+        ...target,
+        id: String(Math.random()),
+      },
+    ]);
+  };
+
+  const applyDateToAll = (dateStr: string) => {
+    setTasksToAssign(current => current.map(t => ({ ...t, due_date: dateStr })));
+  };
+
+  const applyTemplateToNewRow = (tpl: { title: string; qty: string; unit: string }) => {
+    const lastRow = tasksToAssign[tasksToAssign.length - 1];
+    const defaultClient = lastRow?.client || (clients.length > 0 ? String(clients[0].id) : "");
+    const dueDate = lastRow?.due_date || form.due_date;
+    setTasksToAssign(current => [
+      ...current,
+      {
+        id: String(Math.random()),
+        client: defaultClient,
+        title: tpl.title,
+        assigned_quantity: tpl.qty,
+        unit: tpl.unit,
+        due_date: dueDate,
+      },
+    ]);
+  };
+
   const updateTaskRow = (id: string, field: "client" | "title" | "assigned_quantity" | "unit" | "due_date", value: string) => {
-    setTasksToAssign(current => current.map(t => (t.id === id ? { ...t, [field]: value } : t)));
+    setTasksToAssign(current =>
+      current.map(t => {
+        if (t.id !== id) return t;
+        if (field === "title") {
+          const parsed = parseTaskTitle(value);
+          return {
+            ...t,
+            title: value,
+            assigned_quantity: parsed.qty || t.assigned_quantity,
+            unit: parsed.unit || t.unit,
+          };
+        }
+        return { ...t, [field]: value };
+      })
+    );
   };
 
   const visibleEmployees = useMemo(() => {
@@ -716,7 +837,8 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
   const searchParams = useSearchParams();
   const viewParam = searchParams.get("view");
   const initialTab =
-    viewParam === "kanban"
+    defaultTab ||
+    (viewParam === "kanban"
       ? "kanban"
       : viewParam === "timeline"
         ? "timeline"
@@ -730,7 +852,7 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
                 ? "kpis"
                 : viewParam === "budget"
                   ? "budget"
-                  : "overview";
+                  : "overview");
 
   const [activeViewMode] = useState<"COMMAND_CENTER" | "LIST">("COMMAND_CENTER");
 
@@ -1209,13 +1331,73 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
 
               {/* STEP 2: ADD CLIENT TASKS FOR THIS EMPLOYEE */}
               <div style={{ background: "var(--panel2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
                   <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--amber)", letterSpacing: "0.5px" }}>
                     STEP 2: ADD CLIENT TASKS (SAVED AS INDEPENDENT SEPARATE TASKS)
                   </span>
                   <span className="badge active" style={{ fontSize: "10px", padding: "2px 8px" }}>
                     {tasksToAssign.length} {tasksToAssign.length === 1 ? "Task" : "Tasks"}
                   </span>
+                </div>
+
+                {/* 1-Click Department Deliverable Templates */}
+                {selectedEmployee && DEPARTMENT_TEMPLATES[normalizeDepartment(selectedEmployee.department)] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", background: "rgba(99, 102, 241, 0.06)", padding: "8px 12px", borderRadius: "8px", border: "1px solid rgba(99, 102, 241, 0.2)" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 800, color: "#4f46e5" }}>⚡ 1-Click Templates:</span>
+                    {DEPARTMENT_TEMPLATES[normalizeDepartment(selectedEmployee.department)].map((tpl, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => applyTemplateToNewRow(tpl)}
+                        style={{
+                          padding: "3px 8px",
+                          borderRadius: "4px",
+                          background: "#ffffff",
+                          border: "1px solid #c7d2fe",
+                          color: "#3730a3",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
+                        }}
+                      >
+                        + {tpl.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* 1-Click Due Date Presets */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px", padding: "2px 0" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--muted)" }}>📅 Due Date Presets:</span>
+                    {[
+                      { id: "today", label: "Today" },
+                      { id: "tomorrow", label: "Tomorrow" },
+                      { id: "friday", label: "This Friday" },
+                      { id: "next_week", label: "Next Week" },
+                      { id: "month_end", label: "Month End" },
+                    ].map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => applyDateToAll(getQuickDate(d.id as any))}
+                        title={`Set all tasks due date to ${d.label}`}
+                        style={{
+                          padding: "2px 7px",
+                          borderRadius: "4px",
+                          background: "var(--panel)",
+                          border: "1px solid var(--border)",
+                          color: "var(--text)",
+                          fontSize: "10.5px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Tasks List */}
@@ -1297,16 +1479,16 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
                         className="fi"
                       />
 
-                      {/* Delete row */}
-                      {tasksToAssign.length > 1 ? (
+                      {/* Row Actions: Duplicate + Delete */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                         <button
                           type="button"
-                          onClick={() => removeTaskRow(taskRow.id)}
-                          title="Remove Task"
+                          onClick={() => duplicateTaskRow(taskRow.id)}
+                          title="Duplicate this task row"
                           style={{
-                            background: "rgba(239, 68, 68, 0.08)",
-                            color: "#EF4444",
-                            border: "1px solid rgba(239, 68, 68, 0.2)",
+                            background: "rgba(59, 130, 246, 0.08)",
+                            color: "#2563eb",
+                            border: "1px solid rgba(59, 130, 246, 0.2)",
                             borderRadius: "6px",
                             padding: "6px 8px",
                             cursor: "pointer",
@@ -1315,11 +1497,32 @@ export function WorkManagementPage({ role }: { role?: WorkspaceRole } = {}) {
                             justifyContent: "center",
                           }}
                         >
-                          <Trash2 size={14} />
+                          <Copy size={13} />
                         </button>
-                      ) : (
-                        <div style={{ width: "28px" }} />
-                      )}
+
+                        {tasksToAssign.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => removeTaskRow(taskRow.id)}
+                            title="Remove Task"
+                            style={{
+                              background: "rgba(239, 68, 68, 0.08)",
+                              color: "#EF4444",
+                              border: "1px solid rgba(239, 68, 68, 0.2)",
+                              borderRadius: "6px",
+                              padding: "6px 8px",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        ) : (
+                          <div style={{ width: "27px" }} />
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

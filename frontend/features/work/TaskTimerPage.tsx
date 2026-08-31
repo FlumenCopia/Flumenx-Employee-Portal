@@ -65,6 +65,7 @@ export function TaskTimerPage() {
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const [updatingQuantity, setUpdatingQuantity] = useState(false);
+  const [timerFilter, setTimerFilter] = useState<"active" | "completed" | "all">("active");
 
   // Ticking live timer state
   const [liveDurationSeconds, setLiveDurationSeconds] = useState(0);
@@ -274,12 +275,37 @@ export function TaskTimerPage() {
     setUpdatingQuantity(true);
 
     try {
+      const isTargetReached = newQty === assignedQty;
+      const patchBody: any = { completed_quantity: newQty };
+      
+      // Auto-transition to 'In Review' when all items are completed
+      if (isTargetReached && selectedTask.status !== "Approved" && selectedTask.status !== "Published") {
+        patchBody.status = "In Review";
+        patchBody.review_status = "PENDING_REVIEW";
+      } else if (!isTargetReached && (selectedTask.status === "In Review" || selectedTask.status === "Completed")) {
+        patchBody.status = "In Progress";
+        patchBody.review_status = "IN_PROGRESS";
+      }
+
       const updated = await api<WorkAssignment>(`/work-assignments/${selectedTask.id}/`, {
         method: "PATCH",
-        body: JSON.stringify({ completed_quantity: newQty }),
+        body: JSON.stringify(patchBody),
       });
-      setTasks((prev) => prev.map((t) => (t.id === selectedTask.id ? { ...t, ...updated, completed_quantity: newQty } : t)));
-      setActionMessage({ type: "success", text: `Updated progress: ${newQty} / ${assignedQty} ${selectedTask.unit || "items"}` });
+
+      // If active timer is running and target reached, stop it automatically
+      if (isTargetReached && selectedTask.active_timer?.started_at) {
+        try {
+          await api(`/timer/stop/${selectedTask.id}/`, { method: "POST" });
+        } catch (_) {}
+      }
+
+      setTasks((prev) => prev.map((t) => (t.id === selectedTask.id ? { ...t, ...updated, completed_quantity: newQty, status: patchBody.status || t.status } : t)));
+      
+      if (isTargetReached) {
+        setActionMessage({ type: "success", text: `🎉 Target reached (${newQty}/${assignedQty})! Task automatically submitted for review.` });
+      } else {
+        setActionMessage({ type: "success", text: `Updated progress: ${newQty} / ${assignedQty} ${selectedTask.unit || "items"}` });
+      }
     } catch (err: any) {
       setActionMessage({ type: "error", text: err.message || "Failed to update item progress." });
     } finally {
@@ -309,13 +335,22 @@ export function TaskTimerPage() {
   };
 
   const filteredTasks = useMemo(() => {
-    return tasks.filter(
-      (t) =>
-        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.client_name && t.client_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (t.unit && t.unit.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-  }, [tasks, searchQuery]);
+    return tasks.filter((t) => {
+      const isDone = t.status === "Approved" || t.status === "Published" || t.status === "Completed";
+      if (timerFilter === "active" && isDone) return false;
+      if (timerFilter === "completed" && !isDone) return false;
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        return (
+          t.title.toLowerCase().includes(q) ||
+          (t.client_name && t.client_name.toLowerCase().includes(q)) ||
+          (t.unit && t.unit.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [tasks, searchQuery, timerFilter]);
 
   const isCurrentSelectedRunning = Boolean(selectedTask?.active_timer?.started_at);
   const currentTotalTimeSeconds = (selectedTask?.total_time_spent_seconds || 0) + (isCurrentSelectedRunning ? liveDurationSeconds : 0);
@@ -431,6 +466,38 @@ export function TaskTimerPage() {
                 <span style={{ fontSize: "0.75rem", background: "#f1f5f9", padding: "2px 8px", borderRadius: "12px", fontWeight: 600, color: "#64748b" }}>
                   {filteredTasks.length}
                 </span>
+              </div>
+
+              {/* Active / Done Filter Pills */}
+              <div style={{ display: "flex", gap: "6px", marginBottom: "0.75rem" }}>
+                {[
+                  { id: "active", label: `Active (${tasks.filter(t => t.status !== "Approved" && t.status !== "Published" && t.status !== "Completed").length})` },
+                  { id: "completed", label: `Done (${tasks.filter(t => t.status === "Approved" || t.status === "Published" || t.status === "Completed").length})` },
+                  { id: "all", label: `All (${tasks.length})` },
+                ].map((f) => {
+                  const active = timerFilter === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setTimerFilter(f.id as any)}
+                      style={{
+                        flex: 1,
+                        padding: "5px 6px",
+                        borderRadius: "6px",
+                        fontSize: "11.5px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        border: active ? "1.5px solid #10b981" : "1px solid #e2e8f0",
+                        background: active ? "rgba(16, 185, 129, 0.1)" : "#ffffff",
+                        color: active ? "#065f46" : "#64748b",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {f.label}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Search Bar */}
@@ -665,32 +732,77 @@ export function TaskTimerPage() {
               </div>
 
               {/* Big Action Buttons */}
-              <div style={{ display: "flex", gap: "0.75rem", width: "100%", maxWidth: "380px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
                 {!isCurrentSelectedRunning ? (
-                  <button
-                    onClick={() => selectedTaskId && handleStartTimer(selectedTaskId)}
-                    disabled={!selectedTaskId || isPending}
-                    style={{
-                      flex: 1,
-                      padding: "0.85rem 1.5rem",
-                      borderRadius: "0.625rem",
-                      background: "#10b981",
-                      color: "#ffffff",
-                      border: "none",
-                      fontWeight: "800",
-                      fontSize: "1rem",
-                      cursor: selectedTaskId && !isPending ? "pointer" : "not-allowed",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "0.5rem",
-                      boxShadow: "0 4px 14px rgba(16, 185, 129, 0.35)",
-                      opacity: selectedTaskId && !isPending ? 1 : 0.6,
-                    }}
-                  >
-                    <Play size={18} fill="#ffffff" />
-                    Start Session Timer
-                  </button>
+                  <>
+                    <button
+                      onClick={() => selectedTaskId && handleStartTimer(selectedTaskId)}
+                      disabled={!selectedTaskId || isPending}
+                      style={{
+                        flex: 1,
+                        padding: "0.85rem 1.25rem",
+                        borderRadius: "0.625rem",
+                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                        color: "#ffffff",
+                        border: "none",
+                        fontWeight: "800",
+                        fontSize: "0.95rem",
+                        cursor: selectedTaskId && !isPending ? "pointer" : "not-allowed",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        boxShadow: "0 4px 14px rgba(16, 185, 129, 0.35)",
+                        opacity: selectedTaskId && !isPending ? 1 : 0.6,
+                      }}
+                    >
+                      <Play size={18} fill="#ffffff" />
+                      Start Session Timer
+                    </button>
+
+                    {selectedTask && selectedTask.status !== "Approved" && selectedTask.status !== "Published" && (
+                      <button
+                        onClick={async () => {
+                          if (!selectedTaskId || !selectedTask) return;
+                          try {
+                            await api(`/work-assignments/${selectedTaskId}/`, {
+                              method: "PATCH",
+                              body: JSON.stringify({
+                                status: "In Review",
+                                review_status: "PENDING_REVIEW",
+                                completed_quantity: selectedTask.assigned_quantity || 1,
+                              }),
+                            });
+                            setActionMessage({ type: "success", text: "Task marked complete and submitted for Review! 🎉" });
+                            await fetchTasks();
+                          } catch (err: any) {
+                            setActionMessage({ type: "error", text: err.message || "Failed to submit for review." });
+                          }
+                        }}
+                        disabled={!selectedTaskId || isPending}
+                        style={{
+                          padding: "0.85rem 1.25rem",
+                          borderRadius: "0.625rem",
+                          background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+                          color: "#ffffff",
+                          border: "none",
+                          fontWeight: "800",
+                          fontSize: "0.95rem",
+                          cursor: selectedTaskId && !isPending ? "pointer" : "not-allowed",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "0.5rem",
+                          boxShadow: "0 4px 14px rgba(59, 130, 246, 0.35)",
+                        }}
+                      >
+                        <CheckCircle2 size={16} />
+                        {(selectedTask.completed_quantity || 0) >= (selectedTask.assigned_quantity || 1)
+                          ? "📨 Submit for Review (Done) 🎉"
+                          : "📨 Mark Done & Send for Review"}
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <>
                     <button
@@ -727,11 +839,12 @@ export function TaskTimerPage() {
                           await api(`/work-assignments/${selectedTaskId}/`, {
                             method: "PATCH",
                             body: JSON.stringify({
-                              status: "Completed",
+                              status: "In Review",
+                              review_status: "PENDING_REVIEW",
                               completed_quantity: selectedTask.assigned_quantity || 1,
                             }),
                           });
-                          setActionMessage({ type: "success", text: "Task marked as Completed!" });
+                          setActionMessage({ type: "success", text: "Task marked complete and submitted for Review! 🎉" });
                           await fetchTasks();
                         } catch (err: any) {
                           setActionMessage({ type: "error", text: err.message || "Failed to mark complete." });
@@ -755,7 +868,7 @@ export function TaskTimerPage() {
                       }}
                     >
                       <CheckCircle2 size={16} />
-                      Complete Task
+                      Stop & Submit for Review
                     </button>
                   </>
                 )}
