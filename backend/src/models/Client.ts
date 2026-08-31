@@ -44,6 +44,7 @@ export interface IClient extends Document {
   documents: IClientDocument[];
   proposals: IClientProposal[];
   brandAssets: IClientBrandAsset[];
+  servicesProvided: string[];
 }
 
 const clientDocumentSchema = new Schema(
@@ -110,6 +111,7 @@ const clientSchema = new Schema<IClient>(
     documents: [clientDocumentSchema],
     proposals: [clientProposalSchema],
     brandAssets: [clientBrandAssetSchema],
+    servicesProvided: [{ type: String, trim: true }],
   },
   {
     timestamps: true,

@@ -6,6 +6,7 @@ import {
   updateClient,
   deleteClient,
   uploadClientDocument,
+  deleteClientDocument,
   uploadTaskAttachment,
   getClientKPIHealthHandler,
   getWorkAssignments,
@@ -49,6 +50,7 @@ router.get('/clients/?', requirePermission('clients', 'canView'), getClients);
 router.get('/clients/:id/?', requirePermission('clients', 'canView'), getClientById);
 router.post('/clients/?', requirePermission('clients', 'canCreate'), createClient);
 router.post('/clients/:id/documents/?', requirePermission('clients', 'canEdit'), upload.single('file'), uploadClientDocument);
+router.delete('/clients/:id/documents/:docId/?', requirePermission('clients', 'canEdit'), deleteClientDocument);
 router.get('/clients/:id/kpi-health/?', requirePermission('clients', 'canView'), getClientKPIHealthHandler);
 router.put('/clients/:id/?', requirePermission('clients', 'canEdit'), updateClient);
 router.patch('/clients/:id/?', requirePermission('clients', 'canEdit'), updateClient);

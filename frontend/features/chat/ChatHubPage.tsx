@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import {
+  AlertCircle,
   Briefcase,
   Calendar,
   Check,
@@ -293,7 +294,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
     await handleSendMessage({
       task_id: task.id,
       message_type: "TASK_EMBED",
-      text: `📌 Linked Task: ${task.title}`,
+      text: `Linked Task: ${task.title}`,
     });
     setTaskPickerOpen(false);
     toast.success("Task embedded in conversation!");
@@ -304,7 +305,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
     await handleSendMessage({
       client_id: client.id,
       message_type: "CLIENT_EMBED",
-      text: `🏢 Linked Client: ${client.name}`,
+      text: `Linked Client: ${client.name}`,
     });
     setClientPickerOpen(false);
     toast.success("Client account linked!");
@@ -315,7 +316,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
     await handleSendMessage({
       standup_data: standupData,
       message_type: "STANDUP_UPDATE",
-      text: `⚡ Daily Work Update (${standupData.date})`,
+      text: `Daily Work Update (${standupData.date})`,
     });
     setStandupModalOpen(false);
     toast.success("Daily Work Update posted to channel!");
@@ -328,7 +329,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
     await handleSendMessage({
       meeting_code: meetingCode,
       message_type: "MEETING_LINK",
-      text: `📅 Started instant meeting: ${meetingCode}`,
+      text: `Started instant meeting: ${meetingCode}`,
     });
     toast.success(`Meeting room link shared: ${meetingCode}`);
   };
@@ -476,13 +477,13 @@ export function ChatHubPage({ role = "admin" }: Props) {
         style={{
           display: "grid",
           gridTemplateColumns: showInfoDrawer ? "300px 1fr 280px" : "320px 1fr",
-          background: "var(--panel, #18181b)",
-          border: "1px solid var(--border, #27272a)",
+          background: "var(--panel, #ffffff)",
+          border: "1px solid var(--border, #DCE3E0)",
           borderRadius: "16px",
           overflow: "hidden",
           height: "calc(100vh - 200px)",
           minHeight: "650px",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
           position: "relative",
         }}
       >
@@ -491,23 +492,23 @@ export function ChatHubPage({ role = "admin" }: Props) {
         {/* ========================================================= */}
         <div
           style={{
-            borderRight: "1px solid var(--border, #27272a)",
+            borderRight: "1px solid var(--border, #DCE3E0)",
             display: "flex",
             flexDirection: "column",
-            background: "rgba(0, 0, 0, 0.2)",
+            background: "var(--panel2, #F8FAF9)",
           }}
         >
           {/* Search Header */}
-          <div style={{ padding: "16px", borderBottom: "1px solid var(--border, #27272a)", display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ padding: "16px", borderBottom: "1px solid var(--border, #DCE3E0)", display: "flex", flexDirection: "column", gap: "12px" }}>
             <div style={{ position: "relative" }}>
-              <Search size={15} style={{ position: "absolute", left: "12px", top: "10px", color: "var(--muted, #888)" }} />
+              <Search size={15} style={{ position: "absolute", left: "12px", top: "10px", color: "var(--color-text-muted, #718096)" }} />
               <input
                 type="text"
                 placeholder="Search chats, groups, colleagues..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="input"
-                style={{ width: "100%", paddingLeft: "34px", fontSize: "13px", height: "36px" }}
+                style={{ width: "100%", paddingLeft: "34px", fontSize: "13px", height: "36px", background: "var(--panel, #ffffff)", border: "1px solid var(--border2, #CBD5E1)", color: "var(--color-text, #18231F)" }}
               />
             </div>
 
@@ -520,12 +521,12 @@ export function ChatHubPage({ role = "admin" }: Props) {
                   style={{
                     padding: "4px 10px",
                     borderRadius: "20px",
-                    border: 0,
+                    border: activeTab === tab ? "1px solid var(--color-primary, #087A5B)" : "1px solid var(--border, #DCE3E0)",
                     fontSize: "11px",
                     fontWeight: 700,
                     cursor: "pointer",
-                    background: activeTab === tab ? "var(--accent, #10b981)" : "rgba(255,255,255,0.06)",
-                    color: activeTab === tab ? "#000" : "var(--text, #fff)",
+                    background: activeTab === tab ? "var(--color-primary, #087A5B)" : "var(--panel, #ffffff)",
+                    color: activeTab === tab ? "#fff" : "var(--color-text-secondary, #4A5568)",
                     whiteSpace: "nowrap",
                     transition: "all 0.15s ease",
                   }}
@@ -539,15 +540,15 @@ export function ChatHubPage({ role = "admin" }: Props) {
           {/* Conversation Items */}
           <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
             {loadingConversations ? (
-              <div style={{ padding: "30px", textAlign: "center", color: "var(--muted, #888)", fontSize: "13px" }}>
+              <div style={{ padding: "30px", textAlign: "center", color: "var(--color-text-muted, #718096)", fontSize: "13px" }}>
                 Loading conversations...
               </div>
             ) : filteredConversations.length === 0 ? (
-              <div style={{ padding: "40px 16px", textAlign: "center", color: "var(--muted, #888)", fontSize: "13px" }}>
+              <div style={{ padding: "40px 16px", textAlign: "center", color: "var(--color-text-muted, #718096)", fontSize: "13px" }}>
                 No conversations found.
                 <button
                   onClick={() => setNewChatModalOpen(true)}
-                  style={{ display: "block", margin: "10px auto 0", background: "transparent", border: "1px dashed var(--accent, #10b981)", color: "var(--accent, #10b981)", padding: "6px 12px", borderRadius: "8px", cursor: "pointer", fontSize: "12px" }}
+                  style={{ display: "block", margin: "10px auto 0", background: "#E7F5EE", border: "1px solid #B2D8CB", color: "var(--color-primary, #087A5B)", padding: "6px 12px", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}
                 >
                   + Start New Chat
                 </button>
@@ -569,8 +570,8 @@ export function ChatHubPage({ role = "admin" }: Props) {
                       borderRadius: "10px",
                       cursor: "pointer",
                       marginBottom: "4px",
-                      background: isActive ? "rgba(16, 185, 129, 0.15)" : "transparent",
-                      border: isActive ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid transparent",
+                      background: isActive ? "var(--color-primary-subtle, #E7F3EE)" : "transparent",
+                      border: isActive ? "1px solid var(--color-brand-border, #B2D8CB)" : "1px solid transparent",
                       transition: "background 0.15s ease",
                     }}
                   >
@@ -581,7 +582,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
                           width: "42px",
                           height: "42px",
                           borderRadius: isGroup ? "10px" : "50%",
-                          background: isGroup ? "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)" : "linear-gradient(135deg, #059669 0%, #10b981 100%)",
+                          background: isGroup ? "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" : "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
                           display: "grid",
                           placeItems: "center",
                           fontSize: "15px",
@@ -600,8 +601,8 @@ export function ChatHubPage({ role = "admin" }: Props) {
                             width: "10px",
                             height: "10px",
                             borderRadius: "50%",
-                            background: "#ef4444",
-                            border: "2px solid #18181b",
+                            background: "#DC2626",
+                            border: "2px solid #ffffff",
                           }}
                         />
                       )}
@@ -610,14 +611,14 @@ export function ChatHubPage({ role = "admin" }: Props) {
                     {/* Text Details */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2px" }}>
-                        <b style={{ fontSize: "13px", color: isActive ? "#fff" : "var(--text, #fff)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <b style={{ fontSize: "13px", color: "var(--color-text, #18231F)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {conv.name}
                         </b>
-                        <span style={{ fontSize: "10px", color: "var(--muted, #888)", flexShrink: 0 }}>
+                        <span style={{ fontSize: "10px", color: "var(--color-text-muted, #718096)", flexShrink: 0 }}>
                           {conv.last_message_at ? new Date(conv.last_message_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
                         </span>
                       </div>
-                      <div style={{ fontSize: "12px", color: conv.has_unread ? "#10b981" : "var(--muted, #888)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: conv.has_unread ? 700 : 400 }}>
+                      <div style={{ fontSize: "12px", color: conv.has_unread ? "var(--color-primary, #087A5B)" : "var(--color-text-muted, #718096)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: conv.has_unread ? 700 : 400 }}>
                         {conv.last_message_sender_name ? `${conv.last_message_sender_name}: ` : ""}
                         {conv.last_message_text || "No messages yet"}
                       </div>
@@ -632,18 +633,18 @@ export function ChatHubPage({ role = "admin" }: Props) {
         {/* ========================================================= */}
         {/* CENTER COLUMN: ACTIVE CHAT THREAD */}
         {/* ========================================================= */}
-        <div style={{ display: "flex", flexDirection: "column", background: "var(--panel, #18181b)", position: "relative" }}>
+        <div style={{ display: "flex", flexDirection: "column", background: "var(--color-background, #F3F5F4)", position: "relative" }}>
           {activeConversation ? (
             <>
               {/* Active Conversation Top Bar */}
               <div
                 style={{
                   padding: "12px 20px",
-                  borderBottom: "1px solid var(--border, #27272a)",
+                  borderBottom: "1px solid var(--border, #DCE3E0)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  background: "rgba(0,0,0,0.15)",
+                  background: "var(--panel, #ffffff)",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -652,7 +653,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
                       width: "38px",
                       height: "38px",
                       borderRadius: activeConversation.type !== "DIRECT" ? "8px" : "50%",
-                      background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
+                      background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
                       display: "grid",
                       placeItems: "center",
                       fontWeight: 700,
@@ -663,12 +664,12 @@ export function ChatHubPage({ role = "admin" }: Props) {
                     {activeConversation.type !== "DIRECT" ? <Users size={18} /> : activeConversation.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "#fff", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <h3 style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "var(--color-text, #18231F)", display: "flex", alignItems: "center", gap: "8px" }}>
                       {activeConversation.name}
                       {activeConversation.department && <Badge tone="info">{activeConversation.department}</Badge>}
                       {activeConversation.client_name && <Badge tone="gold">{activeConversation.client_name}</Badge>}
                     </h3>
-                    <span style={{ fontSize: "11px", color: "var(--muted, #888)" }}>
+                    <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
                       {activeConversation.type === "DIRECT"
                         ? activeConversation.other_participant?.role || "Active Member"
                         : `${activeConversation.participants?.length || 0} group participants`}
@@ -680,8 +681,19 @@ export function ChatHubPage({ role = "admin" }: Props) {
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <button
                     onClick={() => handleStartCall("audio")}
-                    className="btn btn-secondary"
-                    style={{ padding: "7px 10px", display: "flex", alignItems: "center", gap: "6px", fontSize: "12px" }}
+                    style={{
+                      padding: "6px 12px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      background: "var(--panel, #ffffff)",
+                      border: "1px solid var(--border, #DCE3E0)",
+                      borderRadius: "8px",
+                      color: "var(--color-text, #18231F)",
+                      cursor: "pointer",
+                    }}
                     title="Start Voice Call"
                   >
                     <Phone size={14} /> Call
@@ -689,8 +701,19 @@ export function ChatHubPage({ role = "admin" }: Props) {
 
                   <button
                     onClick={() => handleStartCall("video")}
-                    className="btn btn-secondary"
-                    style={{ padding: "7px 10px", display: "flex", alignItems: "center", gap: "6px", fontSize: "12px" }}
+                    style={{
+                      padding: "6px 12px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      background: "var(--panel, #ffffff)",
+                      border: "1px solid var(--border, #DCE3E0)",
+                      borderRadius: "8px",
+                      color: "var(--color-text, #18231F)",
+                      cursor: "pointer",
+                    }}
                     title="Start Video Call"
                   >
                     <Video size={14} /> Video
@@ -698,8 +721,19 @@ export function ChatHubPage({ role = "admin" }: Props) {
 
                   <button
                     onClick={handleLaunchMeeting}
-                    className="btn btn-secondary"
-                    style={{ padding: "7px 10px", display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8" }}
+                    style={{
+                      padding: "6px 12px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      background: "var(--color-primary-subtle, #E7F3EE)",
+                      border: "1px solid var(--color-brand-border, #B2D8CB)",
+                      borderRadius: "8px",
+                      color: "var(--color-primary, #087A5B)",
+                      cursor: "pointer",
+                    }}
                     title="Share instant FLUMENX meeting room in chat"
                   >
                     <Calendar size={14} /> Launch Meeting
@@ -707,8 +741,17 @@ export function ChatHubPage({ role = "admin" }: Props) {
 
                   <button
                     onClick={() => setShowInfoDrawer((prev) => !prev)}
-                    className="btn btn-secondary"
-                    style={{ padding: "7px 9px" }}
+                    style={{
+                      padding: "6px 9px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "var(--panel, #ffffff)",
+                      border: "1px solid var(--border, #DCE3E0)",
+                      borderRadius: "8px",
+                      color: "var(--color-text, #18231F)",
+                      cursor: "pointer",
+                    }}
                     title="Toggle Group Information"
                   >
                     <Info size={16} />
@@ -721,24 +764,24 @@ export function ChatHubPage({ role = "admin" }: Props) {
                 <div
                   style={{
                     padding: "8px 16px",
-                    background: "rgba(245, 158, 11, 0.1)",
-                    borderBottom: "1px solid rgba(245, 158, 11, 0.25)",
+                    background: "var(--color-primary-subtle, #E7F3EE)",
+                    borderBottom: "1px solid var(--color-brand-border, #B2D8CB)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
                     fontSize: "12px",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#f59e0b" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--color-primary, #087A5B)" }}>
                     <Pin size={14} />
-                    <b style={{ color: "#fff" }}>Pinned:</b>
-                    <span style={{ color: "#e2e8f0", maxWidth: "450px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <b style={{ color: "var(--color-text, #18231F)" }}>Pinned:</b>
+                    <span style={{ color: "var(--color-text-secondary, #4A5568)", maxWidth: "450px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {topPinnedMessage.text}
                     </span>
                   </div>
                   <button
                     onClick={() => handleTogglePin(topPinnedMessage.id)}
-                    style={{ background: "transparent", border: 0, color: "var(--muted, #888)", cursor: "pointer", fontSize: "11px" }}
+                    style={{ background: "transparent", border: 0, color: "var(--color-text-muted, #718096)", cursor: "pointer", fontSize: "11px" }}
                     title="Unpin Message"
                   >
                     <X size={14} />
@@ -749,16 +792,16 @@ export function ChatHubPage({ role = "admin" }: Props) {
               {/* MESSAGE THREAD FEED */}
               <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: "14px" }}>
                 {loadingMessages ? (
-                  <div style={{ padding: "40px", textAlign: "center", color: "var(--muted, #888)", fontSize: "13px" }}>
+                  <div style={{ padding: "40px", textAlign: "center", color: "var(--color-text-muted, #718096)", fontSize: "13px" }}>
                     Loading conversation history...
                   </div>
                 ) : messages.length === 0 ? (
-                  <div style={{ padding: "60px 20px", textAlign: "center", color: "var(--muted, #888)" }}>
-                    <div style={{ width: "50px", height: "50px", borderRadius: "50%", background: "rgba(255,255,255,0.04)", display: "grid", placeItems: "center", margin: "0 auto 12px" }}>
+                  <div style={{ padding: "60px 20px", textAlign: "center", color: "var(--color-text-muted, #718096)" }}>
+                    <div style={{ width: "50px", height: "50px", borderRadius: "50%", background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border, #DCE3E0)", display: "grid", placeItems: "center", margin: "0 auto 12px", color: "var(--color-primary, #087A5B)" }}>
                       <MessageSquare size={24} />
                     </div>
-                    <b style={{ fontSize: "14px", color: "#fff", display: "block" }}>No messages yet</b>
-                    <span style={{ fontSize: "12px" }}>Send a message or use the smart action buttons below to embed tasks or daily updates.</span>
+                    <b style={{ fontSize: "14px", color: "var(--color-text, #18231F)", display: "block" }}>No messages yet</b>
+                    <span style={{ fontSize: "12px" }}>Send a message or use the action buttons below to embed tasks or daily updates.</span>
                   </div>
                 ) : (
                   messages.map((msg) => {
@@ -776,7 +819,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
                       >
                         {/* Sender name for group chats */}
                         {!isSelf && activeConversation.type !== "DIRECT" && (
-                          <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--accent, #10b981)", marginBottom: "3px", marginLeft: "4px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-primary, #087A5B)", marginBottom: "3px", marginLeft: "4px" }}>
                             {msg.sender_name} {msg.sender_role && `(${msg.sender_role})`}
                           </span>
                         )}
@@ -787,11 +830,11 @@ export function ChatHubPage({ role = "admin" }: Props) {
                             maxWidth: "75%",
                             padding: "10px 14px",
                             borderRadius: isSelf ? "14px 14px 2px 14px" : "14px 14px 14px 2px",
-                            background: isSelf ? "linear-gradient(135deg, #059669 0%, #047857 100%)" : "rgba(255,255,255,0.06)",
-                            border: isSelf ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(255,255,255,0.08)",
-                            color: "#fff",
+                            background: isSelf ? "var(--color-primary, #087A5B)" : "var(--panel, #ffffff)",
+                            border: isSelf ? "1px solid var(--color-primary-hover, #066348)" : "1px solid var(--border, #DCE3E0)",
+                            color: isSelf ? "#ffffff" : "var(--color-text, #18231F)",
                             position: "relative",
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                            boxShadow: isSelf ? "0 2px 6px rgba(8, 122, 91, 0.18)" : "0 1px 3px rgba(24,35,31,0.05)",
                           }}
                         >
                           {/* Pin Icon badge */}
@@ -844,13 +887,14 @@ export function ChatHubPage({ role = "admin" }: Props) {
                                 alignItems: "center",
                                 gap: "10px",
                                 padding: "8px 12px",
-                                background: "rgba(0,0,0,0.25)",
+                                background: isSelf ? "rgba(0,0,0,0.15)" : "var(--panel2, #F8FAF9)",
                                 borderRadius: "8px",
                                 textDecoration: "none",
-                                color: "#fff",
+                                color: isSelf ? "#fff" : "var(--color-text, #18231F)",
+                                border: isSelf ? "1px solid rgba(255,255,255,0.2)" : "1px solid var(--border, #DCE3E0)",
                               }}
                             >
-                              <FileText size={20} color="#38bdf8" />
+                              <FileText size={20} color={isSelf ? "#fff" : "#2563EB"} />
                               <div style={{ minWidth: 0 }}>
                                 <b style={{ fontSize: "12px", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                   {msg.attachments[0].name}
@@ -865,8 +909,8 @@ export function ChatHubPage({ role = "admin" }: Props) {
                             <div
                               style={{
                                 padding: "12px",
-                                background: "rgba(0,0,0,0.35)",
-                                border: "1px solid rgba(255,255,255,0.15)",
+                                background: isSelf ? "rgba(0,0,0,0.15)" : "var(--panel2, #F8FAF9)",
+                                border: isSelf ? "1px solid rgba(255,255,255,0.2)" : "1px solid var(--border, #DCE3E0)",
                                 borderRadius: "10px",
                                 display: "flex",
                                 flexDirection: "column",
@@ -875,28 +919,28 @@ export function ChatHubPage({ role = "admin" }: Props) {
                               }}
                             >
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: "10px", fontWeight: 800, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "4px" }}>
+                                <span style={{ fontSize: "10px", fontWeight: 800, color: isSelf ? "#fff" : "var(--color-primary, #087A5B)", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "4px" }}>
                                   <ListTodo size={12} /> FLUMENX TASK EMBED
                                 </span>
-                                <Badge tone={msg.task_embed.priority === "Urgent" ? "danger" : "info"}>
+                                <Badge tone={msg.task_embed.priority === "Urgent" ? "danger" : "neutral"}>
                                   {msg.task_embed.priority}
                                 </Badge>
                               </div>
 
-                              <b style={{ fontSize: "14px", color: "#fff" }}>{msg.task_embed.title}</b>
+                              <b style={{ fontSize: "14px", color: isSelf ? "#fff" : "var(--color-text, #18231F)" }}>{msg.task_embed.title}</b>
 
-                              <div style={{ fontSize: "11px", color: "var(--muted, #bbb)", display: "flex", justifyContent: "space-between" }}>
+                              <div style={{ fontSize: "11px", color: isSelf ? "rgba(255,255,255,0.85)" : "var(--color-text-muted, #718096)", display: "flex", justifyContent: "space-between" }}>
                                 <span>Assignee: <b>{msg.task_embed.employeeName}</b></span>
-                                <span>Status: <b style={{ color: "#34d399" }}>{msg.task_embed.status}</b></span>
+                                <span>Status: <b style={{ color: isSelf ? "#fff" : "#16855B" }}>{msg.task_embed.status}</b></span>
                               </div>
 
                               {/* Progress bar */}
-                              <div style={{ width: "100%", height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "4px", overflow: "hidden" }}>
+                              <div style={{ width: "100%", height: "6px", background: isSelf ? "rgba(255,255,255,0.25)" : "#DCE3E0", borderRadius: "4px", overflow: "hidden" }}>
                                 <div
                                   style={{
                                     width: `${Math.min(100, Math.round(((msg.task_embed.completedQuantity || 0) / (msg.task_embed.assignedQuantity || 1)) * 100))}%`,
                                     height: "100%",
-                                    background: "#10b981",
+                                    background: isSelf ? "#fff" : "#087A5B",
                                   }}
                                 />
                               </div>
@@ -905,13 +949,14 @@ export function ChatHubPage({ role = "admin" }: Props) {
                                 href={`/clients/tasks`}
                                 style={{
                                   padding: "5px 10px",
-                                  background: "rgba(255,255,255,0.08)",
+                                  background: isSelf ? "rgba(255,255,255,0.15)" : "#E7F5EE",
+                                  border: isSelf ? "1px solid rgba(255,255,255,0.25)" : "1px solid #B2D8CB",
                                   borderRadius: "6px",
                                   textAlign: "center",
                                   fontSize: "11px",
-                                  color: "#fff",
+                                  color: isSelf ? "#fff" : "#087A5B",
                                   textDecoration: "none",
-                                  fontWeight: 600,
+                                  fontWeight: 700,
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
@@ -928,8 +973,8 @@ export function ChatHubPage({ role = "admin" }: Props) {
                             <div
                               style={{
                                 padding: "12px",
-                                background: "rgba(0,0,0,0.35)",
-                                border: "1px solid rgba(255,255,255,0.15)",
+                                background: isSelf ? "rgba(0,0,0,0.15)" : "var(--panel2, #F8FAF9)",
+                                border: isSelf ? "1px solid rgba(255,255,255,0.2)" : "1px solid var(--border, #DCE3E0)",
                                 borderRadius: "10px",
                                 display: "flex",
                                 flexDirection: "column",
@@ -937,24 +982,25 @@ export function ChatHubPage({ role = "admin" }: Props) {
                                 minWidth: "240px",
                               }}
                             >
-                              <span style={{ fontSize: "10px", fontWeight: 800, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "4px" }}>
+                              <span style={{ fontSize: "10px", fontWeight: 800, color: isSelf ? "#fff" : "var(--color-primary, #087A5B)", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "4px" }}>
                                 <Briefcase size={12} /> CLIENT ACCOUNT LINK
                               </span>
-                              <b style={{ fontSize: "14px", color: "#fff" }}>{msg.client_embed.name}</b>
-                              <span style={{ fontSize: "11px", color: "var(--muted, #bbb)" }}>
+                              <b style={{ fontSize: "14px", color: isSelf ? "#fff" : "var(--color-text, #18231F)" }}>{msg.client_embed.name}</b>
+                              <span style={{ fontSize: "11px", color: isSelf ? "rgba(255,255,255,0.8)" : "var(--color-text-muted, #718096)" }}>
                                 Industry: {msg.client_embed.industry} • Contact: {msg.client_embed.contactPerson || "Primary Lead"}
                               </span>
                               <a
                                 href={`/clients/tasks`}
                                 style={{
                                   padding: "5px 10px",
-                                  background: "rgba(255,255,255,0.08)",
+                                  background: isSelf ? "rgba(255,255,255,0.15)" : "var(--color-primary-subtle, #E7F3EE)",
+                                  border: isSelf ? "1px solid rgba(255,255,255,0.25)" : "1px solid var(--color-brand-border, #B2D8CB)",
                                   borderRadius: "6px",
                                   textAlign: "center",
                                   fontSize: "11px",
-                                  color: "#fff",
+                                  color: isSelf ? "#fff" : "var(--color-primary, #087A5B)",
                                   textDecoration: "none",
-                                  fontWeight: 600,
+                                  fontWeight: 700,
                                 }}
                               >
                                 View Client Deliverables →
@@ -967,8 +1013,8 @@ export function ChatHubPage({ role = "admin" }: Props) {
                             <div
                               style={{
                                 padding: "14px",
-                                background: "rgba(0,0,0,0.4)",
-                                border: "1px solid rgba(16, 185, 129, 0.3)",
+                                background: isSelf ? "rgba(0,0,0,0.15)" : "var(--panel2, #F8FAF9)",
+                                border: isSelf ? "1px solid rgba(255,255,255,0.2)" : "1px solid #B2D8CB",
                                 borderRadius: "12px",
                                 display: "flex",
                                 flexDirection: "column",
@@ -976,20 +1022,20 @@ export function ChatHubPage({ role = "admin" }: Props) {
                                 minWidth: "280px",
                               }}
                             >
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "6px" }}>
-                                <span style={{ fontSize: "11px", fontWeight: 800, color: "#10b981", display: "flex", alignItems: "center", gap: "4px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: isSelf ? "1px solid rgba(255,255,255,0.15)" : "1px solid var(--border, #DCE3E0)", paddingBottom: "6px" }}>
+                                <span style={{ fontSize: "11px", fontWeight: 800, color: isSelf ? "#fff" : "#087A5B", display: "flex", alignItems: "center", gap: "4px" }}>
                                   <Sparkles size={13} /> DAILY WORK STANDUP
                                 </span>
-                                <span style={{ fontSize: "11px", color: "var(--muted, #aaa)" }}>{msg.standup_data.date}</span>
+                                <span style={{ fontSize: "11px", color: isSelf ? "rgba(255,255,255,0.8)" : "var(--color-text-muted, #718096)" }}>{msg.standup_data.date}</span>
                               </div>
 
                               {/* Completed */}
                               {msg.standup_data.completedTasks?.length > 0 && (
                                 <div>
-                                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#34d399", display: "flex", alignItems: "center", gap: "4px" }}>
+                                  <span style={{ fontSize: "11px", fontWeight: 700, color: isSelf ? "#fff" : "#16855B", display: "flex", alignItems: "center", gap: "4px" }}>
                                     <CheckCircle2 size={12} /> Completed Today:
                                   </span>
-                                  <ul style={{ margin: "4px 0 0 16px", padding: 0, fontSize: "12px" }}>
+                                  <ul style={{ margin: "4px 0 0 16px", padding: 0, fontSize: "12px", color: isSelf ? "#fff" : "var(--color-text, #18231F)" }}>
                                     {msg.standup_data.completedTasks.map((t: string, i: number) => (
                                       <li key={i}>{t}</li>
                                     ))}
@@ -1000,10 +1046,10 @@ export function ChatHubPage({ role = "admin" }: Props) {
                               {/* In Progress */}
                               {msg.standup_data.inProgressTasks?.length > 0 && (
                                 <div>
-                                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#38bdf8", display: "flex", alignItems: "center", gap: "4px" }}>
+                                  <span style={{ fontSize: "11px", fontWeight: 700, color: isSelf ? "#fff" : "#2563EB", display: "flex", alignItems: "center", gap: "4px" }}>
                                     <Clock size={12} /> In Progress / Next:
                                   </span>
-                                  <ul style={{ margin: "4px 0 0 16px", padding: 0, fontSize: "12px" }}>
+                                  <ul style={{ margin: "4px 0 0 16px", padding: 0, fontSize: "12px", color: isSelf ? "#fff" : "var(--color-text, #18231F)" }}>
                                     {msg.standup_data.inProgressTasks.map((t: string, i: number) => (
                                       <li key={i}>{t}</li>
                                     ))}
@@ -1014,10 +1060,10 @@ export function ChatHubPage({ role = "admin" }: Props) {
                               {/* Blockers */}
                               {msg.standup_data.blockers?.length > 0 && (
                                 <div>
-                                  <span style={{ fontSize: "11px", fontWeight: 700, color: "#f59e0b" }}>
-                                    ⚠️ Blockers / Remarks:
+                                  <span style={{ fontSize: "11px", fontWeight: 700, color: isSelf ? "#FDE68A" : "#D97706", display: "flex", alignItems: "center", gap: "4px" }}>
+                                    <AlertCircle size={12} /> Blockers / Remarks:
                                   </span>
-                                  <ul style={{ margin: "4px 0 0 16px", padding: 0, fontSize: "12px" }}>
+                                  <ul style={{ margin: "4px 0 0 16px", padding: 0, fontSize: "12px", color: isSelf ? "#fff" : "var(--color-text, #18231F)" }}>
                                     {msg.standup_data.blockers.map((b: string, i: number) => (
                                       <li key={i}>{b}</li>
                                     ))}
@@ -1032,8 +1078,8 @@ export function ChatHubPage({ role = "admin" }: Props) {
                             <div
                               style={{
                                 padding: "12px",
-                                background: "rgba(56, 189, 248, 0.15)",
-                                border: "1px solid rgba(56, 189, 248, 0.3)",
+                                background: isSelf ? "rgba(0,0,0,0.15)" : "#EFF6FF",
+                                border: isSelf ? "1px solid rgba(255,255,255,0.2)" : "1px solid #BFDBFE",
                                 borderRadius: "10px",
                                 display: "flex",
                                 flexDirection: "column",
@@ -1041,15 +1087,15 @@ export function ChatHubPage({ role = "admin" }: Props) {
                                 minWidth: "240px",
                               }}
                             >
-                              <span style={{ fontSize: "11px", fontWeight: 800, color: "#38bdf8", display: "flex", alignItems: "center", gap: "4px" }}>
+                              <span style={{ fontSize: "11px", fontWeight: 800, color: isSelf ? "#fff" : "#2563EB", display: "flex", alignItems: "center", gap: "4px" }}>
                                 <Calendar size={13} /> FLUMENX HQ MEETING ROOM
                               </span>
-                              <b style={{ fontSize: "14px", color: "#fff" }}>Code: {msg.meeting_code}</b>
+                              <b style={{ fontSize: "14px", color: isSelf ? "#fff" : "var(--color-text, #18231F)" }}>Code: {msg.meeting_code}</b>
                               <a
                                 href={`/meetings/${msg.meeting_code}`}
                                 style={{
                                   padding: "6px 12px",
-                                  background: "#0284c7",
+                                  background: "var(--color-primary, #087A5B)",
                                   borderRadius: "6px",
                                   textAlign: "center",
                                   fontSize: "12px",
@@ -1067,12 +1113,12 @@ export function ChatHubPage({ role = "admin" }: Props) {
                           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px", marginTop: "4px" }}>
                             <button
                               onClick={() => handleTogglePin(msg.id)}
-                              style={{ background: "transparent", border: 0, color: "rgba(255,255,255,0.4)", cursor: "pointer", padding: "2px" }}
+                              style={{ background: "transparent", border: 0, color: isSelf ? "rgba(255,255,255,0.6)" : "var(--color-text-muted, #718096)", cursor: "pointer", padding: "2px" }}
                               title={msg.is_pinned ? "Unpin message" : "Pin message"}
                             >
                               <Pin size={11} />
                             </button>
-                            <span style={{ fontSize: "10px", opacity: 0.65 }}>
+                            <span style={{ fontSize: "10px", opacity: isSelf ? 0.8 : 0.65, color: isSelf ? "#fff" : "var(--color-text-muted, #718096)" }}>
                               {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
                           </div>
@@ -1085,13 +1131,24 @@ export function ChatHubPage({ role = "admin" }: Props) {
               </div>
 
               {/* SMART MESSAGE INPUT FOOTER */}
-              <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border, #27272a)", background: "rgba(0,0,0,0.25)" }}>
+              <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border, #DCE3E0)", background: "var(--panel, #ffffff)" }}>
                 {/* Smart Action Bar */}
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", overflowX: "auto" }}>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="btn btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px" }}
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      background: "var(--panel2, #F8FAF9)",
+                      border: "1px solid var(--border, #DCE3E0)",
+                      borderRadius: "8px",
+                      color: "var(--color-text, #18231F)",
+                      cursor: "pointer",
+                    }}
                     title="Attach Image / Video / File"
                   >
                     <Paperclip size={13} /> Attach File
@@ -1105,29 +1162,62 @@ export function ChatHubPage({ role = "admin" }: Props) {
 
                   <button
                     onClick={() => setTaskPickerOpen(true)}
-                    className="btn btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px", borderColor: "rgba(56, 189, 248, 0.4)", color: "#38bdf8" }}
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      background: "var(--panel2, #F8FAF9)",
+                      border: "1px solid var(--border, #DCE3E0)",
+                      borderRadius: "8px",
+                      color: "var(--color-text, #18231F)",
+                      cursor: "pointer",
+                    }}
                     title="Link and embed an active task"
                   >
-                    <ListTodo size={13} /> @Link Task
+                    <ListTodo size={13} /> Link Task
                   </button>
 
                   <button
                     onClick={() => setClientPickerOpen(true)}
-                    className="btn btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px", borderColor: "rgba(245, 158, 11, 0.4)", color: "#f59e0b" }}
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      background: "var(--panel2, #F8FAF9)",
+                      border: "1px solid var(--border, #DCE3E0)",
+                      borderRadius: "8px",
+                      color: "var(--color-text, #18231F)",
+                      cursor: "pointer",
+                    }}
                     title="Link and embed a client account"
                   >
-                    <Briefcase size={13} /> @Link Client
+                    <Briefcase size={13} /> Link Client
                   </button>
 
                   <button
                     onClick={() => setStandupModalOpen(true)}
-                    className="btn btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px", borderColor: "rgba(16, 185, 129, 0.4)", color: "#10b981" }}
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      background: "var(--color-primary-subtle, #E7F3EE)",
+                      border: "1px solid var(--color-brand-border, #B2D8CB)",
+                      borderRadius: "8px",
+                      color: "var(--color-primary, #087A5B)",
+                      cursor: "pointer",
+                    }}
                     title="1-Click Daily Standup Work Update"
                   >
-                    <Sparkles size={13} /> ⚡ Daily Standup
+                    <Sparkles size={13} /> Daily Standup
                   </button>
                 </div>
 
@@ -1145,13 +1235,13 @@ export function ChatHubPage({ role = "admin" }: Props) {
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     placeholder={`Type message to ${activeConversation.name}...`}
-                    style={{ flex: 1, height: "42px", fontSize: "13px" }}
+                    style={{ flex: 1, height: "42px", fontSize: "13px", background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border2, #CBD5E1)", color: "var(--color-text, #18231F)" }}
                   />
                   <button
                     type="submit"
                     disabled={sending || !inputText.trim()}
                     className="btn btn-primary"
-                    style={{ height: "42px", padding: "0 18px", background: "linear-gradient(135deg, #059669 0%, #10b981 100%)", display: "flex", alignItems: "center", gap: "6px" }}
+                    style={{ height: "42px", padding: "0 18px", background: "var(--color-primary, #087A5B)", display: "flex", alignItems: "center", gap: "6px" }}
                   >
                     <Send size={15} />
                   </button>
@@ -1159,7 +1249,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
               </div>
             </>
           ) : (
-            <div style={{ flex: 1, display: "grid", placeItems: "center", color: "var(--muted, #888)" }}>
+            <div style={{ flex: 1, display: "grid", placeItems: "center", color: "var(--color-text-muted, #718096)" }}>
               Select a conversation to start messaging.
             </div>
           )}
@@ -1171,8 +1261,8 @@ export function ChatHubPage({ role = "admin" }: Props) {
         {showInfoDrawer && activeConversation && (
           <div
             style={{
-              borderLeft: "1px solid var(--border, #27272a)",
-              background: "rgba(0,0,0,0.3)",
+              borderLeft: "1px solid var(--border, #DCE3E0)",
+              background: "var(--panel2, #F8FAF9)",
               display: "flex",
               flexDirection: "column",
               padding: "16px",
@@ -1181,10 +1271,10 @@ export function ChatHubPage({ role = "admin" }: Props) {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <b style={{ fontSize: "14px", color: "#fff" }}>Group Info</b>
+              <b style={{ fontSize: "14px", color: "var(--color-text, #18231F)" }}>Group Info</b>
               <button
                 onClick={() => setShowInfoDrawer(false)}
-                style={{ background: "transparent", border: 0, color: "var(--muted, #888)", cursor: "pointer" }}
+                style={{ background: "transparent", border: 0, color: "var(--color-text-muted, #718096)", cursor: "pointer" }}
               >
                 <X size={16} />
               </button>
@@ -1197,7 +1287,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
                   width: "56px",
                   height: "56px",
                   borderRadius: activeConversation.type !== "DIRECT" ? "12px" : "50%",
-                  background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
+                  background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
                   display: "grid",
                   placeItems: "center",
                   fontSize: "20px",
@@ -1208,10 +1298,10 @@ export function ChatHubPage({ role = "admin" }: Props) {
               >
                 {activeConversation.type !== "DIRECT" ? <Users size={24} /> : activeConversation.name.charAt(0).toUpperCase()}
               </div>
-              <h4 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 4px", color: "#fff" }}>
+              <h4 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 4px", color: "var(--color-text, #18231F)" }}>
                 {activeConversation.name}
               </h4>
-              <span style={{ fontSize: "11px", color: "var(--muted, #888)" }}>
+              <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
                 {activeConversation.description || "Official collaboration channel"}
               </span>
             </div>
@@ -1220,13 +1310,13 @@ export function ChatHubPage({ role = "admin" }: Props) {
             {activeConversation.type !== "DIRECT" && (
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 800, color: "#fff", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--color-text, #18231F)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     Members ({activeConversation.participants?.length || 0})
                   </span>
                   {activeConversation.is_admin && (
                     <button
                       onClick={() => setAddMemberModalOpen(true)}
-                      style={{ background: "transparent", border: 0, color: "var(--accent, #10b981)", cursor: "pointer", fontSize: "11px", fontWeight: 700, display: "flex", alignItems: "center", gap: "2px" }}
+                      style={{ background: "transparent", border: 0, color: "var(--color-primary, #087A5B)", cursor: "pointer", fontSize: "11px", fontWeight: 700, display: "flex", alignItems: "center", gap: "2px" }}
                     >
                       <UserPlus size={12} /> Add
                     </button>
@@ -1242,31 +1332,34 @@ export function ChatHubPage({ role = "admin" }: Props) {
                         alignItems: "center",
                         justifyContent: "space-between",
                         padding: "6px 8px",
-                        background: "rgba(255,255,255,0.03)",
+                        background: "var(--panel, #ffffff)",
+                        border: "1px solid var(--border, #DCE3E0)",
                         borderRadius: "8px",
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-                        <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#333", display: "grid", placeItems: "center", fontSize: "11px", fontWeight: 700, color: "#fff" }}>
+                        <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#CBD5E1", display: "grid", placeItems: "center", fontSize: "11px", fontWeight: 700, color: "#18231F" }}>
                           {p.name.charAt(0).toUpperCase()}
                         </div>
-                        <span style={{ fontSize: "12px", color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {p.name}
-                        </span>
+                        <div style={{ minWidth: 0 }}>
+                          <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text, #18231F)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {p.name}
+                          </span>
+                          <span style={{ fontSize: "10px", color: "var(--color-text-muted, #718096)" }}>
+                            {p.role === "ADMIN" ? "Admin" : "Member"}
+                          </span>
+                        </div>
                       </div>
 
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        {p.role === "ADMIN" && <Badge tone="gold">Admin</Badge>}
-                        {activeConversation.is_admin && p.role !== "ADMIN" && (
-                          <button
-                            onClick={() => handleRemoveMember(p.user_id)}
-                            style={{ background: "transparent", border: 0, color: "#ef4444", cursor: "pointer", padding: "2px" }}
-                            title="Remove member"
-                          >
-                            <UserMinus size={13} />
-                          </button>
-                        )}
-                      </div>
+                      {activeConversation.is_admin && p.user_id !== (activeConversation as any).current_user_id && (
+                        <button
+                          onClick={() => handleRemoveMember(p.user_id)}
+                          style={{ background: "transparent", border: 0, color: "#DC2626", cursor: "pointer", padding: "4px" }}
+                          title="Remove member"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

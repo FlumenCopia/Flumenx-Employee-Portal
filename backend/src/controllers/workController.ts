@@ -58,6 +58,8 @@ export function formatClient(c: any) {
       assetType: b.assetType || 'Logo',
       notes: b.notes || '',
     })),
+    services_provided: c.servicesProvided || [],
+    servicesProvided: c.servicesProvided || [],
     created_at: c.createdAt ? new Date(c.createdAt).toISOString() : '',
     updated_at: c.updatedAt ? new Date(c.updatedAt).toISOString() : '',
   };
@@ -104,6 +106,8 @@ export async function createClient(req: Request, res: Response): Promise<void> {
     proposals,
     brand_assets,
     brandAssets,
+    services_provided,
+    servicesProvided,
   } = req.body;
 
   if (!name || !name.trim()) {
@@ -130,6 +134,7 @@ export async function createClient(req: Request, res: Response): Promise<void> {
     retainerMonthlyFee: retainer_monthly_fee ? Number(retainer_monthly_fee) : 0,
     proposals: Array.isArray(proposals) ? proposals : [],
     brandAssets: Array.isArray(brand_assets || brandAssets) ? (brand_assets || brandAssets) : [],
+    servicesProvided: Array.isArray(services_provided || servicesProvided) ? (services_provided || servicesProvided) : [],
     documents: [],
   });
 
@@ -173,6 +178,9 @@ export async function updateClient(req: Request, res: Response): Promise<void> {
     client.brandAssets = req.body.brand_assets || req.body.brandAssets;
   }
   if (Array.isArray(req.body.documents)) client.documents = req.body.documents;
+  if (Array.isArray(req.body.services_provided || req.body.servicesProvided)) {
+    client.servicesProvided = req.body.services_provided || req.body.servicesProvided;
+  }
 
   await client.save();
   res.json(formatClient(client));
@@ -224,6 +232,26 @@ export async function uploadClientDocument(req: Request, res: Response): Promise
 
   await client.save();
   res.status(201).json(formatClient(client));
+}
+
+export async function deleteClientDocument(req: Request, res: Response): Promise<void> {
+  const { id, docId } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    res.status(404).json({ detail: 'Client not found.' });
+    return;
+  }
+  const client = await Client.findById(id);
+  if (!client) {
+    res.status(404).json({ detail: 'Client not found.' });
+    return;
+  }
+
+  client.documents = (client.documents || []).filter((d: any) => String(d._id) !== docId && String(d.id) !== docId);
+  client.proposals = (client.proposals || []).filter((p: any) => String(p._id) !== docId && String(p.id) !== docId);
+  client.brandAssets = (client.brandAssets || []).filter((b: any) => String(b._id) !== docId && String(b.id) !== docId);
+
+  await client.save();
+  res.json(formatClient(client));
 }
 
 export async function uploadTaskAttachment(req: Request, res: Response): Promise<void> {

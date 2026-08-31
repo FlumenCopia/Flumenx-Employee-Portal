@@ -267,6 +267,8 @@ export type Client = {
   proposals?: ClientProposal[];
   brand_assets?: ClientBrandAsset[];
   brandAssets?: ClientBrandAsset[];
+  services_provided?: string[];
+  servicesProvided?: string[];
   created_at?: string;
   updated_at?: string;
 };

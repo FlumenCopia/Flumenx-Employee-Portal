@@ -1,25 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Briefcase,
   Calendar,
   CheckCircle2,
   CheckSquare,
   Clock,
+  DollarSign,
   ExternalLink,
+  FileText,
   Globe,
+  Layers,
   ListTodo,
+  Paperclip,
   Pencil,
   Plus,
   RefreshCw,
   Search,
   ShieldCheck,
+  Sparkles,
   Square,
+  Tag,
   Trash2,
   TrendingUp,
+  Upload,
   User,
   Users,
+  X,
 } from "lucide-react";
 import { Shell } from "@/components/shell";
 import { PageHeader, PrimaryButton, StatCard, Badge } from "@/components/ui";
@@ -35,6 +43,18 @@ type Props = {
 
 type TaskMode = "QUANTITY" | "MILESTONE";
 
+const COMMON_SERVICES_SUGGESTIONS = [
+  "Page Handling",
+  "Media Management",
+  "Video Editing",
+  "Content Creation",
+  "Social Media Ads",
+  "Graphic Design",
+  "Website Maintenance",
+  "SEO & Optimization",
+  "Copywriting",
+];
+
 export function ClientMasterPage({ role = "admin" }: Props) {
   const [clients, setClients] = useState<Client[]>([]);
   const [assignments, setAssignments] = useState<WorkAssignment[]>([]);
@@ -45,7 +65,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
 
   // Modal 1: Add Client
   const [addClientOpen, setAddClientOpen] = useState(false);
-  const [addClientTab, setAddClientTab] = useState<"basic" | "contract" | "assets">("basic");
+  const [addClientTab, setAddClientTab] = useState<"basic" | "services" | "contract" | "assets">("basic");
   const [newClientName, setNewClientName] = useState("");
   const [newClientIndustry, setNewClientIndustry] = useState("");
   const [newClientContactName, setNewClientContactName] = useState("");
@@ -60,6 +80,9 @@ export function ClientMasterPage({ role = "admin" }: Props) {
   const [newClientProposalValue, setNewClientProposalValue] = useState("");
   const [newClientBrandAssetName, setNewClientBrandAssetName] = useState("");
   const [newClientBrandAssetUrl, setNewClientBrandAssetUrl] = useState("");
+  const [newClientServices, setNewClientServices] = useState<string[]>(["Page Handling", "Media Management"]);
+  const [newServiceInput, setNewServiceInput] = useState("");
+  const [newClientIsActive, setNewClientIsActive] = useState(true);
   const [submittingClient, setSubmittingClient] = useState(false);
 
   // Modal 2: Add Master Task for Client
@@ -83,6 +106,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
   // Modal 4: Edit Client
   const [editClientOpen, setEditClientOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editClientTab, setEditClientTab] = useState<"basic" | "services" | "contract" | "documents">("basic");
   const [editClientName, setEditClientName] = useState("");
   const [editClientIndustry, setEditClientIndustry] = useState("");
   const [editClientContactName, setEditClientContactName] = useState("");
@@ -95,8 +119,93 @@ export function ClientMasterPage({ role = "admin" }: Props) {
   const [editClientRetainerFee, setEditClientRetainerFee] = useState("");
   const [editClientIsActive, setEditClientIsActive] = useState(true);
   const [editClientNotes, setEditClientNotes] = useState("");
+  const [editClientServices, setEditClientServices] = useState<string[]>([]);
+  const [editServiceInput, setEditServiceInput] = useState("");
   const [submittingEditClient, setSubmittingEditClient] = useState(false);
   const [clientStatusFilter, setClientStatusFilter] = useState<"all" | "active" | "inactive">("all");
+
+  // Document upload state for edit modal
+  const [editDocType, setEditDocType] = useState<"Proposal" | "Contract" | "NDA" | "SLA" | "Asset" | "Other">("Proposal");
+  const [editDocName, setEditDocName] = useState("");
+  const [editDocUploading, setEditDocUploading] = useState(false);
+
+  const handleToggleClientActive = async (c: Client) => {
+    const currentActive = (c as any).is_active ?? (c as any).isActive ?? true;
+    try {
+      await api(`/clients/${c.id}/`, {
+        method: "PUT",
+        body: JSON.stringify({ is_active: !currentActive }),
+      });
+      toast.success(`${c.name} marked as ${!currentActive ? "Active" : "Inactive"}`);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update client status");
+    }
+  };
+
+  const handleAddServiceToNew = (service: string) => {
+    const s = service.trim();
+    if (s && !newClientServices.includes(s)) {
+      setNewClientServices((prev) => [...prev, s]);
+      setNewServiceInput("");
+    }
+  };
+
+  const handleRemoveServiceFromNew = (service: string) => {
+    setNewClientServices((prev) => prev.filter((s) => s !== service));
+  };
+
+  const handleAddServiceToEdit = (service: string) => {
+    const s = service.trim();
+    if (s && !editClientServices.includes(s)) {
+      setEditClientServices((prev) => [...prev, s]);
+      setEditServiceInput("");
+    }
+  };
+
+  const handleRemoveServiceFromEdit = (service: string) => {
+    setEditClientServices((prev) => prev.filter((s) => s !== service));
+  };
+
+  const handleUploadClientDoc = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!editingClient || !e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    setEditDocUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("document_type", editDocType);
+      if (editDocName.trim()) {
+        formData.append("name", editDocName.trim());
+      }
+      const updated = await api<Client>(`/clients/${editingClient.id}/documents/`, {
+        method: "POST",
+        body: formData,
+      });
+      setEditingClient(updated);
+      setEditDocName("");
+      toast.success("Document uploaded successfully!");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to upload document");
+    } finally {
+      setEditDocUploading(false);
+    }
+  };
+
+  const handleDeleteClientDoc = async (docId: string) => {
+    if (!editingClient) return;
+    try {
+      const updated = await api<Client>(`/clients/${editingClient.id}/documents/${docId}/`, {
+        method: "DELETE",
+      });
+      setEditingClient(updated);
+      toast.success("Document removed.");
+      fetchData();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete document");
+    }
+  };
 
   const openEditClient = (c: Client) => {
     setEditingClient(c);
@@ -112,6 +221,8 @@ export function ClientMasterPage({ role = "admin" }: Props) {
     setEditClientRetainerFee((c as any).retainer_monthly_fee || (c as any).retainerMonthlyFee || "");
     setEditClientIsActive((c as any).is_active ?? (c as any).isActive ?? true);
     setEditClientNotes((c as any).notes || "");
+    setEditClientServices((c as any).services_provided || (c as any).servicesProvided || []);
+    setEditClientTab("basic");
     setEditClientOpen(true);
   };
 
@@ -137,6 +248,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
           retainer_monthly_fee: Number(editClientRetainerFee) || 0,
           is_active: editClientIsActive,
           notes: editClientNotes.trim(),
+          services_provided: editClientServices,
         }),
       });
       toast.success("Client updated successfully!");
@@ -228,8 +340,10 @@ export function ClientMasterPage({ role = "admin" }: Props) {
           contract_start_date: newClientContractStart || null,
           contract_end_date: newClientContractEnd || null,
           retainer_monthly_fee: Number(newClientRetainerFee) || 0,
+          is_active: newClientIsActive,
           proposals,
           brand_assets: brandAssets,
+          services_provided: newClientServices,
         }),
       });
 
@@ -247,6 +361,8 @@ export function ClientMasterPage({ role = "admin" }: Props) {
       setNewClientProposalValue("");
       setNewClientBrandAssetName("");
       setNewClientBrandAssetUrl("");
+      setNewClientServices(["Page Handling", "Media Management"]);
+      setNewClientIsActive(true);
       setAddClientOpen(false);
       toast.success("Client added successfully!");
       fetchData();
@@ -340,22 +456,37 @@ export function ClientMasterPage({ role = "admin" }: Props) {
     }
   };
 
-  const filteredClients = clients.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const activeClientsCount = useMemo(
+    () => clients.filter((c) => (c as any).is_active ?? (c as any).isActive ?? true).length,
+    [clients]
   );
+  const inactiveClientsCount = useMemo(
+    () => clients.filter((c) => !((c as any).is_active ?? (c as any).isActive ?? true)).length,
+    [clients]
+  );
+
+  const filteredClients = clients.filter((c) => {
+    const matchesSearch =
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ((c as any).industry || "").toLowerCase().includes(searchQuery.toLowerCase());
+    const isActive = (c as any).is_active ?? (c as any).isActive ?? true;
+    if (clientStatusFilter === "active") return matchesSearch && isActive;
+    if (clientStatusFilter === "inactive") return matchesSearch && !isActive;
+    return matchesSearch;
+  });
 
   const getHealthBadgeStyle = (status?: string) => {
     switch (status) {
       case "Delighted":
-        return { bg: "#dcfce7", color: "#15803d", border: "#86efac" };
+        return { bg: "var(--color-primary-subtle, #E7F3EE)", color: "var(--color-primary, #087A5B)", border: "var(--color-brand-border, #B2D8CB)" };
       case "On Track":
-        return { bg: "#e0f2fe", color: "#0369a1", border: "#bae6fd" };
+        return { bg: "#EFF6FF", color: "#2563EB", border: "#BFDBFE" };
       case "Needs Attention":
-        return { bg: "#fef3c7", color: "#b45309", border: "#fde68a" };
+        return { bg: "#FFFBEB", color: "#D97706", border: "#FDE68A" };
       case "At Risk":
-        return { bg: "#fee2e2", color: "#b91c1c", border: "#fca5a5" };
+        return { bg: "#FEF2F2", color: "#DC2626", border: "#FECACA" };
       default:
-        return { bg: "#f1f5f9", color: "#475569", border: "#e2e8f0" };
+        return { bg: "var(--color-primary-subtle, #E7F3EE)", color: "var(--color-primary, #087A5B)", border: "var(--color-brand-border, #B2D8CB)" };
     }
   };
 
@@ -438,19 +569,19 @@ export function ClientMasterPage({ role = "admin" }: Props) {
 
         {/* Stats Row */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
-          <StatCard label="Total Clients" value={loading ? "--" : clients.length} note="Active Client Accounts" icon={<Briefcase />} />
+          <StatCard label="Total Clients" value={loading ? "--" : clients.length} note={`${activeClientsCount} Active • ${inactiveClientsCount} Inactive`} icon={<Briefcase />} />
           <StatCard label="Delighted Clients" value={loading ? "--" : Object.values(kpiHealthMap).filter(h => h.healthStatus === "Delighted" || h.healthStatus === "On Track").length} note="KPI Health ≥ 70%" icon={<TrendingUp />} accent />
           <StatCard label="Attention Needed" value={loading ? "--" : Object.values(kpiHealthMap).filter(h => h.healthStatus === "Needs Attention" || h.healthStatus === "At Risk").length} note="Requires progress boost" icon={<Clock />} />
           <StatCard label="Total Contract Tasks" value={loading ? "--" : assignments.filter(a => a.is_master_client_task).length} note="Monthly Master Tasks" icon={<CheckCircle2 />} />
         </div>
 
-        {/* Search Bar */}
+        {/* Search & Status Filter Bar */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", gap: "1rem", flexWrap: "wrap" }}>
-          <div style={{ position: "relative", minWidth: "300px", flex: 1 }}>
+          <div style={{ position: "relative", minWidth: "280px", flex: 1 }}>
             <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
             <input
               type="text"
-              placeholder="Search clients by name..."
+              placeholder="Search clients by name or industry..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
@@ -464,6 +595,61 @@ export function ClientMasterPage({ role = "admin" }: Props) {
               }}
             />
           </div>
+
+          {/* Status Filter Pills */}
+          <div style={{ display: "flex", gap: "4px", background: "var(--panel2, #F8FAF9)", padding: "4px", borderRadius: "8px", border: "1px solid var(--border, #DCE3E0)" }}>
+            <button
+              type="button"
+              onClick={() => setClientStatusFilter("all")}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: 0,
+                background: clientStatusFilter === "all" ? "var(--color-primary, #087A5B)" : "transparent",
+                color: clientStatusFilter === "all" ? "#ffffff" : "var(--color-text, #18231F)",
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              All ({clients.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setClientStatusFilter("active")}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: 0,
+                background: clientStatusFilter === "active" ? "var(--color-primary, #087A5B)" : "transparent",
+                color: clientStatusFilter === "active" ? "#ffffff" : "var(--color-text, #18231F)",
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              Active ({activeClientsCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setClientStatusFilter("inactive")}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: 0,
+                background: clientStatusFilter === "inactive" ? "#DC2626" : "transparent",
+                color: clientStatusFilter === "inactive" ? "#ffffff" : "var(--color-text, #18231F)",
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              Inactive ({inactiveClientsCount})
+            </button>
+          </div>
         </div>
 
         {/* Clients Grid */}
@@ -471,14 +657,15 @@ export function ClientMasterPage({ role = "admin" }: Props) {
           <div style={{ padding: "3rem", textAlign: "center", color: "#64748b" }}>Loading Client Master records...</div>
         ) : filteredClients.length === 0 ? (
           <div style={{ padding: "3rem", textAlign: "center", background: "#ffffff", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
-            No clients found. Click <b>+ Add New Client</b> to create your first client record.
+            No {clientStatusFilter !== "all" ? clientStatusFilter : ""} clients found. Click <b>+ Add New Client</b> to create a new record.
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.25rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.25rem" }}>
             {filteredClients.map((client) => {
               const kpi = kpiHealthMap[String(client.id)];
               const badgeStyle = getHealthBadgeStyle(kpi?.healthStatus);
               const clientMasterTasks = assignments.filter((a) => String(a.client) === String(client.id) && a.is_master_client_task);
+              const isClientActive = (client as any).is_active ?? (client as any).isActive ?? true;
 
               return (
                 <div
@@ -486,58 +673,115 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                   style={{
                     background: "#ffffff",
                     borderRadius: "12px",
-                    border: "1px solid #e2e8f0",
+                    border: isClientActive ? "1px solid #e2e8f0" : "1px dashed #cbd5e1",
                     padding: "1.25rem",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
                     boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                    opacity: isClientActive ? 1 : 0.82,
                     transition: "all 0.15s ease",
                   }}
                 >
                   <div>
                     {/* Header */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", marginBottom: "10px" }}>
-                      <div>
-                        <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#0f172a", margin: 0 }}>{client.name}</h3>
-                        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "2px" }}>
-                          <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>ID #{client.id}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px", marginBottom: "10px" }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--color-text, #18231F)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={client.name}>{client.name}</h3>
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "3px", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #718096)", fontWeight: 600 }}>ID #{client.id}</span>
                           {(client as any).industry && (
-                            <span style={{ fontSize: "0.72rem", color: "#059669", background: "rgba(16,185,129,0.1)", padding: "1px 6px", borderRadius: "4px", fontWeight: 700 }}>
+                            <span style={{ fontSize: "0.7rem", color: "var(--color-primary, #087A5B)", background: "var(--color-primary-subtle, #E7F3EE)", border: "1px solid var(--color-brand-border, #B2D8CB)", padding: "1px 6px", borderRadius: "4px", fontWeight: 700 }}>
                               {(client as any).industry}
                             </span>
                           )}
+                          {/* Interactive Status Switch Badge */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleClientActive(client)}
+                            title={`Status: ${isClientActive ? "Active" : "Inactive"}. Click to switch.`}
+                            style={{
+                              fontSize: "0.68rem",
+                              fontWeight: 700,
+                              padding: "1px 6px",
+                              borderRadius: "4px",
+                              border: isClientActive ? "1px solid var(--color-brand-border, #B2D8CB)" : "1px solid #E2E8F0",
+                              background: isClientActive ? "var(--color-primary-subtle, #E7F3EE)" : "#F1F5F9",
+                              color: isClientActive ? "var(--color-primary, #087A5B)" : "#64748B",
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: isClientActive ? "var(--color-primary, #087A5B)" : "#94A3B8" }} />
+                            {isClientActive ? "Active" : "Inactive"}
+                          </button>
                         </div>
                       </div>
                       <span
                         style={{
-                          padding: "3px 10px",
-                          borderRadius: "12px",
-                          fontSize: "0.7rem",
-                          fontWeight: 800,
+                          padding: "3px 8px",
+                          borderRadius: "6px",
+                          fontSize: "0.68rem",
+                          fontWeight: 700,
                           background: badgeStyle.bg,
                           color: badgeStyle.color,
                           border: `1px solid ${badgeStyle.border}`,
                           textTransform: "uppercase",
-                          letterSpacing: "0.5px",
+                          letterSpacing: "0.3px",
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          height: "fit-content",
                         }}
                       >
-                        {kpi?.healthStatus || "On Track"} ({kpi?.satisfactionScore || 100}%)
+                        {kpi?.healthStatus || "Delighted"} ({kpi?.satisfactionScore || 100}%)
                       </span>
                     </div>
 
+                    {/* Services Provided Badges (Boolean check to prevent 0 from rendering) */}
+                    {Boolean(((client as any).services_provided || (client as any).servicesProvided)?.length) && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "10px" }}>
+                        {((client as any).services_provided || (client as any).servicesProvided).map((srv: string, idx: number) => (
+                          <span
+                            key={idx}
+                            style={{
+                              fontSize: "10.5px",
+                              fontWeight: 600,
+                              color: "var(--color-primary, #087A5B)",
+                              background: "var(--color-primary-subtle, #E7F3EE)",
+                              border: "1px solid var(--color-brand-border, #B2D8CB)",
+                              padding: "2px 7px",
+                              borderRadius: "6px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                            }}
+                          >
+                            <Tag size={10} /> {srv}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Contact Person & Retainer info */}
                     {((client as any).contact_person?.name || (client as any).contactPerson?.name || (client as any).retainer_monthly_fee || (client as any).retainerMonthlyFee) && (
-                      <div style={{ background: "#f8fafc", padding: "8px 10px", borderRadius: "8px", border: "1px solid #f1f5f9", marginBottom: "10px", fontSize: "0.75rem", color: "#475569", display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <div style={{ background: "var(--panel2, #F8FAF9)", padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--border, #DCE3E0)", marginBottom: "10px", fontSize: "0.75rem", color: "var(--color-text, #18231F)", display: "flex", flexDirection: "column", gap: "4px" }}>
                         {((client as any).contact_person?.name || (client as any).contactPerson?.name) && (
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span>👤 Contact: <b>{(client as any).contact_person?.name || (client as any).contactPerson?.name}</b></span>
-                            <span>{((client as any).contact_person?.phone || (client as any).contactPerson?.phone || (client as any).contact_person?.email || (client as any).contactPerson?.email || "")}</span>
+                            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                              <User size={12} color="var(--color-text-muted, #718096)" /> Contact: <b>{(client as any).contact_person?.name || (client as any).contactPerson?.name}</b>
+                            </span>
+                            <span style={{ color: "var(--color-text-muted, #718096)" }}>{((client as any).contact_person?.phone || (client as any).contactPerson?.phone || (client as any).contact_person?.email || (client as any).contactPerson?.email || "")}</span>
                           </div>
                         )}
                         {Boolean((client as any).retainer_monthly_fee || (client as any).retainerMonthlyFee) && (
-                          <div style={{ display: "flex", justifyContent: "space-between", color: "#059669", fontWeight: 700 }}>
-                            <span>💰 Retainer Fee:</span>
+                          <div style={{ display: "flex", justifyContent: "space-between", color: "var(--color-primary, #087A5B)", fontWeight: 700 }}>
+                            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                              <DollarSign size={12} /> Retainer Fee:
+                            </span>
                             <span>₹{Number((client as any).retainer_monthly_fee || (client as any).retainerMonthlyFee).toLocaleString()}/month</span>
                           </div>
                         )}
@@ -545,47 +789,49 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                     )}
 
                     {/* KPI Progress Bars */}
-                    <div style={{ background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #f1f5f9", marginBottom: "12px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>
+                    <div style={{ background: "var(--panel2, #F8FAF9)", padding: "10px", borderRadius: "8px", border: "1px solid var(--border, #DCE3E0)", marginBottom: "12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: 700, color: "var(--color-text, #18231F)", marginBottom: "4px" }}>
                         <span>Contract Quota Fulfillment</span>
                         <span>{kpi?.quotaCompletionPct || 0}%</span>
                       </div>
                       <div style={{ height: "6px", width: "100%", background: "#e2e8f0", borderRadius: "99px", overflow: "hidden", marginBottom: "8px" }}>
-                        <div style={{ height: "100%", width: `${kpi?.quotaCompletionPct || 0}%`, background: "linear-gradient(90deg, #10b981 0%, #059669 100%)", borderRadius: "99px" }} />
+                        <div style={{ height: "100%", width: `${kpi?.quotaCompletionPct || 0}%`, background: "var(--color-primary, #087A5B)", borderRadius: "99px" }} />
                       </div>
 
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: 700, color: "var(--color-text, #18231F)", marginBottom: "4px" }}>
                         <span>On-Time Delivery Rate</span>
                         <span>{kpi?.onTimeDeliveryPct || 0}%</span>
                       </div>
                       <div style={{ height: "6px", width: "100%", background: "#e2e8f0", borderRadius: "99px", overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${kpi?.onTimeDeliveryPct || 0}%`, background: "linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)", borderRadius: "99px" }} />
+                        <div style={{ height: "100%", width: `${kpi?.onTimeDeliveryPct || 0}%`, background: "#2563eb", borderRadius: "99px" }} />
                       </div>
                     </div>
 
                     {/* Contract Scope Master Tasks & Milestone Checklists */}
                     <div style={{ marginBottom: "12px" }}>
-                      <div style={{ fontSize: "0.75rem", fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>
+                      <div style={{ fontSize: "0.75rem", fontWeight: 800, color: "var(--color-text-muted, #718096)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" }}>
                         Master Tasks & Deliverables ({clientMasterTasks.length})
                       </div>
                       {clientMasterTasks.length === 0 ? (
-                        <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic" }}>
+                        <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted, #718096)", fontStyle: "italic" }}>
                           No master tasks set yet. Click <b>+ Master Task</b> below.
                         </div>
                       ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                           {clientMasterTasks.map((mt) => (
-                            <div key={mt.id} style={{ background: "#ffffff", padding: "8px 10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                            <div key={mt.id} style={{ background: "var(--panel, #ffffff)", padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--border, #DCE3E0)" }}>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.8rem", marginBottom: "4px" }}>
-                                <span style={{ fontWeight: 700, color: "#0f172a" }}>🎯 {mt.title}</span>
-                                <span style={{ fontWeight: 700, fontSize: "0.75rem", color: mt.completed_quantity >= mt.assigned_quantity ? "#16a34a" : "#2563eb" }}>
+                                <span style={{ fontWeight: 700, color: "var(--color-text, #18231F)", display: "flex", alignItems: "center", gap: "5px" }}>
+                                  <ListTodo size={13} color="var(--color-primary, #087A5B)" /> {mt.title}
+                                </span>
+                                <span style={{ fontWeight: 700, fontSize: "0.75rem", color: mt.completed_quantity >= mt.assigned_quantity ? "#16855B" : "#2563eb" }}>
                                   {mt.completed_quantity}/{mt.assigned_quantity} {mt.unit}
                                 </span>
                               </div>
 
                               {/* Render Deliverable Items / To-Do Checklists */}
                               {mt.deliverables && mt.deliverables.length > 0 && (
-                                <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "6px", paddingTop: "6px", borderTop: "1px dashed #e2e8f0" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "6px", paddingTop: "6px", borderTop: "1px dashed var(--border, #DCE3E0)" }}>
                                   {mt.deliverables.map((del) => {
                                     const delId = String(del.id || (del as any)._id || "");
                                     const isDone = (del.delivered || 0) > 0 || del.status === "Completed" || del.status === "Published";
@@ -598,13 +844,13 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                                           alignItems: "center",
                                           gap: "6px",
                                           fontSize: "0.75rem",
-                                          color: isDone ? "#16a34a" : "#475569",
+                                          color: isDone ? "#16855B" : "var(--color-text, #18231F)",
                                           cursor: "pointer",
                                           userSelect: "none",
                                           textDecoration: isDone ? "line-through" : "none",
                                         }}
                                       >
-                                        {isDone ? <CheckSquare size={13} style={{ color: "#16a34a" }} /> : <Square size={13} style={{ color: "#94a3b8" }} />}
+                                        {isDone ? <CheckSquare size={13} style={{ color: "#16855B" }} /> : <Square size={13} style={{ color: "var(--color-text-muted, #718096)" }} />}
                                         <span>{del.name || del.title}</span>
                                       </div>
                                     );
@@ -619,7 +865,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                   </div>
 
                   {/* Card Actions Footer */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", paddingTop: "10px", borderTop: "1px solid #f1f5f9" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", paddingTop: "10px", borderTop: "1px solid var(--border, #DCE3E0)" }}>
                     <div style={{ display: "flex", gap: "8px" }}>
                       <a
                         href={`/clients/tasks`}
@@ -627,9 +873,9 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                           flex: 1,
                           padding: "7px 10px",
                           borderRadius: "6px",
-                          background: "linear-gradient(135deg, rgba(5,150,105,0.12) 0%, rgba(16,185,129,0.12) 100%)",
-                          color: "#059669",
-                          border: "1px solid rgba(16, 185, 129, 0.35)",
+                          background: "var(--color-primary-subtle, #E7F3EE)",
+                          color: "var(--color-primary, #087A5B)",
+                          border: "1px solid var(--color-brand-border, #B2D8CB)",
                           fontSize: "0.75rem",
                           fontWeight: 700,
                           textDecoration: "none",
@@ -652,9 +898,9 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                           flex: 1,
                           padding: "7px 10px",
                           borderRadius: "6px",
-                          background: "rgba(59, 130, 246, 0.1)",
-                          color: "#2563eb",
-                          border: "1px solid rgba(59, 130, 246, 0.3)",
+                          background: "var(--panel2, #F8FAF9)",
+                          color: "var(--color-text, #18231F)",
+                          border: "1px solid var(--border, #DCE3E0)",
                           fontSize: "0.75rem",
                           fontWeight: 700,
                           cursor: "pointer",
@@ -679,9 +925,9 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                           flex: 1,
                           padding: "6px 10px",
                           borderRadius: "6px",
-                          background: "rgba(16, 185, 129, 0.08)",
-                          color: "#059669",
-                          border: "1px solid rgba(16, 185, 129, 0.25)",
+                          background: "var(--color-primary-subtle, #E7F3EE)",
+                          color: "var(--color-primary, #087A5B)",
+                          border: "1px solid var(--color-brand-border, #B2D8CB)",
                           fontSize: "0.75rem",
                           fontWeight: 700,
                           cursor: "pointer",
@@ -700,9 +946,9 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                         style={{
                           padding: "6px 12px",
                           borderRadius: "6px",
-                          background: "rgba(100, 116, 139, 0.1)",
-                          color: "#475569",
-                          border: "1px solid rgba(100, 116, 139, 0.25)",
+                          background: "var(--panel2, #F8FAF9)",
+                          color: "var(--color-text, #18231F)",
+                          border: "1px solid var(--border, #DCE3E0)",
                           fontSize: "0.75rem",
                           fontWeight: 700,
                           cursor: "pointer",
@@ -711,7 +957,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                           justifyContent: "center",
                           gap: "4px",
                         }}
-                        title="Edit Client Details & Status"
+                        title="Edit Client Details, Services & Documents"
                       >
                         <Pencil size={13} /> Edit
                       </button>
@@ -723,139 +969,554 @@ export function ClientMasterPage({ role = "admin" }: Props) {
           </div>
         )}
 
-        {/* Modal 4: Edit Client Account */}
+        {/* Modal 4: Edit Client Account (Multi-Tab: Basic, Services 1-by-1, Contract, Documents/Proposals) */}
         {editClientOpen && editingClient && (
-          <Modal title={`Edit Client — ${editingClient.name}`} size="md" onClose={() => setEditClientOpen(false)}>
-            <form onSubmit={handleUpdateClient} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
-                CLIENT NAME *
-                <input
-                  type="text"
-                  value={editClientName}
-                  onChange={(e) => setEditClientName(e.target.value)}
-                  required
-                  className="fi"
-                />
-              </label>
+          <Modal title={`Edit Client — ${editingClient.name}`} size="lg" onClose={() => setEditClientOpen(false)}>
+            {/* Edit Modal Tabs */}
+            <div style={{ display: "flex", gap: "6px", borderBottom: "1px solid var(--border, #DCE3E0)", paddingBottom: "8px", marginBottom: "16px" }}>
+              <button
+                type="button"
+                onClick={() => setEditClientTab("basic")}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: 0,
+                  background: editClientTab === "basic" ? "var(--color-primary, #087A5B)" : "var(--panel2, #F8FAF9)",
+                  color: editClientTab === "basic" ? "#fff" : "var(--color-text-secondary, #4A5568)",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                1. Basic Info
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditClientTab("services")}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: 0,
+                  background: editClientTab === "services" ? "var(--color-primary, #087A5B)" : "var(--panel2, #F8FAF9)",
+                  color: editClientTab === "services" ? "#fff" : "var(--color-text-secondary, #4A5568)",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                2. Services Provided ({editClientServices.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditClientTab("contract")}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: 0,
+                  background: editClientTab === "contract" ? "var(--color-primary, #087A5B)" : "var(--panel2, #F8FAF9)",
+                  color: editClientTab === "contract" ? "#fff" : "var(--color-text-secondary, #4A5568)",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                3. Contract & Retainer
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditClientTab("documents")}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: 0,
+                  background: editClientTab === "documents" ? "var(--color-primary, #087A5B)" : "var(--panel2, #F8FAF9)",
+                  color: editClientTab === "documents" ? "#fff" : "var(--color-text-secondary, #4A5568)",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                4. Documents & Proposals ({((editingClient as any).documents?.length || 0) + ((editingClient as any).proposals?.length || 0)})
+              </button>
+            </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
-                  INDUSTRY / CATEGORY
-                  <input
-                    type="text"
-                    value={editClientIndustry}
-                    onChange={(e) => setEditClientIndustry(e.target.value)}
-                    className="fi"
-                  />
-                </label>
+            <form onSubmit={handleUpdateClient} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              {/* TAB 1: BASIC INFO */}
+              {editClientTab === "basic" && (
+                <>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                    CLIENT NAME *
+                    <input
+                      type="text"
+                      value={editClientName}
+                      onChange={(e) => setEditClientName(e.target.value)}
+                      required
+                      className="fi"
+                    />
+                  </label>
 
-                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
-                  MONTHLY RETAINER FEE (₹)
-                  <input
-                    type="number"
-                    value={editClientRetainerFee}
-                    onChange={(e) => setEditClientRetainerFee(e.target.value)}
-                    className="fi"
-                    placeholder="e.g. 50000"
-                  />
-                </label>
-              </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", background: "var(--panel2, #F8FAF9)", borderRadius: "8px", border: "1px solid var(--border, #DCE3E0)" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)" }}>
+                      Account Status:
+                    </span>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 600, color: "var(--color-text, #18231F)", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="editClientStatus"
+                        checked={editClientIsActive}
+                        onChange={() => setEditClientIsActive(true)}
+                        style={{ accentColor: "var(--color-primary, #087A5B)" }}
+                      />
+                      Active (Visible in active dropdowns)
+                    </label>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 600, color: "var(--color-text-muted, #718096)", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="editClientStatus"
+                        checked={!editClientIsActive}
+                        onChange={() => setEditClientIsActive(false)}
+                        style={{ accentColor: "#DC2626" }}
+                      />
+                      Inactive (Archived)
+                    </label>
+                  </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
-                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
-                  CONTACT PERSON
-                  <input
-                    type="text"
-                    value={editClientContactName}
-                    onChange={(e) => setEditClientContactName(e.target.value)}
-                    className="fi"
-                    placeholder="Name"
-                  />
-                </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                      INDUSTRY / CATEGORY
+                      <input
+                        type="text"
+                        value={editClientIndustry}
+                        onChange={(e) => setEditClientIndustry(e.target.value)}
+                        className="fi"
+                        placeholder="e.g. Media, E-Commerce, Real Estate"
+                      />
+                    </label>
 
-                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
-                  EMAIL
-                  <input
-                    type="email"
-                    value={editClientContactEmail}
-                    onChange={(e) => setEditClientContactEmail(e.target.value)}
-                    className="fi"
-                    placeholder="Email"
-                  />
-                </label>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                      WEBSITE URL
+                      <input
+                        type="url"
+                        value={editClientWebsite}
+                        onChange={(e) => setEditClientWebsite(e.target.value)}
+                        className="fi"
+                        placeholder="https://clientwebsite.com"
+                      />
+                    </label>
+                  </div>
 
-                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
-                  PHONE
-                  <input
-                    type="text"
-                    value={editClientContactPhone}
-                    onChange={(e) => setEditClientContactPhone(e.target.value)}
-                    className="fi"
-                    placeholder="Phone"
-                  />
-                </label>
-              </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                      CONTACT PERSON
+                      <input
+                        type="text"
+                        value={editClientContactName}
+                        onChange={(e) => setEditClientContactName(e.target.value)}
+                        className="fi"
+                        placeholder="Name"
+                      />
+                    </label>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
-                  CONTRACT START
-                  <input
-                    type="date"
-                    value={editClientContractStart}
-                    onChange={(e) => setEditClientContractStart(e.target.value)}
-                    className="fi"
-                  />
-                </label>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                      EMAIL
+                      <input
+                        type="email"
+                        value={editClientContactEmail}
+                        onChange={(e) => setEditClientContactEmail(e.target.value)}
+                        className="fi"
+                        placeholder="Email"
+                      />
+                    </label>
 
-                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
-                  CONTRACT END
-                  <input
-                    type="date"
-                    value={editClientContractEnd}
-                    onChange={(e) => setEditClientContractEnd(e.target.value)}
-                    className="fi"
-                  />
-                </label>
-              </div>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                      PHONE
+                      <input
+                        type="text"
+                        value={editClientContactPhone}
+                        onChange={(e) => setEditClientContactPhone(e.target.value)}
+                        className="fi"
+                        placeholder="Phone"
+                      />
+                    </label>
+                  </div>
 
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
-                NOTES / ACCOUNT CONTEXT
-                <textarea
-                  value={editClientNotes}
-                  onChange={(e) => setEditClientNotes(e.target.value)}
-                  rows={3}
-                  className="fi"
-                  placeholder="Key account details, monthly retainers, or specific client instructions..."
-                />
-              </label>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                    OFFICE ADDRESS
+                    <input
+                      type="text"
+                      value={editClientAddress}
+                      onChange={(e) => setEditClientAddress(e.target.value)}
+                      className="fi"
+                      placeholder="Address"
+                    />
+                  </label>
+                </>
+              )}
 
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", fontWeight: 700, color: "#334155", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={editClientIsActive}
-                  onChange={(e) => setEditClientIsActive(e.target.checked)}
-                  style={{ width: "16px", height: "16px", cursor: "pointer" }}
-                />
-                Active Client (Visible in active assignment dropdowns)
-              </label>
+              {/* TAB 2: SERVICES PROVIDED (ADD 1-BY-1) */}
+              {editClientTab === "services" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  <div style={{ background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border, #DCE3E0)", borderRadius: "10px", padding: "14px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "block", marginBottom: "6px" }}>
+                      Add Services Provided to This Client (1 by 1)
+                    </span>
+                    <p style={{ fontSize: "12px", color: "var(--color-text-muted, #718096)", margin: "0 0 10px 0" }}>
+                      Specify the deliverables and scope of services we provide (e.g. Page Handling, Media Management, Video Editing, Paid Ads).
+                    </p>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
+                    <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+                      <input
+                        type="text"
+                        placeholder="Type a service (e.g. Page Handling) and press Enter..."
+                        value={editServiceInput}
+                        onChange={(e) => setEditServiceInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddServiceToEdit(editServiceInput);
+                          }
+                        }}
+                        style={{ flex: 1, padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border2, #CBD5E1)", background: "var(--panel, #ffffff)", fontSize: "13px", color: "var(--color-text, #18231F)" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddServiceToEdit(editServiceInput)}
+                        style={{
+                          padding: "8px 16px",
+                          borderRadius: "8px",
+                          background: "var(--color-primary, #087A5B)",
+                          color: "#ffffff",
+                          border: 0,
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        + Add Service
+                      </button>
+                    </div>
+
+                    {/* Quick suggested chips */}
+                    <div>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
+                        Quick Suggestions:
+                      </span>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {COMMON_SERVICES_SUGGESTIONS.map((sug) => (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => handleAddServiceToEdit(sug)}
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: "6px",
+                              background: editClientServices.includes(sug) ? "var(--color-primary-subtle, #E7F3EE)" : "var(--panel, #ffffff)",
+                              border: "1px solid var(--border, #DCE3E0)",
+                              color: editClientServices.includes(sug) ? "var(--color-primary, #087A5B)" : "var(--color-text, #18231F)",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            + {sug}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active Services List */}
+                  <div>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "block", marginBottom: "8px" }}>
+                      Active Services for {editClientName || "Client"} ({editClientServices.length})
+                    </span>
+                    {editClientServices.length === 0 ? (
+                      <div style={{ padding: "20px", textAlign: "center", color: "var(--color-text-muted, #718096)", fontSize: "12.5px", background: "var(--panel2, #F8FAF9)", borderRadius: "8px" }}>
+                        No services added yet. Add services 1 by 1 using the input above.
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                        {editClientServices.map((srv) => (
+                          <span
+                            key={srv}
+                            style={{
+                              padding: "6px 12px",
+                              borderRadius: "8px",
+                              background: "var(--color-primary-subtle, #E7F3EE)",
+                              border: "1px solid var(--color-brand-border, #B2D8CB)",
+                              color: "var(--color-primary, #087A5B)",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px",
+                            }}
+                          >
+                            <Tag size={12} />
+                            {srv}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveServiceFromEdit(srv)}
+                              style={{ background: "transparent", border: 0, color: "var(--color-primary, #087A5B)", cursor: "pointer", padding: "0 2px", fontWeight: 800, fontSize: "14px" }}
+                              title="Remove service"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: CONTRACT & RETAINER */}
+              {editClientTab === "contract" && (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                      MONTHLY RETAINER FEE (₹)
+                      <input
+                        type="number"
+                        value={editClientRetainerFee}
+                        onChange={(e) => setEditClientRetainerFee(e.target.value)}
+                        className="fi"
+                        placeholder="e.g. 50000"
+                      />
+                    </label>
+
+                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", cursor: "pointer", marginTop: "16px" }}>
+                        <input
+                          type="checkbox"
+                          checked={editClientIsActive}
+                          onChange={(e) => setEditClientIsActive(e.target.checked)}
+                          style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "var(--color-primary, #087A5B)" }}
+                        />
+                        Active Client (Visible in dropdowns)
+                      </label>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                      CONTRACT START
+                      <input
+                        type="date"
+                        value={editClientContractStart}
+                        onChange={(e) => setEditClientContractStart(e.target.value)}
+                        className="fi"
+                      />
+                    </label>
+
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                      CONTRACT END
+                      <input
+                        type="date"
+                        value={editClientContractEnd}
+                        onChange={(e) => setEditClientContractEnd(e.target.value)}
+                        className="fi"
+                      />
+                    </label>
+                  </div>
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                    NOTES / ACCOUNT CONTEXT
+                    <textarea
+                      value={editClientNotes}
+                      onChange={(e) => setEditClientNotes(e.target.value)}
+                      rows={3}
+                      className="fi"
+                      placeholder="Key account details, monthly retainers, or specific client instructions..."
+                    />
+                  </label>
+                </>
+              )}
+
+              {/* TAB 4: DOCUMENTS, PROPOSALS & ASSETS */}
+              {editClientTab === "documents" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {/* Upload Box */}
+                  <div style={{ background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border, #DCE3E0)", borderRadius: "10px", padding: "14px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "block", marginBottom: "6px" }}>
+                      Upload Client Document or Proposal
+                    </span>
+                    <p style={{ fontSize: "12px", color: "var(--color-text-muted, #718096)", margin: "0 0 10px 0" }}>
+                      Upload project proposal PDFs, signed contracts, SLAs, NDA agreements, or brand assets for this client.
+                    </p>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginBottom: "10px" }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                        DOCUMENT TYPE
+                        <select
+                          value={editDocType}
+                          onChange={(e) => setEditDocType(e.target.value as any)}
+                          style={{ padding: "8px", borderRadius: "6px", border: "1px solid var(--border2, #CBD5E1)", background: "var(--panel, #ffffff)", fontSize: "12px" }}
+                        >
+                          <option value="Proposal">Proposal</option>
+                          <option value="Contract">Contract / Agreement</option>
+                          <option value="NDA">NDA</option>
+                          <option value="SLA">SLA</option>
+                          <option value="Asset">Brand Asset</option>
+                          <option value="Other">Other Document</option>
+                        </select>
+                      </label>
+
+                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                        DOCUMENT TITLE (OPTIONAL)
+                        <input
+                          type="text"
+                          placeholder="e.g. 2026 Q3 Digital Proposal"
+                          value={editDocName}
+                          onChange={(e) => setEditDocName(e.target.value)}
+                          style={{ padding: "8px", borderRadius: "6px", border: "1px solid var(--border2, #CBD5E1)", background: "var(--panel, #ffffff)", fontSize: "12px" }}
+                        />
+                      </label>
+
+                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
+                        CHOOSE FILE TO UPLOAD
+                        <input
+                          type="file"
+                          onChange={handleUploadClientDoc}
+                          disabled={editDocUploading}
+                          style={{ padding: "5px", fontSize: "11px" }}
+                        />
+                      </label>
+                    </div>
+
+                    {editDocUploading && (
+                      <span style={{ fontSize: "12px", color: "var(--color-primary, #087A5B)", fontWeight: 600 }}>
+                        Uploading document to client account...
+                      </span>
+                    )}
+                  </div>
+
+                  {/* List of uploaded documents */}
+                  <div>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "block", marginBottom: "8px" }}>
+                      Uploaded Documents & Proposals
+                    </span>
+
+                    {(!editingClient.documents?.length && !editingClient.proposals?.length && !editingClient.brandAssets?.length) ? (
+                      <div style={{ padding: "20px", textAlign: "center", color: "var(--color-text-muted, #718096)", fontSize: "12.5px", background: "var(--panel2, #F8FAF9)", borderRadius: "8px" }}>
+                        No documents or proposals uploaded yet for this client.
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {/* Proposals */}
+                        {(editingClient.proposals || []).map((p: any) => (
+                          <div
+                            key={p.id || p._id}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              padding: "10px 14px",
+                              background: "var(--panel2, #F8FAF9)",
+                              border: "1px solid var(--border, #DCE3E0)",
+                              borderRadius: "8px",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <FileText size={16} color="var(--color-primary, #087A5B)" />
+                              <div>
+                                <b style={{ fontSize: "13px", color: "var(--color-text, #18231F)", display: "block" }}>{p.title}</b>
+                                <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
+                                  Proposal • Value: ₹{Number(p.value || 0).toLocaleString()} • Status: {p.status || "Draft"}
+                                </span>
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              {p.url && (
+                                <a
+                                  href={p.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-primary, #087A5B)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                                >
+                                  View / Download <ExternalLink size={12} />
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteClientDoc(p.id || p._id)}
+                                style={{ background: "transparent", border: 0, color: "#DC2626", cursor: "pointer", padding: "4px" }}
+                                title="Delete Proposal"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Documents */}
+                        {(editingClient.documents || []).map((d: any) => (
+                          <div
+                            key={d.id || d._id}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              padding: "10px 14px",
+                              background: "var(--panel2, #F8FAF9)",
+                              border: "1px solid var(--border, #DCE3E0)",
+                              borderRadius: "8px",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <FileText size={16} color="#2563EB" />
+                              <div>
+                                <b style={{ fontSize: "13px", color: "var(--color-text, #18231F)", display: "block" }}>{d.name}</b>
+                                <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
+                                  {d.documentType || d.document_type || "Document"} • Uploaded {d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString() : "Recently"}
+                                </span>
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              {d.url && (
+                                <a
+                                  href={d.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ fontSize: "12px", fontWeight: 700, color: "#2563EB", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                                >
+                                  View / Download <ExternalLink size={12} />
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteClientDoc(d.id || d._id)}
+                                style={{ background: "transparent", border: 0, color: "#DC2626", cursor: "pointer", padding: "4px" }}
+                                title="Delete Document"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "14px", paddingTop: "10px", borderTop: "1px solid var(--border, #DCE3E0)" }}>
                 <button type="button" className="secondary-button" onClick={() => setEditClientOpen(false)}>
                   Cancel
                 </button>
                 <PrimaryButton type="submit" disabled={submittingEditClient}>
-                  {submittingEditClient ? "Saving..." : "Save Changes"}
+                  {submittingEditClient ? "Saving Changes..." : "Save Changes"}
                 </PrimaryButton>
               </div>
             </form>
           </Modal>
         )}
 
-        {/* Modal 1: Add New Client (Multi-Tab with Contact, Proposal, Brand Assets) */}
+        {/* Modal 1: Add New Client (Multi-Tab: Basic, Services Provided 1-by-1, Contract & Retainer, Proposals & Assets) */}
         {addClientOpen && (
           <Modal title="Add New Client Account" size="lg" onClose={() => setAddClientOpen(false)}>
             {/* Tabs */}
-            <div style={{ display: "flex", gap: "6px", borderBottom: "1px solid #e2e8f0", paddingBottom: "8px", marginBottom: "14px" }}>
+            <div style={{ display: "flex", gap: "6px", borderBottom: "1px solid var(--border, #DCE3E0)", paddingBottom: "8px", marginBottom: "14px" }}>
               <button
                 type="button"
                 onClick={() => setAddClientTab("basic")}
@@ -863,14 +1524,30 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                   padding: "6px 12px",
                   borderRadius: "6px",
                   border: 0,
-                  background: addClientTab === "basic" ? "#059669" : "#f1f5f9",
-                  color: addClientTab === "basic" ? "#fff" : "#475569",
+                  background: addClientTab === "basic" ? "var(--color-primary, #087A5B)" : "var(--panel2, #F8FAF9)",
+                  color: addClientTab === "basic" ? "#fff" : "var(--color-text-secondary, #4A5568)",
                   fontSize: "12px",
                   fontWeight: 700,
                   cursor: "pointer",
                 }}
               >
-                1. Basic & Contact Info
+                1. Basic Info
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddClientTab("services")}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: 0,
+                  background: addClientTab === "services" ? "var(--color-primary, #087A5B)" : "var(--panel2, #F8FAF9)",
+                  color: addClientTab === "services" ? "#fff" : "var(--color-text-secondary, #4A5568)",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                2. Services Provided ({newClientServices.length})
               </button>
               <button
                 type="button"
@@ -879,14 +1556,14 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                   padding: "6px 12px",
                   borderRadius: "6px",
                   border: 0,
-                  background: addClientTab === "contract" ? "#059669" : "#f1f5f9",
-                  color: addClientTab === "contract" ? "#fff" : "#475569",
+                  background: addClientTab === "contract" ? "var(--color-primary, #087A5B)" : "var(--panel2, #F8FAF9)",
+                  color: addClientTab === "contract" ? "#fff" : "var(--color-text-secondary, #4A5568)",
                   fontSize: "12px",
                   fontWeight: 700,
                   cursor: "pointer",
                 }}
               >
-                2. Contract & Retainer
+                3. Contract & Retainer
               </button>
               <button
                 type="button"
@@ -895,14 +1572,14 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                   padding: "6px 12px",
                   borderRadius: "6px",
                   border: 0,
-                  background: addClientTab === "assets" ? "#059669" : "#f1f5f9",
-                  color: addClientTab === "assets" ? "#fff" : "#475569",
+                  background: addClientTab === "assets" ? "var(--color-primary, #087A5B)" : "var(--panel2, #F8FAF9)",
+                  color: addClientTab === "assets" ? "#fff" : "var(--color-text-secondary, #4A5568)",
                   fontSize: "12px",
                   fontWeight: 700,
                   cursor: "pointer",
                 }}
               >
-                3. Proposals & Brand Assets
+                4. Proposals & Brand Assets
               </button>
             </div>
 
@@ -910,7 +1587,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
               {/* TAB 1: BASIC & CONTACT */}
               {addClientTab === "basic" && (
                 <>
-                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                     CLIENT COMPANY NAME *
                     <input
                       type="text"
@@ -922,8 +1599,34 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                     />
                   </label>
 
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", background: "var(--panel2, #F8FAF9)", borderRadius: "8px", border: "1px solid var(--border, #DCE3E0)" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)" }}>
+                      Account Status:
+                    </span>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 600, color: "var(--color-text, #18231F)", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="newClientStatus"
+                        checked={newClientIsActive}
+                        onChange={() => setNewClientIsActive(true)}
+                        style={{ accentColor: "var(--color-primary, #087A5B)" }}
+                      />
+                      Active (Visible in active dropdowns)
+                    </label>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 600, color: "var(--color-text-muted, #718096)", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="newClientStatus"
+                        checked={!newClientIsActive}
+                        onChange={() => setNewClientIsActive(false)}
+                        style={{ accentColor: "#DC2626" }}
+                      />
+                      Inactive (Archived)
+                    </label>
+                  </div>
+
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                       INDUSTRY / CATEGORY
                       <input
                         type="text"
@@ -934,7 +1637,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                       />
                     </label>
 
-                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                       WEBSITE URL
                       <input
                         type="url"
@@ -947,7 +1650,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                   </div>
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
-                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                       CONTACT PERSON
                       <input
                         type="text"
@@ -958,7 +1661,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                       />
                     </label>
 
-                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                       EMAIL
                       <input
                         type="email"
@@ -969,7 +1672,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                       />
                     </label>
 
-                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                       PHONE / WHATSAPP
                       <input
                         type="text"
@@ -981,7 +1684,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                     </label>
                   </div>
 
-                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                     OFFICE ADDRESS
                     <input
                       type="text"
@@ -994,11 +1697,128 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                 </>
               )}
 
-              {/* TAB 2: CONTRACT & RETAINER */}
+              {/* TAB 2: SERVICES PROVIDED (ADD 1-BY-1) */}
+              {addClientTab === "services" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  <div style={{ background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border, #DCE3E0)", borderRadius: "10px", padding: "14px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "block", marginBottom: "6px" }}>
+                      Add Services Provided to This Client (1 by 1)
+                    </span>
+                    <p style={{ fontSize: "12px", color: "var(--color-text-muted, #718096)", margin: "0 0 10px 0" }}>
+                      Specify the services and deliverables we will provide to this client (e.g. Page Handling, Media Management, Video Editing).
+                    </p>
+
+                    <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+                      <input
+                        type="text"
+                        placeholder="Type a service (e.g. Page Handling) and press Enter..."
+                        value={newServiceInput}
+                        onChange={(e) => setNewServiceInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddServiceToNew(newServiceInput);
+                          }
+                        }}
+                        style={{ flex: 1, padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border2, #CBD5E1)", background: "var(--panel, #ffffff)", fontSize: "13px", color: "var(--color-text, #18231F)" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddServiceToNew(newServiceInput)}
+                        style={{
+                          padding: "8px 16px",
+                          borderRadius: "8px",
+                          background: "var(--color-primary, #087A5B)",
+                          color: "#ffffff",
+                          border: 0,
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        + Add Service
+                      </button>
+                    </div>
+
+                    {/* Quick suggested chips */}
+                    <div>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
+                        Quick Suggestions:
+                      </span>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {COMMON_SERVICES_SUGGESTIONS.map((sug) => (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => handleAddServiceToNew(sug)}
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: "6px",
+                              background: newClientServices.includes(sug) ? "var(--color-primary-subtle, #E7F3EE)" : "var(--panel, #ffffff)",
+                              border: "1px solid var(--border, #DCE3E0)",
+                              color: newClientServices.includes(sug) ? "var(--color-primary, #087A5B)" : "var(--color-text, #18231F)",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            + {sug}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Selected Services Badges */}
+                  <div>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "block", marginBottom: "8px" }}>
+                      Selected Services ({newClientServices.length})
+                    </span>
+                    {newClientServices.length === 0 ? (
+                      <div style={{ padding: "20px", textAlign: "center", color: "var(--color-text-muted, #718096)", fontSize: "12.5px", background: "var(--panel2, #F8FAF9)", borderRadius: "8px" }}>
+                        No services added yet. Add services 1 by 1 above.
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                        {newClientServices.map((srv) => (
+                          <span
+                            key={srv}
+                            style={{
+                              padding: "6px 12px",
+                              borderRadius: "8px",
+                              background: "var(--color-primary-subtle, #E7F3EE)",
+                              border: "1px solid var(--color-brand-border, #B2D8CB)",
+                              color: "var(--color-primary, #087A5B)",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px",
+                            }}
+                          >
+                            <Tag size={12} />
+                            {srv}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveServiceFromNew(srv)}
+                              style={{ background: "transparent", border: 0, color: "var(--color-primary, #087A5B)", cursor: "pointer", padding: "0 2px", fontWeight: 800, fontSize: "14px" }}
+                              title="Remove service"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: CONTRACT & RETAINER */}
               {addClientTab === "contract" && (
                 <>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                       CONTRACT START DATE
                       <input
                         type="date"
@@ -1008,7 +1828,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                       />
                     </label>
 
-                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                       CONTRACT END DATE
                       <input
                         type="date"
@@ -1019,7 +1839,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                     </label>
                   </div>
 
-                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                     MONTHLY RETAINER FEE (₹)
                     <input
                       type="number"
@@ -1032,15 +1852,15 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                 </>
               )}
 
-              {/* TAB 3: PROPOSALS & ASSETS */}
+              {/* TAB 4: PROPOSALS & ASSETS */}
               {addClientTab === "assets" && (
                 <>
-                  <div style={{ background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", display: "block", marginBottom: "6px" }}>
-                      📄 Initial Proposal Details
+                  <div style={{ background: "var(--panel2, #F8FAF9)", padding: "12px", borderRadius: "8px", border: "1px solid var(--border, #DCE3E0)" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+                      <FileText size={14} color="var(--color-primary, #087A5B)" /> Initial Proposal Details
                     </span>
                     <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "10px" }}>
-                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                         PROPOSAL TITLE
                         <input
                           type="text"
@@ -1051,7 +1871,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                         />
                       </label>
 
-                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                         VALUE (₹)
                         <input
                           type="number"
@@ -1064,12 +1884,12 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                     </div>
                   </div>
 
-                  <div style={{ background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", display: "block", marginBottom: "6px" }}>
-                      🎨 Brand Assets (Google Drive, Dropbox, Guidelines)
+                  <div style={{ background: "var(--panel2, #F8FAF9)", padding: "12px", borderRadius: "8px", border: "1px solid var(--border, #DCE3E0)" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+                      <Briefcase size={14} color="var(--color-primary, #087A5B)" /> Brand Assets (Google Drive, Dropbox, Guidelines)
                     </span>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "10px" }}>
-                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                         ASSET NAME
                         <input
                           type="text"
@@ -1080,7 +1900,7 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                         />
                       </label>
 
-                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)" }}>
                         DRIVE / ASSET LINK
                         <input
                           type="url"
@@ -1095,11 +1915,12 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                 </>
               )}
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", paddingTop: "8px", borderTop: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: "12px", color: "#64748b" }}>
-                  {addClientTab === "basic" && "Step 1 of 3"}
-                  {addClientTab === "contract" && "Step 2 of 3"}
-                  {addClientTab === "assets" && "Step 3 of 3"}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", paddingTop: "8px", borderTop: "1px solid var(--border, #DCE3E0)" }}>
+                <div style={{ fontSize: "12px", color: "var(--color-text-muted, #718096)" }}>
+                  {addClientTab === "basic" && "Step 1 of 4"}
+                  {addClientTab === "services" && "Step 2 of 4"}
+                  {addClientTab === "contract" && "Step 3 of 4"}
+                  {addClientTab === "assets" && "Step 4 of 4"}
                 </div>
 
                 <div style={{ display: "flex", gap: "8px" }}>

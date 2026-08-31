@@ -77,21 +77,21 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
   if (!isOpen) return null;
 
   return (
-    <Modal onClose={onClose} title="⚡ Smart Daily Work Update (1-Click Standup)" size="lg">
+    <Modal onClose={onClose} title="Smart Daily Work Update (1-Click Standup)" size="lg">
       {loading ? (
-        <div style={{ padding: "40px", textAlign: "center", color: "var(--muted, #888)" }}>
-          Gathering your completed & active tasks for today...
+        <div style={{ padding: "40px", textAlign: "center", color: "var(--color-text-muted, #718096)" }}>
+          Gathering your completed and active tasks for today...
         </div>
       ) : (
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
           <div
             style={{
               padding: "12px 16px",
-              background: "rgba(16, 185, 129, 0.08)",
-              border: "1px solid rgba(16, 185, 129, 0.25)",
-              borderRadius: "12px",
+              background: "var(--color-primary-subtle, #E7F3EE)",
+              border: "1px solid var(--color-brand-border, #B2D8CB)",
+              borderRadius: "10px",
               fontSize: "12px",
-              color: "#34d399",
+              color: "var(--color-primary, #087A5B)",
               display: "flex",
               alignItems: "center",
               gap: "8px",
@@ -99,7 +99,7 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
           >
             <Sparkles size={16} />
             <span>
-              Your daily tasks and deliverable quotas are auto-synchronized from FLUMENX task manager. Select items to include in today's standup.
+              Your daily tasks and deliverable quotas are auto-synchronized from the FLUMENX task manager. Select items to include in today's standup.
             </span>
           </div>
 
@@ -108,8 +108,8 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
             <label
               style={{
                 fontSize: "12px",
-                fontWeight: 800,
-                color: "#10b981",
+                fontWeight: 700,
+                color: "var(--color-text, #18231F)",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
                 display: "flex",
@@ -118,7 +118,7 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
                 marginBottom: "8px",
               }}
             >
-              <CheckCircle2 size={14} /> Completed Today ({selectedCompleted.length})
+              <CheckCircle2 size={14} color="#16855B" /> Completed Today ({selectedCompleted.length})
             </label>
             <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "140px", overflowY: "auto" }}>
               {(data?.completed_tasks || []).map((t, idx) => (
@@ -129,10 +129,11 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
                     alignItems: "center",
                     gap: "10px",
                     padding: "8px 12px",
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    background: "var(--panel2, #F8FAF9)",
+                    border: "1px solid var(--border, #DCE3E0)",
                     borderRadius: "8px",
                     fontSize: "13px",
+                    color: "var(--color-text, #18231F)",
                     cursor: "pointer",
                   }}
                 >
@@ -140,7 +141,7 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
                     type="checkbox"
                     checked={selectedCompleted.includes(t)}
                     onChange={() => handleToggle(selectedCompleted, setSelectedCompleted, t)}
-                    style={{ accentColor: "#10b981" }}
+                    style={{ accentColor: "var(--color-primary, #087A5B)" }}
                   />
                   <span>{t}</span>
                 </label>
@@ -153,8 +154,8 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
             <label
               style={{
                 fontSize: "12px",
-                fontWeight: 800,
-                color: "#38bdf8",
+                fontWeight: 700,
+                color: "var(--color-text, #18231F)",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
                 display: "flex",
@@ -163,7 +164,7 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
                 marginBottom: "8px",
               }}
             >
-              <Clock size={14} /> In Progress / Next ({selectedInProgress.length})
+              <Clock size={14} color="#2563EB" /> In Progress / Next ({selectedInProgress.length})
             </label>
             <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "140px", overflowY: "auto" }}>
               {(data?.in_progress_tasks || []).map((t, idx) => (
@@ -174,10 +175,11 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
                     alignItems: "center",
                     gap: "10px",
                     padding: "8px 12px",
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    background: "var(--panel2, #F8FAF9)",
+                    border: "1px solid var(--border, #DCE3E0)",
                     borderRadius: "8px",
                     fontSize: "13px",
+                    color: "var(--color-text, #18231F)",
                     cursor: "pointer",
                   }}
                 >
@@ -185,7 +187,7 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
                     type="checkbox"
                     checked={selectedInProgress.includes(t)}
                     onChange={() => handleToggle(selectedInProgress, setSelectedInProgress, t)}
-                    style={{ accentColor: "#38bdf8" }}
+                    style={{ accentColor: "var(--color-primary, #087A5B)" }}
                   />
                   <span>{t}</span>
                 </label>
@@ -198,8 +200,8 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
             <label
               style={{
                 fontSize: "12px",
-                fontWeight: 800,
-                color: "#f59e0b",
+                fontWeight: 700,
+                color: "var(--color-text, #18231F)",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
                 display: "flex",
@@ -208,7 +210,7 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
                 marginBottom: "8px",
               }}
             >
-              <AlertCircle size={14} /> Blockers / Needs Review ({selectedBlockers.length})
+              <AlertCircle size={14} color="#D97706" /> Blockers / Needs Review ({selectedBlockers.length})
             </label>
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
               {(data?.blockers || []).map((b, idx) => (
@@ -219,10 +221,11 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
                     alignItems: "center",
                     gap: "10px",
                     padding: "8px 12px",
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    background: "var(--panel2, #F8FAF9)",
+                    border: "1px solid var(--border, #DCE3E0)",
                     borderRadius: "8px",
                     fontSize: "13px",
+                    color: "var(--color-text, #18231F)",
                     cursor: "pointer",
                   }}
                 >
@@ -230,7 +233,7 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
                     type="checkbox"
                     checked={selectedBlockers.includes(b)}
                     onChange={() => handleToggle(selectedBlockers, setSelectedBlockers, b)}
-                    style={{ accentColor: "#f59e0b" }}
+                    style={{ accentColor: "var(--color-primary, #087A5B)" }}
                   />
                   <span>{b}</span>
                 </label>
@@ -240,7 +243,7 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
 
           {/* Additional Notes */}
           <div>
-            <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted, #888)", display: "block", marginBottom: "6px" }}>
+            <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text-secondary, #4A5568)", display: "block", marginBottom: "6px" }}>
               Optional Personal Note
             </label>
             <input
@@ -249,7 +252,7 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
               value={customNote}
               onChange={(e) => setCustomNote(e.target.value)}
               placeholder="e.g. Will wrap up client deliverables by 5 PM"
-              style={{ width: "100%" }}
+              style={{ width: "100%", background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border2, #CBD5E1)", color: "var(--color-text, #18231F)" }}
             />
           </div>
 
@@ -262,7 +265,7 @@ export function DailyStandupModal({ isOpen, onClose, onSubmit }: Props) {
               disabled={submitting}
               className="btn btn-primary"
               style={{
-                background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
+                background: "var(--color-primary, #087A5B)",
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
