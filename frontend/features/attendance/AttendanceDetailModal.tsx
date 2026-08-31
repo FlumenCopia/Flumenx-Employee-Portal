@@ -115,25 +115,35 @@ export function AttendanceDetailModal({ record, onClose }: AttendanceDetailModal
           {/* Verification Photo */}
           {photoUrl ? (
             <div>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted, #8e8e93)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "8px" }}>
-                Verification Selfie Photo
-              </span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted, #8e8e93)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Verification Selfie Photo (Full View)
+                </span>
+                <span style={{ fontSize: "11px", color: "var(--neon, #00e889)", fontWeight: 600 }}>
+                  Click to Expand
+                </span>
+              </div>
               <div
+                onClick={() => window.open(photoUrl, "_blank")}
                 style={{
                   width: "100%",
-                  maxHeight: "240px",
+                  maxHeight: "360px",
                   borderRadius: "12px",
                   overflow: "hidden",
                   border: "1px solid var(--border2, #333)",
-                  background: "#000",
-                  display: "grid",
-                  placeItems: "center",
+                  background: "#09090b",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "zoom-in",
+                  padding: "8px",
                 }}
+                title="Click to view full original photo in new tab"
               >
                 <img
                   src={photoUrl}
                   alt={`Verification photo for ${record.employee_name}`}
-                  style={{ width: "100%", height: "240px", objectFit: "cover" }}
+                  style={{ maxWidth: "100%", maxHeight: "340px", objectFit: "contain", borderRadius: "8px" }}
                 />
               </div>
             </div>
@@ -209,6 +219,29 @@ export function AttendanceDetailModal({ record, onClose }: AttendanceDetailModal
               )}
             </div>
           </div>
+
+          {/* Auto Forced Checkout Notice if Applicable */}
+          {record.is_auto_checkout && (
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: "10px",
+                background: "rgba(245, 158, 11, 0.1)",
+                border: "1px solid rgba(245, 158, 11, 0.3)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "4px",
+                fontSize: "12px",
+              }}
+            >
+              <span style={{ fontWeight: 800, color: "#f59e0b", display: "flex", alignItems: "center", gap: "6px" }}>
+                ⚡ Auto-Checkout System Notice
+              </span>
+              <span style={{ color: "#e2e8f0" }}>
+                {record.auto_checkout_reason || "Employee forgot to check out. Automatically checked out by the system at midnight with standard shift end time."}
+              </span>
+            </div>
+          )}
 
           {/* Verification Status */}
           <div

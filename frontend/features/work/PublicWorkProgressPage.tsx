@@ -154,133 +154,238 @@ export function PublicWorkProgressPage({ token }: { token: string }) {
         </div>
 
         {/* Deliverable Scope Cards Grid */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <h3 style={{ fontSize: "1.15rem", fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
-            <Building2 size={20} style={{ color: "#10b981" }} />
-            Contract Scope & Deliverables ({data.assignments.length})
-          </h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          {/* Section 1: Client Review Deliverables */}
+          <div>
+            <h3 style={{ fontSize: "1.15rem", fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px", margin: "0 0 1rem" }}>
+              <Building2 size={20} style={{ color: "#10b981" }} />
+              Contract Scope & Client Deliverables ({((data as any).client_deliverables || data.assignments || []).length})
+            </h3>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.25rem" }}>
-            {data.assignments.map((wa, idx) => (
-              <div
-                key={idx}
-                style={{
-                  background: "#ffffff",
-                  borderRadius: "14px",
-                  border: "1px solid #e2e8f0",
-                  padding: "1.5rem",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "1.25rem",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <h4 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>🎯 {wa.title}</h4>
-                    <span
-                      style={{
-                        padding: "3px 12px",
-                        borderRadius: "99px",
-                        fontSize: "11px",
-                        fontWeight: 800,
-                        background: wa.status === "Completed" ? "#dcfce7" : "#e0f2fe",
-                        color: wa.status === "Completed" ? "#15803d" : "#0369a1",
-                        border: `1px solid ${wa.status === "Completed" ? "#86efac" : "#bae6fd"}`,
-                      }}
-                    >
-                      {wa.status}
-                    </span>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "16px", fontSize: "13px" }}>
-                    <div>
-                      <span style={{ fontSize: "11px", color: "#64748b", display: "block", fontWeight: 600 }}>Deliverable Quota</span>
-                      <span style={{ fontWeight: 800, color: "#0f172a" }}>{wa.completed_quantity} / {wa.assigned_quantity} {wa.unit}</span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.25rem" }}>
+              {((data as any).client_deliverables || data.assignments || []).map((wa: any, idx: number) => (
+                <div
+                  key={idx}
+                  style={{
+                    background: "#ffffff",
+                    borderRadius: "14px",
+                    border: "1px solid #e2e8f0",
+                    padding: "1.5rem",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "1.25rem",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <h4 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>🎯 {wa.title}</h4>
+                      <span
+                        style={{
+                          padding: "3px 12px",
+                          borderRadius: "99px",
+                          fontSize: "11px",
+                          fontWeight: 800,
+                          background: wa.status === "Completed" || wa.status === "Published" ? "#dcfce7" : "#e0f2fe",
+                          color: wa.status === "Completed" || wa.status === "Published" ? "#15803d" : "#0369a1",
+                          border: `1px solid ${wa.status === "Completed" || wa.status === "Published" ? "#86efac" : "#bae6fd"}`,
+                        }}
+                      >
+                        {wa.status}
+                      </span>
                     </div>
-                    <div style={{ paddingLeft: "16px", borderLeft: "1px solid #e2e8f0" }}>
-                      <span style={{ fontSize: "11px", color: "#64748b", display: "block", fontWeight: 600 }}>Progress</span>
-                      <span style={{ fontWeight: 800, color: "#059669" }}>{wa.progress}%</span>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "16px", fontSize: "13px" }}>
+                      <div>
+                        <span style={{ fontSize: "11px", color: "#64748b", display: "block", fontWeight: 600 }}>Deliverable Quota</span>
+                        <span style={{ fontWeight: 800, color: "#0f172a" }}>{wa.completed_quantity} / {wa.assigned_quantity} {wa.unit}</span>
+                      </div>
+                      <div style={{ paddingLeft: "16px", borderLeft: "1px solid #e2e8f0" }}>
+                        <span style={{ fontSize: "11px", color: "#64748b", display: "block", fontWeight: 600 }}>Progress</span>
+                        <span style={{ fontWeight: 800, color: "#059669" }}>{wa.progress}%</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Assignment Progress Bar */}
-                <div>
-                  <div style={{ width: "100%", background: "#f1f5f9", height: "10px", borderRadius: "99px", overflow: "hidden", border: "1px solid #e2e8f0", marginBottom: "6px" }}>
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${Math.min(100, Math.max(0, wa.progress))}%`,
-                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                        borderRadius: "99px",
-                      }}
-                    />
+                  {/* Assignment Progress Bar */}
+                  <div>
+                    <div style={{ width: "100%", background: "#f1f5f9", height: "10px", borderRadius: "99px", overflow: "hidden", border: "1px solid #e2e8f0", marginBottom: "6px" }}>
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${Math.min(100, Math.max(0, wa.progress))}%`,
+                          background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                          borderRadius: "99px",
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#64748b", fontWeight: 600 }}>
+                      <span>Assigned: {wa.assigned_date}</span>
+                      <span>Target Completion Due: {wa.due_date}</span>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#64748b", fontWeight: 600 }}>
-                    <span>Assigned: {wa.assigned_date}</span>
-                    <span>Target Completion Due: {wa.due_date}</span>
-                  </div>
-                </div>
 
-                {/* Sub-Deliverables / Milestone Items */}
-                {wa.deliverables && wa.deliverables.length > 0 && (
-                  <div style={{ paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
-                    <span style={{ fontSize: "11px", fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px", display: "block", marginBottom: "10px" }}>
-                      Milestones & Items Breakdown ({wa.deliverables.length})
-                    </span>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "10px" }}>
-                      {wa.deliverables.map((d, dIdx) => {
-                        const isDone = (d.delivered || 0) > 0 || d.status === "Completed";
-                        return (
-                          <div
-                            key={dIdx}
-                            style={{
-                              background: isDone ? "#f0fdf4" : "#f8fafc",
-                              border: `1px solid ${isDone ? "#bbf7d0" : "#e2e8f0"}`,
-                              padding: "10px 14px",
-                              borderRadius: "10px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              fontSize: "13px",
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              {isDone ? (
-                                <CheckCircle2 size={18} style={{ color: "#16a34a" }} />
-                              ) : (
-                                <Clock size={18} style={{ color: "#94a3b8" }} />
-                              )}
-                              <div>
-                                <div style={{ fontWeight: 700, color: isDone ? "#15803d" : "#0f172a", textDecoration: isDone ? "line-through" : "none" }}>
-                                  {d.name || d.title}
-                                </div>
-                                <div style={{ fontSize: "11px", color: "#64748b" }}>Target: {d.contracted || 1} units</div>
-                              </div>
-                            </div>
-
-                            <span
+                  {/* Sub-Deliverables / Milestone Items */}
+                  {wa.deliverables && wa.deliverables.length > 0 && (
+                    <div style={{ paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px", display: "block", marginBottom: "10px" }}>
+                        Milestones & Items Breakdown ({wa.deliverables.length})
+                      </span>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "10px" }}>
+                        {wa.deliverables.map((d: any, dIdx: number) => {
+                          const isDone = (d.delivered || 0) > 0 || d.status === "Completed" || d.status === "Published";
+                          return (
+                            <div
+                              key={dIdx}
                               style={{
-                                padding: "3px 8px",
-                                borderRadius: "6px",
-                                fontSize: "10px",
-                                fontWeight: 800,
-                                background: isDone ? "#dcfce7" : "#e2e8f0",
-                                color: isDone ? "#15803d" : "#475569",
+                                background: isDone ? "#f0fdf4" : "#f8fafc",
+                                border: `1px solid ${isDone ? "#bbf7d0" : "#e2e8f0"}`,
+                                padding: "10px 14px",
+                                borderRadius: "10px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                fontSize: "13px",
                               }}
                             >
-                              {isDone ? "Done" : "Pending"}
-                            </span>
-                          </div>
-                        );
-                      })}
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                {isDone ? (
+                                  <CheckCircle2 size={18} style={{ color: "#16a34a" }} />
+                                ) : (
+                                  <Clock size={18} style={{ color: "#94a3b8" }} />
+                                )}
+                                <div>
+                                  <div style={{ fontWeight: 700, color: isDone ? "#15803d" : "#0f172a", textDecoration: isDone ? "line-through" : "none" }}>
+                                    {d.name || d.title}
+                                  </div>
+                                  <div style={{ fontSize: "11px", color: "#64748b" }}>Target: {d.contracted || 1} units</div>
+                                </div>
+                              </div>
+
+                              <span
+                                style={{
+                                  padding: "3px 8px",
+                                  borderRadius: "6px",
+                                  fontSize: "10px",
+                                  fontWeight: 800,
+                                  background: isDone ? "#dcfce7" : "#e2e8f0",
+                                  color: isDone ? "#15803d" : "#475569",
+                                }}
+                              >
+                                {isDone ? "Done" : "Pending"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Section 2: Internal Execution Tasks (if present) */}
+          {(data as any).internal_tasks && (data as any).internal_tasks.length > 0 && (
+            <div style={{ marginTop: "1rem" }}>
+              <h3 style={{ fontSize: "1.15rem", fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px", margin: "0 0 1rem" }}>
+                <Layers size={20} style={{ color: "#3b82f6" }} />
+                Team Execution Tasks ({(data as any).internal_tasks.length})
+              </h3>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1rem" }}>
+                {(data as any).internal_tasks.map((task: any, idx: number) => (
+                  <div
+                    key={idx}
+                    style={{
+                      background: "#ffffff",
+                      borderRadius: "12px",
+                      border: "1px solid #e2e8f0",
+                      padding: "1.2rem",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#0284c7", background: "#e0f2fe", padding: "2px 8px", borderRadius: "6px" }}>
+                        {task.employee_name}
+                      </span>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: task.status === "Completed" ? "#16a34a" : "#64748b" }}>
+                        {task.status}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "13.5px", fontWeight: 700, color: "#0f172a" }}>{task.title}</div>
+                    <div style={{ fontSize: "12px", color: "#64748b", display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
+                      <span>Progress: {task.completed_quantity}/{task.assigned_quantity} {task.unit}</span>
+                      <span>{task.progress}%</span>
                     </div>
                   </div>
-                )}
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+
+          {/* Section 3: Brand Assets & Documents */}
+          {(((data as any).documents && (data as any).documents.length > 0) || ((data as any).brand_assets && (data as any).brand_assets.length > 0)) && (
+            <div style={{ marginTop: "1rem", background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "1.5rem" }}>
+              <h3 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#0f172a", margin: "0 0 12px" }}>
+                📂 Brand Assets & Project Resources
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "10px" }}>
+                {((data as any).brand_assets || []).map((asset: any, idx: number) => (
+                  <a
+                    key={`ba_${idx}`}
+                    href={asset.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 14px",
+                      borderRadius: "8px",
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      color: "#0f172a",
+                      textDecoration: "none",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span>🎨 {asset.name}</span>
+                    <span style={{ fontSize: "11px", color: "#2563eb", fontWeight: 700 }}>Open Link ↗</span>
+                  </a>
+                ))}
+
+                {((data as any).documents || []).map((doc: any, idx: number) => (
+                  <a
+                    key={`doc_${idx}`}
+                    href={doc.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 14px",
+                      borderRadius: "8px",
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      color: "#0f172a",
+                      textDecoration: "none",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span>📄 {doc.name}</span>
+                    <span style={{ fontSize: "11px", color: "#059669", fontWeight: 700 }}>{doc.document_type || "Document"} ↗</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

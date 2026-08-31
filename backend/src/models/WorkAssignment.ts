@@ -79,6 +79,17 @@ export interface ITimeAdjustment {
   reason: string;
 }
 
+export interface ITaskAttachment {
+  _id?: mongoose.Types.ObjectId;
+  name: string;
+  url: string;
+  fileType?: string;
+  fileSize?: number;
+  uploadedAt: Date;
+  uploadedBy?: mongoose.Types.ObjectId | null;
+  uploadedByName?: string;
+}
+
 export interface IWorkAssignment extends Document {
   legacyId?: number;
   employee?: mongoose.Types.ObjectId | null;
@@ -111,6 +122,7 @@ export interface IWorkAssignment extends Document {
   reviewedBy?: mongoose.Types.ObjectId | null;
   reviewedAt?: Date | null;
   deliverables: IWorkDeliverable[];
+  attachments: ITaskAttachment[];
   totalTimeSpentSeconds: number;
   activeTimer?: {
     startedAt: Date;
@@ -119,6 +131,19 @@ export interface IWorkAssignment extends Document {
   timeLogs: ITimeLog[];
   timeAdjustments?: ITimeAdjustment[];
 }
+
+const taskAttachmentSchema = new Schema<ITaskAttachment>(
+  {
+    name: { type: String, required: true },
+    url: { type: String, required: true },
+    fileType: { type: String, default: '' },
+    fileSize: { type: Number, default: 0 },
+    uploadedAt: { type: Date, default: () => new Date() },
+    uploadedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    uploadedByName: { type: String, default: '' },
+  },
+  { _id: true }
+);
 
 const workDeliverableSchema = new Schema(
   {
@@ -203,6 +228,7 @@ const workAssignmentSchema = new Schema<IWorkAssignment>(
     reviewedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     reviewedAt: { type: Date, default: null },
     deliverables: [workDeliverableSchema],
+    attachments: [taskAttachmentSchema],
     totalTimeSpentSeconds: { type: Number, default: 0 },
     activeTimer: {
       type: {

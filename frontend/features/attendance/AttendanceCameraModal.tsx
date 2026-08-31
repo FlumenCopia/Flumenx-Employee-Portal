@@ -189,7 +189,10 @@ export function AttendanceCameraModal({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.restore();
     canvas.toBlob(
       (blob) => {
         if (blob) {
@@ -421,8 +424,7 @@ export function AttendanceCameraModal({
                     style={{
                       width: "100%",
                       height: "100%",
-                      objectFit: "cover",
-                      transform: "scaleX(-1)",
+                      objectFit: "contain",
                     }}
                   />
                 )}

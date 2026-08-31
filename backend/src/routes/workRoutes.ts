@@ -1,9 +1,12 @@
 import { Router } from 'express';
 import {
   getClients,
+  getClientById,
   createClient,
   updateClient,
   deleteClient,
+  uploadClientDocument,
+  uploadTaskAttachment,
   getClientKPIHealthHandler,
   getWorkAssignments,
   getWorkAssignmentsSummary,
@@ -28,6 +31,7 @@ import {
   incrementDeliverable,
 } from '../controllers/workController.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { upload } from '../middleware/upload.js';
 import { getDepartments } from '../controllers/portalController.js';
 
 import { requirePermission } from '../middleware/rbac.js';
@@ -42,9 +46,12 @@ router.use(authenticateToken);
 
 // Clients
 router.get('/clients/?', requirePermission('clients', 'canView'), getClients);
+router.get('/clients/:id/?', requirePermission('clients', 'canView'), getClientById);
 router.post('/clients/?', requirePermission('clients', 'canCreate'), createClient);
+router.post('/clients/:id/documents/?', requirePermission('clients', 'canEdit'), upload.single('file'), uploadClientDocument);
 router.get('/clients/:id/kpi-health/?', requirePermission('clients', 'canView'), getClientKPIHealthHandler);
 router.put('/clients/:id/?', requirePermission('clients', 'canEdit'), updateClient);
+router.patch('/clients/:id/?', requirePermission('clients', 'canEdit'), updateClient);
 router.delete('/clients/:id/?', requirePermission('clients', 'canDelete'), deleteClient);
 
 // Work Assignments
@@ -53,6 +60,7 @@ router.get('/work-assignments/?', requirePermission('tasks', 'canView'), getWork
 router.post('/work-assignments/bulk-create/?', requirePermission('tasks', 'canCreate'), bulkCreateWorkAssignments);
 router.post('/work-assignments/?', requirePermission('tasks', 'canCreate'), createWorkAssignment);
 router.get('/work-assignments/:id/?', requirePermission('tasks', 'canView'), getWorkAssignmentById);
+router.post('/work-assignments/:id/attachments/?', requirePermission('tasks', 'canEdit'), upload.single('file'), uploadTaskAttachment);
 router.post('/work-assignments/:id/start-timer/?', requirePermission('timer', 'canView'), startTaskTimer);
 router.post('/work-assignments/:id/stop-timer/?', requirePermission('timer', 'canView'), stopTaskTimer);
 router.post('/work-assignments/:id/adjust-time/?', requirePermission('tasks', 'canEdit'), adjustTaskTime);

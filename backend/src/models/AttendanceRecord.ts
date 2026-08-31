@@ -36,6 +36,8 @@ export interface IAttendanceRecord extends Document {
   photo?: string;
   locationVerified: boolean;
   notes?: string;
+  isAutoCheckout?: boolean;
+  autoCheckoutReason?: string;
 }
 
 const attendanceRecordSchema = new Schema<IAttendanceRecord>(
@@ -75,6 +77,8 @@ const attendanceRecordSchema = new Schema<IAttendanceRecord>(
     photo: { type: String, default: '' },
     locationVerified: { type: Boolean, default: false },
     notes: { type: String, default: '' },
+    isAutoCheckout: { type: Boolean, default: false },
+    autoCheckoutReason: { type: String, default: '' },
   },
   {
     timestamps: true,

@@ -208,9 +208,67 @@ export type AttendanceRecord = {
   latitude?: number | null; longitude?: number | null; check_in_distance_meters?: number | null;
   check_out_latitude?: number | null; check_out_longitude?: number | null; check_out_distance_meters?: number | null;
   photo?: string | null;
+  is_auto_checkout?: boolean;
+  auto_checkout_reason?: string;
 };
+
+export type ClientDocument = {
+  id?: string | number;
+  name: string;
+  url: string;
+  document_type: "Contract" | "NDA" | "Proposal" | "SLA" | "Asset" | "Other";
+  documentType?: "Contract" | "NDA" | "Proposal" | "SLA" | "Asset" | "Other";
+  uploaded_at?: string;
+};
+
+export type ClientProposal = {
+  id?: string | number;
+  title: string;
+  url?: string;
+  value?: number;
+  status: "Draft" | "Sent" | "Approved" | "Rejected";
+  uploaded_at?: string;
+};
+
+export type ClientBrandAsset = {
+  id?: string | number;
+  name: string;
+  url: string;
+  asset_type?: "Logo" | "Brand Guide" | "Font" | "Drive Link" | "Other";
+  assetType?: "Logo" | "Brand Guide" | "Font" | "Drive Link" | "Other";
+  notes?: string;
+};
+
+export type ClientContactPerson = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  designation?: string;
+};
+
 export type Client = {
-  id: number | string; name: string; created_at?: string; updated_at?: string;
+  id: number | string;
+  name: string;
+  industry?: string;
+  is_active?: boolean;
+  isActive?: boolean;
+  notes?: string;
+  contact_person?: ClientContactPerson;
+  contactPerson?: ClientContactPerson;
+  website?: string;
+  address?: string;
+  contract_start_date?: string | null;
+  contract_end_date?: string | null;
+  contractStartDate?: string | null;
+  contractEndDate?: string | null;
+  retainer_monthly_fee?: number;
+  retainerMonthlyFee?: number;
+  documents?: ClientDocument[];
+  proposals?: ClientProposal[];
+  brand_assets?: ClientBrandAsset[];
+  brandAssets?: ClientBrandAsset[];
+  created_at?: string;
+  updated_at?: string;
 };
 export type ProjectStatus = "Planning" | "Active" | "On Hold" | "Completed" | "Archived";
 export type Project = {
@@ -300,6 +358,17 @@ export type WorkDeliverable = DeliverableItem;
 
 export type ReviewStatus = "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED";
 
+export type TaskAttachment = {
+  id?: string | number;
+  name: string;
+  url: string;
+  file_type?: string;
+  file_size?: number;
+  uploaded_at?: string;
+  uploaded_by?: string | number | null;
+  uploaded_by_name?: string;
+};
+
 export type WorkAssignment = {
   id: number | string; employee: number | string; employee_name: string; employee_department?: string; client: number | string; client_name: string;
   project?: number | string | null; project_name?: string;
@@ -318,7 +387,9 @@ export type WorkAssignment = {
   reviewed_by?: number | null;
   reviewed_at?: string | null;
   reviewed_by_name?: string;
-  is_overdue: boolean; is_backlog?: boolean; deliverables: DeliverableItem[]; created_at: string; updated_at: string;
+  is_overdue: boolean; is_backlog?: boolean; deliverables: DeliverableItem[];
+  attachments?: TaskAttachment[];
+  created_at: string; updated_at: string;
   total_time_spent_seconds?: number;
   active_timer?: { started_at: string; started_by?: number | null } | null;
   time_logs?: { id?: string; startTime?: string; started_at?: string; endTime?: string | null; stopped_at?: string | null; durationSeconds?: number; duration_seconds?: number; loggedBy?: number | null; user_name?: string }[];

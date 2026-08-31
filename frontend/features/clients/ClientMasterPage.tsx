@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   Briefcase,
+  Calendar,
   CheckCircle2,
   CheckSquare,
   Clock,
@@ -44,8 +45,21 @@ export function ClientMasterPage({ role = "admin" }: Props) {
 
   // Modal 1: Add Client
   const [addClientOpen, setAddClientOpen] = useState(false);
+  const [addClientTab, setAddClientTab] = useState<"basic" | "contract" | "assets">("basic");
   const [newClientName, setNewClientName] = useState("");
   const [newClientIndustry, setNewClientIndustry] = useState("");
+  const [newClientContactName, setNewClientContactName] = useState("");
+  const [newClientContactEmail, setNewClientContactEmail] = useState("");
+  const [newClientContactPhone, setNewClientContactPhone] = useState("");
+  const [newClientWebsite, setNewClientWebsite] = useState("");
+  const [newClientAddress, setNewClientAddress] = useState("");
+  const [newClientContractStart, setNewClientContractStart] = useState("");
+  const [newClientContractEnd, setNewClientContractEnd] = useState("");
+  const [newClientRetainerFee, setNewClientRetainerFee] = useState("");
+  const [newClientProposalTitle, setNewClientProposalTitle] = useState("");
+  const [newClientProposalValue, setNewClientProposalValue] = useState("");
+  const [newClientBrandAssetName, setNewClientBrandAssetName] = useState("");
+  const [newClientBrandAssetUrl, setNewClientBrandAssetUrl] = useState("");
   const [submittingClient, setSubmittingClient] = useState(false);
 
   // Modal 2: Add Master Task for Client
@@ -71,6 +85,14 @@ export function ClientMasterPage({ role = "admin" }: Props) {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [editClientName, setEditClientName] = useState("");
   const [editClientIndustry, setEditClientIndustry] = useState("");
+  const [editClientContactName, setEditClientContactName] = useState("");
+  const [editClientContactEmail, setEditClientContactEmail] = useState("");
+  const [editClientContactPhone, setEditClientContactPhone] = useState("");
+  const [editClientWebsite, setEditClientWebsite] = useState("");
+  const [editClientAddress, setEditClientAddress] = useState("");
+  const [editClientContractStart, setEditClientContractStart] = useState("");
+  const [editClientContractEnd, setEditClientContractEnd] = useState("");
+  const [editClientRetainerFee, setEditClientRetainerFee] = useState("");
   const [editClientIsActive, setEditClientIsActive] = useState(true);
   const [editClientNotes, setEditClientNotes] = useState("");
   const [submittingEditClient, setSubmittingEditClient] = useState(false);
@@ -80,6 +102,14 @@ export function ClientMasterPage({ role = "admin" }: Props) {
     setEditingClient(c);
     setEditClientName(c.name);
     setEditClientIndustry((c as any).industry || "General");
+    setEditClientContactName((c as any).contact_person?.name || (c as any).contactPerson?.name || "");
+    setEditClientContactEmail((c as any).contact_person?.email || (c as any).contactPerson?.email || "");
+    setEditClientContactPhone((c as any).contact_person?.phone || (c as any).contactPerson?.phone || "");
+    setEditClientWebsite((c as any).website || "");
+    setEditClientAddress((c as any).address || "");
+    setEditClientContractStart((c as any).contract_start_date || (c as any).contractStartDate || "");
+    setEditClientContractEnd((c as any).contract_end_date || (c as any).contractEndDate || "");
+    setEditClientRetainerFee((c as any).retainer_monthly_fee || (c as any).retainerMonthlyFee || "");
     setEditClientIsActive((c as any).is_active ?? (c as any).isActive ?? true);
     setEditClientNotes((c as any).notes || "");
     setEditClientOpen(true);
@@ -95,6 +125,16 @@ export function ClientMasterPage({ role = "admin" }: Props) {
         body: JSON.stringify({
           name: editClientName.trim(),
           industry: editClientIndustry.trim() || "General",
+          contact_person: {
+            name: editClientContactName.trim(),
+            email: editClientContactEmail.trim(),
+            phone: editClientContactPhone.trim(),
+          },
+          website: editClientWebsite.trim(),
+          address: editClientAddress.trim(),
+          contract_start_date: editClientContractStart || null,
+          contract_end_date: editClientContractEnd || null,
+          retainer_monthly_fee: Number(editClientRetainerFee) || 0,
           is_active: editClientIsActive,
           notes: editClientNotes.trim(),
         }),
@@ -152,15 +192,61 @@ export function ClientMasterPage({ role = "admin" }: Props) {
     if (!newClientName.trim()) return;
     setSubmittingClient(true);
     try {
+      const proposals = newClientProposalTitle.trim()
+        ? [
+            {
+              title: newClientProposalTitle.trim(),
+              value: Number(newClientProposalValue) || 0,
+              status: "Draft",
+            },
+          ]
+        : [];
+
+      const brandAssets =
+        newClientBrandAssetName.trim() || newClientBrandAssetUrl.trim()
+          ? [
+              {
+                name: newClientBrandAssetName.trim() || "Brand Drive Asset",
+                url: newClientBrandAssetUrl.trim() || "https://drive.google.com",
+                assetType: "Logo",
+              },
+            ]
+          : [];
+
       await api<Client>("/clients/", {
         method: "POST",
         body: JSON.stringify({
           name: newClientName.trim(),
           industry: newClientIndustry.trim() || "General Services",
+          contact_person: {
+            name: newClientContactName.trim(),
+            email: newClientContactEmail.trim(),
+            phone: newClientContactPhone.trim(),
+          },
+          website: newClientWebsite.trim(),
+          address: newClientAddress.trim(),
+          contract_start_date: newClientContractStart || null,
+          contract_end_date: newClientContractEnd || null,
+          retainer_monthly_fee: Number(newClientRetainerFee) || 0,
+          proposals,
+          brand_assets: brandAssets,
         }),
       });
+
       setNewClientName("");
       setNewClientIndustry("");
+      setNewClientContactName("");
+      setNewClientContactEmail("");
+      setNewClientContactPhone("");
+      setNewClientWebsite("");
+      setNewClientAddress("");
+      setNewClientContractStart("");
+      setNewClientContractEnd("");
+      setNewClientRetainerFee("");
+      setNewClientProposalTitle("");
+      setNewClientProposalValue("");
+      setNewClientBrandAssetName("");
+      setNewClientBrandAssetUrl("");
       setAddClientOpen(false);
       toast.success("Client added successfully!");
       fetchData();
@@ -414,7 +500,14 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", marginBottom: "10px" }}>
                       <div>
                         <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#0f172a", margin: 0 }}>{client.name}</h3>
-                        <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>ID #{client.id}</span>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "2px" }}>
+                          <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>ID #{client.id}</span>
+                          {(client as any).industry && (
+                            <span style={{ fontSize: "0.72rem", color: "#059669", background: "rgba(16,185,129,0.1)", padding: "1px 6px", borderRadius: "4px", fontWeight: 700 }}>
+                              {(client as any).industry}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <span
                         style={{
@@ -432,6 +525,24 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                         {kpi?.healthStatus || "On Track"} ({kpi?.satisfactionScore || 100}%)
                       </span>
                     </div>
+
+                    {/* Contact Person & Retainer info */}
+                    {((client as any).contact_person?.name || (client as any).contactPerson?.name || (client as any).retainer_monthly_fee || (client as any).retainerMonthlyFee) && (
+                      <div style={{ background: "#f8fafc", padding: "8px 10px", borderRadius: "8px", border: "1px solid #f1f5f9", marginBottom: "10px", fontSize: "0.75rem", color: "#475569", display: "flex", flexDirection: "column", gap: "4px" }}>
+                        {((client as any).contact_person?.name || (client as any).contactPerson?.name) && (
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span>👤 Contact: <b>{(client as any).contact_person?.name || (client as any).contactPerson?.name}</b></span>
+                            <span>{((client as any).contact_person?.phone || (client as any).contactPerson?.phone || (client as any).contact_person?.email || (client as any).contactPerson?.email || "")}</span>
+                          </div>
+                        )}
+                        {Boolean((client as any).retainer_monthly_fee || (client as any).retainerMonthlyFee) && (
+                          <div style={{ display: "flex", justifyContent: "space-between", color: "#059669", fontWeight: 700 }}>
+                            <span>💰 Retainer Fee:</span>
+                            <span>₹{Number((client as any).retainer_monthly_fee || (client as any).retainerMonthlyFee).toLocaleString()}/month</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* KPI Progress Bars */}
                     <div style={{ background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #f1f5f9", marginBottom: "12px" }}>
@@ -508,78 +619,103 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                   </div>
 
                   {/* Card Actions Footer */}
-                  <div style={{ display: "flex", gap: "8px", paddingTop: "10px", borderTop: "1px solid #f1f5f9" }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedClient(client);
-                        setAddTaskModalOpen(true);
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: "6px 10px",
-                        borderRadius: "6px",
-                        background: "rgba(16, 185, 129, 0.1)",
-                        color: "#059669",
-                        border: "1px solid rgba(16, 185, 129, 0.3)",
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      <Plus size={14} /> + Master Task
-                    </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", paddingTop: "10px", borderTop: "1px solid #f1f5f9" }}>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <a
+                        href={`/clients/tasks`}
+                        style={{
+                          flex: 1,
+                          padding: "7px 10px",
+                          borderRadius: "6px",
+                          background: "linear-gradient(135deg, rgba(5,150,105,0.12) 0%, rgba(16,185,129,0.12) 100%)",
+                          color: "#059669",
+                          border: "1px solid rgba(16, 185, 129, 0.35)",
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          textDecoration: "none",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <Calendar size={13} /> Tasks & Calendar
+                      </a>
 
-                    <button
-                      type="button"
-                      onClick={() => openEditClient(client)}
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: "6px",
-                        background: "rgba(100, 116, 139, 0.1)",
-                        color: "#475569",
-                        border: "1px solid rgba(100, 116, 139, 0.25)",
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "4px",
-                      }}
-                      title="Edit Client Details & Status"
-                    >
-                      <Pencil size={13} /> Edit
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShareClient({ id: client.id, name: client.name });
+                          setShareModalOpen(true);
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: "7px 10px",
+                          borderRadius: "6px",
+                          background: "rgba(59, 130, 246, 0.1)",
+                          color: "#2563eb",
+                          border: "1px solid rgba(59, 130, 246, 0.3)",
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <Globe size={13} /> Share Portal
+                      </button>
+                    </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShareClient({ id: client.id, name: client.name });
-                        setShareModalOpen(true);
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: "6px 10px",
-                        borderRadius: "6px",
-                        background: "rgba(59, 130, 246, 0.1)",
-                        color: "#2563eb",
-                        border: "1px solid rgba(59, 130, 246, 0.3)",
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      <Globe size={14} /> Share Portal
-                    </button>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedClient(client);
+                          setAddTaskModalOpen(true);
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: "6px 10px",
+                          borderRadius: "6px",
+                          background: "rgba(16, 185, 129, 0.08)",
+                          color: "#059669",
+                          border: "1px solid rgba(16, 185, 129, 0.25)",
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <Plus size={13} /> + Master Task
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openEditClient(client)}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "6px",
+                          background: "rgba(100, 116, 139, 0.1)",
+                          color: "#475569",
+                          border: "1px solid rgba(100, 116, 139, 0.25)",
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "4px",
+                        }}
+                        title="Edit Client Details & Status"
+                      >
+                        <Pencil size={13} /> Edit
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -602,15 +738,85 @@ export function ClientMasterPage({ role = "admin" }: Props) {
                 />
               </label>
 
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
-                INDUSTRY / CATEGORY
-                <input
-                  type="text"
-                  value={editClientIndustry}
-                  onChange={(e) => setEditClientIndustry(e.target.value)}
-                  className="fi"
-                />
-              </label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                  INDUSTRY / CATEGORY
+                  <input
+                    type="text"
+                    value={editClientIndustry}
+                    onChange={(e) => setEditClientIndustry(e.target.value)}
+                    className="fi"
+                  />
+                </label>
+
+                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                  MONTHLY RETAINER FEE (₹)
+                  <input
+                    type="number"
+                    value={editClientRetainerFee}
+                    onChange={(e) => setEditClientRetainerFee(e.target.value)}
+                    className="fi"
+                    placeholder="e.g. 50000"
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                  CONTACT PERSON
+                  <input
+                    type="text"
+                    value={editClientContactName}
+                    onChange={(e) => setEditClientContactName(e.target.value)}
+                    className="fi"
+                    placeholder="Name"
+                  />
+                </label>
+
+                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                  EMAIL
+                  <input
+                    type="email"
+                    value={editClientContactEmail}
+                    onChange={(e) => setEditClientContactEmail(e.target.value)}
+                    className="fi"
+                    placeholder="Email"
+                  />
+                </label>
+
+                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                  PHONE
+                  <input
+                    type="text"
+                    value={editClientContactPhone}
+                    onChange={(e) => setEditClientContactPhone(e.target.value)}
+                    className="fi"
+                    placeholder="Phone"
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                  CONTRACT START
+                  <input
+                    type="date"
+                    value={editClientContractStart}
+                    onChange={(e) => setEditClientContractStart(e.target.value)}
+                    className="fi"
+                  />
+                </label>
+
+                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                  CONTRACT END
+                  <input
+                    type="date"
+                    value={editClientContractEnd}
+                    onChange={(e) => setEditClientContractEnd(e.target.value)}
+                    className="fi"
+                  />
+                </label>
+              </div>
 
               <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
                 NOTES / ACCOUNT CONTEXT
@@ -645,40 +851,265 @@ export function ClientMasterPage({ role = "admin" }: Props) {
           </Modal>
         )}
 
-        {/* Modal 1: Add New Client */}
+        {/* Modal 1: Add New Client (Multi-Tab with Contact, Proposal, Brand Assets) */}
         {addClientOpen && (
-          <Modal title="Add New Client Account" size="md" onClose={() => setAddClientOpen(false)}>
+          <Modal title="Add New Client Account" size="lg" onClose={() => setAddClientOpen(false)}>
+            {/* Tabs */}
+            <div style={{ display: "flex", gap: "6px", borderBottom: "1px solid #e2e8f0", paddingBottom: "8px", marginBottom: "14px" }}>
+              <button
+                type="button"
+                onClick={() => setAddClientTab("basic")}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: 0,
+                  background: addClientTab === "basic" ? "#059669" : "#f1f5f9",
+                  color: addClientTab === "basic" ? "#fff" : "#475569",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                1. Basic & Contact Info
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddClientTab("contract")}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: 0,
+                  background: addClientTab === "contract" ? "#059669" : "#f1f5f9",
+                  color: addClientTab === "contract" ? "#fff" : "#475569",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                2. Contract & Retainer
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddClientTab("assets")}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  border: 0,
+                  background: addClientTab === "assets" ? "#059669" : "#f1f5f9",
+                  color: addClientTab === "assets" ? "#fff" : "#475569",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                3. Proposals & Brand Assets
+              </button>
+            </div>
+
             <form onSubmit={handleAddClient} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
-                CLIENT NAME *
-                <input
-                  type="text"
-                  placeholder="e.g. Expo Masters / Acme Corp"
-                  value={newClientName}
-                  onChange={(e) => setNewClientName(e.target.value)}
-                  required
-                  className="fi"
-                />
-              </label>
+              {/* TAB 1: BASIC & CONTACT */}
+              {addClientTab === "basic" && (
+                <>
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                    CLIENT COMPANY NAME *
+                    <input
+                      type="text"
+                      placeholder="e.g. Expo Masters / Acme Corp"
+                      value={newClientName}
+                      onChange={(e) => setNewClientName(e.target.value)}
+                      required
+                      className="fi"
+                    />
+                  </label>
 
-              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
-                INDUSTRY / CATEGORY
-                <input
-                  type="text"
-                  placeholder="e.g. Real Estate, Digital Marketing, Retail"
-                  value={newClientIndustry}
-                  onChange={(e) => setNewClientIndustry(e.target.value)}
-                  className="fi"
-                />
-              </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                      INDUSTRY / CATEGORY
+                      <input
+                        type="text"
+                        placeholder="e.g. Real Estate, E-Commerce, Healthcare"
+                        value={newClientIndustry}
+                        onChange={(e) => setNewClientIndustry(e.target.value)}
+                        className="fi"
+                      />
+                    </label>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
-                <button type="button" className="secondary-button" onClick={() => setAddClientOpen(false)}>
-                  Cancel
-                </button>
-                <PrimaryButton type="submit" disabled={submittingClient}>
-                  {submittingClient ? "Adding..." : "Add Client"}
-                </PrimaryButton>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                      WEBSITE URL
+                      <input
+                        type="url"
+                        placeholder="https://clientwebsite.com"
+                        value={newClientWebsite}
+                        onChange={(e) => setNewClientWebsite(e.target.value)}
+                        className="fi"
+                      />
+                    </label>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                      CONTACT PERSON
+                      <input
+                        type="text"
+                        placeholder="e.g. John Doe"
+                        value={newClientContactName}
+                        onChange={(e) => setNewClientContactName(e.target.value)}
+                        className="fi"
+                      />
+                    </label>
+
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                      EMAIL
+                      <input
+                        type="email"
+                        placeholder="client@company.com"
+                        value={newClientContactEmail}
+                        onChange={(e) => setNewClientContactEmail(e.target.value)}
+                        className="fi"
+                      />
+                    </label>
+
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                      PHONE / WHATSAPP
+                      <input
+                        type="text"
+                        placeholder="+91 9876543210"
+                        value={newClientContactPhone}
+                        onChange={(e) => setNewClientContactPhone(e.target.value)}
+                        className="fi"
+                      />
+                    </label>
+                  </div>
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                    OFFICE ADDRESS
+                    <input
+                      type="text"
+                      placeholder="e.g. Suite 402, Trade Tower, Mumbai"
+                      value={newClientAddress}
+                      onChange={(e) => setNewClientAddress(e.target.value)}
+                      className="fi"
+                    />
+                  </label>
+                </>
+              )}
+
+              {/* TAB 2: CONTRACT & RETAINER */}
+              {addClientTab === "contract" && (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                      CONTRACT START DATE
+                      <input
+                        type="date"
+                        value={newClientContractStart}
+                        onChange={(e) => setNewClientContractStart(e.target.value)}
+                        className="fi"
+                      />
+                    </label>
+
+                    <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                      CONTRACT END DATE
+                      <input
+                        type="date"
+                        value={newClientContractEnd}
+                        onChange={(e) => setNewClientContractEnd(e.target.value)}
+                        className="fi"
+                      />
+                    </label>
+                  </div>
+
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                    MONTHLY RETAINER FEE (₹)
+                    <input
+                      type="number"
+                      placeholder="e.g. 75000"
+                      value={newClientRetainerFee}
+                      onChange={(e) => setNewClientRetainerFee(e.target.value)}
+                      className="fi"
+                    />
+                  </label>
+                </>
+              )}
+
+              {/* TAB 3: PROPOSALS & ASSETS */}
+              {addClientTab === "assets" && (
+                <>
+                  <div style={{ background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", display: "block", marginBottom: "6px" }}>
+                      📄 Initial Proposal Details
+                    </span>
+                    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "10px" }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                        PROPOSAL TITLE
+                        <input
+                          type="text"
+                          placeholder="e.g. FY2026 Digital Strategy Proposal"
+                          value={newClientProposalTitle}
+                          onChange={(e) => setNewClientProposalTitle(e.target.value)}
+                          className="fi"
+                        />
+                      </label>
+
+                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                        VALUE (₹)
+                        <input
+                          type="number"
+                          placeholder="e.g. 150000"
+                          value={newClientProposalValue}
+                          onChange={(e) => setNewClientProposalValue(e.target.value)}
+                          className="fi"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div style={{ background: "#f8fafc", padding: "10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", display: "block", marginBottom: "6px" }}>
+                      🎨 Brand Assets (Google Drive, Dropbox, Guidelines)
+                    </span>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "10px" }}>
+                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                        ASSET NAME
+                        <input
+                          type="text"
+                          placeholder="e.g. Master Logo Pack"
+                          value={newClientBrandAssetName}
+                          onChange={(e) => setNewClientBrandAssetName(e.target.value)}
+                          className="fi"
+                        />
+                      </label>
+
+                      <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+                        DRIVE / ASSET LINK
+                        <input
+                          type="url"
+                          placeholder="https://drive.google.com/drive/folders/..."
+                          value={newClientBrandAssetUrl}
+                          onChange={(e) => setNewClientBrandAssetUrl(e.target.value)}
+                          className="fi"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", paddingTop: "8px", borderTop: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: "12px", color: "#64748b" }}>
+                  {addClientTab === "basic" && "Step 1 of 3"}
+                  {addClientTab === "contract" && "Step 2 of 3"}
+                  {addClientTab === "assets" && "Step 3 of 3"}
+                </div>
+
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button type="button" className="secondary-button" onClick={() => setAddClientOpen(false)}>
+                    Cancel
+                  </button>
+                  <PrimaryButton type="submit" disabled={submittingClient}>
+                    {submittingClient ? "Adding..." : "Save Client Record"}
+                  </PrimaryButton>
+                </div>
               </div>
             </form>
           </Modal>

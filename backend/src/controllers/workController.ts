@@ -9,16 +9,63 @@ import { syncQuantityState, syncFromDeliverables, syncParentTaskProgression, cal
 import { createShareLink, generateShareToken, getValidShareLink } from '../services/shareLinkService.js';
 
 // --- Client Endpoints ---
-export async function getClients(req: Request, res: Response): Promise<void> {
-  const clients = await Client.find().sort({ name: 1 });
-  const formatted = clients.map((c) => ({
+export function formatClient(c: any) {
+  return {
     id: c._id,
     name: c.name,
-    industry: (c as any).industry || 'General',
-    is_active: (c as any).isActive ?? true,
-    isActive: (c as any).isActive ?? true,
-    notes: (c as any).notes || '',
-  }));
+    industry: c.industry || 'General',
+    is_active: c.isActive ?? true,
+    isActive: c.isActive ?? true,
+    notes: c.notes || '',
+    contact_person: c.contactPerson || { name: '', email: '', phone: '', designation: '' },
+    contactPerson: c.contactPerson || { name: '', email: '', phone: '', designation: '' },
+    website: c.website || '',
+    address: c.address || '',
+    contract_start_date: c.contractStartDate ? new Date(c.contractStartDate).toISOString().split('T')[0] : null,
+    contract_end_date: c.contractEndDate ? new Date(c.contractEndDate).toISOString().split('T')[0] : null,
+    contractStartDate: c.contractStartDate ? new Date(c.contractStartDate).toISOString().split('T')[0] : null,
+    contractEndDate: c.contractEndDate ? new Date(c.contractEndDate).toISOString().split('T')[0] : null,
+    retainer_monthly_fee: c.retainerMonthlyFee || 0,
+    retainerMonthlyFee: c.retainerMonthlyFee || 0,
+    documents: (c.documents || []).map((d: any) => ({
+      id: d._id,
+      name: d.name,
+      url: d.url,
+      document_type: d.documentType || 'Other',
+      documentType: d.documentType || 'Other',
+      uploaded_at: d.uploadedAt ? new Date(d.uploadedAt).toISOString() : '',
+    })),
+    proposals: (c.proposals || []).map((p: any) => ({
+      id: p._id,
+      title: p.title,
+      url: p.url || '',
+      value: p.value || 0,
+      status: p.status || 'Draft',
+      uploaded_at: p.uploadedAt ? new Date(p.uploadedAt).toISOString() : '',
+    })),
+    brand_assets: (c.brandAssets || []).map((b: any) => ({
+      id: b._id,
+      name: b.name,
+      url: b.url,
+      asset_type: b.assetType || 'Logo',
+      assetType: b.assetType || 'Logo',
+      notes: b.notes || '',
+    })),
+    brandAssets: (c.brandAssets || []).map((b: any) => ({
+      id: b._id,
+      name: b.name,
+      url: b.url,
+      assetType: b.assetType || 'Logo',
+      notes: b.notes || '',
+    })),
+    created_at: c.createdAt ? new Date(c.createdAt).toISOString() : '',
+    updated_at: c.updatedAt ? new Date(c.updatedAt).toISOString() : '',
+  };
+}
+
+export async function getClients(req: Request, res: Response): Promise<void> {
+  const clients = await Client.find().sort({ name: 1 });
+  const formatted = clients.map((c) => formatClient(c));
   res.json({
     count: formatted.length,
     next: null,
@@ -27,27 +74,67 @@ export async function getClients(req: Request, res: Response): Promise<void> {
   });
 }
 
+export async function getClientById(req: Request, res: Response): Promise<void> {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    res.status(404).json({ detail: 'Client not found.' });
+    return;
+  }
+  const client = await Client.findById(req.params.id);
+  if (!client) {
+    res.status(404).json({ detail: 'Client not found.' });
+    return;
+  }
+  res.json(formatClient(client));
+}
+
 export async function createClient(req: Request, res: Response): Promise<void> {
-  const { name, industry, is_active, isActive, notes } = req.body;
+  const {
+    name,
+    industry,
+    is_active,
+    isActive,
+    notes,
+    contact_person,
+    contactPerson,
+    website,
+    address,
+    contract_start_date,
+    contract_end_date,
+    retainer_monthly_fee,
+    proposals,
+    brand_assets,
+    brandAssets,
+  } = req.body;
+
   if (!name || !name.trim()) {
     res.status(400).json({ detail: 'Client name is required.' });
     return;
   }
+
+  const cp = contact_person || contactPerson || {};
   const client = new Client({
     name: name.trim(),
     industry: (industry || '').trim() || 'General',
     isActive: is_active !== undefined ? Boolean(is_active) : isActive !== undefined ? Boolean(isActive) : true,
     notes: (notes || '').trim(),
+    contactPerson: {
+      name: (cp.name || '').trim(),
+      email: (cp.email || '').trim(),
+      phone: (cp.phone || '').trim(),
+      designation: (cp.designation || '').trim(),
+    },
+    website: (website || '').trim(),
+    address: (address || '').trim(),
+    contractStartDate: contract_start_date ? new Date(contract_start_date) : null,
+    contractEndDate: contract_end_date ? new Date(contract_end_date) : null,
+    retainerMonthlyFee: retainer_monthly_fee ? Number(retainer_monthly_fee) : 0,
+    proposals: Array.isArray(proposals) ? proposals : [],
+    brandAssets: Array.isArray(brand_assets || brandAssets) ? (brand_assets || brandAssets) : [],
+    documents: [],
   });
+
   await client.save();
-  res.status(201).json({
-    id: client._id,
-    name: client.name,
-    industry: (client as any).industry || 'General',
-    is_active: (client as any).isActive ?? true,
-    isActive: (client as any).isActive ?? true,
-    notes: (client as any).notes || '',
-  });
+  res.status(201).json(formatClient(client));
 }
 
 export async function updateClient(req: Request, res: Response): Promise<void> {
@@ -61,19 +148,118 @@ export async function updateClient(req: Request, res: Response): Promise<void> {
     return;
   }
   if (req.body.name) client.name = req.body.name.trim();
-  if (req.body.industry !== undefined) (client as any).industry = String(req.body.industry).trim();
-  if (req.body.is_active !== undefined) (client as any).isActive = Boolean(req.body.is_active);
-  if (req.body.isActive !== undefined) (client as any).isActive = Boolean(req.body.isActive);
-  if (req.body.notes !== undefined) (client as any).notes = String(req.body.notes).trim();
+  if (req.body.industry !== undefined) client.industry = String(req.body.industry).trim();
+  if (req.body.is_active !== undefined) client.isActive = Boolean(req.body.is_active);
+  if (req.body.isActive !== undefined) client.isActive = Boolean(req.body.isActive);
+  if (req.body.notes !== undefined) client.notes = String(req.body.notes).trim();
+  if (req.body.website !== undefined) client.website = String(req.body.website).trim();
+  if (req.body.address !== undefined) client.address = String(req.body.address).trim();
+  if (req.body.contract_start_date !== undefined) client.contractStartDate = req.body.contract_start_date ? new Date(req.body.contract_start_date) : null;
+  if (req.body.contract_end_date !== undefined) client.contractEndDate = req.body.contract_end_date ? new Date(req.body.contract_end_date) : null;
+  if (req.body.retainer_monthly_fee !== undefined) client.retainerMonthlyFee = Number(req.body.retainer_monthly_fee) || 0;
+
+  const cp = req.body.contact_person || req.body.contactPerson;
+  if (cp) {
+    client.contactPerson = {
+      name: cp.name !== undefined ? String(cp.name).trim() : client.contactPerson?.name || '',
+      email: cp.email !== undefined ? String(cp.email).trim() : client.contactPerson?.email || '',
+      phone: cp.phone !== undefined ? String(cp.phone).trim() : client.contactPerson?.phone || '',
+      designation: cp.designation !== undefined ? String(cp.designation).trim() : client.contactPerson?.designation || '',
+    };
+  }
+
+  if (Array.isArray(req.body.proposals)) client.proposals = req.body.proposals;
+  if (Array.isArray(req.body.brand_assets || req.body.brandAssets)) {
+    client.brandAssets = req.body.brand_assets || req.body.brandAssets;
+  }
+  if (Array.isArray(req.body.documents)) client.documents = req.body.documents;
+
   await client.save();
-  res.json({
-    id: client._id,
-    name: client.name,
-    industry: (client as any).industry || 'General',
-    is_active: (client as any).isActive ?? true,
-    isActive: (client as any).isActive ?? true,
-    notes: (client as any).notes || '',
-  });
+  res.json(formatClient(client));
+}
+
+export async function uploadClientDocument(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    res.status(404).json({ detail: 'Client not found.' });
+    return;
+  }
+  const client = await Client.findById(id);
+  if (!client) {
+    res.status(404).json({ detail: 'Client not found.' });
+    return;
+  }
+  if (!req.file) {
+    res.status(400).json({ detail: 'No file uploaded.' });
+    return;
+  }
+
+  const { document_type, name, proposal_value, proposal_status, asset_type, notes } = req.body;
+  const fileUrl = `/media/employee_documents/${req.file.filename}`;
+  const docName = name || req.file.originalname;
+
+  if (document_type === 'Proposal') {
+    client.proposals.push({
+      title: docName,
+      url: fileUrl,
+      value: proposal_value ? Number(proposal_value) : 0,
+      status: (proposal_status || 'Sent') as any,
+      uploadedAt: new Date(),
+    });
+  } else if (document_type === 'BrandAsset' || asset_type) {
+    client.brandAssets.push({
+      name: docName,
+      url: fileUrl,
+      assetType: (asset_type || 'Logo') as any,
+      notes: notes || '',
+    });
+  } else {
+    client.documents.push({
+      name: docName,
+      url: fileUrl,
+      documentType: (document_type || 'Other') as any,
+      uploadedAt: new Date(),
+    });
+  }
+
+  await client.save();
+  res.status(201).json(formatClient(client));
+}
+
+export async function uploadTaskAttachment(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    res.status(404).json({ detail: 'Task not found.' });
+    return;
+  }
+  const task = await WorkAssignment.findById(id);
+  if (!task) {
+    res.status(404).json({ detail: 'Task not found.' });
+    return;
+  }
+  if (!req.file) {
+    res.status(400).json({ detail: 'No file uploaded.' });
+    return;
+  }
+
+  const fileUrl = `/media/employee_documents/${req.file.filename}`;
+  const attachment = {
+    name: req.body.name || req.file.originalname,
+    url: fileUrl,
+    fileType: req.file.mimetype || '',
+    fileSize: req.file.size || 0,
+    uploadedAt: new Date(),
+    uploadedBy: req.user ? (req.user._id as any) : null,
+    uploadedByName: req.user
+      ? `${(req.user as any).firstName || ''} ${(req.user as any).lastName || ''}`.trim() || (req.user as any).username
+      : 'User',
+  };
+
+  task.attachments.push(attachment as any);
+  await task.save();
+
+  const populated = await WorkAssignment.findById(task._id).populate('employee client project assignedBy reviewer');
+  res.status(201).json(populated || task);
 }
 
 export async function deleteClient(req: Request, res: Response): Promise<void> {
@@ -311,6 +497,16 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
         due_date: d.dueDate ? new Date(d.dueDate).toISOString().split('T')[0] : '',
         status: d.status,
         client: d.client,
+      })),
+      attachments: (a.attachments || []).map((att: any) => ({
+        id: att._id,
+        name: att.name,
+        url: att.url,
+        file_type: att.fileType || '',
+        file_size: att.fileSize || 0,
+        uploaded_at: att.uploadedAt ? new Date(att.uploadedAt).toISOString() : '',
+        uploaded_by: att.uploadedBy,
+        uploaded_by_name: att.uploadedByName || '',
       })),
     };
   });
@@ -1327,46 +1523,36 @@ export async function getPublicWorkProgress(req: Request, res: Response): Promis
     return;
   }
 
-  let rawAssignments: any[] = [];
+  const clientId = (link.client as any)?._id || link.client;
+  const clientObj = await Client.findById(clientId);
+
+  let allClientTasks: any[] = [];
   if (link.assignment) {
-    const single = await WorkAssignment.findById(link.assignment).populate('employee deliverables.client');
-    if (single) rawAssignments = [single];
+    const single = await WorkAssignment.findById(link.assignment).populate('employee client deliverables.client attachments');
+    if (single) allClientTasks = [single];
   } else {
-    // Only return Master Client Tasks / Client Agreement Tasks for the client portal
-    rawAssignments = await WorkAssignment.find({
-      client: link.client,
-      isMasterClientTask: true,
-    }).populate('employee deliverables.client');
-
-    // Fallback: If no explicit master tasks exist yet, filter for top-level tasks (parentTask: null)
-    if (rawAssignments.length === 0) {
-      rawAssignments = await WorkAssignment.find({
-        client: link.client,
-        parentTask: null,
-      }).populate('employee deliverables.client');
-    }
-
-    // Final fallback: if no parentTask: null exists either, fallback to all tasks
-    if (rawAssignments.length === 0) {
-      rawAssignments = await WorkAssignment.find({ client: link.client }).populate('employee deliverables.client');
-    }
+    allClientTasks = await WorkAssignment.find({ client: clientId })
+      .populate('employee client deliverables.client attachments')
+      .sort({ dueDate: 1 });
   }
 
-  const formattedAssignments = rawAssignments.map((a) => {
+  const formatTask = (a: any) => {
     const progressPct = a.assignedQuantity ? Math.round(((a.completedQuantity || 0) / a.assignedQuantity) * 100) : 0;
+    const emp = a.employee as any;
     return {
       id: a._id,
       title: a.title,
       description: a.description,
       status: a.status,
       priority: a.priority,
-      assigned_date: a.assignedDate ? a.assignedDate.toISOString().split('T')[0] : '',
-      due_date: a.dueDate ? a.dueDate.toISOString().split('T')[0] : '',
+      assigned_date: a.assignedDate ? new Date(a.assignedDate).toISOString().split('T')[0] : '',
+      due_date: a.dueDate ? new Date(a.dueDate).toISOString().split('T')[0] : '',
       assigned_quantity: a.assignedQuantity || 1,
       completed_quantity: a.completedQuantity || 0,
       progress: Math.min(100, Math.max(0, a.progress || progressPct)),
       unit: a.unit || 'tasks',
       is_master_client_task: Boolean(a.isMasterClientTask),
+      employee_name: emp ? emp.name : 'FLUMENX Production Team',
       deliverables: (a.deliverables || []).map((d: any) => ({
         id: d._id,
         name: d.name || d.title,
@@ -1377,22 +1563,53 @@ export async function getPublicWorkProgress(req: Request, res: Response): Promis
         delivered: d.delivered || (d.status === 'Completed' || d.status === 'Published' ? 1 : 0),
         status: d.status,
       })),
+      attachments: (a.attachments || []).map((att: any) => ({
+        id: att._id,
+        name: att.name,
+        url: att.url,
+        file_type: att.fileType,
+      })),
     };
-  });
+  };
+
+  const clientDeliverables = allClientTasks
+    .filter((t) => t.isMasterClientTask || !t.parentTask)
+    .map(formatTask);
+
+  const internalEmployeeTasks = allClientTasks
+    .filter((t) => !t.isMasterClientTask && t.parentTask)
+    .map(formatTask);
+
+  // If no parent/sub hierarchy exists, treat all as client deliverables
+  const finalClientDeliverables = clientDeliverables.length > 0 ? clientDeliverables : allClientTasks.map(formatTask);
 
   let overallProgress = 0;
-  if (formattedAssignments.length > 0) {
-    const totalAssigned = formattedAssignments.reduce((sum, a) => sum + a.assigned_quantity, 0);
-    const totalCompleted = formattedAssignments.reduce((sum, a) => sum + Math.min(a.assigned_quantity, a.completed_quantity), 0);
+  if (finalClientDeliverables.length > 0) {
+    const totalAssigned = finalClientDeliverables.reduce((sum, a) => sum + (a.assigned_quantity || 1), 0);
+    const totalCompleted = finalClientDeliverables.reduce((sum, a) => sum + Math.min(a.assigned_quantity || 1, a.completed_quantity || 0), 0);
     overallProgress = totalAssigned > 0 ? Math.min(100, Math.round((totalCompleted / totalAssigned) * 100)) : 0;
   }
 
   res.json({
-    client_name: (link.client as any).name,
+    client_name: clientObj ? clientObj.name : (link.client as any)?.name || 'Client',
+    industry: clientObj?.industry || 'General',
     public_update: link.publicUpdate,
     scope: link.assignment ? 'assignment' : 'client',
     overall_progress: overallProgress,
-    assignments: formattedAssignments,
+    assignments: finalClientDeliverables,
+    client_deliverables: finalClientDeliverables,
+    internal_tasks: internalEmployeeTasks,
+    documents: (clientObj?.documents || []).map((d) => ({
+      name: d.name,
+      url: d.url,
+      document_type: d.documentType,
+    })),
+    brand_assets: (clientObj?.brandAssets || []).map((b) => ({
+      name: b.name,
+      url: b.url,
+      asset_type: b.assetType,
+      notes: b.notes,
+    })),
     last_updated: (link as any).updatedAt ? (link as any).updatedAt.toISOString() : new Date().toISOString(),
   });
 }

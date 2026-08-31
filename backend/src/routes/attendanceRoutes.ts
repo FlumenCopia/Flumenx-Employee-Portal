@@ -11,6 +11,8 @@ import {
   getAttendanceCorrections,
   createAttendanceCorrection,
   updateAttendanceCorrection,
+  triggerForcedCheckoutHandler,
+  adjustAttendanceTimeHandler,
 } from '../controllers/attendanceController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
@@ -32,6 +34,9 @@ router.get('/attendance/monthly-statistics/?', requirePermission('attendance', '
 router.get('/attendance/export/?', requirePermission('attendance', 'canView'), exportAttendanceCSV);
 router.post('/attendance/check-in/?', requirePermission('attendance', 'canView'), upload.single('photo'), checkInAttendance);
 router.post('/attendance/check-out/?', requirePermission('attendance', 'canView'), checkOutAttendance);
+router.post('/attendance/forced-checkout/?', requirePermission('attendance', 'canEdit'), triggerForcedCheckoutHandler);
+router.patch('/attendance/:id/adjust-time/?', requirePermission('attendance', 'canEdit'), adjustAttendanceTimeHandler);
+router.put('/attendance/:id/adjust-time/?', requirePermission('attendance', 'canEdit'), adjustAttendanceTimeHandler);
 
 // Attendance Records
 router.get('/attendance/?', requirePermission('attendance', 'canView'), getAttendanceRecords);

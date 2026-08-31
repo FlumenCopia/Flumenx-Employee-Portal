@@ -100,10 +100,41 @@ export function formatSingleRecord(r: IAttendanceRecord, emp?: any) {
     latitude: r.latitude || null,
     longitude: r.longitude || null,
     notes: r.notes || '',
+    is_auto_checkout: Boolean(r.isAutoCheckout),
+    auto_checkout_reason: r.autoCheckoutReason || '',
   };
 }
 
+/**
+ * Automatically close attendance records where an employee checked in on a previous day
+ * (or after midnight) but forgot to check out.
+ */
+export async function processMidnightForcedCheckout(): Promise<number> {
+  const { startOfDay } = getISTDateRange(new Date());
+  const policy = await getAttendancePolicy();
+
+  const pastUncheckedRecords = await AttendanceRecord.find({
+    attendanceDate: { $lt: startOfDay },
+    checkInTime: { $ne: null, $exists: true },
+    $or: [{ checkOutTime: null }, { checkOutTime: '' }, { checkOutTime: { $exists: false } }],
+  });
+
+  let count = 0;
+  for (const record of pastUncheckedRecords) {
+    record.checkOutTime = policy.officeEndTime || '18:30';
+    record.isAutoCheckout = true;
+    record.autoCheckoutReason = 'Auto-checkout at 12:00 AM (Employee forgot to check out)';
+    calculateAttendanceRecordState(record, policy);
+    await record.save();
+    count++;
+  }
+  return count;
+}
+
 export async function getAttendanceRecords(req: Request, res: Response): Promise<void> {
+  // Proactively ensure any past forgotten checkouts are processed
+  await processMidnightForcedCheckout().catch(() => {});
+
   const { employee_id, date, month, year, status, my_attendance } = req.query;
 
   const filter: any = {};
@@ -608,4 +639,30 @@ export async function updateAttendanceCorrection(req: Request, res: Response): P
   await correction.save();
   const populated = await AttendanceCorrection.findById(correction._id).populate('employee attendanceRecord reviewedBy');
   res.json(populated || correction);
+}
+
+export async function triggerForcedCheckoutHandler(req: Request, res: Response): Promise<void> {
+  const processedCount = await processMidnightForcedCheckout();
+  res.json({ message: `Successfully processed auto-checkout for ${processedCount} records.`, count: processedCount });
+}
+
+export async function adjustAttendanceTimeHandler(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { check_in_time, check_out_time, notes } = req.body;
+
+  const record = await AttendanceRecord.findById(id).populate('employee');
+  if (!record) {
+    res.status(404).json({ detail: 'Attendance record not found.' });
+    return;
+  }
+
+  if (check_in_time !== undefined) record.checkInTime = check_in_time || null;
+  if (check_out_time !== undefined) record.checkOutTime = check_out_time || null;
+  if (notes !== undefined) record.notes = notes;
+
+  const policy = await getAttendancePolicy();
+  calculateAttendanceRecordState(record, policy);
+  await record.save();
+
+  res.json(formatSingleRecord(record, record.employee));
 }
