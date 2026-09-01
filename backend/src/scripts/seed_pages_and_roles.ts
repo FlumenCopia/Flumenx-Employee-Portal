@@ -75,7 +75,7 @@ export async function seedPagesAndRoles() {
       pageDoc.title = pageDef.title;
       pageDoc.routePath = pageDef.routePath;
       pageDoc.icon = pageDef.icon;
-      pageDef.sidebarOrder = pageDef.sidebarOrder;
+      pageDoc.sidebarOrder = pageDef.sidebarOrder;
       pageDoc.isActive = true;
       await pageDoc.save();
       console.log(`  ✓ Updated page: ${pageDef.title} [${pageDef.moduleCode}]`);

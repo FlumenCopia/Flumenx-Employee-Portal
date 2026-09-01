@@ -75,7 +75,7 @@ export async function getEmployees(req: Request, res: Response): Promise<void> {
     probation_end_date: e.probationEndDate ? e.probationEndDate.toISOString().split('T')[0] : null,
     confirmation_date: e.confirmationDate ? e.confirmationDate.toISOString().split('T')[0] : null,
     location: e.location,
-    avatar: e.avatar,
+    avatar: e.avatar || (e.user as any)?.avatar || '',
     user: e.user ? (e.user as any)._id : null,
   }));
 
@@ -127,7 +127,7 @@ export async function getEmployeeById(req: Request, res: Response): Promise<void
     confirmation_date: employee.confirmationDate ? employee.confirmationDate.toISOString().split('T')[0] : null,
     exit_date: employee.exitDate ? employee.exitDate.toISOString().split('T')[0] : null,
     location: employee.location || 'HQ Office',
-    avatar: employee.avatar || '',
+    avatar: employee.avatar || (employee.user as any)?.avatar || '',
     team_lead: employee.teamLead ? { id: (employee.teamLead as any)._id, name: (employee.teamLead as any).name, code: (employee.teamLead as any).employeeCode } : null,
     user: employee.user ? { id: (employee.user as any)._id, username: (employee.user as any).username, role: (employee.user as any).role } : null,
     salary_structure: structure ? {

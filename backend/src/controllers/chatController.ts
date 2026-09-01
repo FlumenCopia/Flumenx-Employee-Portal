@@ -9,7 +9,7 @@ import { Client } from '../models/Client.js';
 import { Meeting } from '../models/Meeting.js';
 
 // Format conversation for client
-function formatConversation(doc: any, currentUserId: string) {
+function formatConversation(doc: any, currentUserId: string, employeeMap?: Map<string, any>) {
   const isDirect = doc.type === 'DIRECT';
   let displayName = doc.name;
   let displayAvatar = doc.avatar;
@@ -19,15 +19,17 @@ function formatConversation(doc: any, currentUserId: string) {
     const other = (doc.participants || []).find(
       (p: any) => String(p.user?._id || p.user) !== String(currentUserId)
     );
-    if (other && other.user) {
-      displayName = other.employee?.name || (other.user.firstName ? `${other.user.firstName} ${other.user.lastName || ''}`.trim() : other.user.username) || 'Colleague';
-      displayAvatar = other.user.avatar || other.employee?.avatar || '';
+    if (other && (other.user || other.employee)) {
+      const otherUserId = String(other.user?._id || other.user || '');
+      const otherEmp = other.employee || (employeeMap ? employeeMap.get(otherUserId) : null);
+      displayName = otherEmp?.name || (other.user?.firstName ? `${other.user.firstName} ${other.user.lastName || ''}`.trim() : other.user?.username) || 'Colleague';
+      displayAvatar = other.user?.avatar || otherEmp?.avatar || '';
       otherParticipant = {
-        id: other.user._id || other.user,
+        id: other.user?._id || other.user,
         name: displayName,
         avatar: displayAvatar,
-        role: other.user.portalRole || other.user.role || 'EMPLOYEE',
-        department: other.employee?.department || other.user.department || '',
+        role: other.user?.portalRole || other.user?.role || 'EMPLOYEE',
+        department: otherEmp?.department || other.user?.department || '',
       };
     }
   }
@@ -50,14 +52,18 @@ function formatConversation(doc: any, currentUserId: string) {
     client_id: doc.client?._id || doc.client || null,
     client_name: doc.client?.name || '',
     created_by: doc.createdBy,
-    participants: (doc.participants || []).map((p: any) => ({
-      user_id: p.user?._id || p.user,
-      name: p.employee?.name || (p.user?.firstName ? `${p.user.firstName} ${p.user.lastName || ''}`.trim() : p.user?.username) || 'User',
-      avatar: p.user?.avatar || p.employee?.avatar || '',
-      role: p.role || 'MEMBER',
-      portal_role: p.user?.portalRole || p.user?.role || 'EMPLOYEE',
-      department: p.employee?.department || p.user?.department || '',
-    })),
+    participants: (doc.participants || []).map((p: any) => {
+      const pUserId = String(p.user?._id || p.user || '');
+      const pEmp = p.employee || (employeeMap ? employeeMap.get(pUserId) : null);
+      return {
+        user_id: p.user?._id || p.user,
+        name: pEmp?.name || (p.user?.firstName ? `${p.user.firstName} ${p.user.lastName || ''}`.trim() : p.user?.username) || 'User',
+        avatar: p.user?.avatar || pEmp?.avatar || '',
+        role: p.role || 'MEMBER',
+        portal_role: p.user?.portalRole || p.user?.role || 'EMPLOYEE',
+        department: pEmp?.department || p.user?.department || '',
+      };
+    }),
     pinned_messages: doc.pinnedMessages || [],
     last_message_text: doc.lastMessageText || '',
     last_message_at: doc.lastMessageAt ? new Date(doc.lastMessageAt).toISOString() : new Date(doc.updatedAt).toISOString(),
@@ -83,7 +89,18 @@ export async function getConversations(req: Request, res: Response): Promise<voi
     .populate('participants.user participants.employee client')
     .sort({ lastMessageAt: -1, updatedAt: -1 });
 
-  res.json(conversations.map((c) => formatConversation(c, currentUserId)));
+  // Gather all participant user IDs to batch fetch Employees
+  const allUserIds = new Set<string>();
+  for (const c of conversations) {
+    for (const p of c.participants || []) {
+      if (p.user) allUserIds.add(String((p.user as any)._id || p.user));
+    }
+  }
+
+  const employees = await Employee.find({ user: { $in: Array.from(allUserIds) } });
+  const employeeMap = new Map(employees.map((e) => [String(e.user), e]));
+
+  res.json(conversations.map((c) => formatConversation(c, currentUserId, employeeMap)));
 }
 
 // 2. Get or Create 1-to-1 Direct Conversation
@@ -156,7 +173,11 @@ export async function getOrCreateDirectConversation(req: Request, res: Response)
     conversation = await ChatConversation.findById(conversation._id).populate('participants.user participants.employee client');
   }
 
-  res.status(200).json(formatConversation(conversation, currentUserId));
+  const allUserIds = [currentUserId, String(targetUserId)];
+  const employees = await Employee.find({ user: { $in: allUserIds } });
+  const employeeMap = new Map(employees.map((e) => [String(e.user), e]));
+
+  res.status(200).json(formatConversation(conversation, currentUserId, employeeMap));
 }
 
 // 3. Create Group / Department / Client Channel
@@ -198,7 +219,10 @@ export async function createGroupConversation(req: Request, res: Response): Prom
   });
 
   const populated = await ChatConversation.findById(newGroup._id).populate('participants.user participants.employee client');
-  res.status(201).json(formatConversation(populated, currentUserId));
+  const employees = await Employee.find({ user: { $in: allUserIds } });
+  const employeeMap = new Map(employees.map((e) => [String(e.user), e]));
+
+  res.status(201).json(formatConversation(populated, currentUserId, employeeMap));
 }
 
 // 4. Get Conversation Messages
@@ -326,9 +350,10 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
     }
   }
 
-  const senderName = (req.user as any)?.name || (req.user as any)?.firstName || req.user?.username || 'Team Member';
+  const userEmp = await Employee.findOne({ user: currentUserId });
+  const senderName = userEmp?.name || (req.user as any)?.name || (req.user as any)?.firstName || req.user?.username || 'Team Member';
   const senderRole = (req.user as any)?.portalRole || req.user?.role || 'EMPLOYEE';
-  const senderAvatar = req.user?.avatar || '';
+  const senderAvatar = req.user?.avatar || userEmp?.avatar || '';
 
   const message = await ChatMessage.create({
     conversation: id,
