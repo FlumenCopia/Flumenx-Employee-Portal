@@ -116,7 +116,7 @@ export function ChatHubPage({ role }: Props) {
   // Right Drawer
   const [showInfoDrawer, setShowInfoDrawer] = useState(false);
 
-  // Modals state
+  // Modals state & Search Filters
   const [newChatModalOpen, setNewChatModalOpen] = useState(false);
   const [newChatMode, setNewChatMode] = useState<"DIRECT" | "GROUP">("DIRECT");
   const [newGroupName, setNewGroupName] = useState("");
@@ -124,14 +124,18 @@ export function ChatHubPage({ role }: Props) {
   const [newGroupDept, setNewGroupDept] = useState("");
   const [newGroupClient, setNewGroupClient] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
 
   // Add Member Modal
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
   const [membersToAdd, setMembersToAdd] = useState<string[]>([]);
+  const [addMemberSearchQuery, setAddMemberSearchQuery] = useState("");
 
   // Smart Embed Modals
   const [taskPickerOpen, setTaskPickerOpen] = useState(false);
+  const [taskSearchQuery, setTaskSearchQuery] = useState("");
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [standupModalOpen, setStandupModalOpen] = useState(false);
 
   // Real-Time WebRTC Calling & Online Presence
@@ -148,222 +152,174 @@ export function ChatHubPage({ role }: Props) {
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior, block: "end" });
-    } else if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   };
 
-  // Active Conversation Object
-  const activeConversation = useMemo(() => {
-    return conversations.find((c) => c.id === activeConversationId) || null;
-  }, [conversations, activeConversationId]);
-
-  // Load Conversations & Metadata
-  const loadInitialData = async () => {
-    setLoadingConversations(true);
+  const loadConversations = async (silent: boolean = false) => {
+    if (!silent) setLoadingConversations(true);
     try {
-      const [convs, users, tasks, clients] = await Promise.all([
-        api<ChatConversationItem[]>("/chat/conversations/").catch(() => []),
-        api<ChatUserOption[]>("/chat/users/").catch(() => []),
-        api<any>("/work-assignments/").catch(() => []),
-        api<any>("/clients/").catch(() => []),
-      ]);
-
-      const convList = Array.isArray(convs) ? convs : [];
-      setConversations(convList);
-      setUsersList(Array.isArray(users) ? users : []);
-      setTasksList(Array.isArray(tasks) ? tasks : tasks?.results || []);
-      setClientsList(Array.isArray(clients) ? clients : clients?.results || []);
-
-      // Auto-select first conversation ONLY on desktop
-      if (convList.length > 0 && !activeConversationId) {
+      const data = await api<ChatConversationItem[]>("/chat/conversations/");
+      setConversations(Array.isArray(data) ? data : []);
+      if (!activeConversationId && Array.isArray(data) && data.length > 0) {
         if (typeof window !== "undefined" && window.innerWidth > 868) {
-          setActiveConversationId(convList[0].id);
+          setActiveConversationId(data[0].id);
         }
       }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to load chat data");
+      if (!silent) toast.error(err?.message || "Failed to load chats");
     } finally {
-      setLoadingConversations(false);
+      if (!silent) setLoadingConversations(false);
     }
   };
 
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
-  // Load Messages for Active Conversation (Initial latest 30 batch)
-  const loadMessages = async (conversationId: string) => {
-    setLoadingMessages(true);
-    setHasMoreMessages(false);
+  const loadOptionsData = async () => {
     try {
-      const res = await api<any>(`/chat/conversations/${conversationId}/messages/?limit=30`);
-      const msgs = Array.isArray(res) ? res : res.messages || [];
-      const hasMore = Array.isArray(res) ? false : Boolean(res.has_more);
+      const [usersData, tasksData, clientsData] = await Promise.all([
+        api<ChatUserOption[]>("/chat/users/").catch(() => []),
+        api<any>("/work-assignments/?is_master_client_task=all").catch(() => []),
+        api<any>("/clients/").catch(() => []),
+      ]);
+      setUsersList(Array.isArray(usersData) ? usersData : []);
+      setTasksList(Array.isArray(tasksData) ? tasksData : tasksData?.results || []);
+      setClientsList(Array.isArray(clientsData) ? clientsData : clientsData?.results || []);
+    } catch (e) {
+      // ignore background options error
+    }
+  };
 
-      setMessages(msgs);
+  const loadMessages = async (conversationId: string, beforeMessageId?: string) => {
+    const isInitial = !beforeMessageId;
+    if (isInitial) setLoadingMessages(true);
+    else setLoadingOlderMessages(true);
+
+    try {
+      const url = beforeMessageId
+        ? `/chat/conversations/${conversationId}/messages/?before=${beforeMessageId}&limit=30`
+        : `/chat/conversations/${conversationId}/messages/?limit=30`;
+
+      const data = await api<{ messages: ChatMessageItem[]; has_more: boolean; count: number }>(url);
+      const newBatch = data?.messages || [];
+      const hasMore = Boolean(data?.has_more);
+
       setHasMoreMessages(hasMore);
 
-      // Mark as read in local list
-      setConversations((prev) =>
-        prev.map((c) => (c.id === conversationId ? { ...c, has_unread: false } : c))
-      );
-      setTimeout(() => scrollToBottom("auto"), 60);
+      if (isInitial) {
+        setMessages(newBatch);
+        setTimeout(() => scrollToBottom("auto"), 60);
+      } else {
+        const container = messagesContainerRef.current;
+        const previousScrollHeight = container ? container.scrollHeight : 0;
+
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const uniqueNew = newBatch.filter((m) => !existingIds.has(m.id));
+          return [...uniqueNew, ...prev];
+        });
+
+        setTimeout(() => {
+          if (container) {
+            container.scrollTop = container.scrollHeight - previousScrollHeight;
+          }
+        }, 30);
+      }
     } catch (err: any) {
       toast.error(err?.message || "Failed to load messages");
     } finally {
-      setLoadingMessages(false);
+      if (isInitial) setLoadingMessages(false);
+      else setLoadingOlderMessages(false);
     }
   };
 
-  // Load Older Messages (Infinite scroll up)
-  const loadOlderMessages = async () => {
+  const loadOlderMessages = () => {
     if (!activeConversationId || loadingOlderMessages || !hasMoreMessages || messages.length === 0) return;
+    const oldestMessageId = messages[0]?.id;
+    if (oldestMessageId) {
+      loadMessages(activeConversationId, String(oldestMessageId));
+    }
+  };
 
-    const oldestMessage = messages[0];
+  const handleScrollMessages = () => {
     const container = messagesContainerRef.current;
     if (!container) return;
-
-    const previousScrollHeight = container.scrollHeight;
-    const previousScrollTop = container.scrollTop;
-
-    setLoadingOlderMessages(true);
-    try {
-      const res = await api<any>(
-        `/chat/conversations/${activeConversationId}/messages/?limit=30&before=${encodeURIComponent(
-          oldestMessage.created_at
-        )}`
-      );
-      const olderMsgs = Array.isArray(res) ? res : res.messages || [];
-      const hasMore = Array.isArray(res) ? false : Boolean(res.has_more);
-
-      if (olderMsgs.length > 0) {
-        setMessages((prev) => {
-          const existingIds = new Set(prev.map((m) => String(m.id)));
-          const filteredNew = olderMsgs.filter((m: any) => !existingIds.has(String(m.id)));
-          return [...filteredNew, ...prev];
-        });
-        setHasMoreMessages(hasMore);
-
-        // Keep scroll anchor position stable so UI doesn't jump
-        requestAnimationFrame(() => {
-          if (messagesContainerRef.current) {
-            const newScrollHeight = messagesContainerRef.current.scrollHeight;
-            messagesContainerRef.current.scrollTop = newScrollHeight - previousScrollHeight + previousScrollTop;
-          }
-        });
-      } else {
-        setHasMoreMessages(false);
-      }
-    } catch (err: any) {
-      console.error("Failed to load older messages", err);
-    } finally {
-      setLoadingOlderMessages(false);
-    }
-  };
-
-  const handleScrollMessages = (e: React.UIEvent<HTMLDivElement>) => {
-    const container = e.currentTarget;
-    if (container.scrollTop < 60 && hasMoreMessages && !loadingOlderMessages) {
+    if (container.scrollTop < 60 && hasMoreMessages && !loadingOlderMessages && !loadingMessages) {
       loadOlderMessages();
     }
   };
 
   useEffect(() => {
+    loadConversations();
+    loadOptionsData();
+  }, []);
+
+  useEffect(() => {
     if (activeConversationId) {
       loadMessages(activeConversationId);
+    } else {
+      setMessages([]);
     }
   }, [activeConversationId]);
 
-  // Real-time Chat & Presence Socket listeners
+  // Real-Time Socket.io Connection
   useEffect(() => {
     const socket = getGlobalSocket();
     if (!socket) return;
 
     if (activeConversationId) {
-      socket.emit("chat:join-conversation", { conversationId: activeConversationId });
+      socket.emit("join_conversation", { conversationId: activeConversationId });
     }
 
-    const handlePresence = (data: { onlineUserIds: string[] }) => {
-      if (data?.onlineUserIds) setOnlineUserIds(data.onlineUserIds);
-    };
-
-    socket.emit("presence:get-online-users");
-    socket.on("presence:update", handlePresence);
-    socket.on("presence:online-users", handlePresence);
-
-    const handleNewMessage = (data: { conversationId: string; message: ChatMessageItem }) => {
-      if (data.conversationId === activeConversationId) {
+    const handleNewMessage = (msg: ChatMessageItem) => {
+      if (String(msg.conversation_id) === String(activeConversationId)) {
         setMessages((prev) => {
-          if (prev.some((m) => String(m.id) === String(data.message.id))) return prev;
-          return [...prev, data.message];
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
         });
-        
-        // Auto-scroll if user is near bottom or sent by current user
-        const container = messagesContainerRef.current;
-        if (container) {
-          const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 160;
-          if (isNearBottom || data.message.is_self) {
-            setTimeout(() => scrollToBottom("smooth"), 50);
-          }
-        } else {
-          setTimeout(() => scrollToBottom("smooth"), 50);
-        }
+        setTimeout(() => scrollToBottom("smooth"), 50);
       }
-
       setConversations((prev) =>
-        prev.map((c) =>
-          c.id === data.conversationId
-            ? {
-                ...c,
-                last_message_text: data.message.text || "New media attached",
-                last_message_at: data.message.created_at,
-                last_message_sender_name: data.message.sender_name,
-                has_unread: data.conversationId !== activeConversationId,
-              }
-            : c
-        )
+        prev.map((c) => {
+          if (String(c.id) === String(msg.conversation_id)) {
+            return {
+              ...c,
+              last_message_text: msg.text || (msg.message_type === "IMAGE" ? "📷 Image" : "📁 File"),
+              last_message_at: msg.created_at,
+              last_message_sender_name: msg.sender_name,
+              has_unread: String(msg.conversation_id) !== String(activeConversationId),
+            };
+          }
+          return c;
+        })
       );
     };
 
-    const handleConversationUpdated = (data: { conversationId: string; lastMessage: any }) => {
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === data.conversationId
-            ? {
-                ...c,
-                last_message_text: data.lastMessage?.text || "New message",
-                last_message_at: data.lastMessage?.created_at || new Date().toISOString(),
-                last_message_sender_name: data.lastMessage?.sender_name || "",
-                has_unread: data.conversationId !== activeConversationId,
-              }
-            : c
-        )
-      );
+    const handlePresence = (data: { onlineUsers: string[] }) => {
+      if (data?.onlineUsers) {
+        setOnlineUserIds(data.onlineUsers.map(String));
+      }
     };
 
-    socket.on("chat:new-message", handleNewMessage);
-    socket.on("chat:conversation-updated", handleConversationUpdated);
+    socket.on("chat_message", handleNewMessage);
+    socket.on("presence_update", handlePresence);
 
     return () => {
+      socket.off("chat_message", handleNewMessage);
+      socket.off("presence_update", handlePresence);
       if (activeConversationId) {
-        socket.emit("chat:leave-conversation", { conversationId: activeConversationId });
+        socket.emit("leave_conversation", { conversationId: activeConversationId });
       }
-      socket.off("presence:update", handlePresence);
-      socket.off("presence:online-users", handlePresence);
-      socket.off("chat:new-message", handleNewMessage);
-      socket.off("chat:conversation-updated", handleConversationUpdated);
     };
   }, [activeConversationId]);
 
-  // Filtered conversations
+  const activeConversation = useMemo(() => {
+    return conversations.find((c) => c.id === activeConversationId) || null;
+  }, [conversations, activeConversationId]);
+
   const filteredConversations = useMemo(() => {
     return conversations.filter((c) => {
       const matchSearch =
         !searchQuery ||
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.last_message_text?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.department?.toLowerCase().includes(searchQuery.toLowerCase());
+        c.last_message_text?.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchTab =
         activeTab === "ALL" ||
@@ -375,16 +331,19 @@ export function ChatHubPage({ role }: Props) {
     });
   }, [conversations, searchQuery, activeTab]);
 
-  // Handle Send Message
   const handleSendMessage = async (customPayload?: any) => {
     if (!activeConversationId) return;
-    if (!customPayload && !inputText.trim()) return;
+    const textToSend = customPayload?.text || inputText.trim();
+    const typeToSend = customPayload?.type || "TEXT";
+
+    if (!textToSend && typeToSend === "TEXT") return;
 
     setSending(true);
     try {
-      const payload = customPayload || {
-        text: inputText.trim(),
-        message_type: "TEXT",
+      const payload = {
+        text: textToSend,
+        message_type: typeToSend,
+        ...customPayload,
       };
 
       const res = await api<ChatMessageItem>(`/chat/conversations/${activeConversationId}/messages/`, {
@@ -392,24 +351,12 @@ export function ChatHubPage({ role }: Props) {
         body: JSON.stringify(payload),
       });
 
-      setMessages((prev) => [...prev, res]);
       setInputText("");
-
-      // Update conversation in list
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === activeConversationId
-            ? {
-                ...c,
-                last_message_text: res.text,
-                last_message_at: res.created_at,
-                last_message_sender_name: res.sender_name,
-              }
-            : c
-        )
-      );
-
-      setTimeout(scrollToBottom, 50);
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === res.id)) return prev;
+        return [...prev, res];
+      });
+      setTimeout(() => scrollToBottom("smooth"), 50);
     } catch (err: any) {
       toast.error(err?.message || "Failed to send message");
     } finally {
@@ -417,217 +364,218 @@ export function ChatHubPage({ role }: Props) {
     }
   };
 
-  // Handle File / Media Upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !activeConversationId) return;
+    if (!e.target.files || e.target.files.length === 0 || !activeConversationId) return;
+    const file = e.target.files[0];
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
 
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const toastId = "uploading-chat-file";
+    toast.info(`Uploading ${file.name}...`);
     try {
-      const uploaded = await api<any>("/chat/upload/", {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const uploadRes = await api<any>(`/chat/upload/`, {
         method: "POST",
         body: formData,
       });
 
-      let msgType: any = "FILE";
-      if (uploaded.file_type === "image") msgType = "IMAGE";
-      if (uploaded.file_type === "video") msgType = "VIDEO";
-
+      const messageType = isImage ? "IMAGE" : isVideo ? "VIDEO" : "FILE";
       await handleSendMessage({
         text: file.name,
-        message_type: msgType,
+        type: messageType,
         attachments: [
           {
-            name: uploaded.name,
-            url: uploaded.url,
-            file_type: uploaded.file_type,
-            file_size: uploaded.file_size,
+            name: file.name,
+            url: uploadRes.url,
+            file_type: file.type,
+            size: file.size,
           },
         ],
       });
-
-      toast.success("Media attached successfully!");
+      toast.success("Attachment sent!");
     } catch (err: any) {
-      toast.error(err?.message || "Failed to upload file");
+      toast.error(err?.message || "Upload failed");
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  // Handle Smart Embed: Task
-  const handleEmbedTask = async (task: WorkAssignment) => {
-    await handleSendMessage({
-      task_id: task.id,
-      message_type: "TASK_EMBED",
-      text: `Linked Task: ${task.title}`,
-    });
+  const handleEmbedTask = (task: WorkAssignment) => {
     setTaskPickerOpen(false);
-    toast.success("Task embedded in conversation!");
-  };
-
-  // Handle Smart Embed: Client
-  const handleEmbedClient = async (client: Client) => {
-    await handleSendMessage({
-      client_id: client.id,
-      message_type: "CLIENT_EMBED",
-      text: `Linked Client: ${client.name}`,
+    handleSendMessage({
+      text: `Task Linked: ${task.title}`,
+      type: "TASK_EMBED",
+      task_embed: {
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        priority: task.priority,
+        employeeName: task.employee_name,
+        clientName: task.client_name,
+        assignedQuantity: task.assigned_quantity,
+        completedQuantity: task.completed_quantity,
+        unit: task.unit,
+      },
     });
-    setClientPickerOpen(false);
-    toast.success("Client account linked!");
   };
 
-  // Handle Smart Embed: Standup Update
+  const handleEmbedClient = (client: Client) => {
+    setClientPickerOpen(false);
+    handleSendMessage({
+      text: `Client Attached: ${client.name}`,
+      type: "CLIENT_EMBED",
+      client_embed: {
+        id: client.id,
+        name: client.name,
+        industry: client.industry,
+        contactPerson: client.contact_person?.name || "Client Lead",
+      },
+    });
+  };
+
   const handleEmbedStandup = async (standupData: any) => {
     await handleSendMessage({
+      text: `Daily Standup Summary (${standupData.date})`,
+      type: "STANDUP_UPDATE",
       standup_data: standupData,
-      message_type: "STANDUP_UPDATE",
-      text: `Daily Work Update (${standupData.date})`,
     });
-    setStandupModalOpen(false);
-    toast.success("Daily Work Update posted to channel!");
   };
 
-  // Handle Instant Meeting Launch
   const handleLaunchMeeting = async () => {
     if (!activeConversation) return;
-    const meetingCode = `FLUMENX-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-    await handleSendMessage({
-      meeting_code: meetingCode,
-      message_type: "MEETING_LINK",
-      text: `Started instant meeting: ${meetingCode}`,
-    });
-    toast.success(`Meeting room link shared: ${meetingCode}`);
+    try {
+      const res = await api<any>("/meetings/create-instant/", {
+        method: "POST",
+        body: JSON.stringify({
+          title: `${activeConversation.name} Sync Meeting`,
+          conversation_id: activeConversation.id,
+        }),
+      });
+
+      const meetingCode = res.meeting_code || res.code || "flumenx-hq";
+      await handleSendMessage({
+        text: `Live FLUMENX Video Meeting Started. Click below to join:`,
+        type: "MEETING_LINK",
+        meeting_code: meetingCode,
+      });
+
+      window.open(`/meetings/${meetingCode}`, "_blank");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not start instant meeting");
+    }
   };
 
-  // Handle Pin / Unpin Message
-  const handleTogglePin = async (messageId: string) => {
-    if (!activeConversationId) return;
+  const handleTogglePin = async (messageId: string | number) => {
     try {
-      const res = await api<any>(`/chat/conversations/${activeConversationId}/pin/${messageId}/`, {
-        method: "POST",
-      });
+      const res = await api<any>(`/chat/messages/${messageId}/pin/`, { method: "POST" });
       setMessages((prev) =>
         prev.map((m) => (m.id === messageId ? { ...m, is_pinned: res.is_pinned } : m))
       );
-      toast.success(res.is_pinned ? "Message pinned to channel banner!" : "Message unpinned");
+      toast.success(res.is_pinned ? "Message pinned to top" : "Message unpinned");
     } catch (err: any) {
-      toast.error(err?.message || "Failed to update pin");
+      toast.error("Failed to toggle pin");
     }
   };
 
-  // Handle Create New Direct / Group Conversation
   const handleCreateConversation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newChatMode === "DIRECT") {
-      if (selectedUserIds.length === 0) return toast.error("Please select a colleague to chat with");
-      try {
-        const res = await api<ChatConversationItem>("/chat/conversations/direct/", {
-          method: "POST",
-          body: JSON.stringify({ target_user_id: selectedUserIds[0] }),
-        });
-        setConversations((prev) => [res, ...prev.filter((c) => c.id !== res.id)]);
-        setActiveConversationId(res.id);
-        setNewChatModalOpen(false);
-        setSelectedUserIds([]);
-        toast.success(`Direct message opened with ${res.name}`);
-      } catch (err: any) {
-        toast.error(err?.message || "Failed to start conversation");
+    try {
+      const payload: any = {
+        type: newChatMode === "DIRECT" ? "DIRECT" : newGroupType,
+        participant_ids: selectedUserIds,
+      };
+
+      if (newChatMode === "GROUP") {
+        if (!newGroupName.trim()) {
+          toast.error("Please enter a group channel name");
+          return;
+        }
+        payload.name = newGroupName.trim();
+        payload.department = newGroupDept.trim() || undefined;
+        payload.client_id = newGroupClient || undefined;
       }
-    } else {
-      if (!newGroupName.trim()) return toast.error("Please enter a group name");
-      try {
-        const res = await api<ChatConversationItem>("/chat/conversations/group/", {
-          method: "POST",
-          body: JSON.stringify({
-            name: newGroupName.trim(),
-            type: newGroupType,
-            department: newGroupDept,
-            client_id: newGroupClient || undefined,
-            participant_user_ids: selectedUserIds,
-          }),
-        });
-        setConversations((prev) => [res, ...prev]);
-        setActiveConversationId(res.id);
-        setNewChatModalOpen(false);
-        setNewGroupName("");
-        setSelectedUserIds([]);
-        toast.success(`Group "${res.name}" created successfully!`);
-      } catch (err: any) {
-        toast.error(err?.message || "Failed to create group");
-      }
+
+      const created = await api<ChatConversationItem>("/chat/conversations/", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      toast.success(newChatMode === "DIRECT" ? "Chat opened" : "Group channel created");
+      setNewChatModalOpen(false);
+      setNewGroupName("");
+      setSelectedUserIds([]);
+      setUserSearchQuery("");
+      await loadConversations();
+      setActiveConversationId(created.id);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to create conversation");
     }
   };
 
-  // Handle Add Members to Group
   const handleAddMembers = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeConversationId || membersToAdd.length === 0) return;
     try {
-      const res = await api<ChatConversationItem>(`/chat/conversations/${activeConversationId}/members/`, {
+      await api<any>(`/chat/conversations/${activeConversationId}/members/`, {
         method: "POST",
         body: JSON.stringify({ user_ids: membersToAdd }),
       });
-      setConversations((prev) => prev.map((c) => (c.id === activeConversationId ? res : c)));
+      toast.success("Members added to group");
       setAddMemberModalOpen(false);
       setMembersToAdd([]);
-      toast.success("Members added to group!");
+      setAddMemberSearchQuery("");
+      loadConversations(true);
     } catch (err: any) {
       toast.error(err?.message || "Failed to add members");
     }
   };
 
-  // Handle Remove Member from Group
   const handleRemoveMember = async (userId: string | number) => {
     if (!activeConversationId) return;
     if (!confirm("Are you sure you want to remove this member from the group?")) return;
     try {
-      const res = await api<ChatConversationItem>(`/chat/conversations/${activeConversationId}/members/${userId}/`, {
+      await api<any>(`/chat/conversations/${activeConversationId}/members/${userId}/`, {
         method: "DELETE",
       });
-      setConversations((prev) => prev.map((c) => (c.id === activeConversationId ? res : c)));
-      toast.success("Member removed from group");
+      toast.success("Member removed");
+      loadConversations(true);
     } catch (err: any) {
-      toast.error(err?.message || "Failed to remove member");
+      toast.error("Failed to remove member");
     }
   };
 
-  // Start 1-to-1 WebRTC Call
-  const handleStartCall = (callType: "audio" | "video") => {
+  const handleStartCall = (type: "audio" | "video") => {
     if (!activeConversation) return;
-    const targetUserId =
-      activeConversation.other_participant?.id ||
-      (activeConversation.other_participant as any)?.user_id ||
-      activeConversation.participants?.find((p: any) => String(p.user_id || p.user) !== String(activeConversation.created_by))?.user_id;
+    const partner = activeConversation.other_participant;
+    const targetUserId = partner?.id || (partner as any)?.user_id || activeConversation.participants?.[0]?.user_id;
 
     if (!targetUserId) {
-      toast.error("Please select a direct 1-to-1 colleague chat to start a call.");
+      toast.error("No callable participant found");
       return;
     }
+
     startCall({
       toUserId: String(targetUserId),
+      callType: type,
       partnerName: activeConversation.name,
       partnerAvatar: activeConversation.avatar,
-      callType,
       conversationId: activeConversation.id,
     });
   };
 
-  // Top Pinned Message
   const topPinnedMessage = useMemo(() => {
-    return messages.find((m) => m.is_pinned);
+    return messages.find((m) => m.is_pinned) || null;
   }, [messages]);
 
   return (
     <Shell role={role}>
-      <div className={activeConversationId ? "chat-header-mobile-hidden" : ""}>
+      <div style={{ padding: "0 4px" }}>
         <PageHeader
-          title="Team Chat & Collaboration Hub"
-          subtitle="1-to-1 direct messaging, group channels, direct calls, and smart FLUMENX task/client embeds"
+          title="Team Communication Hub"
+          subtitle="Real-time collaboration, 1:1 direct messaging, department channels, client discussions, and voice/video sync."
           action={
-            <div className="chat-top-actions-wrapper" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
               <button
                 type="button"
                 onClick={() => {
@@ -643,9 +591,9 @@ export function ChatHubPage({ role }: Props) {
                   borderRadius: "10px",
                   fontSize: "13px",
                   fontWeight: 700,
-                  background: "var(--color-primary-subtle, #E7F3EE)",
-                  border: "1.5px solid var(--color-brand-border, #B2D8CB)",
-                  color: "var(--color-primary, #087A5B)",
+                  background: "var(--panel, #ffffff)",
+                  border: "1.5px solid var(--border, #DCE3E0)",
+                  color: "var(--color-text, #18231F)",
                   cursor: "pointer",
                   transition: "all 0.15s ease",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
@@ -719,14 +667,24 @@ export function ChatHubPage({ role }: Props) {
           {/* Search Header */}
           <div style={{ padding: "16px", borderBottom: "1px solid var(--border, #DCE3E0)", display: "flex", flexDirection: "column", gap: "12px" }}>
             <div style={{ position: "relative" }}>
-              <Search size={15} style={{ position: "absolute", left: "12px", top: "10px", color: "var(--color-text-muted, #718096)" }} />
+              <Search size={15} style={{ position: "absolute", left: "12px", top: "11px", color: "var(--color-text-muted, #718096)" }} />
               <input
                 type="text"
                 placeholder="Search chats, groups, colleagues..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="input"
-                style={{ width: "100%", paddingLeft: "34px", fontSize: "13px", height: "36px", background: "var(--panel, #ffffff)", border: "1px solid var(--border2, #CBD5E1)", color: "var(--color-text, #18231F)" }}
+                style={{
+                  width: "100%",
+                  paddingLeft: "34px",
+                  paddingRight: "12px",
+                  fontSize: "13px",
+                  height: "38px",
+                  borderRadius: "10px",
+                  background: "var(--panel, #ffffff)",
+                  border: "1px solid var(--border2, #CBD5E1)",
+                  color: "var(--color-text, #18231F)",
+                  outline: "none",
+                }}
               />
             </div>
 
@@ -737,7 +695,7 @@ export function ChatHubPage({ role }: Props) {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   style={{
-                    padding: "4px 10px",
+                    padding: "5px 12px",
                     borderRadius: "20px",
                     border: activeTab === tab ? "1px solid var(--color-primary, #087A5B)" : "1px solid var(--border, #DCE3E0)",
                     fontSize: "11px",
@@ -766,7 +724,7 @@ export function ChatHubPage({ role }: Props) {
                 No conversations found.
                 <button
                   onClick={() => setNewChatModalOpen(true)}
-                  style={{ display: "block", margin: "10px auto 0", background: "#E7F5EE", border: "1px solid #B2D8CB", color: "var(--color-primary, #087A5B)", padding: "6px 12px", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}
+                  style={{ display: "block", margin: "10px auto 0", background: "#E7F5EE", border: "1px solid #B2D8CB", color: "var(--color-primary, #087A5B)", padding: "6px 14px", borderRadius: "8px", cursor: "pointer", fontSize: "12px", fontWeight: 700 }}
                 >
                   + Start New Chat
                 </button>
@@ -865,7 +823,7 @@ export function ChatHubPage({ role }: Props) {
               <div
                 className="chat-active-header"
                 style={{
-                  padding: "10px 14px",
+                  padding: "10px 16px",
                   borderBottom: "1px solid var(--border, #DCE3E0)",
                   display: "flex",
                   alignItems: "center",
@@ -876,11 +834,11 @@ export function ChatHubPage({ role }: Props) {
                   top: 0,
                   zIndex: 40,
                   flexShrink: 0,
-                  minHeight: "56px",
+                  minHeight: "58px",
                   boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: 1 }}>
                   <button
                     type="button"
                     className="chat-mobile-back-btn"
@@ -899,7 +857,7 @@ export function ChatHubPage({ role }: Props) {
                       style={{
                         width: "38px",
                         height: "38px",
-                        borderRadius: "8px",
+                        borderRadius: "10px",
                         background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
                         display: "grid",
                         placeItems: "center",
@@ -933,7 +891,7 @@ export function ChatHubPage({ role }: Props) {
                   <button
                     onClick={() => handleStartCall("audio")}
                     style={{
-                      padding: "6px 10px",
+                      padding: "6px 12px",
                       display: "flex",
                       alignItems: "center",
                       gap: "5px",
@@ -944,6 +902,7 @@ export function ChatHubPage({ role }: Props) {
                       borderRadius: "8px",
                       color: "var(--color-text, #18231F)",
                       cursor: "pointer",
+                      transition: "all 0.15s ease",
                     }}
                     title="Start Voice Call"
                   >
@@ -954,7 +913,7 @@ export function ChatHubPage({ role }: Props) {
                   <button
                     onClick={() => handleStartCall("video")}
                     style={{
-                      padding: "6px 10px",
+                      padding: "6px 12px",
                       display: "flex",
                       alignItems: "center",
                       gap: "5px",
@@ -965,6 +924,7 @@ export function ChatHubPage({ role }: Props) {
                       borderRadius: "8px",
                       color: "var(--color-text, #18231F)",
                       cursor: "pointer",
+                      transition: "all 0.15s ease",
                     }}
                     title="Start Video Call"
                   >
@@ -975,7 +935,7 @@ export function ChatHubPage({ role }: Props) {
                   <button
                     onClick={handleLaunchMeeting}
                     style={{
-                      padding: "6px 10px",
+                      padding: "6px 12px",
                       display: "flex",
                       alignItems: "center",
                       gap: "5px",
@@ -986,6 +946,7 @@ export function ChatHubPage({ role }: Props) {
                       borderRadius: "8px",
                       color: "var(--color-primary, #087A5B)",
                       cursor: "pointer",
+                      transition: "all 0.15s ease",
                     }}
                     title="Share instant FLUMENX meeting room in chat"
                   >
@@ -996,7 +957,7 @@ export function ChatHubPage({ role }: Props) {
                   <button
                     onClick={() => setShowInfoDrawer((prev) => !prev)}
                     style={{
-                      padding: "6px 9px",
+                      padding: "6px 10px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -1085,14 +1046,15 @@ export function ChatHubPage({ role }: Props) {
                       type="button"
                       onClick={loadOlderMessages}
                       style={{
-                        background: "var(--panel2, #F8FAF9)",
+                        background: "var(--panel, #ffffff)",
                         border: "1px solid var(--border, #DCE3E0)",
                         borderRadius: "16px",
-                        padding: "3px 12px",
+                        padding: "4px 14px",
                         fontSize: "11px",
                         fontWeight: 600,
                         color: "var(--color-primary, #087A5B)",
                         cursor: "pointer",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
                       }}
                     >
                       ↑ Load earlier messages
@@ -1147,11 +1109,11 @@ export function ChatHubPage({ role }: Props) {
                             maxWidth: "75%",
                             padding: "10px 14px",
                             borderRadius: isSelf ? "14px 14px 2px 14px" : "14px 14px 14px 2px",
-                            background: isSelf ? "var(--color-primary, #087A5B)" : "var(--panel, #ffffff)",
-                            border: isSelf ? "1px solid var(--color-primary-hover, #066348)" : "1px solid var(--border, #DCE3E0)",
+                            background: isSelf ? "linear-gradient(135deg, #087A5B 0%, #066047 100%)" : "var(--panel, #ffffff)",
+                            border: isSelf ? "1px solid #066047" : "1px solid var(--border, #DCE3E0)",
                             color: isSelf ? "#ffffff" : "var(--color-text, #18231F)",
                             position: "relative",
-                            boxShadow: isSelf ? "0 2px 6px rgba(8, 122, 91, 0.18)" : "0 1px 3px rgba(24,35,31,0.05)",
+                            boxShadow: isSelf ? "0 2px 8px rgba(8, 122, 91, 0.22)" : "0 1px 4px rgba(24,35,31,0.06)",
                           }}
                         >
                           {/* Pin Icon badge */}
@@ -1298,12 +1260,12 @@ export function ChatHubPage({ role }: Props) {
                               <a
                                 href={`/clients/tasks`}
                                 style={{
-                                  padding: "5px 10px",
+                                  padding: "6px 10px",
                                   background: isSelf ? "rgba(255,255,255,0.15)" : "#E7F5EE",
                                   border: isSelf ? "1px solid rgba(255,255,255,0.25)" : "1px solid #B2D8CB",
                                   borderRadius: "6px",
                                   textAlign: "center",
-                                  fontSize: "11px",
+                                  fontSize: "11.5px",
                                   color: isSelf ? "#fff" : "#087A5B",
                                   textDecoration: "none",
                                   fontWeight: 700,
@@ -1342,12 +1304,12 @@ export function ChatHubPage({ role }: Props) {
                               <a
                                 href={`/clients/tasks`}
                                 style={{
-                                  padding: "5px 10px",
+                                  padding: "6px 10px",
                                   background: isSelf ? "rgba(255,255,255,0.15)" : "var(--color-primary-subtle, #E7F3EE)",
                                   border: isSelf ? "1px solid rgba(255,255,255,0.25)" : "1px solid var(--color-brand-border, #B2D8CB)",
                                   borderRadius: "6px",
                                   textAlign: "center",
-                                  fontSize: "11px",
+                                  fontSize: "11.5px",
                                   color: isSelf ? "#fff" : "var(--color-primary, #087A5B)",
                                   textDecoration: "none",
                                   fontWeight: 700,
@@ -1484,7 +1446,7 @@ export function ChatHubPage({ role }: Props) {
               <div
                 className="chat-input-footer-wrapper"
                 style={{
-                  padding: "10px 14px",
+                  padding: "12px 16px",
                   borderTop: "1px solid var(--border, #DCE3E0)",
                   background: "var(--panel, #ffffff)",
                   position: "sticky",
@@ -1493,29 +1455,30 @@ export function ChatHubPage({ role }: Props) {
                   flexShrink: 0,
                 }}
               >
-                {/* Smart Action Bar */}
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px", overflowX: "auto", paddingBottom: "2px", WebkitOverflowScrolling: "touch" }}>
+                {/* Smart Action Bar Chips */}
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", overflowX: "auto", paddingBottom: "2px", WebkitOverflowScrolling: "touch" }}>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     style={{
-                      padding: "6px 10px",
+                      padding: "6px 12px",
                       fontSize: "12px",
                       fontWeight: 600,
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: "5px",
+                      gap: "6px",
                       background: "var(--panel2, #F8FAF9)",
-                      border: "1px solid var(--border, #DCE3E0)",
+                      border: "1px solid var(--border2, #CBD5E1)",
                       borderRadius: "8px",
                       color: "var(--color-text, #18231F)",
                       cursor: "pointer",
                       whiteSpace: "nowrap",
                       flexShrink: 0,
+                      transition: "all 0.15s ease",
                     }}
                     title="Attach Image / Video / File"
                   >
-                    <Paperclip size={14} />
+                    <Paperclip size={14} color="#64748B" />
                     <span className="chat-action-btn-text">Attach File</span>
                   </button>
                   <input
@@ -1529,23 +1492,24 @@ export function ChatHubPage({ role }: Props) {
                     type="button"
                     onClick={() => setTaskPickerOpen(true)}
                     style={{
-                      padding: "6px 10px",
+                      padding: "6px 12px",
                       fontSize: "12px",
                       fontWeight: 600,
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: "5px",
-                      background: "var(--panel2, #F8FAF9)",
-                      border: "1px solid var(--border, #DCE3E0)",
+                      gap: "6px",
+                      background: "#EFF6FF",
+                      border: "1px solid #BFDBFE",
                       borderRadius: "8px",
-                      color: "var(--color-text, #18231F)",
+                      color: "#1D4ED8",
                       cursor: "pointer",
                       whiteSpace: "nowrap",
                       flexShrink: 0,
+                      transition: "all 0.15s ease",
                     }}
                     title="Link and embed an active task"
                   >
-                    <ListTodo size={14} />
+                    <ListTodo size={14} color="#2563EB" />
                     <span className="chat-action-btn-text">Link Task</span>
                   </button>
 
@@ -1553,23 +1517,24 @@ export function ChatHubPage({ role }: Props) {
                     type="button"
                     onClick={() => setClientPickerOpen(true)}
                     style={{
-                      padding: "6px 10px",
+                      padding: "6px 12px",
                       fontSize: "12px",
                       fontWeight: 600,
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: "5px",
-                      background: "var(--panel2, #F8FAF9)",
-                      border: "1px solid var(--border, #DCE3E0)",
+                      gap: "6px",
+                      background: "#FFFBEB",
+                      border: "1px solid #FDE68A",
                       borderRadius: "8px",
-                      color: "var(--color-text, #18231F)",
+                      color: "#B45309",
                       cursor: "pointer",
                       whiteSpace: "nowrap",
                       flexShrink: 0,
+                      transition: "all 0.15s ease",
                     }}
                     title="Link and embed a client account"
                   >
-                    <Briefcase size={14} />
+                    <Briefcase size={14} color="#D97706" />
                     <span className="chat-action-btn-text">Link Client</span>
                   </button>
 
@@ -1577,12 +1542,12 @@ export function ChatHubPage({ role }: Props) {
                     type="button"
                     onClick={() => setStandupModalOpen(true)}
                     style={{
-                      padding: "6px 10px",
+                      padding: "6px 12px",
                       fontSize: "12px",
                       fontWeight: 600,
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: "5px",
+                      gap: "6px",
                       background: "var(--color-primary-subtle, #E7F3EE)",
                       border: "1px solid var(--color-brand-border, #B2D8CB)",
                       borderRadius: "8px",
@@ -1590,37 +1555,63 @@ export function ChatHubPage({ role }: Props) {
                       cursor: "pointer",
                       whiteSpace: "nowrap",
                       flexShrink: 0,
+                      transition: "all 0.15s ease",
                     }}
                     title="1-Click Daily Standup Work Update"
                   >
-                    <Sparkles size={14} />
+                    <Sparkles size={14} color="var(--color-primary, #087A5B)" />
                     <span className="chat-action-btn-text">Daily Standup</span>
                   </button>
                 </div>
 
-                {/* Textarea + Send */}
+                {/* Textarea + Send Container */}
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
                     handleSendMessage();
                   }}
-                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
                 >
                   <input
                     type="text"
-                    className="input"
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    placeholder={`Type message to ${activeConversation.name}...`}
-                    style={{ flex: 1, height: "42px", fontSize: "13px", background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border2, #CBD5E1)", color: "var(--color-text, #18231F)" }}
+                    placeholder={`Type message to ${activeConversation.name}... (Press Enter)`}
+                    style={{
+                      flex: 1,
+                      height: "44px",
+                      padding: "0 16px",
+                      fontSize: "13.5px",
+                      borderRadius: "12px",
+                      background: "var(--panel2, #F8FAF9)",
+                      border: "1.5px solid var(--border2, #CBD5E1)",
+                      color: "var(--color-text, #18231F)",
+                      outline: "none",
+                      transition: "border-color 0.15s ease",
+                    }}
                   />
                   <button
                     type="submit"
                     disabled={sending || !inputText.trim()}
-                    className="btn btn-primary"
-                    style={{ height: "42px", padding: "0 18px", background: "var(--color-primary, #087A5B)", display: "flex", alignItems: "center", gap: "6px" }}
+                    style={{
+                      height: "44px",
+                      padding: "0 20px",
+                      borderRadius: "12px",
+                      border: "none",
+                      background: inputText.trim() ? "linear-gradient(135deg, #087A5B 0%, #066348 100%)" : "#94A3B8",
+                      color: "#ffffff",
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      cursor: inputText.trim() ? "pointer" : "not-allowed",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      boxShadow: inputText.trim() ? "0 3px 10px rgba(8,122,91,0.3)" : "none",
+                      transition: "all 0.15s ease",
+                    }}
                   >
                     <Send size={15} />
+                    <span className="chat-action-btn-text">Send</span>
                   </button>
                 </form>
               </div>
@@ -1650,109 +1641,109 @@ export function ChatHubPage({ role }: Props) {
                 gap: "16px",
               }}
             >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <b style={{ fontSize: "14px", color: "var(--color-text, #18231F)" }}>Group Info</b>
-              <button
-                onClick={() => setShowInfoDrawer(false)}
-                style={{ background: "transparent", border: 0, color: "var(--color-text-muted, #718096)", cursor: "pointer" }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Avatar & Title */}
-            <div style={{ textAlign: "center", padding: "10px 0" }}>
-              {activeConversation.type !== "DIRECT" ? (
-                <div
-                  style={{
-                    width: "56px",
-                    height: "56px",
-                    borderRadius: "12px",
-                    background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
-                    display: "grid",
-                    placeItems: "center",
-                    fontSize: "20px",
-                    fontWeight: 800,
-                    color: "#fff",
-                    margin: "0 auto 8px",
-                  }}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <b style={{ fontSize: "14px", color: "var(--color-text, #18231F)" }}>Group Info</b>
+                <button
+                  onClick={() => setShowInfoDrawer(false)}
+                  style={{ background: "transparent", border: 0, color: "var(--color-text-muted, #718096)", cursor: "pointer" }}
                 >
-                  <Users size={24} />
-                </div>
-              ) : (
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: "8px" }}>
-                  <Avatar name={activeConversation.name} avatar={activeConversation.avatar || activeConversation.other_participant?.avatar} size={56} />
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Avatar & Title */}
+              <div style={{ textAlign: "center", padding: "10px 0" }}>
+                {activeConversation.type !== "DIRECT" ? (
+                  <div
+                    style={{
+                      width: "56px",
+                      height: "56px",
+                      borderRadius: "14px",
+                      background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
+                      display: "grid",
+                      placeItems: "center",
+                      fontSize: "20px",
+                      fontWeight: 800,
+                      color: "#fff",
+                      margin: "0 auto 8px",
+                    }}
+                  >
+                    <Users size={24} />
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: "8px" }}>
+                    <Avatar name={activeConversation.name} avatar={activeConversation.avatar || activeConversation.other_participant?.avatar} size={56} />
+                  </div>
+                )}
+                <h4 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 4px", color: "var(--color-text, #18231F)" }}>
+                  {activeConversation.name}
+                </h4>
+                <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
+                  {activeConversation.description || "Official collaboration channel"}
+                </span>
+              </div>
+
+              {/* Members Section */}
+              {activeConversation.type !== "DIRECT" && (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--color-text, #18231F)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Members ({activeConversation.participants?.length || 0})
+                    </span>
+                    {activeConversation.is_admin && (
+                      <button
+                        onClick={() => setAddMemberModalOpen(true)}
+                        style={{ background: "transparent", border: 0, color: "var(--color-primary, #087A5B)", cursor: "pointer", fontSize: "11px", fontWeight: 700, display: "flex", alignItems: "center", gap: "2px" }}
+                      >
+                        <UserPlus size={12} /> Add
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {(activeConversation.participants || []).map((p) => (
+                      <div
+                        key={p.user_id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 10px",
+                          background: "var(--panel, #ffffff)",
+                          border: "1px solid var(--border, #DCE3E0)",
+                          borderRadius: "8px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                          <Avatar name={p.name} avatar={p.avatar} size={26} />
+                          <div style={{ minWidth: 0 }}>
+                            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text, #18231F)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {p.name}
+                            </span>
+                            <span style={{ fontSize: "10px", color: "var(--color-text-muted, #718096)" }}>
+                              {p.role === "ADMIN" ? "Admin" : "Member"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {activeConversation.is_admin && p.user_id !== (activeConversation as any).current_user_id && (
+                          <button
+                            onClick={() => handleRemoveMember(p.user_id)}
+                            style={{ background: "transparent", border: 0, color: "#DC2626", cursor: "pointer", padding: "4px" }}
+                            title="Remove member"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-              <h4 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 4px", color: "var(--color-text, #18231F)" }}>
-                {activeConversation.name}
-              </h4>
-              <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
-                {activeConversation.description || "Official collaboration channel"}
-              </span>
             </div>
-
-            {/* Members Section */}
-            {activeConversation.type !== "DIRECT" && (
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--color-text, #18231F)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    Members ({activeConversation.participants?.length || 0})
-                  </span>
-                  {activeConversation.is_admin && (
-                    <button
-                      onClick={() => setAddMemberModalOpen(true)}
-                      style={{ background: "transparent", border: 0, color: "var(--color-primary, #087A5B)", cursor: "pointer", fontSize: "11px", fontWeight: 700, display: "flex", alignItems: "center", gap: "2px" }}
-                    >
-                      <UserPlus size={12} /> Add
-                    </button>
-                  )}
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  {(activeConversation.participants || []).map((p) => (
-                    <div
-                      key={p.user_id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "6px 8px",
-                        background: "var(--panel, #ffffff)",
-                        border: "1px solid var(--border, #DCE3E0)",
-                        borderRadius: "8px",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-                        <Avatar name={p.name} avatar={p.avatar} size={24} />
-                        <div style={{ minWidth: 0 }}>
-                          <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text, #18231F)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {p.name}
-                          </span>
-                          <span style={{ fontSize: "10px", color: "var(--color-text-muted, #718096)" }}>
-                            {p.role === "ADMIN" ? "Admin" : "Member"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {activeConversation.is_admin && p.user_id !== (activeConversation as any).current_user_id && (
-                        <button
-                          onClick={() => handleRemoveMember(p.user_id)}
-                          style={{ background: "transparent", border: 0, color: "#DC2626", cursor: "pointer", padding: "4px" }}
-                          title="Remove member"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
 
       {/* ========================================================= */}
       {/* MODAL 1: NEW CHAT / GROUP MODAL */}
@@ -1809,11 +1800,10 @@ export function ChatHubPage({ role }: Props) {
                   <input
                     type="text"
                     required
-                    className="input"
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
                     placeholder="e.g. Video Production Hub or Expo Masters"
-                    style={{ width: "100%" }}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--border2, #CBD5E1)", background: "var(--panel, #ffffff)", color: "var(--color-text, #18231F)", fontSize: "13px" }}
                   />
                 </div>
 
@@ -1823,10 +1813,9 @@ export function ChatHubPage({ role }: Props) {
                       Group Type
                     </label>
                     <select
-                      className="input"
                       value={newGroupType}
                       onChange={(e: any) => setNewGroupType(e.target.value)}
-                      style={{ width: "100%" }}
+                      style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border2, #CBD5E1)", background: "var(--panel, #ffffff)", color: "var(--color-text, #18231F)", fontSize: "13px" }}
                     >
                       <option value="GROUP">General Group</option>
                       <option value="DEPARTMENT">Department Channel</option>
@@ -1840,60 +1829,75 @@ export function ChatHubPage({ role }: Props) {
                     </label>
                     <input
                       type="text"
-                      className="input"
                       value={newGroupDept}
                       onChange={(e) => setNewGroupDept(e.target.value)}
                       placeholder="e.g. Editing"
-                      style={{ width: "100%" }}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid var(--border2, #CBD5E1)", background: "var(--panel, #ffffff)", color: "var(--color-text, #18231F)", fontSize: "13px" }}
                     />
                   </div>
                 </div>
               </>
             )}
 
-            {/* User Selector */}
+            {/* User Selector with Search */}
             <div>
-              <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "block", marginBottom: "6px" }}>
-                {newChatMode === "DIRECT" ? "Select Colleague *" : "Add Members to Group"}
-              </label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)" }}>
+                  {newChatMode === "DIRECT" ? "Select Colleague *" : "Add Members to Group"}
+                </label>
+                <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
+                  {selectedUserIds.length} selected
+                </span>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Filter colleagues by name or role..."
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border2, #CBD5E1)", background: "var(--panel2, #F8FAF9)", color: "var(--color-text, #18231F)", fontSize: "12.5px", marginBottom: "8px" }}
+              />
+
               <div style={{ maxHeight: "200px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "4px" }}>
-                {usersList.map((u) => {
-                  const isSelected = selectedUserIds.includes(String(u.id));
-                  return (
-                    <div
-                      key={u.id}
-                      onClick={() => {
-                        if (newChatMode === "DIRECT") {
-                          setSelectedUserIds([String(u.id)]);
-                        } else {
-                          setSelectedUserIds((prev) =>
-                            isSelected ? prev.filter((id) => id !== String(u.id)) : [...prev, String(u.id)]
-                          );
-                        }
-                      }}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "8px 10px",
-                        borderRadius: "8px",
-                        background: isSelected ? "var(--color-primary-subtle, #E7F3EE)" : "var(--panel2, #F8FAF9)",
-                        border: isSelected ? "1.5px solid var(--color-brand-border, #B2D8CB)" : "1px solid var(--border, #DCE3E0)",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <Avatar name={u.name} avatar={u.avatar} size={28} />
-                        <div>
-                          <b style={{ fontSize: "12.5px", color: "var(--color-text, #18231F)", display: "block" }}>{u.name}</b>
-                          <span style={{ fontSize: "10.5px", color: "var(--color-text-muted, #718096)" }}>{u.department} • {u.portal_role}</span>
+                {usersList
+                  .filter((u) => !userSearchQuery || u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) || u.department?.toLowerCase().includes(userSearchQuery.toLowerCase()))
+                  .map((u) => {
+                    const isSelected = selectedUserIds.includes(String(u.id));
+                    return (
+                      <div
+                        key={u.id}
+                        onClick={() => {
+                          if (newChatMode === "DIRECT") {
+                            setSelectedUserIds([String(u.id)]);
+                          } else {
+                            setSelectedUserIds((prev) =>
+                              isSelected ? prev.filter((id) => id !== String(u.id)) : [...prev, String(u.id)]
+                            );
+                          }
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 10px",
+                          borderRadius: "8px",
+                          background: isSelected ? "var(--color-primary-subtle, #E7F3EE)" : "var(--panel2, #F8FAF9)",
+                          border: isSelected ? "1.5px solid var(--color-brand-border, #B2D8CB)" : "1px solid var(--border, #DCE3E0)",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <Avatar name={u.name} avatar={u.avatar} size={28} />
+                          <div>
+                            <b style={{ fontSize: "12.5px", color: "var(--color-text, #18231F)", display: "block" }}>{u.name}</b>
+                            <span style={{ fontSize: "10.5px", color: "var(--color-text-muted, #718096)" }}>{u.department} • {u.portal_role}</span>
+                          </div>
                         </div>
+                        {isSelected && <Check size={16} color="var(--color-primary, #087A5B)" />}
                       </div>
-                      {isSelected && <Check size={16} color="var(--color-primary, #087A5B)" />}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </div>
 
@@ -1928,40 +1932,66 @@ export function ChatHubPage({ role }: Props) {
       {addMemberModalOpen && (
         <Modal onClose={() => setAddMemberModalOpen(false)} title="Add Members to Group">
           <form onSubmit={handleAddMembers} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            <div style={{ maxHeight: "220px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "4px" }}>
-              {usersList.map((u) => {
-                const isSelected = membersToAdd.includes(String(u.id));
-                return (
-                  <div
-                    key={u.id}
-                    onClick={() => {
-                      setMembersToAdd((prev) =>
-                        isSelected ? prev.filter((id) => id !== String(u.id)) : [...prev, String(u.id)]
-                      );
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "8px 10px",
-                      borderRadius: "8px",
-                      background: isSelected ? "rgba(16, 185, 129, 0.15)" : "rgba(255,255,255,0.03)",
-                      border: isSelected ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid transparent",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <Avatar name={u.name} avatar={u.avatar} size={26} />
-                      <b style={{ fontSize: "12px" }}>{u.name} ({u.department})</b>
+            <input
+              type="text"
+              placeholder="Search members..."
+              value={addMemberSearchQuery}
+              onChange={(e) => setAddMemberSearchQuery(e.target.value)}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border2, #CBD5E1)", background: "var(--panel2, #F8FAF9)", color: "var(--color-text, #18231F)", fontSize: "12.5px" }}
+            />
+
+            <div style={{ maxHeight: "220px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
+              {usersList
+                .filter((u) => !addMemberSearchQuery || u.name.toLowerCase().includes(addMemberSearchQuery.toLowerCase()) || u.department?.toLowerCase().includes(addMemberSearchQuery.toLowerCase()))
+                .map((u) => {
+                  const isSelected = membersToAdd.includes(String(u.id));
+                  return (
+                    <div
+                      key={u.id}
+                      onClick={() => {
+                        setMembersToAdd((prev) =>
+                          isSelected ? prev.filter((id) => id !== String(u.id)) : [...prev, String(u.id)]
+                        );
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        background: isSelected ? "var(--color-primary-subtle, #E7F3EE)" : "var(--panel2, #F8FAF9)",
+                        border: isSelected ? "1.5px solid var(--color-brand-border, #B2D8CB)" : "1px solid var(--border, #DCE3E0)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <Avatar name={u.name} avatar={u.avatar} size={28} />
+                        <div>
+                          <b style={{ fontSize: "12.5px", color: "var(--color-text, #18231F)", display: "block" }}>{u.name}</b>
+                          <span style={{ fontSize: "10.5px", color: "var(--color-text-muted, #718096)" }}>{u.department}</span>
+                        </div>
+                      </div>
+                      {isSelected && <Check size={16} color="var(--color-primary, #087A5B)" />}
                     </div>
-                    {isSelected && <Check size={14} color="#10b981" />}
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setAddMemberModalOpen(false)}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+              <button
+                type="button"
+                onClick={() => setAddMemberModalOpen(false)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border, #DCE3E0)",
+                  background: "var(--panel2, #F8FAF9)",
+                  color: "var(--color-text, #18231F)",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
                 Cancel
               </button>
               <PrimaryButton type="submit" disabled={membersToAdd.length === 0}>
@@ -1977,31 +2007,44 @@ export function ChatHubPage({ role }: Props) {
       {/* ========================================================= */}
       {taskPickerOpen && (
         <Modal onClose={() => setTaskPickerOpen(false)} title="Select Task to Embed in Chat">
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "300px", overflowY: "auto" }}>
-            {tasksList.map((t) => (
-              <div
-                key={t.id}
-                onClick={() => handleEmbedTask(t)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "10px 12px",
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: "10px",
-                  cursor: "pointer",
-                }}
-              >
-                <div>
-                  <b style={{ fontSize: "13px", color: "#fff", display: "block" }}>{t.title}</b>
-                  <span style={{ fontSize: "11px", color: "var(--muted, #888)" }}>
-                    Assignee: {t.employee_name || "Team Member"} • Client: {t.client_name || "General"}
-                  </span>
-                </div>
-                <Badge tone={t.priority === "Urgent" ? "danger" : "info"}>{t.priority}</Badge>
-              </div>
-            ))}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <input
+              type="text"
+              placeholder="Search tasks by title or client..."
+              value={taskSearchQuery}
+              onChange={(e) => setTaskSearchQuery(e.target.value)}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border2, #CBD5E1)", background: "var(--panel2, #F8FAF9)", color: "var(--color-text, #18231F)", fontSize: "12.5px" }}
+            />
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "300px", overflowY: "auto" }}>
+              {tasksList
+                .filter((t) => !taskSearchQuery || t.title.toLowerCase().includes(taskSearchQuery.toLowerCase()) || t.client_name?.toLowerCase().includes(taskSearchQuery.toLowerCase()))
+                .map((t) => (
+                  <div
+                    key={t.id}
+                    onClick={() => handleEmbedTask(t)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 14px",
+                      background: "var(--panel2, #F8FAF9)",
+                      border: "1px solid var(--border, #DCE3E0)",
+                      borderRadius: "10px",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <div>
+                      <b style={{ fontSize: "13px", color: "var(--color-text, #18231F)", display: "block" }}>{t.title}</b>
+                      <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
+                        Assignee: {t.employee_name || "Team Member"} • Client: {t.client_name || "General"}
+                      </span>
+                    </div>
+                    <Badge tone={t.priority === "Urgent" ? "danger" : "info"}>{t.priority}</Badge>
+                  </div>
+                ))}
+            </div>
           </div>
         </Modal>
       )}
@@ -2011,31 +2054,44 @@ export function ChatHubPage({ role }: Props) {
       {/* ========================================================= */}
       {clientPickerOpen && (
         <Modal onClose={() => setClientPickerOpen(false)} title="Select Client Account to Link">
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "300px", overflowY: "auto" }}>
-            {clientsList.map((c) => (
-              <div
-                key={c.id}
-                onClick={() => handleEmbedClient(c)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "10px 12px",
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: "10px",
-                  cursor: "pointer",
-                }}
-              >
-                <div>
-                  <b style={{ fontSize: "13px", color: "#fff", display: "block" }}>{c.name}</b>
-                  <span style={{ fontSize: "11px", color: "var(--muted, #888)" }}>
-                    {c.industry || "General"} • {c.contactPerson?.name ? `Contact: ${c.contactPerson.name}` : ""}
-                  </span>
-                </div>
-                <Badge tone="gold">Client</Badge>
-              </div>
-            ))}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <input
+              type="text"
+              placeholder="Search clients..."
+              value={clientSearchQuery}
+              onChange={(e) => setClientSearchQuery(e.target.value)}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border2, #CBD5E1)", background: "var(--panel2, #F8FAF9)", color: "var(--color-text, #18231F)", fontSize: "12.5px" }}
+            />
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "300px", overflowY: "auto" }}>
+              {clientsList
+                .filter((c) => !clientSearchQuery || c.name.toLowerCase().includes(clientSearchQuery.toLowerCase()) || c.industry?.toLowerCase().includes(clientSearchQuery.toLowerCase()))
+                .map((c) => (
+                  <div
+                    key={c.id}
+                    onClick={() => handleEmbedClient(c)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 14px",
+                      background: "var(--panel2, #F8FAF9)",
+                      border: "1px solid var(--border, #DCE3E0)",
+                      borderRadius: "10px",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <div>
+                      <b style={{ fontSize: "13.5px", color: "var(--color-text, #18231F)", display: "block" }}>{c.name}</b>
+                      <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
+                        {c.industry || "General"} • {c.contact_person?.name ? `Contact: ${c.contact_person.name}` : ""}
+                      </span>
+                    </div>
+                    <Badge tone="gold">Client</Badge>
+                  </div>
+                ))}
+            </div>
           </div>
         </Modal>
       )}
