@@ -109,7 +109,7 @@ export function DirectCallModal({
       <div
         style={{
           width: "100%",
-          maxWidth: mode === "connected" && callType === "video" ? "880px" : "440px",
+          maxWidth: mode === "connected" && callType === "video" ? "min(880px, 94vw)" : "min(440px, 92vw)",
           background: "linear-gradient(180deg, #1e1e24 0%, #15151a 100%)",
           border: "1px solid var(--border2, #333)",
           borderRadius: "20px",
@@ -123,7 +123,7 @@ export function DirectCallModal({
       >
         {/* INCOMING / OUTGOING RINGING SCREEN */}
         {mode !== "connected" ? (
-          <div style={{ padding: "40px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "20px" }}>
+          <div style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "22px" }}>
             {/* Caller Avatar Pulse */}
             <div style={{ position: "relative" }}>
               <div style={{ display: "flex", justifyContent: "center" }}>
@@ -131,18 +131,18 @@ export function DirectCallModal({
               </div>
             </div>
 
-            <div>
-              <h3 style={{ fontSize: "20px", fontWeight: 800, color: "#fff", margin: "0 0 6px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "center", width: "100%" }}>
+              <h3 style={{ fontSize: "20px", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.3, wordBreak: "break-word" }}>
                 {partnerName}
               </h3>
-              <p style={{ fontSize: "13px", color: "#34d399", fontWeight: 700, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                {callType === "video" ? <Video size={15} /> : <PhoneCall size={15} />}
-                {mode === "incoming" ? `Incoming ${callType.toUpperCase()} Call...` : `Calling ${partnerName}...`}
-              </p>
+              <div style={{ fontSize: "13.5px", color: "#34d399", fontWeight: 700, margin: 0, lineHeight: 1.4, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                {callType === "video" ? <Video size={16} /> : <PhoneCall size={16} />}
+                <span>{mode === "incoming" ? `Incoming ${callType.toUpperCase()} Call...` : `Calling ${partnerName}...`}</span>
+              </div>
             </div>
 
             {/* Action Buttons */}
-            <div style={{ display: "flex", gap: "24px", marginTop: "16px" }}>
+            <div style={{ display: "flex", gap: "24px", marginTop: "12px" }}>
               {mode === "incoming" ? (
                 <>
                   <button

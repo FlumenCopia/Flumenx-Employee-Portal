@@ -87,6 +87,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
   const [autoCenter, setAutoCenter] = useState<boolean>(true);
+  const [mobileView, setMobileView] = useState<"map" | "list">("map");
   const [stats, setStats] = useState({ totalEmployees: 0, onlineCount: 0, disconnectedCount: 0, offlineCount: 0 });
 
   // 1. Fetch live employees from REST API
@@ -495,6 +496,50 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
             </div>
           )}
 
+          {/* Mobile View Switcher (Map vs List) */}
+          <div style={{ display: "flex", gap: "6px" }}>
+            <button
+              type="button"
+              onClick={() => setMobileView("map")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "6px 12px",
+                borderRadius: TOKENS.radius.md,
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: "pointer",
+                border: `1px solid ${mobileView === "map" ? TOKENS.colors.brandPrimary : TOKENS.colors.borderLight}`,
+                background: mobileView === "map" ? TOKENS.colors.brandPrimary : TOKENS.colors.surfaceSubtle,
+                color: mobileView === "map" ? "#FFFFFF" : TOKENS.colors.textSecondary,
+              }}
+            >
+              <Navigation size={13} />
+              Map View
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileView("list")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "6px 12px",
+                borderRadius: TOKENS.radius.md,
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: "pointer",
+                border: `1px solid ${mobileView === "list" ? TOKENS.colors.brandPrimary : TOKENS.colors.borderLight}`,
+                background: mobileView === "list" ? TOKENS.colors.brandPrimary : TOKENS.colors.surfaceSubtle,
+                color: mobileView === "list" ? "#FFFFFF" : TOKENS.colors.textSecondary,
+              }}
+            >
+              <Users size={13} />
+              Employees ({filteredEmployees.length})
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={loadEmployees}
@@ -542,6 +587,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
 
       {/* Main Container: Split into Left Employee Sidebar & Right Map */}
       <div
+        className="tracking-grid-container"
         style={{
           display: "grid",
           gridTemplateColumns: "360px 1fr",
@@ -552,6 +598,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
       >
         {/* Left Sidebar: Search & Employees List */}
         <div
+          className={mobileView === "map" ? "chat-sidebar-mobile-hidden" : undefined}
           style={{
             background: TOKENS.colors.surfacePanel,
             border: `1px solid ${TOKENS.colors.borderLight}`,
@@ -560,6 +607,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
             flexDirection: "column",
             overflow: "hidden",
             boxShadow: TOKENS.shadows.sm,
+            minHeight: "400px",
           }}
         >
           {/* Search and Filters Header */}
@@ -639,6 +687,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                     key={id}
                     onClick={() => {
                       setSelectedEmployeeId(id);
+                      setMobileView("map");
                       if (hasLoc && mapRef.current) {
                         mapRef.current.flyTo({
                           center: [emp.currentLocation!.longitude, emp.currentLocation!.latitude],
@@ -713,6 +762,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
 
         {/* Right Map Canvas & Floating Employee Details Card */}
         <div
+          className={`tracking-map-canvas-mobile ${mobileView === "list" ? "chat-main-mobile-hidden" : ""}`}
           style={{
             position: "relative",
             borderRadius: TOKENS.radius.lg,
@@ -720,6 +770,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
             border: `1px solid ${TOKENS.colors.borderLight}`,
             boxShadow: TOKENS.shadows.sm,
             background: "#E5E7EB",
+            minHeight: "420px",
           }}
         >
           <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
@@ -727,6 +778,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
           {/* Selected Employee Floating Detail Drawer */}
           {selectedEmployee && (
             <div
+              className="tracking-floating-card-mobile"
               style={{
                 position: "absolute",
                 bottom: "20px",

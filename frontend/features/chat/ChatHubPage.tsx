@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import {
   AlertCircle,
+  ArrowLeft,
   Briefcase,
   Calendar,
   Check,
@@ -475,6 +476,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
 
       {/* MAIN CHAT CONTAINER */}
       <div
+        className="chat-mobile-container"
         style={{
           display: "grid",
           gridTemplateColumns: showInfoDrawer ? "300px 1fr 280px" : "320px 1fr",
@@ -492,6 +494,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
         {/* LEFT COLUMN: CONVERSATION LIST */}
         {/* ========================================================= */}
         <div
+          className={activeConversationId ? "chat-sidebar-mobile-hidden" : "chat-sidebar-mobile-full"}
           style={{
             borderRight: "1px solid var(--border, #DCE3E0)",
             display: "flex",
@@ -638,21 +641,34 @@ export function ChatHubPage({ role = "admin" }: Props) {
         {/* ========================================================= */}
         {/* CENTER COLUMN: ACTIVE CHAT THREAD */}
         {/* ========================================================= */}
-        <div style={{ display: "flex", flexDirection: "column", background: "var(--color-background, #F3F5F4)", position: "relative" }}>
+        <div
+          className={!activeConversationId ? "chat-main-mobile-hidden" : "chat-main-mobile-full"}
+          style={{ display: "flex", flexDirection: "column", background: "var(--color-background, #F3F5F4)", position: "relative" }}
+        >
           {activeConversation ? (
             <>
               {/* Active Conversation Top Bar */}
               <div
                 style={{
-                  padding: "12px 20px",
+                  padding: "10px 16px",
                   borderBottom: "1px solid var(--border, #DCE3E0)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   background: "var(--panel, #ffffff)",
+                  gap: "8px",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                  <button
+                    type="button"
+                    className="chat-mobile-back-btn"
+                    onClick={() => setActiveConversationId(null)}
+                    title="Back to conversation list"
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
+
                   {activeConversation.type !== "DIRECT" ? (
                     <div
                       style={{
@@ -665,6 +681,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
                         fontWeight: 700,
                         color: "#fff",
                         fontSize: "14px",
+                        flexShrink: 0,
                       }}
                     >
                       <Users size={18} />
@@ -672,13 +689,13 @@ export function ChatHubPage({ role = "admin" }: Props) {
                   ) : (
                     <Avatar name={activeConversation.name} avatar={activeConversation.avatar || activeConversation.other_participant?.avatar} size={38} />
                   )}
-                  <div>
-                    <h3 style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "var(--color-text, #18231F)", display: "flex", alignItems: "center", gap: "8px" }}>
-                      {activeConversation.name}
+                  <div style={{ minWidth: 0 }}>
+                    <h3 style={{ fontSize: "14.5px", fontWeight: 700, margin: 0, color: "var(--color-text, #18231F)", display: "flex", alignItems: "center", gap: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{activeConversation.name}</span>
                       {activeConversation.department && <Badge tone="info">{activeConversation.department}</Badge>}
                       {activeConversation.client_name && <Badge tone="gold">{activeConversation.client_name}</Badge>}
                     </h3>
-                    <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
+                    <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {activeConversation.type === "DIRECT"
                         ? activeConversation.other_participant?.role || "Active Member"
                         : `${activeConversation.participants?.length || 0} group participants`}
@@ -687,14 +704,14 @@ export function ChatHubPage({ role = "admin" }: Props) {
                 </div>
 
                 {/* Header Call & Meeting Actions */}
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div className="chat-header-actions" style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
                   <button
                     onClick={() => handleStartCall("audio")}
                     style={{
-                      padding: "6px 12px",
+                      padding: "6px 10px",
                       display: "flex",
                       alignItems: "center",
-                      gap: "6px",
+                      gap: "5px",
                       fontSize: "12px",
                       fontWeight: 600,
                       background: "var(--panel, #ffffff)",
@@ -705,16 +722,17 @@ export function ChatHubPage({ role = "admin" }: Props) {
                     }}
                     title="Start Voice Call"
                   >
-                    <Phone size={14} /> Call
+                    <Phone size={14} />
+                    <span className="chat-header-btn-text">Call</span>
                   </button>
 
                   <button
                     onClick={() => handleStartCall("video")}
                     style={{
-                      padding: "6px 12px",
+                      padding: "6px 10px",
                       display: "flex",
                       alignItems: "center",
-                      gap: "6px",
+                      gap: "5px",
                       fontSize: "12px",
                       fontWeight: 600,
                       background: "var(--panel, #ffffff)",
@@ -725,16 +743,17 @@ export function ChatHubPage({ role = "admin" }: Props) {
                     }}
                     title="Start Video Call"
                   >
-                    <Video size={14} /> Video
+                    <Video size={14} />
+                    <span className="chat-header-btn-text">Video</span>
                   </button>
 
                   <button
                     onClick={handleLaunchMeeting}
                     style={{
-                      padding: "6px 12px",
+                      padding: "6px 10px",
                       display: "flex",
                       alignItems: "center",
-                      gap: "6px",
+                      gap: "5px",
                       fontSize: "12px",
                       fontWeight: 600,
                       background: "var(--color-primary-subtle, #E7F3EE)",
@@ -745,7 +764,8 @@ export function ChatHubPage({ role = "admin" }: Props) {
                     }}
                     title="Share instant FLUMENX meeting room in chat"
                   >
-                    <Calendar size={14} /> Launch Meeting
+                    <Calendar size={14} />
+                    <span className="chat-header-btn-text">Meeting</span>
                   </button>
 
                   <button
@@ -761,9 +781,9 @@ export function ChatHubPage({ role = "admin" }: Props) {
                       color: "var(--color-text, #18231F)",
                       cursor: "pointer",
                     }}
-                    title="Toggle Group Information"
+                    title="Toggle details & participants drawer"
                   >
-                    <Info size={16} />
+                    <Info size={15} />
                   </button>
                 </div>
               </div>
@@ -1142,25 +1162,29 @@ export function ChatHubPage({ role = "admin" }: Props) {
               {/* SMART MESSAGE INPUT FOOTER */}
               <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border, #DCE3E0)", background: "var(--panel, #ffffff)" }}>
                 {/* Smart Action Bar */}
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", overflowX: "auto" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px", overflowX: "auto", paddingBottom: "2px", WebkitOverflowScrolling: "touch" }}>
                   <button
+                    type="button"
                     onClick={() => fileInputRef.current?.click()}
                     style={{
-                      padding: "6px 12px",
+                      padding: "6px 10px",
                       fontSize: "12px",
                       fontWeight: 600,
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: "6px",
+                      gap: "5px",
                       background: "var(--panel2, #F8FAF9)",
                       border: "1px solid var(--border, #DCE3E0)",
                       borderRadius: "8px",
                       color: "var(--color-text, #18231F)",
                       cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                     title="Attach Image / Video / File"
                   >
-                    <Paperclip size={13} /> Attach File
+                    <Paperclip size={14} />
+                    <span className="chat-action-btn-text">Attach File</span>
                   </button>
                   <input
                     ref={fileInputRef}
@@ -1170,63 +1194,75 @@ export function ChatHubPage({ role = "admin" }: Props) {
                   />
 
                   <button
+                    type="button"
                     onClick={() => setTaskPickerOpen(true)}
                     style={{
-                      padding: "6px 12px",
+                      padding: "6px 10px",
                       fontSize: "12px",
                       fontWeight: 600,
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: "6px",
+                      gap: "5px",
                       background: "var(--panel2, #F8FAF9)",
                       border: "1px solid var(--border, #DCE3E0)",
                       borderRadius: "8px",
                       color: "var(--color-text, #18231F)",
                       cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                     title="Link and embed an active task"
                   >
-                    <ListTodo size={13} /> Link Task
+                    <ListTodo size={14} />
+                    <span className="chat-action-btn-text">Link Task</span>
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => setClientPickerOpen(true)}
                     style={{
-                      padding: "6px 12px",
+                      padding: "6px 10px",
                       fontSize: "12px",
                       fontWeight: 600,
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: "6px",
+                      gap: "5px",
                       background: "var(--panel2, #F8FAF9)",
                       border: "1px solid var(--border, #DCE3E0)",
                       borderRadius: "8px",
                       color: "var(--color-text, #18231F)",
                       cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                     title="Link and embed a client account"
                   >
-                    <Briefcase size={13} /> Link Client
+                    <Briefcase size={14} />
+                    <span className="chat-action-btn-text">Link Client</span>
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => setStandupModalOpen(true)}
                     style={{
-                      padding: "6px 12px",
+                      padding: "6px 10px",
                       fontSize: "12px",
                       fontWeight: 600,
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: "6px",
+                      gap: "5px",
                       background: "var(--color-primary-subtle, #E7F3EE)",
                       border: "1px solid var(--color-brand-border, #B2D8CB)",
                       borderRadius: "8px",
                       color: "var(--color-primary, #087A5B)",
                       cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                     title="1-Click Daily Standup Work Update"
                   >
-                    <Sparkles size={13} /> Daily Standup
+                    <Sparkles size={14} />
+                    <span className="chat-action-btn-text">Daily Standup</span>
                   </button>
                 </div>
 
@@ -1268,17 +1304,20 @@ export function ChatHubPage({ role = "admin" }: Props) {
         {/* RIGHT COLUMN: COLLAPSIBLE GROUP INFO DRAWER */}
         {/* ========================================================= */}
         {showInfoDrawer && activeConversation && (
-          <div
-            style={{
-              borderLeft: "1px solid var(--border, #DCE3E0)",
-              background: "var(--panel2, #F8FAF9)",
-              display: "flex",
-              flexDirection: "column",
-              padding: "16px",
-              overflowY: "auto",
-              gap: "16px",
-            }}
-          >
+          <>
+            <div className="chat-info-drawer-backdrop" onClick={() => setShowInfoDrawer(false)} />
+            <div
+              className="chat-info-drawer-mobile"
+              style={{
+                borderLeft: "1px solid var(--border, #DCE3E0)",
+                background: "var(--panel2, #F8FAF9)",
+                display: "flex",
+                flexDirection: "column",
+                padding: "16px",
+                overflowY: "auto",
+                gap: "16px",
+              }}
+            >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <b style={{ fontSize: "14px", color: "var(--color-text, #18231F)" }}>Group Info</b>
               <button
@@ -1379,8 +1418,9 @@ export function ChatHubPage({ role = "admin" }: Props) {
               </div>
             )}
           </div>
-        )}
-      </div>
+        </>
+      )}
+    </div>
 
       {/* ========================================================= */}
       {/* MODAL 1: NEW CHAT / GROUP MODAL */}
