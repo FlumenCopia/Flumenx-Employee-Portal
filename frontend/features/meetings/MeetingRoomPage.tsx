@@ -50,6 +50,7 @@ interface PeerConnection {
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
+    { urls: "stun:stun.cloudflare.com:3478" },
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
@@ -57,6 +58,8 @@ const ICE_SERVERS: RTCConfiguration = {
     { urls: "stun:stun4.l.google.com:19302" },
     { urls: "stun:global.stun.twilio.com:3478" },
     { urls: "stun:stun.services.mozilla.com" },
+    { urls: "stun:stun.nextcloud.com:443" },
+    { urls: "stun:openrelay.metered.ca:80" },
   ],
   iceCandidatePoolSize: 10,
 };
