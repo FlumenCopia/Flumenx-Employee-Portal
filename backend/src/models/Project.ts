@@ -44,4 +44,4 @@ const projectSchema = new Schema<IProject>(
 
 projectSchema.index({ client: 1, name: 1 }, { unique: true });
 
-export const Project = mongoose.model<IProject>('Project', projectSchema);
+export const Project = mongoose.models.Project || mongoose.model<IProject>('Project', projectSchema);

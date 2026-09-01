@@ -167,8 +167,8 @@ function formFromAssignment(item: WorkAssignment): WorkFormState {
   cleanDesc = cleanDesc.replace(/\[PHASE:\s*ph\d\]/gi, "").replace(/\[EST_HOURS:\s*\d+\]/gi, "").trim();
 
   return {
-    employee: String(item.employee),
-    client: String(item.client),
+    employee: item.employee ? String(item.employee) : "",
+    client: item.client ? String(item.client) : "",
     parent_task: item.parent_task ? String(item.parent_task) : "",
     is_master_client_task: Boolean(item.is_master_client_task),
     title: item.title,
@@ -431,14 +431,16 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
       const listQuery = queryFromFilters({ ...nextFilters, ...(nextPage > 1 ? { page: String(nextPage) } : {}) });
       const summaryQuery = queryFromFilters({ client: nextFilters.client } as WorkFilters);
       const [list, nextSummary] = await Promise.all([
-        api<Paginated<WorkAssignment>>(`/work-assignments/${listQuery}`, { signal: controller.signal }),
+        api<Paginated<WorkAssignment> | WorkAssignment[]>(`/work-assignments/${listQuery}`, { signal: controller.signal }),
         api<WorkSummary>(`/work-assignments/summary/${summaryQuery}`, { signal: controller.signal }),
       ]);
       if (requestRef.current !== requestId || controller.signal.aborted) return;
-      setItems(list.results);
-      setCount(list.count);
-      setHasNext(Boolean(list.next));
-      setHasPrevious(Boolean(list.previous));
+      const results = Array.isArray(list) ? list : (list?.results || []);
+      const totalCount = Array.isArray(list) ? list.length : (list?.count ?? results.length);
+      setItems(results);
+      setCount(totalCount);
+      setHasNext(Array.isArray(list) ? false : Boolean(list?.next));
+      setHasPrevious(Array.isArray(list) ? false : Boolean(list?.previous));
       setSummary(nextSummary);
     } catch (err) {
       if (!controller.signal.aborted) {
@@ -700,8 +702,8 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
         }
       }
 
-      const safeEmpId = form.employee ? (isNaN(Number(form.employee)) ? form.employee : Number(form.employee)) : null;
-      const safeReviewerId = form.reviewer ? (isNaN(Number(form.reviewer)) ? form.reviewer : Number(form.reviewer)) : null;
+      const safeEmpId = form.employee ? String(form.employee).trim() : null;
+      const safeReviewerId = form.reviewer ? String(form.reviewer).trim() : null;
 
       const bulkPayload = {
         employee: safeEmpId,
@@ -712,7 +714,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
         parent_task: form.parent_task || null,
         is_master_client_task: Boolean(form.is_master_client_task),
         tasks: tasksToAssign.map(t => {
-          const safeCId = t.client ? (isNaN(Number(t.client)) ? t.client : Number(t.client)) : null;
+          const safeCId = t.client ? String(t.client).trim() : null;
           return {
             client: safeCId,
             title: t.title.trim(),
@@ -759,9 +761,9 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
       return;
     }
 
-    const safeEmpId = form.employee ? (isNaN(Number(form.employee)) ? form.employee : Number(form.employee)) : null;
-    const safeClientId = effectiveClient ? (isNaN(Number(effectiveClient)) ? effectiveClient : Number(effectiveClient)) : null;
-    const safeReviewerId = form.reviewer ? (isNaN(Number(form.reviewer)) ? form.reviewer : Number(form.reviewer)) : null;
+    const safeEmpId = form.employee ? String(form.employee).trim() : null;
+    const safeClientId = effectiveClient ? String(effectiveClient).trim() : null;
+    const safeReviewerId = form.reviewer ? String(form.reviewer).trim() : null;
 
     const payload = {
       employee: safeEmpId,

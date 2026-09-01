@@ -1,4 +1,8 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import './Project.js';
+import './Client.js';
+import './Employee.js';
+import './User.js';
 
 export const WORK_STATUSES = [
   'Backlog',

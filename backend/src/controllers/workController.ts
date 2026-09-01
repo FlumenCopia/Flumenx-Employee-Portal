@@ -4,6 +4,7 @@ import { WorkAssignment } from '../models/WorkAssignment.js';
 import { Client } from '../models/Client.js';
 import { Employee } from '../models/Employee.js';
 import { User } from '../models/User.js';
+import { Project } from '../models/Project.js';
 import { ClientWorkShareLink } from '../models/ClientWorkShareLink.js';
 import { syncQuantityState, syncFromDeliverables, syncParentTaskProgression, calculateClientKPIHealth } from '../services/workSyncEngine.js';
 import { createShareLink, generateShareToken, getValidShareLink } from '../services/shareLinkService.js';
@@ -299,9 +300,173 @@ export async function deleteClient(req: Request, res: Response): Promise<void> {
   res.status(204).send();
 }
 
+export async function resolveEmployeeDoc(raw: any): Promise<mongoose.Types.ObjectId | null> {
+  if (!raw) return null;
+  const val = typeof raw === 'object' ? (raw._id || raw.id || raw.employee || raw.employee_id || raw.value) : raw;
+  if (!val) return null;
+
+  const strVal = String(val).trim();
+  if (!strVal || strVal === 'null' || strVal === 'undefined' || strVal === 'Unassigned' || strVal === '0') return null;
+
+  // 1. Try direct Employee ObjectId
+  if (mongoose.Types.ObjectId.isValid(strVal)) {
+    const directEmp = await Employee.findById(strVal);
+    if (directEmp) return directEmp._id as mongoose.Types.ObjectId;
+
+    // 2. Try User ObjectId -> find linked Employee
+    const empByUser = await Employee.findOne({ user: strVal });
+    if (empByUser) return empByUser._id as mongoose.Types.ObjectId;
+  }
+
+  // 3. Try legacyId number
+  const num = Number(strVal);
+  if (!isNaN(num) && num > 0) {
+    const empByLegacy = await Employee.findOne({ legacyId: num });
+    if (empByLegacy) return empByLegacy._id as mongoose.Types.ObjectId;
+  }
+
+  // 4. Try matching by employeeCode, email, or exact name
+  const empByCode = await Employee.findOne({
+    $or: [
+      { employeeCode: strVal },
+      { email: strVal.toLowerCase() },
+      { name: new RegExp(`^${strVal}$`, 'i') },
+    ],
+  });
+  if (empByCode) return empByCode._id as mongoose.Types.ObjectId;
+
+  // 5. Try finding User by email/username and getting their Employee
+  const userDoc = await User.findOne({
+    $or: [{ email: strVal.toLowerCase() }, { username: strVal }],
+  });
+  if (userDoc) {
+    let empByFoundUser = await Employee.findOne({ user: userDoc._id });
+    if (!empByFoundUser) {
+      const fullName = `${userDoc.firstName || ''} ${userDoc.lastName || ''}`.trim() || userDoc.username || userDoc.email;
+      empByFoundUser = await Employee.create({
+        user: userDoc._id,
+        name: fullName,
+        email: userDoc.email,
+        phone: '',
+        department: userDoc.role === 'HR' ? 'HR' : userDoc.role === 'ACCOUNTANT' ? 'Accounts' : userDoc.role === 'BDE' ? 'Sales' : 'Operations',
+        designation: userDoc.role,
+        joiningDate: new Date(),
+        status: 'Active',
+        employmentStatus: 'Permanent',
+        employeeCode: `EMP${String(Date.now()).slice(-4)}`,
+        avatar: '',
+        location: 'Main Office',
+        trackingStatus: 'OFFLINE',
+      });
+    }
+    return empByFoundUser._id as mongoose.Types.ObjectId;
+  }
+
+  return null;
+}
+
+export function formatWorkAssignmentDoc(a: any) {
+  const emp = a.employee as any;
+  const clientObj = a.client as any;
+  const projectObj = a.project as any;
+  const reviewerObj = a.reviewer as any;
+  const parentObj = a.parentTask as any;
+  const progressPct = a.assignedQuantity ? Math.round(((a.completedQuantity || 0) / a.assignedQuantity) * 100) : 0;
+
+  let employeeName = 'Unassigned';
+  let employeeId = null;
+
+  if (emp) {
+    if (typeof emp === 'object' && emp.name) {
+      employeeName = emp.name;
+      employeeId = emp._id;
+    } else if (typeof emp === 'object' && (emp.username || emp.firstName)) {
+      employeeName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.username;
+      employeeId = emp._id;
+    } else {
+      employeeId = emp;
+    }
+  }
+
+  return {
+    id: a._id,
+    title: a.title,
+    description: a.description,
+    priority: a.priority,
+    status: a.status,
+    assigned_date: a.assignedDate ? (a.assignedDate instanceof Date ? a.assignedDate.toISOString().split('T')[0] : String(a.assignedDate).split('T')[0]) : '',
+    due_date: a.dueDate ? (a.dueDate instanceof Date ? a.dueDate.toISOString().split('T')[0] : String(a.dueDate).split('T')[0]) : '',
+    completed_at: a.completedAt ? (a.completedAt instanceof Date ? a.completedAt.toISOString() : String(a.completedAt)) : null,
+    assigned_quantity: a.assignedQuantity,
+    completed_quantity: a.completedQuantity,
+    progress_percentage: progressPct,
+    progress: Math.min(100, Math.max(0, a.progress || progressPct)),
+    unit: a.unit,
+    department_category: a.departmentCategory || 'General',
+    estimated_hours: a.estimatedHours || 0,
+    actual_hours: a.actualHours || 0,
+    overrun_hours: a.overrunHours || 0,
+    is_overrun: Boolean(a.isOverrun),
+    department_data: a.departmentData || {},
+    employee: employeeId,
+    employee_name: employeeName,
+    client: clientObj ? (clientObj._id || clientObj) : null,
+    client_name: clientObj ? (clientObj.name || 'General') : 'General',
+    project: projectObj ? (projectObj._id || projectObj) : null,
+    project_name: projectObj ? (projectObj.name || '') : '',
+    parent_task: parentObj ? (parentObj._id || parentObj) : null,
+    parent_task_title: parentObj ? (parentObj.title || '') : '',
+    is_master_client_task: Boolean(a.isMasterClientTask),
+    reviewer: reviewerObj ? (reviewerObj._id || reviewerObj) : null,
+    reviewer_name: reviewerObj ? `${reviewerObj.firstName || ''} ${reviewerObj.lastName || ''}`.trim() || reviewerObj.username : a.reviewerName || '',
+    review_status: a.reviewStatus,
+    review_note: a.reviewNote,
+    total_time_spent_seconds: a.totalTimeSpentSeconds || 0,
+    active_timer: a.activeTimer && a.activeTimer.startedAt ? {
+      started_at: (a.activeTimer.startedAt instanceof Date ? a.activeTimer.startedAt.toISOString() : String(a.activeTimer.startedAt)),
+      started_by: a.activeTimer.startedBy,
+    } : null,
+    time_logs: a.timeLogs || [],
+    time_adjustments: (a.timeAdjustments || []).map((ta: any) => ({
+      id: ta._id,
+      adjusted_at: ta.adjustedAt ? (ta.adjustedAt instanceof Date ? ta.adjustedAt.toISOString() : String(ta.adjustedAt)) : '',
+      adjusted_by: ta.adjustedBy,
+      adjusted_by_name: ta.adjustedByName || '',
+      previous_seconds: ta.previousSeconds,
+      new_seconds: ta.newSeconds,
+      reason: ta.reason,
+    })),
+    deliverables: (a.deliverables || []).map((d: any) => ({
+      id: d._id || d.id,
+      name: d.name || d.title,
+      title: d.title || d.name,
+      brief: d.brief,
+      work_type: d.workType || d.type || 'General',
+      contracted: d.contracted || 1,
+      delivered: d.delivered || (d.status === 'Completed' || d.status === 'Published' ? 1 : 0),
+      due_date: d.dueDate ? (d.dueDate instanceof Date ? d.dueDate.toISOString().split('T')[0] : String(d.dueDate).split('T')[0]) : '',
+      status: d.status,
+      client: d.client,
+    })),
+    attachments: (a.attachments || []).map((att: any) => ({
+      id: att._id || att.id,
+      name: att.name,
+      url: att.url,
+      file_type: att.fileType || '',
+      file_size: att.fileSize || 0,
+      uploaded_at: att.uploadedAt ? (att.uploadedAt instanceof Date ? att.uploadedAt.toISOString() : String(att.uploadedAt)) : '',
+      uploaded_by: att.uploadedBy,
+      uploaded_by_name: att.uploadedByName || '',
+    })),
+  };
+}
+
 export async function resolveTeamLeadForEmployee(empId: mongoose.Types.ObjectId | string | null | undefined): Promise<{ userId: mongoose.Types.ObjectId | null; name: string } | null> {
-  if (!empId || !mongoose.Types.ObjectId.isValid(String(empId))) return null;
-  const emp = await Employee.findById(empId).populate('teamLead user');
+  if (!empId) return null;
+  const resolvedId = await resolveEmployeeDoc(empId);
+  if (!resolvedId) return null;
+
+  const emp = await Employee.findById(resolvedId).populate('teamLead user');
   if (!emp) return null;
 
   // 1. Direct teamLead populated on employee
@@ -311,8 +476,8 @@ export async function resolveTeamLeadForEmployee(empId: mongoose.Types.ObjectId 
       const u = await User.findById(leadEmp.user);
       if (u) {
         return {
-          userId: u._id,
-          name: `${u.firstName} ${u.lastName}`.trim() || leadEmp.name || u.username,
+          userId: u._id as mongoose.Types.ObjectId,
+          name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || leadEmp.name || u.username,
         };
       }
     }
@@ -326,8 +491,8 @@ export async function resolveTeamLeadForEmployee(empId: mongoose.Types.ObjectId 
       const u = await User.findOne({ _id: leadEmp.user, role: 'TEAM_LEAD' });
       if (u) {
         return {
-          userId: u._id,
-          name: `${u.firstName} ${u.lastName}`.trim() || leadEmp.name || u.username,
+          userId: u._id as mongoose.Types.ObjectId,
+          name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || leadEmp.name || u.username,
         };
       }
     }
@@ -335,8 +500,8 @@ export async function resolveTeamLeadForEmployee(empId: mongoose.Types.ObjectId 
     const teamLeadUser = await User.findOne({ role: 'TEAM_LEAD' });
     if (teamLeadUser) {
       return {
-        userId: teamLeadUser._id,
-        name: `${teamLeadUser.firstName} ${teamLeadUser.lastName}`.trim() || teamLeadUser.username,
+        userId: teamLeadUser._id as mongoose.Types.ObjectId,
+        name: `${teamLeadUser.firstName || ''} ${teamLeadUser.lastName || ''}`.trim() || teamLeadUser.username,
       };
     }
   }
@@ -360,17 +525,19 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
       { status: { $in: ['In Review', 'Changes Requested'] } },
     ];
     if (!isSuper && !isManagement) {
-      const ownEmployee = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+      const ownEmployee = req.user ? (await Employee.findOne({ user: req.user._id }) || await Employee.findById(req.user._id)) : null;
       if (isTeamLead && ownEmployee?.department) {
         const deptRegex = new RegExp(`^${ownEmployee.department.trim()}$`, 'i');
-        const teamEmployees = await Employee.find({ department: deptRegex }).select('_id');
+        const teamEmployees = await Employee.find({ department: deptRegex }).select('_id user');
         const teamEmpIds = [ownEmployee._id, ...teamEmployees.map((e) => e._id)];
+        const teamUserIds = teamEmployees.map((e) => e.user).filter(Boolean);
+
         filter.$and = [
           {
             $or: [
               { reviewer: req.user?._id },
               { reviewer: ownEmployee._id },
-              { employee: { $in: teamEmpIds } },
+              { employee: { $in: [...teamEmpIds, ...teamUserIds] } },
             ],
           },
         ];
@@ -387,23 +554,25 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
     }
   } else if (!isSuper && !isManagement) {
     // Regular employees and BDEs can ONLY view their own assigned tasks
-    const ownEmployee = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+    const ownEmployee = req.user ? (await Employee.findOne({ user: req.user._id }) || await Employee.findById(req.user._id)) : null;
     if (!ownEmployee) {
-      res.json([]);
+      res.json({ count: 0, next: null, previous: null, results: [] });
       return;
     }
 
     if (isTeamLead) {
       // Team lead sees their own tasks + tasks assigned to team members in their department
       const deptRegex = ownEmployee.department ? new RegExp(`^${ownEmployee.department.trim()}$`, 'i') : null;
-      const teamEmployees = deptRegex ? await Employee.find({ department: deptRegex }).select('_id') : [];
+      const teamEmployees = deptRegex ? await Employee.find({ department: deptRegex }).select('_id user') : [];
       const teamEmpIds = [ownEmployee._id, ...teamEmployees.map((e) => e._id)];
+      const teamUserIds = teamEmployees.map((e) => e.user).filter(Boolean);
 
       if (assigned_to_me === 'true' || employee_id === 'me') {
-        filter.employee = ownEmployee._id;
-      } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
-        if (teamEmpIds.some((id) => id.toString() === String(employee_id))) {
-          filter.employee = employee_id;
+        filter.$or = [{ employee: ownEmployee._id }, { employee: req.user?._id }];
+      } else if (employee_id) {
+        const targetEmpId = await resolveEmployeeDoc(employee_id);
+        if (targetEmpId && teamEmpIds.some((id) => id.toString() === targetEmpId.toString())) {
+          filter.$or = [{ employee: targetEmpId }];
         } else {
           // Cross-department access blocked
           res.json({ count: 0, next: null, previous: null, results: [] });
@@ -411,7 +580,7 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
         }
       } else {
         filter.$or = [
-          { employee: { $in: teamEmpIds } },
+          { employee: { $in: [...teamEmpIds, ...teamUserIds] } },
           { assignedBy: req.user?._id },
           { reviewer: ownEmployee._id },
           { reviewer: req.user?._id },
@@ -419,15 +588,21 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
       }
     } else {
       // Standard EMPLOYEE or BDE strictly sees only own tasks
-      filter.employee = ownEmployee._id;
+      filter.$or = [
+        { employee: ownEmployee._id },
+        ...(req.user?._id ? [{ employee: req.user._id }] : []),
+      ];
     }
   } else {
     // SuperAdmin / Admin / HR / Operations
     if (assigned_to_me === 'true' || employee_id === 'me') {
-      const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
-      if (ownEmp) filter.employee = ownEmp._id;
-    } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
-      filter.employee = employee_id;
+      const ownEmp = req.user ? (await Employee.findOne({ user: req.user._id }) || await Employee.findById(req.user._id)) : null;
+      if (ownEmp) {
+        filter.$or = [{ employee: ownEmp._id }, { employee: req.user?._id }];
+      }
+    } else if (employee_id) {
+      const targetEmpId = await resolveEmployeeDoc(employee_id);
+      if (targetEmpId) filter.employee = targetEmpId;
     }
   }
 
@@ -458,86 +633,7 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
     .populate('employee client project assignedBy reviewer reviewedBy parentTask')
     .sort({ dueDate: 1 });
 
-  const formatted = assignments.map((a) => {
-    const emp = a.employee as any;
-    const clientObj = a.client as any;
-    const projectObj = a.project as any;
-    const reviewerObj = a.reviewer as any;
-    const parentObj = a.parentTask as any;
-    const progressPct = a.assignedQuantity ? Math.round(((a.completedQuantity || 0) / a.assignedQuantity) * 100) : 0;
-
-    return {
-      id: a._id,
-      title: a.title,
-      description: a.description,
-      priority: a.priority,
-      status: a.status,
-      assigned_date: a.assignedDate ? a.assignedDate.toISOString().split('T')[0] : '',
-      due_date: a.dueDate ? a.dueDate.toISOString().split('T')[0] : '',
-      completed_at: a.completedAt ? a.completedAt.toISOString() : null,
-      assigned_quantity: a.assignedQuantity,
-      completed_quantity: a.completedQuantity,
-      progress_percentage: progressPct,
-      progress: Math.min(100, Math.max(0, a.progress || progressPct)),
-      unit: a.unit,
-      department_category: a.departmentCategory || 'General',
-      estimated_hours: a.estimatedHours || 0,
-      actual_hours: a.actualHours || 0,
-      overrun_hours: a.overrunHours || 0,
-      is_overrun: Boolean(a.isOverrun),
-      department_data: a.departmentData || {},
-      employee: emp ? emp._id : null,
-      employee_name: emp ? emp.name : 'Unassigned',
-      client: clientObj ? clientObj._id : null,
-      client_name: clientObj ? clientObj.name : 'General',
-      project: projectObj ? projectObj._id : null,
-      project_name: projectObj ? projectObj.name : '',
-      parent_task: parentObj ? parentObj._id : null,
-      parent_task_title: parentObj ? parentObj.title : '',
-      is_master_client_task: Boolean(a.isMasterClientTask),
-      reviewer: reviewerObj ? reviewerObj._id : null,
-      reviewer_name: reviewerObj ? `${reviewerObj.firstName} ${reviewerObj.lastName}`.trim() || reviewerObj.username : a.reviewerName || '',
-      review_status: a.reviewStatus,
-      review_note: a.reviewNote,
-      total_time_spent_seconds: a.totalTimeSpentSeconds || 0,
-      active_timer: a.activeTimer && a.activeTimer.startedAt ? {
-        started_at: a.activeTimer.startedAt.toISOString(),
-        started_by: a.activeTimer.startedBy,
-      } : null,
-      time_logs: a.timeLogs || [],
-      time_adjustments: (a.timeAdjustments || []).map((ta: any) => ({
-        id: ta._id,
-        adjusted_at: ta.adjustedAt ? ta.adjustedAt.toISOString() : '',
-        adjusted_by: ta.adjustedBy,
-        adjusted_by_name: ta.adjustedByName || '',
-        previous_seconds: ta.previousSeconds,
-        new_seconds: ta.newSeconds,
-        reason: ta.reason,
-      })),
-      deliverables: (a.deliverables || []).map((d: any) => ({
-        id: d._id,
-        name: d.name || d.title,
-        title: d.title || d.name,
-        brief: d.brief,
-        work_type: d.workType,
-        contracted: d.contracted || 1,
-        delivered: d.delivered || (d.status === 'Completed' || d.status === 'Published' ? 1 : 0),
-        due_date: d.dueDate ? new Date(d.dueDate).toISOString().split('T')[0] : '',
-        status: d.status,
-        client: d.client,
-      })),
-      attachments: (a.attachments || []).map((att: any) => ({
-        id: att._id,
-        name: att.name,
-        url: att.url,
-        file_type: att.fileType || '',
-        file_size: att.fileSize || 0,
-        uploaded_at: att.uploadedAt ? new Date(att.uploadedAt).toISOString() : '',
-        uploaded_by: att.uploadedBy,
-        uploaded_by_name: att.uploadedByName || '',
-      })),
-    };
-  });
+  const formatted = assignments.map((a) => formatWorkAssignmentDoc(a));
 
   res.json({
     count: formatted.length,
@@ -748,8 +844,8 @@ export async function getWorkAssignmentById(req: Request, res: Response): Promis
     res.status(404).json({ detail: 'Work assignment not found.' });
     return;
   }
-  await assignment.populate('employee client assignedBy reviewer reviewedBy');
-  res.json(assignment);
+  await assignment.populate('employee client assignedBy reviewer reviewedBy parentTask');
+  res.json(formatWorkAssignmentDoc(assignment));
 }
 
 export async function createWorkAssignment(req: Request, res: Response): Promise<void> {
@@ -763,6 +859,10 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
 
   const {
     employee,
+    employee_id,
+    employeeId,
+    assigned_to,
+    assignedTo,
     client,
     clients,
     client_ids,
@@ -788,11 +888,14 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
     reviewer,
   } = req.body;
 
-  if (!isSuper && req.user?.role === 'TEAM_LEAD' && employee && req.user) {
+  const rawEmp = employee ?? employee_id ?? employeeId ?? assigned_to ?? assignedTo;
+  const resolvedEmpId = await resolveEmployeeDoc(rawEmp);
+
+  if (!isSuper && req.user?.role === 'TEAM_LEAD' && resolvedEmpId && req.user) {
     const ownEmp = await Employee.findOne({ user: req.user._id });
     if (ownEmp && ownEmp.department) {
       const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
-      const targetEmp = await Employee.findById(employee);
+      const targetEmp = await Employee.findById(resolvedEmpId);
       if (targetEmp && targetEmp.department && !deptRegex.test(targetEmp.department) && String(targetEmp._id) !== String(ownEmp._id)) {
         res.status(403).json({ detail: 'Permission denied. Team Leads can only assign tasks to members in their own department.' });
         return;
@@ -800,7 +903,7 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
     }
   }
 
-  if (!title) {
+  if (!title || !String(title).trim()) {
     res.status(400).json({ detail: 'Task title is required.' });
     return;
   }
@@ -808,8 +911,8 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
   // Derive reviewer automatically if not passed
   let effectiveReviewer = reviewer && mongoose.Types.ObjectId.isValid(reviewer) ? reviewer : null;
   let effectiveReviewerName = '';
-  if (!effectiveReviewer && employee) {
-    const autoLead = await resolveTeamLeadForEmployee(employee);
+  if (!effectiveReviewer && resolvedEmpId) {
+    const autoLead = await resolveTeamLeadForEmployee(resolvedEmpId);
     if (autoLead) {
       effectiveReviewer = autoLead.userId;
       effectiveReviewerName = autoLead.name;
@@ -852,7 +955,7 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
     const createdTasks = [];
     for (const cId of targetClientIds) {
       const assignment = new WorkAssignment({
-        employee: employee && mongoose.Types.ObjectId.isValid(employee) ? employee : null,
+        employee: resolvedEmpId,
         client: cId,
         project: targetProjectId && mongoose.Types.ObjectId.isValid(targetProjectId) ? targetProjectId : null,
         parentTask: parentId && mongoose.Types.ObjectId.isValid(parentId) ? parentId : null,
@@ -880,7 +983,8 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
       if (assignment.parentTask) {
         await syncParentTaskProgression(assignment);
       }
-      createdTasks.push(assignment);
+      await assignment.populate('employee client project assignedBy reviewer reviewedBy parentTask');
+      createdTasks.push(formatWorkAssignmentDoc(assignment));
     }
     res.status(201).json(createdTasks);
     return;
@@ -889,7 +993,7 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
   const singleClient = targetClientIds.length === 1 ? targetClientIds[0] : (client && mongoose.Types.ObjectId.isValid(client) ? client : null);
 
   const assignment = new WorkAssignment({
-    employee: employee && mongoose.Types.ObjectId.isValid(employee) ? employee : null,
+    employee: resolvedEmpId,
     client: singleClient,
     project: targetProjectId && mongoose.Types.ObjectId.isValid(targetProjectId) ? targetProjectId : null,
     parentTask: parentId && mongoose.Types.ObjectId.isValid(parentId) ? parentId : null,
@@ -918,7 +1022,8 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
     await syncParentTaskProgression(assignment);
   }
 
-  res.status(201).json(assignment);
+  await assignment.populate('employee client project assignedBy reviewer reviewedBy parentTask');
+  res.status(201).json(formatWorkAssignmentDoc(assignment));
 }
 
 export async function bulkCreateWorkAssignments(req: Request, res: Response): Promise<void> {
@@ -930,7 +1035,7 @@ export async function bulkCreateWorkAssignments(req: Request, res: Response): Pr
     return;
   }
 
-  const { employee, reviewer, priority, tasks } = req.body;
+  const { employee, employee_id, employeeId, assigned_to, assignedTo, reviewer, priority, tasks } = req.body;
 
   const tasksList = Array.isArray(tasks) ? tasks : Array.isArray(req.body) ? req.body : [req.body];
 
@@ -939,10 +1044,14 @@ export async function bulkCreateWorkAssignments(req: Request, res: Response): Pr
     return;
   }
 
+  const rootEmp = employee ?? employee_id ?? employeeId ?? assigned_to ?? assignedTo;
+  const resolvedRootEmpId = await resolveEmployeeDoc(rootEmp);
+
   const createdDocs = [];
 
   for (const t of tasksList) {
-    const empId = t.employee || employee;
+    const rawEmp = t.employee ?? t.employee_id ?? t.employeeId ?? t.assigned_to ?? t.assignedTo ?? rootEmp;
+    const empId = await resolveEmployeeDoc(rawEmp) || resolvedRootEmpId;
     let revId = t.reviewer || reviewer;
     let revName = '';
 
@@ -954,7 +1063,7 @@ export async function bulkCreateWorkAssignments(req: Request, res: Response): Pr
       }
     }
 
-    const rawClient = t.client || req.body.client;
+    const rawClient = t.client || req.body.client || req.body.client_id;
     const clientVal = rawClient && mongoose.Types.ObjectId.isValid(rawClient) ? rawClient : null;
     const rawParent = t.parent_task || t.parentTask || req.body.parent_task || req.body.parentTask;
     const parentVal = rawParent && mongoose.Types.ObjectId.isValid(rawParent) ? rawParent : null;
@@ -978,7 +1087,7 @@ export async function bulkCreateWorkAssignments(req: Request, res: Response): Pr
     });
 
     const assignment = new WorkAssignment({
-      employee: empId && mongoose.Types.ObjectId.isValid(empId) ? empId : null,
+      employee: empId,
       client: clientVal,
       parentTask: parentVal,
       isMasterClientTask: isMasterTask,
@@ -1003,7 +1112,8 @@ export async function bulkCreateWorkAssignments(req: Request, res: Response): Pr
       await syncParentTaskProgression(assignment);
     }
 
-    createdDocs.push(assignment);
+    await assignment.populate('employee client project assignedBy reviewer reviewedBy parentTask');
+    createdDocs.push(formatWorkAssignmentDoc(assignment));
   }
 
   res.status(201).json(createdDocs);
@@ -1063,9 +1173,9 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     if (fields.is_master_client_task !== undefined) {
       assignment.isMasterClientTask = Boolean(fields.is_master_client_task);
     }
-    if (fields.employee !== undefined || fields.employee_id !== undefined) {
-      const empVal = fields.employee || fields.employee_id;
-      assignment.employee = empVal && mongoose.Types.ObjectId.isValid(empVal) ? empVal : null;
+    if (fields.employee !== undefined || fields.employee_id !== undefined || fields.assigned_to !== undefined || fields.assignedTo !== undefined) {
+      const empVal = fields.employee ?? fields.employee_id ?? fields.assigned_to ?? fields.assignedTo;
+      assignment.employee = await resolveEmployeeDoc(empVal);
     }
     if (fields.client !== undefined || fields.client_id !== undefined) {
       const clientVal = fields.client || fields.client_id;
@@ -1097,60 +1207,51 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     }
   }
 
-    const ownEmp = await Employee.findOne({ user: req.user?._id });
-    const isReviewer = (assignment.reviewer && ownEmp && String(assignment.reviewer) === String(ownEmp._id)) ||
-                       (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
-    const isAssignee = assignment.employee && ownEmp && String(assignment.employee) === String(ownEmp._id);
-    const hasAssignedReviewer = Boolean(assignment.reviewer);
+  const ownEmp = await Employee.findOne({ user: req.user?._id });
+  const isReviewer = (assignment.reviewer && ownEmp && String(assignment.reviewer) === String(ownEmp._id)) ||
+                     (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
+  const hasAssignedReviewer = Boolean(assignment.reviewer);
 
-    if (fields.status) {
-      const isTargetingFinalState = ['Completed', 'Approved', 'Published'].includes(fields.status);
+  if (fields.status) {
+    const isTargetingFinalState = ['Completed', 'Approved', 'Published'].includes(fields.status);
 
-      if (isTargetingFinalState) {
-        // Guard: If task has a designated reviewer, ONLY the designated reviewer or Super Admin can give final status confirmation!
-        if (hasAssignedReviewer && !isReviewer && !isSuper) {
-          assignment.status = 'PENDING_REVIEW';
-          assignment.reviewStatus = 'PENDING_REVIEW';
-          if (fields.review_note) assignment.reviewNote = fields.review_note;
-        } else {
-          assignment.status = fields.status;
-          assignment.reviewStatus = 'OK';
-          if (assignment.assignedQuantity && assignment.assignedQuantity > 0) {
-            assignment.completedQuantity = assignment.assignedQuantity;
-            assignment.progress = 100;
-          }
-          if (!assignment.completedAt) {
-            assignment.completedAt = new Date();
-          }
-        }
+    if (isTargetingFinalState) {
+      // Guard: If task has a designated reviewer, ONLY the designated reviewer or Super Admin can give final status confirmation!
+      if (hasAssignedReviewer && !isReviewer && !isSuper) {
+        assignment.status = 'PENDING_REVIEW';
+        assignment.reviewStatus = 'PENDING_REVIEW';
+        if (fields.review_note) assignment.reviewNote = fields.review_note;
       } else {
         assignment.status = fields.status;
+        assignment.reviewStatus = 'OK';
+        if (assignment.assignedQuantity && assignment.assignedQuantity > 0) {
+          assignment.completedQuantity = assignment.assignedQuantity;
+          assignment.progress = 100;
+        }
+        if (!assignment.completedAt) {
+          assignment.completedAt = new Date();
+        }
       }
+    } else {
+      assignment.status = fields.status;
     }
-    if (fields.completed_quantity !== undefined) assignment.completedQuantity = Math.max(0, fields.completed_quantity);
-    if (fields.deliverables && Array.isArray(fields.deliverables)) {
-      assignment.deliverables = fields.deliverables;
+  }
+  if (fields.completed_quantity !== undefined) assignment.completedQuantity = Math.max(0, fields.completed_quantity);
+  if (fields.deliverables && Array.isArray(fields.deliverables)) {
+    assignment.deliverables = fields.deliverables;
+  }
+  if (fields.review_status) {
+    assignment.reviewStatus = fields.review_status;
+    if (fields.review_status === 'OK' && (isReviewer || isSuper)) {
+      assignment.status = 'Completed';
+      assignment.progress = 100;
+      if (!assignment.completedAt) assignment.completedAt = new Date();
+    } else if (fields.review_status === 'CORRECTION_NEEDED') {
+      assignment.status = 'In Progress';
     }
-    if (fields.employee !== undefined || fields.employee_id !== undefined) {
-      const empVal = fields.employee || fields.employee_id;
-      assignment.employee = empVal && mongoose.Types.ObjectId.isValid(empVal) ? empVal : null;
-    }
-    if (fields.client !== undefined || fields.client_id !== undefined) {
-      const clientVal = fields.client || fields.client_id;
-      assignment.client = clientVal && mongoose.Types.ObjectId.isValid(clientVal) ? clientVal : null;
-    }
-    if (fields.review_status) {
-      assignment.reviewStatus = fields.review_status;
-      if (fields.review_status === 'OK' && (isReviewer || isSuper)) {
-        assignment.status = 'Completed';
-        assignment.progress = 100;
-        if (!assignment.completedAt) assignment.completedAt = new Date();
-      } else if (fields.review_status === 'CORRECTION_NEEDED') {
-        assignment.status = 'In Progress';
-      }
-    }
-    if (fields.review_note !== undefined) assignment.reviewNote = fields.review_note;
-    if (fields.reviewer !== undefined) assignment.reviewer = mongoose.Types.ObjectId.isValid(fields.reviewer) ? fields.reviewer : null;
+  }
+  if (fields.review_note !== undefined) assignment.reviewNote = fields.review_note;
+  if (fields.reviewer !== undefined) assignment.reviewer = mongoose.Types.ObjectId.isValid(fields.reviewer) ? fields.reviewer : null;
 
   if (assignment.deliverables && assignment.deliverables.length > 0) {
     syncFromDeliverables(assignment);
@@ -1172,7 +1273,8 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     await syncParentTaskProgression(assignment);
   }
 
-  res.json(assignment);
+  await assignment.populate('employee client project assignedBy reviewer reviewedBy parentTask');
+  res.json(formatWorkAssignmentDoc(assignment));
 }
 
 export async function reviewWorkAssignment(req: Request, res: Response): Promise<void> {
@@ -1433,15 +1535,34 @@ export async function getWorkEmployeeOptions(req: Request, res: Response): Promi
   }
 
   for (const u of users) {
-    const fullName = `${u.firstName} ${u.lastName}`.trim() || u.username || u.email;
+    const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.username || u.email;
     const existing = Array.from(map.values()).find((emp) => emp.name === fullName);
     if (!existing) {
-      map.set(u._id.toString(), {
-        id: u._id,
+      let empDoc = await Employee.findOne({ user: u._id });
+      if (!empDoc) {
+        empDoc = await Employee.create({
+          user: u._id,
+          name: fullName,
+          email: u.email,
+          phone: '',
+          department: u.role === 'HR' ? 'HR' : u.role === 'ACCOUNTANT' ? 'Accounts' : u.role === 'BDE' ? 'Sales' : 'Operations',
+          designation: u.role,
+          joiningDate: new Date(),
+          status: 'Active',
+          employmentStatus: 'Permanent',
+          employeeCode: `EMP${String(Date.now()).slice(-4)}`,
+          avatar: '',
+          location: 'Main Office',
+          trackingStatus: 'OFFLINE',
+        });
+      }
+
+      map.set(empDoc._id.toString(), {
+        id: empDoc._id,
         name: fullName,
         display_name: fullName,
-        employee_code: 'USR',
-        department: 'Operations',
+        employee_code: empDoc.employeeCode || 'EMP',
+        department: empDoc.department || 'Operations',
         team_lead_id: null,
         team_lead_name: null,
         team_lead_user_id: null,
