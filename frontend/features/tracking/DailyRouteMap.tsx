@@ -19,36 +19,89 @@ import {
   TrendingUp,
   User,
   Zap,
+  Route,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { TOKENS } from "@/components/design-system/tokens";
 import type { DailyRouteData } from "@/lib/types";
 
-// 100% Free OpenStreetMap raster tile style (No API key required, zero watermark)
-const MAP_STYLE: any = {
-  version: 8,
-  sources: {
-    "osm-tiles": {
-      type: "raster",
-      tiles: [
-        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      ],
-      tileSize: 256,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
+// Free raster tile styles (zero watermark, no API key required)
+const MAP_STYLES = {
+  dark: {
+    name: "Night Radar",
+    version: 8,
+    sources: {
+      "dark-tiles": {
+        type: "raster",
+        tiles: [
+          "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+          "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+          "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+        ],
+        tileSize: 256,
+        attribution: '&copy; CartoDB & OpenStreetMap',
+      },
     },
+    layers: [
+      {
+        id: "dark-tiles-layer",
+        type: "raster",
+        source: "dark-tiles",
+        minzoom: 0,
+        maxzoom: 19,
+      },
+    ],
   },
-  layers: [
-    {
-      id: "osm-tiles-layer",
-      type: "raster",
-      source: "osm-tiles",
-      minzoom: 0,
-      maxzoom: 19,
+  streets: {
+    name: "Street Map",
+    version: 8,
+    sources: {
+      "osm-tiles": {
+        type: "raster",
+        tiles: [
+          "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        ],
+        tileSize: 256,
+        attribution: '&copy; OpenStreetMap',
+      },
     },
-  ],
+    layers: [
+      {
+        id: "osm-tiles-layer",
+        type: "raster",
+        source: "osm-tiles",
+        minzoom: 0,
+        maxzoom: 19,
+      },
+    ],
+  },
+  light: {
+    name: "Clean Light",
+    version: 8,
+    sources: {
+      "light-tiles": {
+        type: "raster",
+        tiles: [
+          "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+          "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+          "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+        ],
+        tileSize: 256,
+        attribution: '&copy; CartoDB & OpenStreetMap',
+      },
+    },
+    layers: [
+      {
+        id: "light-tiles-layer",
+        type: "raster",
+        source: "light-tiles",
+        minzoom: 0,
+        maxzoom: 19,
+      },
+    ],
+  },
 };
 
 function formatDuration(seconds: number): string {
@@ -84,11 +137,14 @@ export function DailyRouteMap({
   const replayMarkerRef = useRef<maplibregl.Marker | null>(null);
   const staticMarkersRef = useRef<maplibregl.Marker[]>([]);
   const animationFrameRef = useRef<number | null>(null);
+  const dashAnimFrameRef = useRef<number | null>(null);
+  const dashOffsetRef = useRef<number>(0);
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(initialEmployeeId || "");
   const [selectedDate, setSelectedDate] = useState<string>(
     initialDate || new Date().toISOString().split("T")[0]
   );
+  const [currentMapStyle, setCurrentMapStyle] = useState<"dark" | "streets" | "light">("dark");
   const [routeData, setRouteData] = useState<DailyRouteData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorText, setErrorText] = useState<string>("");
@@ -130,9 +186,11 @@ export function DailyRouteMap({
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
+    const styleObj = MAP_STYLES[currentMapStyle] || MAP_STYLES.dark;
+
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: MAP_STYLE,
+      style: styleObj as any,
       center: [77.5946, 12.9716],
       zoom: 12,
     });
@@ -144,6 +202,7 @@ export function DailyRouteMap({
 
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (dashAnimFrameRef.current) cancelAnimationFrame(dashAnimFrameRef.current);
       staticMarkersRef.current.forEach((m) => m.remove());
       staticMarkersRef.current = [];
       if (replayMarkerRef.current) replayMarkerRef.current.remove();
@@ -151,6 +210,14 @@ export function DailyRouteMap({
       mapRef.current = null;
     };
   }, []);
+
+  const handleSwitchMapStyle = (styleKey: "dark" | "streets" | "light") => {
+    setCurrentMapStyle(styleKey);
+    const map = mapRef.current;
+    if (map) {
+      map.setStyle(MAP_STYLES[styleKey] as any);
+    }
+  };
 
   // 3. Render Route Layer & Pins on Map
   useEffect(() => {
@@ -163,8 +230,10 @@ export function DailyRouteMap({
 
     const handleRender = () => {
       // Remove previous route layers and sources if they exist
+      if (map.getLayer("route-glow")) map.removeLayer("route-glow");
       if (map.getLayer("route-casing")) map.removeLayer("route-casing");
       if (map.getLayer("route-line")) map.removeLayer("route-line");
+      if (map.getLayer("route-dash")) map.removeLayer("route-dash");
       if (map.getSource("daily-route-source")) map.removeSource("daily-route-source");
 
       if (!routeData || !routeData.points || routeData.points.length === 0) {
@@ -187,7 +256,24 @@ export function DailyRouteMap({
         },
       });
 
-      // Add Line Casing (Outline) Layer
+      // Layer 1: Ambient Glow
+      map.addLayer({
+        id: "route-glow",
+        type: "line",
+        source: "daily-route-source",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#10B981",
+          "line-width": 12,
+          "line-blur": 6,
+          "line-opacity": 0.5,
+        },
+      });
+
+      // Layer 2: Line Casing
       map.addLayer({
         id: "route-casing",
         type: "line",
@@ -197,13 +283,13 @@ export function DailyRouteMap({
           "line-cap": "round",
         },
         paint: {
-          "line-color": "#044B37",
+          "line-color": "#064E3B",
           "line-width": 7,
-          "line-opacity": 0.4,
+          "line-opacity": 0.85,
         },
       });
 
-      // Add Main Vibrant Line Layer
+      // Layer 3: Main Vibrant Emerald Line
       map.addLayer({
         id: "route-line",
         type: "line",
@@ -213,9 +299,26 @@ export function DailyRouteMap({
           "line-cap": "round",
         },
         paint: {
-          "line-color": "#087A5B",
-          "line-width": 4.5,
+          "line-color": "#34D399",
+          "line-width": 4,
           "line-opacity": 0.95,
+        },
+      });
+
+      // Layer 4: Animated Flowing Laser Dash
+      map.addLayer({
+        id: "route-dash",
+        type: "line",
+        source: "daily-route-source",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#FFFFFF",
+          "line-width": 3,
+          "line-dasharray": [0, 4, 3],
+          "line-opacity": 0.9,
         },
       });
 
@@ -225,7 +328,7 @@ export function DailyRouteMap({
           return acc.extend(coord as [number, number]);
         }, new maplibregl.LngLatBounds(coordinates[0] as [number, number], coordinates[0] as [number, number]));
 
-        map.fitBounds(bounds, { padding: 80, maxZoom: 16, duration: 1000 });
+        map.fitBounds(bounds, { padding: 90, maxZoom: 16, duration: 1000 });
       } else if (coordinates.length === 1) {
         map.flyTo({ center: coordinates[0] as [number, number], zoom: 15 });
       }
@@ -236,20 +339,20 @@ export function DailyRouteMap({
         const startEl = document.createElement("div");
         startEl.innerHTML = `
           <div style="
-            background: #16855B;
+            background: linear-gradient(135deg, #10B981 0%, #047857 100%);
             color: #FFFFFF;
             font-size: 11px;
             font-weight: 800;
-            padding: 4px 8px;
-            border-radius: 12px;
+            padding: 5px 10px;
+            border-radius: 16px;
             border: 2px solid #FFFFFF;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.5);
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
             cursor: pointer;
           ">
-            <span>● START</span>
+            <span>🏁 START</span>
             <span style="opacity: 0.85; font-weight: 600;">${formatTime(firstPt.timestamp)}</span>
           </div>
         `;
@@ -265,20 +368,20 @@ export function DailyRouteMap({
         const endEl = document.createElement("div");
         endEl.innerHTML = `
           <div style="
-            background: #DC2626;
+            background: linear-gradient(135deg, #EF4444 0%, #B91C1C 100%);
             color: #FFFFFF;
             font-size: 11px;
             font-weight: 800;
-            padding: 4px 8px;
-            border-radius: 12px;
+            padding: 5px 10px;
+            border-radius: 16px;
             border: 2px solid #FFFFFF;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.5);
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
             cursor: pointer;
           ">
-            <span>● END</span>
+            <span>🛑 FINISH</span>
             <span style="opacity: 0.85; font-weight: 600;">${formatTime(lastPt.timestamp)}</span>
           </div>
         `;
@@ -298,10 +401,10 @@ export function DailyRouteMap({
               color: #FFFFFF;
               font-size: 10px;
               font-weight: 700;
-              padding: 3px 6px;
-              border-radius: 10px;
+              padding: 4px 8px;
+              border-radius: 12px;
               border: 1.5px solid #FFFFFF;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+              box-shadow: 0 2px 8px rgba(0,0,0,0.25);
               cursor: pointer;
             ">
               ⏸️ ${Math.round(stop.durationSeconds / 60)}m stop
@@ -320,9 +423,36 @@ export function DailyRouteMap({
     } else {
       map.once("styledata", handleRender);
     }
-  }, [routeData]);
+  }, [routeData, currentMapStyle]);
 
-  // 4. Route Replay Animation Engine
+  // Dash Line Animation Loop
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    let lastStep = 0;
+    const animateDash = (timestamp: number) => {
+      if (timestamp - lastStep > 60) {
+        lastStep = timestamp;
+        dashOffsetRef.current = (dashOffsetRef.current + 1) % 12;
+
+        if (map.getLayer("route-dash")) {
+          const dash1 = (dashOffsetRef.current % 6);
+          const dash2 = ((dashOffsetRef.current + 3) % 6);
+          map.setPaintProperty("route-dash", "line-dasharray", [0, dash1 + 1, dash2 + 2, 2]);
+        }
+      }
+      dashAnimFrameRef.current = requestAnimationFrame(animateDash);
+    };
+
+    dashAnimFrameRef.current = requestAnimationFrame(animateDash);
+
+    return () => {
+      if (dashAnimFrameRef.current) cancelAnimationFrame(dashAnimFrameRef.current);
+    };
+  }, []);
+
+  // 4. Route Replay Animation Engine with Smooth Vector Interpolation
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !routeData || !routeData.points || routeData.points.length === 0) return;
@@ -333,19 +463,20 @@ export function DailyRouteMap({
     if (!replayMarkerRef.current) {
       const el = document.createElement("div");
       el.className = "replay-cursor-marker";
-      el.style.width = "32px";
-      el.style.height = "32px";
+      el.style.width = "40px";
+      el.style.height = "40px";
       el.style.borderRadius = "50%";
-      el.style.backgroundColor = "#2563EB";
+      el.style.backgroundColor = "#10B981";
       el.style.border = "3px solid #FFFFFF";
-      el.style.boxShadow = "0 0 15px rgba(37, 99, 235, 0.7)";
+      el.style.boxShadow = "0 0 20px rgba(16, 185, 129, 0.9)";
       el.style.display = "flex";
       el.style.alignItems = "center";
       el.style.justifyContent = "center";
       el.style.color = "#FFFFFF";
       el.style.zIndex = "40";
+      el.style.transition = "transform 0.15s ease-out";
       el.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="3 11 22 2 13 21 11 13 3 11"/>
         </svg>
       `;
@@ -368,7 +499,7 @@ export function DailyRouteMap({
 
     const animate = (time: number) => {
       const delta = time - lastTick;
-      const intervalMs = Math.max(30, 400 / playbackSpeed);
+      const intervalMs = Math.max(25, 350 / playbackSpeed);
 
       if (delta >= intervalMs) {
         lastTick = time;
@@ -448,17 +579,17 @@ export function DailyRouteMap({
           background: TOKENS.colors.surfacePanel,
           border: `1px solid ${TOKENS.colors.borderLight}`,
           borderRadius: TOKENS.radius.lg,
-          padding: "12px 20px",
+          padding: "14px 20px",
           boxShadow: TOKENS.shadows.sm,
         }}
       >
+        {/* Left: Filters & Dropdowns */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-          {/* Employee Selector (Only if not in self view) */}
           {!isEmployeeSelfView && employeesList.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <label style={{ fontSize: "11px", fontWeight: 700, color: TOKENS.colors.textSecondary, textTransform: "uppercase" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "12px", fontWeight: 700, color: TOKENS.colors.textSecondary }}>
                 Employee:
-              </label>
+              </span>
               <select
                 value={selectedEmployeeId}
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
@@ -466,29 +597,28 @@ export function DailyRouteMap({
                   padding: "6px 12px",
                   borderRadius: TOKENS.radius.md,
                   border: `1px solid ${TOKENS.colors.borderLight}`,
+                  background: TOKENS.colors.surfaceSubtle,
                   fontSize: "12px",
                   fontWeight: 600,
                   color: TOKENS.colors.textPrimary,
-                  background: TOKENS.colors.surfaceSubtle,
-                  outline: "none",
                   cursor: "pointer",
                 }}
               >
-                <option value="">Select Employee...</option>
+                <option value="">All Tracked Staff</option>
                 {employeesList.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.name} ({emp.employeeCode}) - {emp.department}
+                    {emp.name} ({emp.employeeCode} • {emp.department})
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* Date Selector */}
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label style={{ fontSize: "11px", fontWeight: 700, color: TOKENS.colors.textSecondary, textTransform: "uppercase" }}>
+          {/* Date Picker */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: TOKENS.colors.textSecondary }}>
               Date:
-            </label>
+            </span>
             <input
               type="date"
               value={selectedDate}
@@ -497,377 +627,216 @@ export function DailyRouteMap({
                 padding: "5px 10px",
                 borderRadius: TOKENS.radius.md,
                 border: `1px solid ${TOKENS.colors.borderLight}`,
+                background: TOKENS.colors.surfaceSubtle,
                 fontSize: "12px",
                 fontWeight: 600,
                 color: TOKENS.colors.textPrimary,
-                background: TOKENS.colors.surfaceSubtle,
-                outline: "none",
                 cursor: "pointer",
               }}
             />
           </div>
 
-          {/* Quick Date Shortcuts */}
-          <button
-            type="button"
-            onClick={() => setSelectedDate(new Date().toISOString().split("T")[0])}
+          {/* Map Style Selector */}
+          <div
             style={{
-              padding: "5px 10px",
+              display: "flex",
+              background: TOKENS.colors.surfaceSubtle,
+              padding: "2px",
               borderRadius: TOKENS.radius.md,
               border: `1px solid ${TOKENS.colors.borderLight}`,
-              fontSize: "11px",
-              fontWeight: 700,
-              background:
-                selectedDate === new Date().toISOString().split("T")[0]
-                  ? TOKENS.colors.brandPrimary
-                  : TOKENS.colors.surfaceSubtle,
-              color:
-                selectedDate === new Date().toISOString().split("T")[0] ? "#FFFFFF" : TOKENS.colors.textSecondary,
-              cursor: "pointer",
             }}
           >
-            Today
-          </button>
+            {(["dark", "streets", "light"] as const).map((styleKey) => (
+              <button
+                key={styleKey}
+                type="button"
+                onClick={() => handleSwitchMapStyle(styleKey)}
+                style={{
+                  padding: "4px 10px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  border: 0,
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  background: currentMapStyle === styleKey ? TOKENS.colors.brandPrimary : "transparent",
+                  color: currentMapStyle === styleKey ? "#FFFFFF" : TOKENS.colors.textSecondary,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {styleKey === "dark" ? "Night Radar" : styleKey === "streets" ? "Streets" : "Light"}
+              </button>
+            ))}
+          </div>
 
           <button
             type="button"
-            onClick={() => {
-              const yesterday = new Date();
-              yesterday.setDate(yesterday.getDate() - 1);
-              setSelectedDate(yesterday.toISOString().split("T")[0]);
-            }}
+            onClick={loadRoute}
+            disabled={isLoading}
             style={{
-              padding: "5px 10px",
-              borderRadius: TOKENS.radius.md,
-              border: `1px solid ${TOKENS.colors.borderLight}`,
-              fontSize: "11px",
-              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
               background: TOKENS.colors.surfaceSubtle,
+              border: `1px solid ${TOKENS.colors.borderLight}`,
+              padding: "6px 12px",
+              borderRadius: TOKENS.radius.md,
+              fontSize: "12px",
+              fontWeight: 600,
               color: TOKENS.colors.textSecondary,
               cursor: "pointer",
             }}
           >
-            Yesterday
+            <RefreshCw size={13} className={isLoading ? "spin" : ""} />
+            Sync
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={loadRoute}
-          disabled={isLoading}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            background: TOKENS.colors.surfaceSubtle,
-            border: `1px solid ${TOKENS.colors.borderLight}`,
-            padding: "6px 12px",
-            borderRadius: TOKENS.radius.md,
-            fontSize: "12px",
-            fontWeight: 600,
-            color: TOKENS.colors.textSecondary,
-            cursor: "pointer",
-          }}
-        >
-          <RefreshCw size={13} className={isLoading ? "spin" : ""} />
-          Reload
-        </button>
+        {/* Right Summary Metrics */}
+        {routeData && routeData.summary && (
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: "10px", color: TOKENS.colors.textMuted, textTransform: "uppercase" }}>Distance</div>
+              <div style={{ fontSize: "14px", fontWeight: 800, color: TOKENS.colors.brandPrimary }}>
+                {routeData.summary.totalDistanceKm} km
+              </div>
+            </div>
+
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: "10px", color: TOKENS.colors.textMuted, textTransform: "uppercase" }}>Duration</div>
+              <div style={{ fontSize: "14px", fontWeight: 800, color: TOKENS.colors.textPrimary }}>
+                {formatDuration(routeData.summary.totalDurationSeconds)}
+              </div>
+            </div>
+
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: "10px", color: TOKENS.colors.textMuted, textTransform: "uppercase" }}>Checkpoints</div>
+              <div style={{ fontSize: "14px", fontWeight: 800, color: "#10B981" }}>
+                {routeData.summary.pointCount} points
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Summary Metrics Strip */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-          gap: "12px",
-        }}
-      >
-        <div
-          style={{
-            background: TOKENS.colors.surfacePanel,
-            border: `1px solid ${TOKENS.colors.borderLight}`,
-            borderRadius: TOKENS.radius.md,
-            padding: "12px 16px",
-            boxShadow: TOKENS.shadows.sm,
-          }}
-        >
-          <span style={{ fontSize: "11px", color: TOKENS.colors.textMuted, fontWeight: 600, textTransform: "uppercase" }}>
-            Total Distance
-          </span>
-          <div style={{ fontSize: "20px", fontWeight: 800, color: TOKENS.colors.brandPrimary, marginTop: "2px" }}>
-            {routeData?.summary?.totalDistanceKm !== undefined ? `${routeData.summary.totalDistanceKm} km` : "0 km"}
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: TOKENS.colors.surfacePanel,
-            border: `1px solid ${TOKENS.colors.borderLight}`,
-            borderRadius: TOKENS.radius.md,
-            padding: "12px 16px",
-            boxShadow: TOKENS.shadows.sm,
-          }}
-        >
-          <span style={{ fontSize: "11px", color: TOKENS.colors.textMuted, fontWeight: 600, textTransform: "uppercase" }}>
-            Tracking Duration
-          </span>
-          <div style={{ fontSize: "20px", fontWeight: 800, color: TOKENS.colors.textPrimary, marginTop: "2px" }}>
-            {routeData?.summary?.totalDurationSeconds !== undefined
-              ? formatDuration(routeData.summary.totalDurationSeconds)
-              : "0m"}
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: TOKENS.colors.surfacePanel,
-            border: `1px solid ${TOKENS.colors.borderLight}`,
-            borderRadius: TOKENS.radius.md,
-            padding: "12px 16px",
-            boxShadow: TOKENS.shadows.sm,
-          }}
-        >
-          <span style={{ fontSize: "11px", color: TOKENS.colors.textMuted, fontWeight: 600, textTransform: "uppercase" }}>
-            Start Time
-          </span>
-          <div style={{ fontSize: "20px", fontWeight: 800, color: TOKENS.colors.success, marginTop: "2px" }}>
-            {formatTime(routeData?.summary?.startedAt)}
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: TOKENS.colors.surfacePanel,
-            border: `1px solid ${TOKENS.colors.borderLight}`,
-            borderRadius: TOKENS.radius.md,
-            padding: "12px 16px",
-            boxShadow: TOKENS.shadows.sm,
-          }}
-        >
-          <span style={{ fontSize: "11px", color: TOKENS.colors.textMuted, fontWeight: 600, textTransform: "uppercase" }}>
-            End Time
-          </span>
-          <div style={{ fontSize: "20px", fontWeight: 800, color: TOKENS.colors.danger, marginTop: "2px" }}>
-            {formatTime(routeData?.summary?.endedAt)}
-          </div>
-        </div>
-
-        <div
-          style={{
-            background: TOKENS.colors.surfacePanel,
-            border: `1px solid ${TOKENS.colors.borderLight}`,
-            borderRadius: TOKENS.radius.md,
-            padding: "12px 16px",
-            boxShadow: TOKENS.shadows.sm,
-          }}
-        >
-          <span style={{ fontSize: "11px", color: TOKENS.colors.textMuted, fontWeight: 600, textTransform: "uppercase" }}>
-            GPS Points
-          </span>
-          <div style={{ fontSize: "20px", fontWeight: 800, color: TOKENS.colors.textPrimary, marginTop: "2px" }}>
-            {routeData?.summary?.pointCount || 0}
-          </div>
-        </div>
-      </div>
-
-      {/* Route Map Canvas & Interactive Replay Controller Overlay */}
+      {/* Map Canvas with Floating Replay HUD */}
       <div
         style={{
           position: "relative",
           flex: 1,
+          minHeight: "450px",
           borderRadius: TOKENS.radius.lg,
           overflow: "hidden",
           border: `1px solid ${TOKENS.colors.borderLight}`,
           boxShadow: TOKENS.shadows.sm,
-          background: "#E5E7EB",
-          minHeight: 0,
+          background: "#0F172A",
         }}
       >
         <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
 
-        {/* No Points Empty State Alert */}
-        {!isLoading && (!routeData || !routeData.points || routeData.points.length === 0) && (
+        {/* Floating Route Replay Controller */}
+        {routeData && routeData.points && routeData.points.length > 0 && (
           <div
             style={{
               position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              background: "rgba(255, 255, 255, 0.95)",
-              padding: "24px 32px",
-              borderRadius: TOKENS.radius.lg,
-              boxShadow: TOKENS.shadows.lg,
-              textAlign: "center",
-              border: `1px solid ${TOKENS.colors.borderLight}`,
-            }}
-          >
-            <Navigation size={36} style={{ color: TOKENS.colors.brandPrimary, margin: "0 auto 10px", opacity: 0.8 }} />
-            <h4 style={{ margin: "0 0 6px 0", fontSize: "15px", fontWeight: 700, color: TOKENS.colors.textPrimary }}>
-              No Route Points Recorded
-            </h4>
-            <p style={{ margin: 0, fontSize: "12px", color: TOKENS.colors.textMuted }}>
-              No GPS location history was recorded for this employee on {selectedDate}.
-            </p>
-          </div>
-        )}
-
-        {/* Floating Route Replay Controller Bar */}
-        {routeData && routeData.points && routeData.points.length > 1 && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: "20px",
-              left: "20px",
-              right: "20px",
+              bottom: "24px",
+              left: "24px",
+              right: "24px",
               maxWidth: "680px",
               margin: "0 auto",
-              background: "rgba(19, 35, 31, 0.92)",
+              background: "rgba(15, 23, 42, 0.92)",
               backdropFilter: "blur(12px)",
-              color: "#FFFFFF",
+              border: "1px solid rgba(16, 185, 129, 0.4)",
               borderRadius: TOKENS.radius.lg,
-              padding: "14px 20px",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
-              zIndex: 30,
-              border: "1px solid rgba(255, 255, 255, 0.15)",
+              padding: "16px 20px",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
+              zIndex: 20,
+              color: "#FFFFFF",
             }}
           >
-            {/* Live HUD Status in Replay */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "10px",
-                fontSize: "12px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span
-                  style={{
-                    width: "8px",
-                    height: "8px",
-                    borderRadius: "50%",
-                    backgroundColor: isPlaying ? "#10B981" : "#6B7280",
-                    display: "inline-block",
-                  }}
-                />
-                <span style={{ fontWeight: 700 }}>
-                  {isPlaying ? "Replaying Route..." : "Route Replay"}
-                </span>
-                {currentPoint && (
-                  <span style={{ color: "#9CA3AF" }}>
-                    • Time: {formatTime(currentPoint.timestamp)}
-                  </span>
-                )}
-              </div>
-
-              {currentPoint && (
-                <div style={{ display: "flex", gap: "12px", color: "#D1D5DB" }}>
-                  <span>Speed: {currentPoint.speed ? `${Math.round(currentPoint.speed * 3.6)} km/h` : "0 km/h"}</span>
-                  <span>Point: {currentReplayPointIndex + 1} / {routeData.points.length}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Timeline Progress Slider */}
-            <div style={{ marginBottom: "12px" }}>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={replayProgress}
-                onChange={handleScrubberChange}
-                style={{
-                  width: "100%",
-                  accentColor: "#10B981",
-                  cursor: "pointer",
-                  height: "5px",
-                }}
-              />
-            </div>
-
-            {/* Replay Controls & Speed Selector */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <button
                   type="button"
                   onClick={() => setIsPlaying(!isPlaying)}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    background: "#10B981",
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "50%",
+                    backgroundColor: "#10B981",
                     color: "#FFFFFF",
                     border: 0,
-                    padding: "7px 16px",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                    fontWeight: 700,
                     cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 0 14px rgba(16, 185, 129, 0.6)",
                   }}
                 >
-                  {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-                  {isPlaying ? "Pause" : "Play Replay"}
+                  {isPlaying ? <Pause size={16} /> : <Play size={16} style={{ marginLeft: "2px" }} />}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsPlaying(false);
-                    setCurrentReplayPointIndex(0);
-                    setReplayProgress(0);
-                    if (routeData.points[0] && replayMarkerRef.current) {
-                      replayMarkerRef.current.setLngLat([
-                        routeData.points[0].longitude,
-                        routeData.points[0].latitude,
-                      ]);
-                    }
-                  }}
-                  style={{
-                    background: "rgba(255, 255, 255, 0.12)",
-                    color: "#FFFFFF",
-                    border: 0,
-                    padding: "7px 12px",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                  }}
-                >
-                  <RotateCcw size={13} />
-                  Reset
-                </button>
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: 700 }}>
+                    {isPlaying ? "Replaying Animated Route..." : "Route Playback Paused"}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.7)" }}>
+                    Time: {formatTime(currentPoint?.timestamp)} • Speed:{" "}
+                    {currentPoint?.speed ? `${Math.round(currentPoint.speed * 3.6)} km/h` : "0 km/h"}
+                  </div>
+                </div>
               </div>
 
-              {/* Speed Multiplier */}
+              {/* Playback Speed Switcher */}
               <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                <span style={{ fontSize: "11px", color: "#9CA3AF", marginRight: "4px" }}>Speed:</span>
-                {[1, 2, 5, 10].map((s) => (
+                {[1, 2, 5, 10].map((spd) => (
                   <button
-                    key={s}
+                    key={spd}
                     type="button"
-                    onClick={() => setPlaybackSpeed(s)}
+                    onClick={() => setPlaybackSpeed(spd)}
                     style={{
-                      background: playbackSpeed === s ? "#10B981" : "rgba(255, 255, 255, 0.1)",
-                      color: "#FFFFFF",
-                      border: 0,
                       padding: "4px 8px",
                       borderRadius: "6px",
                       fontSize: "11px",
                       fontWeight: 700,
                       cursor: "pointer",
+                      border: "1px solid rgba(255,255,255,0.2)",
+                      background: playbackSpeed === spd ? "#10B981" : "rgba(255,255,255,0.08)",
+                      color: "#FFFFFF",
                     }}
                   >
-                    {s}x
+                    {spd}x
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Scrubber Slider */}
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={replayProgress}
+              onChange={handleScrubberChange}
+              style={{
+                width: "100%",
+                accentColor: "#10B981",
+                cursor: "pointer",
+              }}
+            />
           </div>
         )}
       </div>
+
+      <style jsx global>{`
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          100% {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
     </div>
   );
 }

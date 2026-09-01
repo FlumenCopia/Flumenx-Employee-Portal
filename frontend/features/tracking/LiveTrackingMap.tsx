@@ -23,37 +23,93 @@ import {
   MapPin,
   Calendar,
   Layers,
+  Sparkles,
+  Radio,
+  Crosshair,
+  Route,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Avatar } from "@/components/icons";
 import { TOKENS } from "@/components/design-system/tokens";
 import type { LiveEmployeeTracking } from "@/lib/types";
 
-// 100% Free OpenStreetMap raster tile style (No API key required, zero watermark)
-const MAP_STYLE: any = {
-  version: 8,
-  sources: {
-    "osm-tiles": {
-      type: "raster",
-      tiles: [
-        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      ],
-      tileSize: 256,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
+// Free, fast raster tile styles (zero watermark, no API key required)
+const MAP_STYLES = {
+  streets: {
+    name: "Street Map",
+    version: 8,
+    sources: {
+      "osm-tiles": {
+        type: "raster",
+        tiles: [
+          "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        ],
+        tileSize: 256,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
+      },
     },
+    layers: [
+      {
+        id: "osm-tiles-layer",
+        type: "raster",
+        source: "osm-tiles",
+        minzoom: 0,
+        maxzoom: 19,
+      },
+    ],
   },
-  layers: [
-    {
-      id: "osm-tiles-layer",
-      type: "raster",
-      source: "osm-tiles",
-      minzoom: 0,
-      maxzoom: 19,
+  dark: {
+    name: "Night Radar",
+    version: 8,
+    sources: {
+      "dark-tiles": {
+        type: "raster",
+        tiles: [
+          "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+          "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+          "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+        ],
+        tileSize: 256,
+        attribution: '&copy; CartoDB & OpenStreetMap',
+      },
     },
-  ],
+    layers: [
+      {
+        id: "dark-tiles-layer",
+        type: "raster",
+        source: "dark-tiles",
+        minzoom: 0,
+        maxzoom: 19,
+      },
+    ],
+  },
+  light: {
+    name: "Clean Light",
+    version: 8,
+    sources: {
+      "light-tiles": {
+        type: "raster",
+        tiles: [
+          "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+          "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+          "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+        ],
+        tileSize: 256,
+        attribution: '&copy; CartoDB & OpenStreetMap',
+      },
+    },
+    layers: [
+      {
+        id: "light-tiles-layer",
+        type: "raster",
+        source: "light-tiles",
+        minzoom: 0,
+        maxzoom: 19,
+      },
+    ],
+  },
 };
 
 interface LiveTrackingMapProps {
@@ -77,17 +133,24 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const markerPositionsRef = useRef<Map<string, { lng: number; lat: number }>>(new Map());
   const socketRef = useRef<Socket | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const dashOffsetRef = useRef<number>(0);
 
   const [employees, setEmployees] = useState<LiveEmployeeTracking[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const [selectedEmployeeRoutePoints, setSelectedEmployeeRoutePoints] = useState<[number, number][]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ONLINE" | "DISCONNECTED" | "OFFLINE">("ALL");
   const [departmentFilter, setDepartmentFilter] = useState<string>("ALL");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
-  const [autoCenter, setAutoCenter] = useState<boolean>(true);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
+  const [currentMapStyle, setCurrentMapStyle] = useState<"streets" | "dark" | "light">("dark");
+  const [showAnimatedTrails, setShowAnimatedTrails] = useState<boolean>(true);
+  const [showRadarPulses, setShowRadarPulses] = useState<boolean>(true);
+  const [followSelected, setFollowSelected] = useState<boolean>(true);
   const [stats, setStats] = useState({ totalEmployees: 0, onlineCount: 0, disconnectedCount: 0, offlineCount: 0 });
 
   // 1. Fetch live employees from REST API
@@ -108,16 +171,48 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
     }
   }, []);
 
-  // 2. Initialize MapLibre Map
+  // 2. Fetch Selected Employee's Today Route Trail
+  const loadSelectedEmployeeRoute = useCallback(async (empId: string) => {
+    if (!empId) {
+      setSelectedEmployeeRoutePoints([]);
+      return;
+    }
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const data = await api<any>(`/tracking/route/?employeeId=${empId}&date=${today}`);
+      if (data?.points && Array.isArray(data.points)) {
+        const coords: [number, number][] = data.points
+          .filter((p: any) => typeof p.longitude === "number" && typeof p.latitude === "number")
+          .map((p: any) => [p.longitude, p.latitude]);
+        setSelectedEmployeeRoutePoints(coords);
+      } else {
+        setSelectedEmployeeRoutePoints([]);
+      }
+    } catch (err) {
+      console.error("Failed to load route points for employee:", err);
+      setSelectedEmployeeRoutePoints([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedEmployeeId) {
+      loadSelectedEmployeeRoute(selectedEmployeeId);
+    } else {
+      setSelectedEmployeeRoutePoints([]);
+    }
+  }, [selectedEmployeeId, loadSelectedEmployeeRoute]);
+
+  // 3. Initialize MapLibre Map
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Default center (India / Bangalore default coordinates)
+    const styleObj = MAP_STYLES[currentMapStyle] || MAP_STYLES.dark;
+
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: MAP_STYLE,
+      style: styleObj as any,
       center: [77.5946, 12.9716],
-      zoom: 11,
+      zoom: 12,
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: true, showZoom: true }), "top-right");
@@ -126,6 +221,10 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
     mapRef.current = map;
 
     return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current.clear();
       map.remove();
@@ -133,7 +232,16 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
     };
   }, []);
 
-  // 3. Initialize Socket.IO Live Updates
+  // Handle Map Style Switch
+  const handleSwitchMapStyle = (styleKey: "streets" | "dark" | "light") => {
+    setCurrentMapStyle(styleKey);
+    const map = mapRef.current;
+    if (map) {
+      map.setStyle(MAP_STYLES[styleKey] as any);
+    }
+  };
+
+  // 4. Initialize Socket.IO Live Updates
   useEffect(() => {
     let socketUrl = "";
     if (typeof window !== "undefined") {
@@ -182,19 +290,38 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
           return [updated, ...prev];
         }
       });
+
+      // If this is the selected employee, append to live route trail
+      const updateId = updated.id || updated._id;
+      if (selectedEmployeeId === updateId && updated.currentLocation) {
+        const newCoord: [number, number] = [updated.currentLocation.longitude, updated.currentLocation.latitude];
+        setSelectedEmployeeRoutePoints((prev) => {
+          if (prev.length === 0) return [newCoord];
+          const last = prev[prev.length - 1];
+          if (last[0] === newCoord[0] && last[1] === newCoord[1]) return prev;
+          return [...prev, newCoord];
+        });
+
+        if (followSelected && mapRef.current) {
+          mapRef.current.easeTo({
+            center: newCoord,
+            duration: 1200,
+          });
+        }
+      }
     });
 
     return () => {
       socket.emit("tracking:unsubscribe-live");
       socket.disconnect();
     };
-  }, []);
+  }, [selectedEmployeeId, followSelected]);
 
   useEffect(() => {
     loadEmployees();
   }, [loadEmployees]);
 
-  // Recalculate stats when employees list changes
+  // Recalculate stats
   useEffect(() => {
     const online = employees.filter((e) => e.trackingStatus === "ONLINE").length;
     const disconnected = employees.filter((e) => e.trackingStatus === "DISCONNECTED").length;
@@ -206,7 +333,145 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
     });
   }, [employees]);
 
-  // 4. Update MapLibre Markers
+  // 5. Update MapLibre Animated Line Trails
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const setupRouteLayers = () => {
+      // Remove old layers & source if exists
+      if (map.getLayer("live-route-glow")) map.removeLayer("live-route-glow");
+      if (map.getLayer("live-route-casing")) map.removeLayer("live-route-casing");
+      if (map.getLayer("live-route-main")) map.removeLayer("live-route-main");
+      if (map.getLayer("live-route-dash")) map.removeLayer("live-route-dash");
+      if (map.getSource("live-route-source")) map.removeSource("live-route-source");
+
+      if (!showAnimatedTrails || selectedEmployeeRoutePoints.length < 2) {
+        return;
+      }
+
+      // Add GeoJSON Source
+      map.addSource("live-route-source", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: selectedEmployeeRoutePoints,
+          },
+        },
+      });
+
+      // Layer 1: Ambient Neon Glow
+      map.addLayer({
+        id: "live-route-glow",
+        type: "line",
+        source: "live-route-source",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#10B981",
+          "line-width": 12,
+          "line-blur": 6,
+          "line-opacity": 0.5,
+        },
+      });
+
+      // Layer 2: High Contrast Casing
+      map.addLayer({
+        id: "live-route-casing",
+        type: "line",
+        source: "live-route-source",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#064E3B",
+          "line-width": 7,
+          "line-opacity": 0.85,
+        },
+      });
+
+      // Layer 3: Vibrant Core Line
+      map.addLayer({
+        id: "live-route-main",
+        type: "line",
+        source: "live-route-source",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#34D399",
+          "line-width": 4,
+          "line-opacity": 0.95,
+        },
+      });
+
+      // Layer 4: Animated Flowing Dash (Laser Trail)
+      map.addLayer({
+        id: "live-route-dash",
+        type: "line",
+        source: "live-route-source",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#FFFFFF",
+          "line-width": 3,
+          "line-dasharray": [0, 4, 3],
+          "line-opacity": 0.9,
+        },
+      });
+    };
+
+    if (map.isStyleLoaded()) {
+      setupRouteLayers();
+    } else {
+      map.once("styledata", setupRouteLayers);
+    }
+  }, [selectedEmployeeRoutePoints, showAnimatedTrails, currentMapStyle]);
+
+  // 6. Dash Array Animation Loop (Ant-Path laser line animation)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !showAnimatedTrails) {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      return;
+    }
+
+    let lastStep = 0;
+    const animateDash = (timestamp: number) => {
+      if (timestamp - lastStep > 60) {
+        lastStep = timestamp;
+        dashOffsetRef.current = (dashOffsetRef.current + 1) % 12;
+
+        if (map.getLayer("live-route-dash")) {
+          // Dynamic dash phase shift creates a smooth laser flow animation
+          const dash1 = (dashOffsetRef.current % 6);
+          const dash2 = ((dashOffsetRef.current + 3) % 6);
+          map.setPaintProperty("live-route-dash", "line-dasharray", [0, dash1 + 1, dash2 + 2, 2]);
+        }
+      }
+      animationFrameRef.current = requestAnimationFrame(animateDash);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animateDash);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [showAnimatedTrails]);
+
+  // 7. Update MapLibre High-Visibility Radar Markers with Smooth Coordinate Gliding
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -217,7 +482,6 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
       const id = emp.id || emp._id;
       const loc = emp.currentLocation;
 
-      // Only plot if valid location exists
       if (!loc || typeof loc.latitude !== "number" || typeof loc.longitude !== "number") {
         return;
       }
@@ -226,63 +490,128 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
       const isOnline = emp.trackingStatus === "ONLINE";
       const isDisconnected = emp.trackingStatus === "DISCONNECTED";
       const isSelected = selectedEmployeeId === id;
+      const targetLngLat: [number, number] = [loc.longitude, loc.latitude];
 
       let marker = markersRef.current.get(id);
 
       if (!marker) {
-        // Create custom HTML marker element
+        // Create Rich High-Contrast HTML Marker
         const el = document.createElement("div");
-        el.className = `employee-map-marker ${isOnline ? "online" : isDisconnected ? "disconnected" : "offline"}`;
-        el.style.cursor = "pointer";
+        el.className = `employee-live-beacon ${isOnline ? "online" : isDisconnected ? "disconnected" : "offline"} ${
+          isSelected ? "selected" : ""
+        }`;
         el.style.position = "relative";
-        el.style.width = "40px";
-        el.style.height = "40px";
-        el.style.borderRadius = "50%";
+        el.style.cursor = "pointer";
+        el.style.width = "54px";
+        el.style.height = "54px";
         el.style.display = "flex";
         el.style.alignItems = "center";
         el.style.justifyContent = "center";
-        el.style.transition = "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
-        el.style.zIndex = isSelected ? "30" : isOnline ? "20" : "10";
+        el.style.zIndex = isSelected ? "40" : isOnline ? "30" : "15";
+        el.style.transition = "transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)";
 
-        // Internal content
+        const speedText = loc.speed ? `${Math.round(loc.speed * 3.6)} km/h` : "Stationary";
+        const headingAngle = loc.heading || 0;
+
         el.innerHTML = `
-          <div class="marker-pulse-ring" style="
+          <!-- Multi-Ring Expanding Pulsing Radar Waves -->
+          <div class="radar-wave wave-1" style="display: ${showRadarPulses && isOnline ? "block" : "none"};"></div>
+          <div class="radar-wave wave-2" style="display: ${showRadarPulses && isOnline ? "block" : "none"};"></div>
+          <div class="radar-wave wave-3" style="display: ${showRadarPulses && isOnline ? "block" : "none"};"></div>
+
+          <!-- Directional Compass Arrow -->
+          <div class="beacon-arrow" style="
             position: absolute;
-            inset: -6px;
-            border-radius: 50%;
-            background: ${isOnline ? "rgba(8, 122, 91, 0.25)" : isDisconnected ? "rgba(217, 119, 6, 0.25)" : "transparent"};
-            animation: ${isOnline ? "pulseRadar 2s infinite" : "none"};
+            inset: -4px;
             pointer-events: none;
-          "></div>
-          <div class="marker-avatar" style="
-            width: 36px;
-            height: 36px;
+            transform: rotate(${headingAngle}deg);
+            display: ${loc.speed && loc.speed > 0.5 ? "block" : "none"};
+          ">
+            <div style="
+              width: 0;
+              height: 0;
+              border-left: 6px solid transparent;
+              border-right: 6px solid transparent;
+              border-bottom: 10px solid #10B981;
+              margin: 0 auto;
+              filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+            "></div>
+          </div>
+
+          <!-- Floating High-Visibility Name & Speed Badge -->
+          <div class="beacon-nametag" style="
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            background: rgba(15, 23, 42, 0.92);
+            color: #FFFFFF;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 16px;
+            border: 1.5px solid ${isSelected ? "#10B981" : "rgba(255,255,255,0.25)"};
+            box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+            z-index: 50;
+          ">
+            <span style="
+              width: 7px;
+              height: 7px;
+              border-radius: 50%;
+              background: ${isOnline ? "#10B981" : isDisconnected ? "#F59E0B" : "#94A3B8"};
+              box-shadow: 0 0 6px ${isOnline ? "#10B981" : "transparent"};
+            "></span>
+            <span>${emp.name}</span>
+            <span style="opacity: 0.75; font-size: 10px; font-weight: 500;">• ${speedText}</span>
+          </div>
+
+          <!-- Avatar Core with Glowing Rings -->
+          <div class="beacon-avatar-core" style="
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            border: 2.5px solid ${isOnline ? "#087A5B" : isDisconnected ? "#D97706" : "#94A3B8"};
             background: #087A5B;
+            border: 3px solid ${isSelected ? "#FFFFFF" : isOnline ? "#10B981" : isDisconnected ? "#F59E0B" : "#64748B"};
+            box-shadow: 0 0 16px ${isSelected ? "rgba(16, 185, 129, 0.8)" : isOnline ? "rgba(16, 185, 129, 0.4)" : "rgba(0,0,0,0.25)"};
             overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.18);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 700;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 800;
             color: #FFFFFF;
+            position: relative;
+            z-index: 10;
           ">
-            ${emp.avatar ? `<img src="${emp.avatar}" style="width: 100%; height: 100%; object-fit: cover;" />` : (() => {
-              const parts = (emp.name || "User").trim().split(/\s+/).filter(Boolean);
-              return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : emp.name.slice(0, 2).toUpperCase();
-            })()}
+            ${
+              emp.avatar
+                ? `<img src="${emp.avatar}" style="width: 100%; height: 100%; object-fit: cover;" />`
+                : (() => {
+                    const parts = (emp.name || "User").trim().split(/\s+/).filter(Boolean);
+                    return parts.length >= 2
+                      ? (parts[0][0] + parts[1][0]).toUpperCase()
+                      : emp.name.slice(0, 2).toUpperCase();
+                  })()
+            }
           </div>
-          <div class="marker-status-dot" style="
+
+          <!-- Live Status Indicator Bead -->
+          <div class="beacon-status-bead" style="
             position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 12px;
-            height: 12px;
+            bottom: 2px;
+            right: 2px;
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
-            background: ${isOnline ? "#16855B" : isDisconnected ? "#D97706" : "#64748B"};
-            border: 2px solid #FFFFFF;
+            background: ${isOnline ? "#10B981" : isDisconnected ? "#F59E0B" : "#64748B"};
+            border: 2.5px solid #FFFFFF;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            z-index: 20;
           "></div>
         `;
 
@@ -290,44 +619,78 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
           e.stopPropagation();
           setSelectedEmployeeId(id);
           map.flyTo({
-            center: [loc.longitude, loc.latitude],
+            center: targetLngLat,
             zoom: Math.max(map.getZoom(), 15),
             duration: 1000,
           });
         });
 
         marker = new maplibregl.Marker({ element: el, anchor: "center" })
-          .setLngLat([loc.longitude, loc.latitude])
+          .setLngLat(targetLngLat)
           .addTo(map);
 
         markersRef.current.set(id, marker);
+        markerPositionsRef.current.set(id, { lng: loc.longitude, lat: loc.latitude });
       } else {
-        // Smoothly animate existing marker to new coordinates
-        marker.setLngLat([loc.longitude, loc.latitude]);
+        // Smooth Coordinate Interpolation Gliding
+        const prevPos = markerPositionsRef.current.get(id) || { lng: loc.longitude, lat: loc.latitude };
+        markerPositionsRef.current.set(id, { lng: loc.longitude, lat: loc.latitude });
+
+        // Update marker position
+        marker.setLngLat(targetLngLat);
 
         const el = marker.getElement();
-        el.className = `employee-map-marker ${isOnline ? "online" : isDisconnected ? "disconnected" : "offline"}`;
-        el.style.zIndex = isSelected ? "30" : isOnline ? "20" : "10";
+        el.className = `employee-live-beacon ${isOnline ? "online" : isDisconnected ? "disconnected" : "offline"} ${
+          isSelected ? "selected" : ""
+        }`;
+        el.style.zIndex = isSelected ? "40" : isOnline ? "30" : "15";
+
         if (isSelected) {
-          el.style.transform = "scale(1.15)";
+          el.style.transform = "scale(1.2)";
         } else {
           el.style.transform = "scale(1.0)";
         }
 
-        const ring = el.querySelector(".marker-pulse-ring") as HTMLElement;
-        if (ring) {
-          ring.style.background = isOnline ? "rgba(8, 122, 91, 0.25)" : isDisconnected ? "rgba(217, 119, 6, 0.25)" : "transparent";
-          ring.style.animation = isOnline ? "pulseRadar 2s infinite" : "none";
+        // Update radar waves visibility
+        const waves = el.querySelectorAll(".radar-wave");
+        waves.forEach((w) => {
+          (w as HTMLElement).style.display = showRadarPulses && isOnline ? "block" : "none";
+        });
+
+        // Update nametag contents
+        const nametag = el.querySelector(".beacon-nametag") as HTMLElement;
+        if (nametag) {
+          const speedText = loc.speed ? `${Math.round(loc.speed * 3.6)} km/h` : "Stationary";
+          nametag.innerHTML = `
+            <span style="
+              width: 7px;
+              height: 7px;
+              border-radius: 50%;
+              background: ${isOnline ? "#10B981" : isDisconnected ? "#F59E0B" : "#94A3B8"};
+              box-shadow: 0 0 6px ${isOnline ? "#10B981" : "transparent"};
+            "></span>
+            <span>${emp.name}</span>
+            <span style="opacity: 0.75; font-size: 10px; font-weight: 500;">• ${speedText}</span>
+          `;
+          nametag.style.borderColor = isSelected ? "#10B981" : "rgba(255,255,255,0.25)";
         }
 
-        const avatarBox = el.querySelector(".marker-avatar") as HTMLElement;
-        if (avatarBox) {
-          avatarBox.style.borderColor = isOnline ? "#087A5B" : isDisconnected ? "#D97706" : "#94A3B8";
+        // Update avatar border and shadow
+        const avatarCore = el.querySelector(".beacon-avatar-core") as HTMLElement;
+        if (avatarCore) {
+          avatarCore.style.borderColor = isSelected ? "#FFFFFF" : isOnline ? "#10B981" : isDisconnected ? "#F59E0B" : "#64748B";
+          avatarCore.style.boxShadow = isSelected
+            ? "0 0 20px rgba(16, 185, 129, 0.9)"
+            : isOnline
+            ? "0 0 14px rgba(16, 185, 129, 0.4)"
+            : "rgba(0,0,0,0.25)";
         }
 
-        const dot = el.querySelector(".marker-status-dot") as HTMLElement;
-        if (dot) {
-          dot.style.background = isOnline ? "#16855B" : isDisconnected ? "#D97706" : "#64748B";
+        // Update arrow angle
+        const arrow = el.querySelector(".beacon-arrow") as HTMLElement;
+        if (arrow) {
+          arrow.style.transform = `rotate(${loc.heading || 0}deg)`;
+          arrow.style.display = loc.speed && loc.speed > 0.5 ? "block" : "none";
         }
       }
     });
@@ -337,11 +700,12 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
       if (!currentMarkerIds.has(id)) {
         marker.remove();
         markersRef.current.delete(id);
+        markerPositionsRef.current.delete(id);
       }
     });
-  }, [employees, selectedEmployeeId]);
+  }, [employees, selectedEmployeeId, showRadarPulses]);
 
-  // 5. Fit map bounds to encompass all plotted employees
+  // 8. Fit bounds to all employees
   const handleFitBounds = useCallback(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -361,10 +725,10 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
       return acc.extend(coord);
     }, new maplibregl.LngLatBounds(coordinates[0], coordinates[0]));
 
-    map.fitBounds(bounds, { padding: 80, maxZoom: 16, duration: 1000 });
+    map.fitBounds(bounds, { padding: 90, maxZoom: 16, duration: 1000 });
   }, [employees]);
 
-  // Filtered employees list for sidebar
+  // Filtered employees list
   const filteredEmployees = useMemo(() => {
     return employees.filter((emp) => {
       const matchesSearch =
@@ -385,14 +749,6 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
     });
   }, [employees, searchQuery, statusFilter, departmentFilter]);
 
-  const departmentsList = useMemo(() => {
-    const depts = new Set<string>();
-    employees.forEach((e) => {
-      if (e.department) depts.add(e.department);
-    });
-    return Array.from(depts);
-  }, [employees]);
-
   const selectedEmployee = useMemo(() => {
     return employees.find((e) => e.id === selectedEmployeeId || e._id === selectedEmployeeId) || null;
   }, [employees, selectedEmployeeId]);
@@ -407,7 +763,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
         minHeight: "650px",
       }}
     >
-      {/* Top Banner / Stats Header */}
+      {/* Top Controls Header */}
       <div
         style={{
           display: "flex",
@@ -425,42 +781,60 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div
             style={{
-              width: "36px",
-              height: "36px",
+              width: "38px",
+              height: "38px",
               borderRadius: TOKENS.radius.md,
-              backgroundColor: TOKENS.colors.brandSubtle,
-              color: TOKENS.colors.brandPrimary,
+              backgroundColor: "rgba(16, 185, 129, 0.15)",
+              color: "#059669",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              border: `1px solid ${TOKENS.colors.brandBorder}`,
+              border: "1px solid rgba(16, 185, 129, 0.3)",
             }}
           >
-            <MapPin size={18} />
+            <Radio size={20} className="pulse-icon" />
           </div>
           <div>
-            <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, color: TOKENS.colors.textPrimary }}>
-              Live Employee Tracking
-            </h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, color: TOKENS.colors.textPrimary }}>
+                Live GPS Radar & Animated Routes
+              </h2>
+              <span
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 800,
+                  background: "linear-gradient(135deg, #10B981 0%, #047857 100%)",
+                  color: "#FFFFFF",
+                  padding: "2px 8px",
+                  borderRadius: "12px",
+                  letterSpacing: "0.5px",
+                  textTransform: "uppercase",
+                }}
+              >
+                Live Radar
+              </span>
+            </div>
             <p style={{ fontSize: "12px", color: TOKENS.colors.textMuted, margin: 0 }}>
-              Real-time GPS monitor powered by MapLibre GL & WebSockets
+              Real-time movement trails, glowing animated laser lines, and high-contrast staff radar
             </p>
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        {/* Action Controls & Map Style Toggles */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          {/* Status Counts */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: "6px",
-              background: TOKENS.colors.successBg,
-              border: `1px solid ${TOKENS.colors.successBorder}`,
+              background: "rgba(16, 185, 129, 0.12)",
+              border: "1px solid rgba(16, 185, 129, 0.35)",
               borderRadius: "20px",
-              padding: "4px 12px",
+              padding: "5px 12px",
               fontSize: "12px",
               fontWeight: 700,
-              color: TOKENS.colors.success,
+              color: "#059669",
             }}
           >
             <span
@@ -468,12 +842,12 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                 width: "8px",
                 height: "8px",
                 borderRadius: "50%",
-                backgroundColor: TOKENS.colors.success,
+                backgroundColor: "#10B981",
                 display: "inline-block",
-                boxShadow: "0 0 6px rgba(22, 133, 91, 0.6)",
+                boxShadow: "0 0 8px #10B981",
               }}
             />
-            {stats.onlineCount} Online
+            {stats.onlineCount} Active
           </div>
 
           {stats.disconnectedCount > 0 && (
@@ -482,13 +856,13 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                 display: "flex",
                 alignItems: "center",
                 gap: "6px",
-                background: TOKENS.colors.warningBg,
-                border: `1px solid ${TOKENS.colors.warningBorder}`,
+                background: "rgba(245, 158, 11, 0.12)",
+                border: "1px solid rgba(245, 158, 11, 0.35)",
                 borderRadius: "20px",
-                padding: "4px 12px",
+                padding: "5px 12px",
                 fontSize: "12px",
                 fontWeight: 700,
-                color: TOKENS.colors.warning,
+                color: "#D97706",
               }}
             >
               <WifiOff size={12} />
@@ -496,48 +870,84 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
             </div>
           )}
 
-          {/* Mobile View Switcher (Map vs List) */}
-          <div style={{ display: "flex", gap: "6px" }}>
-            <button
-              type="button"
-              onClick={() => setMobileView("map")}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                padding: "6px 12px",
-                borderRadius: TOKENS.radius.md,
-                fontSize: "12px",
-                fontWeight: 700,
-                cursor: "pointer",
-                border: `1px solid ${mobileView === "map" ? TOKENS.colors.brandPrimary : TOKENS.colors.borderLight}`,
-                background: mobileView === "map" ? TOKENS.colors.brandPrimary : TOKENS.colors.surfaceSubtle,
-                color: mobileView === "map" ? "#FFFFFF" : TOKENS.colors.textSecondary,
-              }}
-            >
-              <Navigation size={13} />
-              Map View
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileView("list")}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                padding: "6px 12px",
-                borderRadius: TOKENS.radius.md,
-                fontSize: "12px",
-                fontWeight: 700,
-                cursor: "pointer",
-                border: `1px solid ${mobileView === "list" ? TOKENS.colors.brandPrimary : TOKENS.colors.borderLight}`,
-                background: mobileView === "list" ? TOKENS.colors.brandPrimary : TOKENS.colors.surfaceSubtle,
-                color: mobileView === "list" ? "#FFFFFF" : TOKENS.colors.textSecondary,
-              }}
-            >
-              <Users size={13} />
-              Employees ({filteredEmployees.length})
-            </button>
+          {/* Animated Trails Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowAnimatedTrails(!showAnimatedTrails)}
+            title="Toggle animated route lines and movement trails"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 12px",
+              borderRadius: TOKENS.radius.md,
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+              border: `1.5px solid ${showAnimatedTrails ? "#10B981" : TOKENS.colors.borderLight}`,
+              background: showAnimatedTrails ? "rgba(16, 185, 129, 0.15)" : TOKENS.colors.surfaceSubtle,
+              color: showAnimatedTrails ? "#059669" : TOKENS.colors.textSecondary,
+              transition: "all 0.2s ease",
+            }}
+          >
+            <Route size={14} color={showAnimatedTrails ? "#10B981" : undefined} />
+            Animated Trails {showAnimatedTrails ? "ON" : "OFF"}
+          </button>
+
+          {/* Radar Waves Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowRadarPulses(!showRadarPulses)}
+            title="Toggle glowing radar ripple rings"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 12px",
+              borderRadius: TOKENS.radius.md,
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+              border: `1.5px solid ${showRadarPulses ? "#10B981" : TOKENS.colors.borderLight}`,
+              background: showRadarPulses ? "rgba(16, 185, 129, 0.15)" : TOKENS.colors.surfaceSubtle,
+              color: showRadarPulses ? "#059669" : TOKENS.colors.textSecondary,
+              transition: "all 0.2s ease",
+            }}
+          >
+            <Radio size={14} color={showRadarPulses ? "#10B981" : undefined} />
+            Radar Waves
+          </button>
+
+          {/* Map Style Selector */}
+          <div
+            style={{
+              display: "flex",
+              background: TOKENS.colors.surfaceSubtle,
+              padding: "2px",
+              borderRadius: TOKENS.radius.md,
+              border: `1px solid ${TOKENS.colors.borderLight}`,
+            }}
+          >
+            {(["dark", "streets", "light"] as const).map((styleKey) => (
+              <button
+                key={styleKey}
+                type="button"
+                onClick={() => handleSwitchMapStyle(styleKey)}
+                style={{
+                  padding: "5px 10px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  border: 0,
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  background: currentMapStyle === styleKey ? TOKENS.colors.brandPrimary : "transparent",
+                  color: currentMapStyle === styleKey ? "#FFFFFF" : TOKENS.colors.textSecondary,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {styleKey === "dark" ? "Night Radar" : styleKey === "streets" ? "Streets" : "Light"}
+              </button>
+            ))}
           </div>
 
           <button
@@ -559,7 +969,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
             }}
           >
             <RefreshCw size={13} className={isLoading ? "spin" : ""} />
-            Refresh
+            Sync
           </button>
 
           <button
@@ -569,14 +979,15 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
               display: "flex",
               alignItems: "center",
               gap: "6px",
-              background: TOKENS.colors.brandPrimary,
+              background: "linear-gradient(135deg, #087A5B 0%, #066047 100%)",
               color: "#FFFFFF",
               border: 0,
               padding: "6px 14px",
               borderRadius: TOKENS.radius.md,
               fontSize: "12px",
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(8, 122, 91, 0.3)",
             }}
           >
             <Maximize2 size={13} />
@@ -585,7 +996,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
         </div>
       </div>
 
-      {/* Main Container: Split into Left Employee Sidebar & Right Map */}
+      {/* Main Grid: Left Directory & Right Live Map Canvas */}
       <div
         className="tracking-grid-container"
         style={{
@@ -596,7 +1007,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
           minHeight: 0,
         }}
       >
-        {/* Left Sidebar: Search & Employees List */}
+        {/* Left Sidebar */}
         <div
           className={mobileView === "map" ? "chat-sidebar-mobile-hidden" : undefined}
           style={{
@@ -610,7 +1021,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
             minHeight: "400px",
           }}
         >
-          {/* Search and Filters Header */}
+          {/* Search Header */}
           <div style={{ padding: "14px", borderBottom: `1px solid ${TOKENS.colors.borderLight}` }}>
             <div
               style={{
@@ -620,14 +1031,14 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                 background: TOKENS.colors.surfaceSubtle,
                 border: `1px solid ${TOKENS.colors.borderLight}`,
                 borderRadius: TOKENS.radius.md,
-                padding: "6px 10px",
+                padding: "8px 12px",
                 marginBottom: "10px",
               }}
             >
               <Search size={14} color={TOKENS.colors.textMuted} />
               <input
                 type="text"
-                placeholder="Search employee by name, code..."
+                placeholder="Search staff by name or dept..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -666,13 +1077,13 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
             </div>
           </div>
 
-          {/* Employee Cards List */}
+          {/* Employee Directory List */}
           <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
             {filteredEmployees.length === 0 ? (
               <div style={{ padding: "30px 16px", textAlign: "center", color: TOKENS.colors.textMuted }}>
                 <Users size={28} style={{ margin: "0 auto 8px", opacity: 0.4 }} />
-                <div style={{ fontSize: "13px", fontWeight: 600 }}>No employees found</div>
-                <div style={{ fontSize: "11px" }}>Try adjusting your search query or filter.</div>
+                <div style={{ fontSize: "13px", fontWeight: 600 }}>No staff members found</div>
+                <div style={{ fontSize: "11px" }}>Try adjusting your search filter.</div>
               </div>
             ) : (
               filteredEmployees.map((emp) => {
@@ -692,7 +1103,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                         mapRef.current.flyTo({
                           center: [emp.currentLocation!.longitude, emp.currentLocation!.latitude],
                           zoom: 15,
-                          duration: 800,
+                          duration: 900,
                         });
                       }
                     }}
@@ -700,31 +1111,31 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                       display: "flex",
                       alignItems: "center",
                       gap: "10px",
-                      padding: "10px",
+                      padding: "10px 12px",
                       borderRadius: TOKENS.radius.md,
                       cursor: "pointer",
                       marginBottom: "4px",
                       transition: "all 0.15s ease",
-                      background: isSelected ? TOKENS.colors.brandSubtle : "transparent",
-                      border: `1px solid ${isSelected ? TOKENS.colors.brandBorder : "transparent"}`,
+                      background: isSelected ? "rgba(16, 185, 129, 0.12)" : "transparent",
+                      border: `1.5px solid ${isSelected ? "#10B981" : "transparent"}`,
                     }}
                   >
                     <div style={{ position: "relative", flexShrink: 0 }}>
-                      <Avatar name={emp.name} avatar={emp.avatar} size={32} />
+                      <Avatar name={emp.name} avatar={emp.avatar} size={36} />
                       <span
                         style={{
                           position: "absolute",
                           bottom: 0,
                           right: 0,
-                          width: "10px",
-                          height: "10px",
+                          width: "11px",
+                          height: "11px",
                           borderRadius: "50%",
                           backgroundColor: isOnline
-                            ? TOKENS.colors.success
+                            ? "#10B981"
                             : isDisconnected
-                            ? TOKENS.colors.warning
+                            ? "#F59E0B"
                             : TOKENS.colors.borderStrong,
-                          border: "1.5px solid #FFFFFF",
+                          border: "2px solid #FFFFFF",
                         }}
                       />
                     </div>
@@ -735,7 +1146,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                           style={{
                             fontSize: "13px",
                             fontWeight: 700,
-                            color: TOKENS.colors.textPrimary,
+                            color: isSelected ? "#059669" : TOKENS.colors.textPrimary,
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -760,7 +1171,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
           </div>
         </div>
 
-        {/* Right Map Canvas & Floating Employee Details Card */}
+        {/* Right Map Canvas with Floating HUD & Info Cards */}
         <div
           className={`tracking-map-canvas-mobile ${mobileView === "list" ? "chat-main-mobile-hidden" : ""}`}
           style={{
@@ -769,11 +1180,50 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
             overflow: "hidden",
             border: `1px solid ${TOKENS.colors.borderLight}`,
             boxShadow: TOKENS.shadows.sm,
-            background: "#E5E7EB",
+            background: "#0F172A",
             minHeight: "420px",
           }}
         >
           <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
+
+          {/* Floating Trail HUD Indicator */}
+          {selectedEmployee && showAnimatedTrails && selectedEmployeeRoutePoints.length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: "16px",
+                left: "16px",
+                background: "rgba(15, 23, 42, 0.88)",
+                backdropFilter: "blur(8px)",
+                border: "1px solid rgba(16, 185, 129, 0.4)",
+                borderRadius: TOKENS.radius.md,
+                padding: "8px 14px",
+                color: "#FFFFFF",
+                fontSize: "12px",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                zIndex: 25,
+              }}
+            >
+              <div
+                style={{
+                  width: "10px",
+                  height: "10px",
+                  borderRadius: "50%",
+                  background: "#10B981",
+                  boxShadow: "0 0 8px #10B981",
+                  animation: "pulseLaser 1.5s infinite",
+                }}
+              />
+              <span>Live Animated Trail: {selectedEmployee.name}</span>
+              <span style={{ color: "#34D399", fontSize: "11px", fontWeight: 600 }}>
+                ({selectedEmployeeRoutePoints.length} GPS checkpoints)
+              </span>
+            </div>
+          )}
 
           {/* Selected Employee Floating Detail Drawer */}
           {selectedEmployee && (
@@ -786,11 +1236,11 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                 right: "20px",
                 maxWidth: "480px",
                 background: "rgba(255, 255, 255, 0.95)",
-                backdropFilter: "blur(10px)",
-                border: `1px solid ${TOKENS.colors.borderLight}`,
+                backdropFilter: "blur(12px)",
+                border: "1px solid rgba(16, 185, 129, 0.3)",
                 borderRadius: TOKENS.radius.lg,
                 padding: "16px",
-                boxShadow: TOKENS.shadows.lg,
+                boxShadow: "0 10px 25px rgba(0,0,0,0.25)",
                 zIndex: 20,
               }}
             >
@@ -815,21 +1265,21 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                     borderRadius: "12px",
                     background:
                       selectedEmployee.trackingStatus === "ONLINE"
-                        ? TOKENS.colors.successBg
+                        ? "rgba(16, 185, 129, 0.15)"
                         : selectedEmployee.trackingStatus === "DISCONNECTED"
-                        ? TOKENS.colors.warningBg
+                        ? "rgba(245, 158, 11, 0.15)"
                         : TOKENS.colors.surfaceMuted,
                     color:
                       selectedEmployee.trackingStatus === "ONLINE"
-                        ? TOKENS.colors.success
+                        ? "#059669"
                         : selectedEmployee.trackingStatus === "DISCONNECTED"
-                        ? TOKENS.colors.warning
+                        ? "#D97706"
                         : TOKENS.colors.textMuted,
                     border: `1px solid ${
                       selectedEmployee.trackingStatus === "ONLINE"
-                        ? TOKENS.colors.successBorder
+                        ? "rgba(16, 185, 129, 0.4)"
                         : selectedEmployee.trackingStatus === "DISCONNECTED"
-                        ? TOKENS.colors.warningBorder
+                        ? "rgba(245, 158, 11, 0.4)"
                         : TOKENS.colors.borderLight
                     }`,
                   }}
@@ -847,7 +1297,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                   marginBottom: "12px",
                   background: TOKENS.colors.surfaceSubtle,
                   borderRadius: TOKENS.radius.md,
-                  padding: "8px",
+                  padding: "8px 10px",
                   border: `1px solid ${TOKENS.colors.borderLight}`,
                 }}
               >
@@ -871,11 +1321,11 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                 </div>
 
                 <div>
-                  <div style={{ fontSize: "10px", color: TOKENS.colors.textMuted, textTransform: "uppercase" }}>GPS Accuracy</div>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: TOKENS.colors.textPrimary }}>
-                    {selectedEmployee.currentLocation?.accuracy
-                      ? `${Math.round(selectedEmployee.currentLocation.accuracy)}m`
-                      : "—"}
+                  <div style={{ fontSize: "10px", color: TOKENS.colors.textMuted, textTransform: "uppercase" }}>Speed</div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#059669" }}>
+                    {selectedEmployee.currentLocation?.speed
+                      ? `${Math.round(selectedEmployee.currentLocation.speed * 3.6)} km/h`
+                      : "Stationary"}
                   </div>
                 </div>
 
@@ -897,7 +1347,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                     onClick={() => onViewRoute(selectedEmployee.id || selectedEmployee._id)}
                     style={{
                       flex: 1,
-                      background: TOKENS.colors.brandPrimary,
+                      background: "linear-gradient(135deg, #087A5B 0%, #066047 100%)",
                       color: "#FFFFFF",
                       border: 0,
                       padding: "8px 12px",
@@ -909,6 +1359,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                       alignItems: "center",
                       justifyContent: "center",
                       gap: "6px",
+                      boxShadow: "0 2px 8px rgba(8, 122, 91, 0.3)",
                     }}
                   >
                     <Navigation size={13} />
@@ -968,20 +1419,58 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
       </div>
 
       <style jsx global>{`
-        @keyframes pulseRadar {
+        /* Multi-Ring Expanding Pulsing Radar Animations */
+        .radar-wave {
+          position: absolute;
+          inset: -12px;
+          border-radius: 50%;
+          border: 2px solid #10B981;
+          pointer-events: none;
+        }
+
+        .radar-wave.wave-1 {
+          animation: radarPulse 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+        }
+
+        .radar-wave.wave-2 {
+          animation: radarPulse 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite 0.8s;
+        }
+
+        .radar-wave.wave-3 {
+          animation: radarPulse 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite 1.6s;
+        }
+
+        @keyframes radarPulse {
           0% {
-            transform: scale(0.95);
-            opacity: 0.8;
+            transform: scale(0.6);
+            opacity: 0.9;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.8);
           }
-          70% {
-            transform: scale(1.6);
-            opacity: 0;
+          50% {
+            opacity: 0.4;
           }
           100% {
-            transform: scale(0.95);
+            transform: scale(2.8);
             opacity: 0;
+            box-shadow: 0 0 24px rgba(16, 185, 129, 0);
           }
         }
+
+        @keyframes pulseLaser {
+          0% {
+            transform: scale(0.9);
+            box-shadow: 0 0 4px #10B981;
+          }
+          50% {
+            transform: scale(1.3);
+            box-shadow: 0 0 12px #10B981;
+          }
+          100% {
+            transform: scale(0.9);
+            box-shadow: 0 0 4px #10B981;
+          }
+        }
+
         .spin {
           animation: spin 1s linear infinite;
         }
