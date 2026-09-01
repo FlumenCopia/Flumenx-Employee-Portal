@@ -67,6 +67,7 @@ import {
 } from "@/lib/types";
 import { DirectCallModal } from "./DirectCallModal";
 import { DailyStandupModal } from "./DailyStandupModal";
+import { ChatMediaLightbox } from "./ChatMediaLightbox";
 import { useWebRTCCall } from "./useWebRTCCall";
 import { getGlobalSocket } from "@/lib/socket";
 
@@ -96,6 +97,10 @@ export function ChatHubPage({ role }: Props) {
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // Pagination & Upward Infinite Scrolling
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
 
   // Users, Tasks, Clients for Smart Embeds
   const [usersList, setUsersList] = useState<ChatUserOption[]>([]);
@@ -134,7 +139,7 @@ export function ChatHubPage({ role }: Props) {
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
   // Lightbox Media Preview
-  const [previewMediaUrl, setPreviewMediaUrl] = useState<string | null>(null);
+  const [previewMedia, setPreviewMedia] = useState<{ src: string; alt?: string; isVideo?: boolean } | null>(null);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -187,21 +192,80 @@ export function ChatHubPage({ role }: Props) {
     loadInitialData();
   }, []);
 
-  // Load Messages for Active Conversation
+  // Load Messages for Active Conversation (Initial latest 30 batch)
   const loadMessages = async (conversationId: string) => {
     setLoadingMessages(true);
+    setHasMoreMessages(false);
     try {
-      const msgs = await api<ChatMessageItem[]>(`/chat/conversations/${conversationId}/messages/`);
-      setMessages(Array.isArray(msgs) ? msgs : []);
+      const res = await api<any>(`/chat/conversations/${conversationId}/messages/?limit=30`);
+      const msgs = Array.isArray(res) ? res : res.messages || [];
+      const hasMore = Array.isArray(res) ? false : Boolean(res.has_more);
+
+      setMessages(msgs);
+      setHasMoreMessages(hasMore);
+
       // Mark as read in local list
       setConversations((prev) =>
         prev.map((c) => (c.id === conversationId ? { ...c, has_unread: false } : c))
       );
-      setTimeout(() => scrollToBottom("auto"), 50);
+      setTimeout(() => scrollToBottom("auto"), 60);
     } catch (err: any) {
       toast.error(err?.message || "Failed to load messages");
     } finally {
       setLoadingMessages(false);
+    }
+  };
+
+  // Load Older Messages (Infinite scroll up)
+  const loadOlderMessages = async () => {
+    if (!activeConversationId || loadingOlderMessages || !hasMoreMessages || messages.length === 0) return;
+
+    const oldestMessage = messages[0];
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const previousScrollHeight = container.scrollHeight;
+    const previousScrollTop = container.scrollTop;
+
+    setLoadingOlderMessages(true);
+    try {
+      const res = await api<any>(
+        `/chat/conversations/${activeConversationId}/messages/?limit=30&before=${encodeURIComponent(
+          oldestMessage.created_at
+        )}`
+      );
+      const olderMsgs = Array.isArray(res) ? res : res.messages || [];
+      const hasMore = Array.isArray(res) ? false : Boolean(res.has_more);
+
+      if (olderMsgs.length > 0) {
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => String(m.id)));
+          const filteredNew = olderMsgs.filter((m: any) => !existingIds.has(String(m.id)));
+          return [...filteredNew, ...prev];
+        });
+        setHasMoreMessages(hasMore);
+
+        // Keep scroll anchor position stable so UI doesn't jump
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            const newScrollHeight = messagesContainerRef.current.scrollHeight;
+            messagesContainerRef.current.scrollTop = newScrollHeight - previousScrollHeight + previousScrollTop;
+          }
+        });
+      } else {
+        setHasMoreMessages(false);
+      }
+    } catch (err: any) {
+      console.error("Failed to load older messages", err);
+    } finally {
+      setLoadingOlderMessages(false);
+    }
+  };
+
+  const handleScrollMessages = (e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    if (container.scrollTop < 60 && hasMoreMessages && !loadingOlderMessages) {
+      loadOlderMessages();
     }
   };
 
@@ -982,6 +1046,7 @@ export function ChatHubPage({ role }: Props) {
               {/* MESSAGE THREAD FEED */}
               <div
                 ref={messagesContainerRef}
+                onScroll={handleScrollMessages}
                 className="chat-messages-scroll-area"
                 style={{
                   flex: "1 1 0%",
@@ -995,6 +1060,54 @@ export function ChatHubPage({ role }: Props) {
                   overscrollBehavior: "contain",
                 }}
               >
+                {/* UPWARD INFINITE SCROLL LOADING SPINNER */}
+                {loadingOlderMessages && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      padding: "8px 0",
+                      color: "var(--color-primary, #087A5B)",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Loading earlier messages...</span>
+                  </div>
+                )}
+
+                {!loadingOlderMessages && hasMoreMessages && (
+                  <div style={{ textAlign: "center", padding: "4px 0" }}>
+                    <button
+                      type="button"
+                      onClick={loadOlderMessages}
+                      style={{
+                        background: "var(--panel2, #F8FAF9)",
+                        border: "1px solid var(--border, #DCE3E0)",
+                        borderRadius: "16px",
+                        padding: "3px 12px",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        color: "var(--color-primary, #087A5B)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      ↑ Load earlier messages
+                    </button>
+                  </div>
+                )}
+
+                {!hasMoreMessages && messages.length > 0 && !loadingMessages && (
+                  <div style={{ textAlign: "center", padding: "6px 0 2px", color: "var(--color-text-muted, #718096)", fontSize: "11px" }}>
+                    <span style={{ padding: "3px 10px", borderRadius: "12px", background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border, #DCE3E0)" }}>
+                      ✦ Beginning of conversation history
+                    </span>
+                  </div>
+                )}
+
                 {loadingMessages ? (
                   <div style={{ padding: "40px", textAlign: "center", color: "var(--color-text-muted, #718096)", fontSize: "13px" }}>
                     Loading conversation history...
@@ -1061,7 +1174,13 @@ export function ChatHubPage({ role }: Props) {
                               <img
                                 src={resolveChatMediaUrl(msg.attachments[0].url)}
                                 alt={msg.attachments[0].name}
-                                onClick={() => setPreviewMediaUrl(resolveChatMediaUrl(msg.attachments![0].url))}
+                                onClick={() =>
+                                  setPreviewMedia({
+                                    src: resolveChatMediaUrl(msg.attachments![0].url),
+                                    alt: msg.attachments![0].name,
+                                    isVideo: false,
+                                  })
+                                }
                                 onError={(e) => {
                                   const target = e.currentTarget;
                                   const currentSrc = target.src;
@@ -1074,13 +1193,14 @@ export function ChatHubPage({ role }: Props) {
                                 style={{
                                   maxWidth: "100%",
                                   width: "280px",
-                                  maxHeight: "240px",
+                                  maxHeight: "260px",
                                   borderRadius: "10px",
                                   objectFit: "cover",
                                   cursor: "zoom-in",
                                   border: "1px solid rgba(0,0,0,0.1)",
                                   background: "rgba(0,0,0,0.04)",
                                   display: "block",
+                                  transition: "transform 0.15s ease",
                                 }}
                               />
                               <span style={{ fontSize: "11px", opacity: 0.8 }}>{msg.attachments[0].name}</span>
@@ -1093,7 +1213,14 @@ export function ChatHubPage({ role }: Props) {
                               <video
                                 controls
                                 src={resolveChatMediaUrl(msg.attachments[0].url)}
-                                style={{ maxWidth: "100%", width: "300px", maxHeight: "200px", borderRadius: "10px" }}
+                                onClick={() =>
+                                  setPreviewMedia({
+                                    src: resolveChatMediaUrl(msg.attachments![0].url),
+                                    alt: msg.attachments![0].name,
+                                    isVideo: true,
+                                  })
+                                }
+                                style={{ maxWidth: "100%", width: "300px", maxHeight: "200px", borderRadius: "10px", cursor: "pointer" }}
                               />
                               <span style={{ fontSize: "11px", opacity: 0.8 }}>{msg.attachments[0].name}</span>
                             </div>
@@ -1942,26 +2069,13 @@ export function ChatHubPage({ role }: Props) {
       {/* ========================================================= */}
       {/* LIGHTBOX MEDIA PREVIEW */}
       {/* ========================================================= */}
-      {previewMediaUrl && (
-        <div
-          onClick={() => setPreviewMediaUrl(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.9)",
-            zIndex: 3000,
-            display: "grid",
-            placeItems: "center",
-            padding: "20px",
-            cursor: "zoom-out",
-          }}
-        >
-          <img
-            src={previewMediaUrl}
-            alt="Preview"
-            style={{ maxWidth: "90vw", maxHeight: "90vh", borderRadius: "12px", objectFit: "contain" }}
-          />
-        </div>
+      {previewMedia && (
+        <ChatMediaLightbox
+          src={previewMedia.src}
+          alt={previewMedia.alt}
+          isVideo={previewMedia.isVideo}
+          onClose={() => setPreviewMedia(null)}
+        />
       )}
     </Shell>
   );

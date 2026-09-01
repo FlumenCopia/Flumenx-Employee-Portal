@@ -248,15 +248,43 @@ export async function getConversationMessages(req: Request, res: Response): Prom
     { $set: { 'participants.$.lastReadAt': new Date() } }
   );
 
-  const messages = await ChatMessage.find({
+  const limit = Math.min(Math.max(parseInt(req.query.limit as string, 10) || 30, 1), 100);
+  const before = req.query.before as string;
+
+  const filter: any = {
     conversation: id,
     isDeleted: false,
-  })
-    .populate('sender')
-    .sort({ createdAt: 1 })
-    .limit(100);
+  };
 
-  const formatted = messages.map((m) => ({
+  if (before) {
+    const beforeDate = new Date(before);
+    if (!isNaN(beforeDate.getTime())) {
+      filter.createdAt = { $lt: beforeDate };
+    }
+  }
+
+  // Fetch messages in descending order (latest first) up to limit
+  const messages = await ChatMessage.find(filter)
+    .populate('sender')
+    .sort({ createdAt: -1 })
+    .limit(limit);
+
+  // Check if there are older messages prior to this batch
+  let hasMore = false;
+  if (messages.length > 0) {
+    const oldestInBatch = messages[messages.length - 1].createdAt;
+    const countOlder = await ChatMessage.countDocuments({
+      conversation: id,
+      isDeleted: false,
+      createdAt: { $lt: oldestInBatch },
+    });
+    hasMore = countOlder > 0;
+  }
+
+  // Reverse so the client receives them in chronological order (oldest to newest)
+  const chronological = messages.reverse();
+
+  const formatted = chronological.map((m) => ({
     id: m._id,
     conversation_id: m.conversation,
     sender_id: m.sender?._id || m.sender || null,
@@ -284,7 +312,12 @@ export async function getConversationMessages(req: Request, res: Response): Prom
     is_self: String(m.sender?._id || m.sender) === String(currentUserId),
   }));
 
-  res.json(formatted);
+  res.json({
+    messages: formatted,
+    has_more: hasMore,
+    oldest_cursor: formatted.length > 0 ? formatted[0].created_at : null,
+    total_in_batch: formatted.length,
+  });
 }
 
 // 5. Send Message (Text, Media, Smart Task/Client Embed, Daily Standup)
