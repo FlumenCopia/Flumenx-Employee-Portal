@@ -77,7 +77,13 @@ function resolveChatMediaUrl(url?: string): string {
     const filename = url.replace("/uploads/", "");
     return `/media/chat/${filename}`;
   }
-  return url.startsWith("/") ? url : `/${url}`;
+  if (url.startsWith("/media/")) {
+    return url;
+  }
+  if (url.startsWith("/")) {
+    return `/media/chat${url}`;
+  }
+  return `/media/chat/${url}`;
 }
 
 type Props = {
@@ -130,8 +136,17 @@ export function ChatHubPage({ role }: Props) {
   // Lightbox Media Preview
   const [previewMediaUrl, setPreviewMediaUrl] = useState<string | null>(null);
 
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior, block: "end" });
+    } else if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  };
 
   // Active Conversation Object
   const activeConversation = useMemo(() => {
@@ -155,8 +170,11 @@ export function ChatHubPage({ role }: Props) {
       setTasksList(Array.isArray(tasks) ? tasks : tasks?.results || []);
       setClientsList(Array.isArray(clients) ? clients : clients?.results || []);
 
+      // Auto-select first conversation ONLY on desktop
       if (convList.length > 0 && !activeConversationId) {
-        setActiveConversationId(convList[0].id);
+        if (typeof window !== "undefined" && window.innerWidth > 868) {
+          setActiveConversationId(convList[0].id);
+        }
       }
     } catch (err: any) {
       toast.error(err?.message || "Failed to load chat data");
@@ -179,7 +197,7 @@ export function ChatHubPage({ role }: Props) {
       setConversations((prev) =>
         prev.map((c) => (c.id === conversationId ? { ...c, has_unread: false } : c))
       );
-      setTimeout(scrollToBottom, 50);
+      setTimeout(() => scrollToBottom("auto"), 50);
     } catch (err: any) {
       toast.error(err?.message || "Failed to load messages");
     } finally {
@@ -216,7 +234,17 @@ export function ChatHubPage({ role }: Props) {
           if (prev.some((m) => String(m.id) === String(data.message.id))) return prev;
           return [...prev, data.message];
         });
-        setTimeout(scrollToBottom, 50);
+        
+        // Auto-scroll if user is near bottom or sent by current user
+        const container = messagesContainerRef.current;
+        if (container) {
+          const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 160;
+          if (isNearBottom || data.message.is_self) {
+            setTimeout(() => scrollToBottom("smooth"), 50);
+          }
+        } else {
+          setTimeout(() => scrollToBottom("smooth"), 50);
+        }
       }
 
       setConversations((prev) =>
@@ -263,10 +291,6 @@ export function ChatHubPage({ role }: Props) {
       socket.off("chat:conversation-updated", handleConversationUpdated);
     };
   }, [activeConversationId]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
 
   // Filtered conversations
   const filteredConversations = useMemo(() => {
@@ -599,7 +623,7 @@ export function ChatHubPage({ role }: Props) {
 
       {/* MAIN CHAT CONTAINER */}
       <div
-        className="chat-mobile-container"
+        className={`chat-mobile-container ${activeConversationId ? "active-chat-open" : ""}`}
         style={{
           display: "grid",
           gridTemplateColumns: showInfoDrawer ? "300px 1fr 280px" : "320px 1fr",
@@ -623,6 +647,9 @@ export function ChatHubPage({ role }: Props) {
             display: "flex",
             flexDirection: "column",
             background: "var(--panel2, #F8FAF9)",
+            height: "100%",
+            minHeight: 0,
+            overflow: "hidden",
           }}
         >
           {/* Search Header */}
@@ -665,7 +692,7 @@ export function ChatHubPage({ role }: Props) {
           </div>
 
           {/* Conversation Items */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+          <div style={{ flex: "1 1 0%", minHeight: 0, overflowY: "auto", padding: "8px", WebkitOverflowScrolling: "touch" }}>
             {loadingConversations ? (
               <div style={{ padding: "30px", textAlign: "center", color: "var(--color-text-muted, #718096)", fontSize: "13px" }}>
                 Loading conversations...
@@ -766,30 +793,41 @@ export function ChatHubPage({ role }: Props) {
         {/* ========================================================= */}
         <div
           className={!activeConversationId ? "chat-main-mobile-hidden" : "chat-main-mobile-full"}
-          style={{ display: "flex", flexDirection: "column", background: "var(--color-background, #F3F5F4)", position: "relative" }}
+          style={{ display: "flex", flexDirection: "column", background: "var(--color-background, #F3F5F4)", position: "relative", height: "100%", minHeight: 0, overflow: "hidden" }}
         >
           {activeConversation ? (
             <>
               {/* Active Conversation Top Bar */}
               <div
+                className="chat-active-header"
                 style={{
-                  padding: "10px 16px",
+                  padding: "10px 14px",
                   borderBottom: "1px solid var(--border, #DCE3E0)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   background: "var(--panel, #ffffff)",
                   gap: "8px",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 40,
+                  flexShrink: 0,
+                  minHeight: "56px",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, flex: 1 }}>
                   <button
                     type="button"
                     className="chat-mobile-back-btn"
-                    onClick={() => setActiveConversationId(null)}
+                    onClick={() => {
+                      setActiveConversationId(null);
+                      setShowInfoDrawer(false);
+                    }}
                     title="Back to conversation list"
+                    aria-label="Back to conversation list"
                   >
-                    <ArrowLeft size={18} />
+                    <ArrowLeft size={19} />
                   </button>
 
                   {activeConversation.type !== "DIRECT" ? (
@@ -942,7 +980,21 @@ export function ChatHubPage({ role }: Props) {
               )}
 
               {/* MESSAGE THREAD FEED */}
-              <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div
+                ref={messagesContainerRef}
+                className="chat-messages-scroll-area"
+                style={{
+                  flex: "1 1 0%",
+                  minHeight: 0,
+                  overflowY: "auto",
+                  padding: "16px 18px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "14px",
+                  WebkitOverflowScrolling: "touch",
+                  overscrollBehavior: "contain",
+                }}
+              >
                 {loadingMessages ? (
                   <div style={{ padding: "40px", textAlign: "center", color: "var(--color-text-muted, #718096)", fontSize: "13px" }}>
                     Loading conversation history...
@@ -1302,7 +1354,18 @@ export function ChatHubPage({ role }: Props) {
               </div>
 
               {/* SMART MESSAGE INPUT FOOTER */}
-              <div className="chat-input-footer-wrapper" style={{ padding: "12px 16px", borderTop: "1px solid var(--border, #DCE3E0)", background: "var(--panel, #ffffff)" }}>
+              <div
+                className="chat-input-footer-wrapper"
+                style={{
+                  padding: "10px 14px",
+                  borderTop: "1px solid var(--border, #DCE3E0)",
+                  background: "var(--panel, #ffffff)",
+                  position: "sticky",
+                  bottom: 0,
+                  zIndex: 40,
+                  flexShrink: 0,
+                }}
+              >
                 {/* Smart Action Bar */}
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px", overflowX: "auto", paddingBottom: "2px", WebkitOverflowScrolling: "touch" }}>
                   <button
