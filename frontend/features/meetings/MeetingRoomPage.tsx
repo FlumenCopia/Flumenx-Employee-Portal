@@ -31,6 +31,11 @@ import {
   Volume2,
   Wifi,
   Zap,
+  AlertCircle,
+  Camera,
+  HelpCircle,
+  Info,
+  CheckCircle2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Avatar } from "@/components/icons";
@@ -231,57 +236,96 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     };
   }, [meetingCode]);
 
+  // Permission & Hardware Diagnostic State
+  const [permissionState, setPermissionState] = useState<"checking" | "granted" | "denied" | "prompt">("prompt");
+  const [permissionErrorDetail, setPermissionErrorDetail] = useState<string>("");
+  const [showPermissionHelpModal, setShowPermissionHelpModal] = useState<boolean>(false);
+
+  const requestMediaPermissions = useCallback(async (openModalOnDeny = false): Promise<MediaStream | null> => {
+    setPermissionState("checking");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+      });
+      setPermissionState("granted");
+      setPermissionErrorDetail("");
+      setLocalStream(stream);
+      localStreamRef.current = stream;
+      setIsAudioMuted(false);
+      setIsVideoOff(false);
+
+      if (lobbyVideoRef.current) {
+        lobbyVideoRef.current.srcObject = stream;
+        lobbyVideoRef.current.play().catch(() => {});
+      }
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.play().catch(() => {});
+      }
+
+      // If already connected with peers, add or replace tracks
+      peersRef.current.forEach((peer) => {
+        stream.getTracks().forEach((track) => {
+          const sender = peer.pc.getSenders().find((s) => s.track?.kind === track.kind);
+          if (sender) {
+            sender.replaceTrack(track).catch(() => {});
+          } else {
+            peer.pc.addTrack(track, stream);
+          }
+        });
+      });
+
+      showToast("Camera & Microphone connected.");
+      return stream;
+    } catch (err: any) {
+      console.warn("Media permissions error:", err);
+      const isDenied = err.name === "NotAllowedError" || err.name === "PermissionDeniedError";
+      setPermissionState("denied");
+      setPermissionErrorDetail(
+        isDenied
+          ? "Permission denied by browser or device settings. Please grant access in your browser bar."
+          : (err.message || "Failed to access camera or microphone.")
+      );
+
+      // Try getting audio only if video failed
+      try {
+        const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: false,
+        });
+        setLocalStream(audioOnlyStream);
+        localStreamRef.current = audioOnlyStream;
+        setIsAudioMuted(false);
+        setIsVideoOff(true);
+        setPermissionState("granted");
+        return audioOnlyStream;
+      } catch {
+        if (openModalOnDeny) {
+          setShowPermissionHelpModal(true);
+        }
+        return null;
+      }
+    }
+  }, []);
+
   // 2. Initialize Lobby Media Stream with Optimized Audio Settings
   useEffect(() => {
-    let stream: MediaStream | null = null;
-
     async function setupLobbyMedia() {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         setAudioInputDevices(devices.filter((d) => d.kind === "audioinput"));
         setVideoInputDevices(devices.filter((d) => d.kind === "videoinput"));
+      } catch {}
 
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-            video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-          });
-        } catch {
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({
-              audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-              video: false,
-            });
-            setIsVideoOff(true);
-          } catch {
-            try {
-              stream = await navigator.mediaDevices.getUserMedia({
-                audio: false,
-                video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-              });
-              setIsAudioMuted(true);
-            } catch {
-              stream = new MediaStream();
-              setIsAudioMuted(true);
-              setIsVideoOff(true);
-            }
-          }
-        }
-
-        setLocalStream(stream);
-
-        if (lobbyVideoRef.current) {
-          lobbyVideoRef.current.srcObject = stream;
-        }
-      } catch (err) {
-        console.warn("Could not access camera/microphone:", err);
-      }
+      // Automatically request camera & mic on loading the lobby
+      await requestMediaPermissions(false);
     }
 
     if (isInLobby && !isMeetingEnded) {
       setupLobbyMedia();
     }
-  }, [isInLobby, isMeetingEnded]);
+  }, [isInLobby, isMeetingEnded, requestMediaPermissions]);
 
   // Attach local stream whenever entering live meeting
   useEffect(() => {
@@ -1125,10 +1169,80 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
               </div>
             </div>
 
-            <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#34D399" }}>
-              <Sparkles size={14} />
-              <span>Camera & Microphone Ready</span>
-            </div>
+            {permissionState !== "granted" ? (
+              <div
+                style={{
+                  marginTop: "12px",
+                  width: "100%",
+                  padding: "12px 14px",
+                  background: permissionState === "denied" ? "rgba(239, 68, 68, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                  border: `1.5px solid ${permissionState === "denied" ? "#EF4444" : "#F59E0B"}`,
+                  borderRadius: "12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <AlertCircle size={18} color={permissionState === "denied" ? "#EF4444" : "#F59E0B"} style={{ flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontSize: "13px", fontWeight: 700, color: "#FFFFFF" }}>
+                      {permissionState === "denied" ? "Camera & Microphone Blocked" : "Permissions Required"}
+                    </span>
+                    <p style={{ margin: "2px 0 0", fontSize: "11.5px", color: "#94A3B8", lineHeight: 1.3 }}>
+                      {permissionErrorDetail || "Grant camera & microphone access so other participants can see and hear you."}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => requestMediaPermissions(true)}
+                    style={{
+                      padding: "7px 14px",
+                      borderRadius: "8px",
+                      background: "#087A5B",
+                      color: "#FFFFFF",
+                      border: "none",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "5px",
+                    }}
+                  >
+                    <Camera size={14} /> Allow Camera & Mic
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPermissionHelpModal(true)}
+                    style={{
+                      padding: "7px 12px",
+                      borderRadius: "8px",
+                      background: "rgba(255,255,255,0.08)",
+                      border: "1px solid rgba(255,255,255,0.2)",
+                      color: "#E2E8F0",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "5px",
+                    }}
+                  >
+                    <HelpCircle size={14} /> How to Enable
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#34D399" }}>
+                <CheckCircle2 size={14} />
+                <span>Camera & Microphone Ready</span>
+              </div>
+            )}
           </div>
 
           <div style={{ width: "100%", maxWidth: "560px", textAlign: "center" }}>
@@ -1200,6 +1314,116 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
             </div>
           </div>
         </div>
+
+        {/* Permission Help Modal */}
+        {showPermissionHelpModal && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              background: "rgba(0, 0, 0, 0.8)",
+              backdropFilter: "blur(8px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "16px",
+            }}
+            onClick={() => setShowPermissionHelpModal(false)}
+          >
+            <div
+              style={{
+                background: "#13231F",
+                border: "1.5px solid #087A5B",
+                borderRadius: "18px",
+                padding: "24px",
+                maxWidth: "500px",
+                width: "100%",
+                color: "#FFF",
+                boxShadow: "0 20px 50px rgba(0, 0, 0, 0.6)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <Camera size={22} color="#34D399" />
+                  <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 800 }}>How to Enable Camera & Mic</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPermissionHelpModal(false)}
+                  style={{ background: "transparent", border: "none", color: "#94A3B8", cursor: "pointer" }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px", fontSize: "13px", color: "#CBD5E1" }}>
+                <div style={{ background: "rgba(255,255,255,0.04)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <strong style={{ color: "#34D399", display: "block", marginBottom: "4px" }}>📱 Android (Chrome / Firefox):</strong>
+                  1. Tap the 🔒 <strong>Lock / Settings icon</strong> on the left side of the address bar.<br/>
+                  2. Tap <strong>Permissions</strong>.<br/>
+                  3. Set <strong>Camera</strong> and <strong>Microphone</strong> to <strong>Allow</strong>.<br/>
+                  4. Refresh the page.
+                </div>
+
+                <div style={{ background: "rgba(255,255,255,0.04)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <strong style={{ color: "#34D399", display: "block", marginBottom: "4px" }}>🍏 iOS Safari (iPhone / iPad):</strong>
+                  1. Tap <strong>aA</strong> in the URL bar.<br/>
+                  2. Tap <strong>Website Settings</strong>.<br/>
+                  3. Set <strong>Camera</strong> & <strong>Microphone</strong> to <strong>Allow</strong>.<br/>
+                  4. Reload the page.
+                </div>
+
+                <div style={{ background: "rgba(255,255,255,0.04)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <strong style={{ color: "#34D399", display: "block", marginBottom: "4px" }}>💻 PC / Mac (Chrome, Edge, Brave):</strong>
+                  1. Click the 🎛️ <strong>Tune / Lock icon</strong> next to the URL.<br/>
+                  2. Switch <strong>Camera</strong> and <strong>Microphone</strong> toggles to <strong>ON</strong>.<br/>
+                  3. Click &quot;Re-check Permission&quot; below.
+                </div>
+              </div>
+
+              <div style={{ marginTop: "20px", display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setShowPermissionHelpModal(false);
+                    await requestMediaPermissions(true);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "11px",
+                    borderRadius: "10px",
+                    background: "#087A5B",
+                    color: "#FFF",
+                    fontWeight: 700,
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "13px",
+                  }}
+                >
+                  Re-check Permissions
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPermissionHelpModal(false)}
+                  style={{
+                    padding: "11px 18px",
+                    borderRadius: "10px",
+                    background: "rgba(255,255,255,0.1)",
+                    color: "#FFF",
+                    fontWeight: 600,
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "13px",
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1266,6 +1490,63 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           </button>
         </div>
       </header>
+
+      {/* In-Call Camera / Mic Permission Alert */}
+      {permissionState === "denied" && (
+        <div
+          style={{
+            background: "#7F1D1D",
+            borderBottom: "1px solid #EF4444",
+            padding: "7px 12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "10px",
+            fontSize: "12px",
+            color: "#FEE2E2",
+            zIndex: 20,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <AlertCircle size={15} color="#FCA5A5" style={{ flexShrink: 0 }} />
+            <span><strong>Camera / Mic Disabled:</strong> Others cannot see or hear you.</span>
+          </div>
+          <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => requestMediaPermissions(true)}
+              style={{
+                padding: "3px 9px",
+                background: "#EF4444",
+                border: "none",
+                borderRadius: "5px",
+                color: "#FFF",
+                fontWeight: 700,
+                fontSize: "11px",
+                cursor: "pointer",
+              }}
+            >
+              Enable
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPermissionHelpModal(true)}
+              style={{
+                padding: "3px 8px",
+                background: "rgba(255,255,255,0.15)",
+                border: "none",
+                borderRadius: "5px",
+                color: "#FFF",
+                fontWeight: 600,
+                fontSize: "11px",
+                cursor: "pointer",
+              }}
+            >
+              Guide
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Video Area */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
