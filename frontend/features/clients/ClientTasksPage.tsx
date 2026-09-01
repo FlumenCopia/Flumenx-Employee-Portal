@@ -113,7 +113,8 @@ export function ClientTasksPage({ role }: Props) {
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
-      // Must be a client-linked task (not a standalone internal employee task)
+      // Must be a client master deliverable task (not a standalone internal employee task)
+      if (t.is_master_client_task !== true && (t as any).isMasterClientTask !== true) return false;
       const hasClient = Boolean(t.client || t.client_name || (t as any).client_id);
       if (!hasClient) return false;
 
