@@ -242,6 +242,15 @@ export async function getConversationMessages(req: Request, res: Response): Prom
     return;
   }
 
+  // Security Check: Only explicit participants can access conversation messages
+  const isParticipant = (conversation.participants || []).some(
+    (p) => String((p.user as any)?._id || p.user) === String(currentUserId)
+  );
+  if (!isParticipant) {
+    res.status(403).json({ detail: 'Access denied. You are not a participant in this conversation.' });
+    return;
+  }
+
   // Update current user's lastReadAt
   await ChatConversation.updateOne(
     { _id: id, 'participants.user': currentUserId },
@@ -338,6 +347,15 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
   const conversation = await ChatConversation.findById(id);
   if (!conversation) {
     res.status(404).json({ detail: 'Conversation not found.' });
+    return;
+  }
+
+  // Security Check: Only explicit participants can send messages
+  const isParticipant = (conversation.participants || []).some(
+    (p) => String((p.user as any)?._id || p.user) === String(currentUserId)
+  );
+  if (!isParticipant) {
+    res.status(403).json({ detail: 'Access denied. You are not a participant in this conversation.' });
     return;
   }
 
@@ -481,12 +499,21 @@ export async function uploadChatAttachment(req: Request, res: Response): Promise
 
 // 7. Add Members to Group
 export async function addConversationMembers(req: Request, res: Response): Promise<void> {
+  const currentUserId = req.user ? req.user._id.toString() : '';
   const { id } = req.params;
   const { user_ids = [] } = req.body;
 
   const conversation = await ChatConversation.findById(id);
   if (!conversation) {
     res.status(404).json({ detail: 'Conversation not found.' });
+    return;
+  }
+
+  const isParticipant = (conversation.participants || []).some(
+    (p) => String((p.user as any)?._id || p.user) === String(currentUserId)
+  );
+  if (!isParticipant) {
+    res.status(403).json({ detail: 'Access denied. You are not a participant in this conversation.' });
     return;
   }
 
@@ -512,11 +539,20 @@ export async function addConversationMembers(req: Request, res: Response): Promi
 
 // 8. Remove / Kick Member from Group
 export async function removeConversationMember(req: Request, res: Response): Promise<void> {
+  const currentUserId = req.user ? req.user._id.toString() : '';
   const { id, userId } = req.params;
 
   const conversation = await ChatConversation.findById(id);
   if (!conversation) {
     res.status(404).json({ detail: 'Conversation not found.' });
+    return;
+  }
+
+  const isParticipant = (conversation.participants || []).some(
+    (p) => String((p.user as any)?._id || p.user) === String(currentUserId)
+  );
+  if (!isParticipant) {
+    res.status(403).json({ detail: 'Access denied. You are not a participant in this conversation.' });
     return;
   }
 
@@ -531,12 +567,21 @@ export async function removeConversationMember(req: Request, res: Response): Pro
 
 // 9. Pin / Unpin Message
 export async function togglePinMessage(req: Request, res: Response): Promise<void> {
+  const currentUserId = req.user ? req.user._id.toString() : '';
   const { id, messageId } = req.params;
   const message = await ChatMessage.findById(messageId);
   const conversation = await ChatConversation.findById(id);
 
   if (!message || !conversation) {
     res.status(404).json({ detail: 'Message or Conversation not found.' });
+    return;
+  }
+
+  const isParticipant = (conversation.participants || []).some(
+    (p) => String((p.user as any)?._id || p.user) === String(currentUserId)
+  );
+  if (!isParticipant) {
+    res.status(403).json({ detail: 'Access denied. You are not a participant in this conversation.' });
     return;
   }
 

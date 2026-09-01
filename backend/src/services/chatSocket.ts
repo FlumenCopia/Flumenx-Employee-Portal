@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config/env.js';
 import { User } from '../models/User.js';
 import { Employee } from '../models/Employee.js';
+import { ChatConversation } from '../models/ChatConversation.js';
 
 let ioInstance: SocketIOServer | null = null;
 
@@ -133,9 +134,21 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
     // =========================================================================
     // 2. REAL-TIME TEAM CHAT ROOMS & EVENTS
     // =========================================================================
-    socket.on('chat:join-conversation', (data: { conversationId: string }) => {
-      if (data?.conversationId) {
-        socket.join(`conversation:${data.conversationId}`);
+    socket.on('chat:join-conversation', async (data: { conversationId: string }) => {
+      if (data?.conversationId && socket.userId) {
+        try {
+          const conv = await ChatConversation.findById(data.conversationId).select('participants');
+          if (conv) {
+            const isPart = (conv.participants || []).some(
+              (p) => String((p.user as any)?._id || p.user) === String(socket.userId)
+            );
+            if (isPart) {
+              socket.join(`conversation:${data.conversationId}`);
+            }
+          }
+        } catch (err) {
+          console.error('Error verifying chat room join:', err);
+        }
       }
     });
 
