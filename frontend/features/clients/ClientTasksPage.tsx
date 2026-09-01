@@ -65,7 +65,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
   "Backlog": { bg: "#F1F5F9", text: "#475569", border: "#CBD5E1" },
 };
 
-export function ClientTasksPage({ role = "admin" }: Props) {
+export function ClientTasksPage({ role }: Props) {
   const [clients, setClients] = useState<Client[]>([]);
   const [tasks, setTasks] = useState<WorkAssignment[]>([]);
   const [loading, setLoading] = useState(true);

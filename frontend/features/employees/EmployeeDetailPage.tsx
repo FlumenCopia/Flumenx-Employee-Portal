@@ -35,6 +35,7 @@ import { EmployeeDocumentsModal } from "./EmployeeDocumentsModal";
 import { EmployeeForm } from "./EmployeesPage";
 import { getCachedAuthUser } from "@/lib/auth-cache";
 import { getISTDateString } from "@/lib/tzUtils";
+import { WorkspaceRole } from "@/lib/types";
 
 interface EmployeeProfileDetail {
   id: string;
@@ -78,7 +79,7 @@ interface EmployeeProfileDetail {
   };
 }
 
-export function EmployeeDetailPage({ id, role = "admin" }: { id: string; role?: "admin" | "hr" }) {
+export function EmployeeDetailPage({ id, role }: { id: string; role?: "admin" | "hr" | WorkspaceRole }) {
   const router = useRouter();
   const [profile, setProfile] = useState<EmployeeProfileDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -197,7 +198,7 @@ export function EmployeeDetailPage({ id, role = "admin" }: { id: string; role?: 
       <div style={{ padding: "30px 20px" }}>
         <EmptyState title="Employee not found" text={error || "Could not retrieve employee details."} />
         <div style={{ marginTop: "16px", textAlign: "center" }}>
-          <Link href={`/${role}/employees`} style={{ color: "#087A5B", fontWeight: 600, textDecoration: "none" }}>
+          <Link href={role ? `/${role}/employees` : `/employees`} style={{ color: "#087A5B", fontWeight: 600, textDecoration: "none" }}>
             ← Back to Employees Directory
           </Link>
         </div>

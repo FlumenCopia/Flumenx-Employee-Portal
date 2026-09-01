@@ -13,7 +13,7 @@ import { getCachedAuthUser } from "@/lib/auth-cache";
 import { EmployeeDocumentsModal } from "./EmployeeDocumentsModal";
 
 
-type EmployeeWorkspaceRole = "admin" | "hr";
+export type EmployeeWorkspaceRole = "admin" | "hr" | "employee" | "team-lead" | "bdo" | "accountant";
 
 const DEPARTMENT_OPTIONS: Department[] = [
   "Web Development",
@@ -25,15 +25,17 @@ const DEPARTMENT_OPTIONS: Department[] = [
   "Operations",
 ];
 
-const ROLE_OPTIONS: Record<EmployeeWorkspaceRole, { value: PortalRole; label: string }[]> = {
-  admin: [
-    { value: "HR", label: "HR" },
-    { value: "ACCOUNTANT", label: "Accountant" },
-    { value: "BDE", label: "BDE" },
-    { value: "TEAM_LEAD", label: "Team Lead" },
-    { value: "OPERATIONS_HEAD", label: "Operations Head" },
-    { value: "EMPLOYEE", label: "Employee" },
-  ],
+const DEFAULT_ROLE_ITEMS: { value: PortalRole; label: string }[] = [
+  { value: "HR", label: "HR" },
+  { value: "ACCOUNTANT", label: "Accountant" },
+  { value: "BDE", label: "BDE" },
+  { value: "TEAM_LEAD", label: "Team Lead" },
+  { value: "OPERATIONS_HEAD", label: "Operations Head" },
+  { value: "EMPLOYEE", label: "Employee" },
+];
+
+const ROLE_OPTIONS: Record<string, { value: PortalRole; label: string }[]> = {
+  admin: DEFAULT_ROLE_ITEMS,
   hr: [
     { value: "ACCOUNTANT", label: "Accountant" },
     { value: "BDE", label: "BDE" },
@@ -43,8 +45,8 @@ const ROLE_OPTIONS: Record<EmployeeWorkspaceRole, { value: PortalRole; label: st
 };
 
 
-export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole }) {
-  const employeeBasePath = `/${role}/employees`;
+export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
+  const employeeBasePath = role ? `/${role}/employees` : `/employees`;
   const [items, setItems] = useState<Employee[]>([]);
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("All");
@@ -461,7 +463,7 @@ export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole
 export function EmployeeForm({
   employee,
   employeeId,
-  role = "admin",
+  role,
   onSuccess,
   onCancel,
 }: {
@@ -472,7 +474,7 @@ export function EmployeeForm({
   onCancel?: () => void;
 }) {
   const router = useRouter();
-  const employeeBasePath = `/${role}/employees`;
+  const employeeBasePath = role ? `/${role}/employees` : `/employees`;
   const [saved, setSaved] = useState(false);
   const [loadedEmployee, setLoadedEmployee] = useState<Employee | undefined>(employee);
   const [loading, setLoading] = useState(Boolean(employeeId && !employee));
@@ -491,9 +493,10 @@ export function EmployeeForm({
   }, [employeeId, employee]);
 
   const currentEmployee = loadedEmployee;
+  const baseOptions = (role && ROLE_OPTIONS[role]) ? ROLE_OPTIONS[role] : DEFAULT_ROLE_ITEMS;
   const roleOptions = currentEmployee?.portal_role === "ADMIN"
-    ? [{ value: "ADMIN" as PortalRole, label: "Admin" }, ...ROLE_OPTIONS[role]]
-    : ROLE_OPTIONS[role];
+    ? [{ value: "ADMIN" as PortalRole, label: "Admin" }, ...baseOptions]
+    : baseOptions;
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

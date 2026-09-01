@@ -55,7 +55,7 @@ const COMMON_SERVICES_SUGGESTIONS = [
   "Copywriting",
 ];
 
-export function ClientMasterPage({ role = "admin" }: Props) {
+export function ClientMasterPage({ role }: Props) {
   const [clients, setClients] = useState<Client[]>([]);
   const [assignments, setAssignments] = useState<WorkAssignment[]>([]);
   const [kpiHealthMap, setKpiHealthMap] = useState<Record<string, ClientKPIHealth>>({});

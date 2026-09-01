@@ -72,7 +72,7 @@ type Props = {
   role?: WorkspaceRole;
 };
 
-export function ChatHubPage({ role = "admin" }: Props) {
+export function ChatHubPage({ role }: Props) {
   const [conversations, setConversations] = useState<ChatConversationItem[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
