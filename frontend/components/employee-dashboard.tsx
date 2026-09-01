@@ -10,6 +10,7 @@ import {
   Clock3,
   Kanban,
   LogIn,
+  MapPin,
   Palmtree,
   User,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import { AttendanceSummary } from "@/features/attendance/types";
 import { Avatar } from "./icons";
 import { useShellUser } from "./shell";
 import { Badge, EmptyState, PageHeader, Section, StatCard } from "./ui";
+import { EmployeeTrackingCard } from "./tracking-pages";
 
 type EmployeeTask = {
   id: number;
@@ -162,6 +164,13 @@ export function EmployeeDashboard() {
             <Clock3 size={15} /> Attendance
           </Link>
           <Link
+            href="/tracking"
+            className="secondary-button"
+            style={{ padding: "8px 14px", fontSize: "12px", gap: "6px" }}
+          >
+            <MapPin size={15} /> Location Tracking
+          </Link>
+          <Link
             href="/employee/profile"
             className="secondary-button"
             style={{ padding: "8px 14px", fontSize: "12px", gap: "6px" }}
@@ -204,6 +213,11 @@ export function EmployeeDashboard() {
             icon={<LogIn />}
           />
         </Link>
+      </div>
+
+      {/* LIVE LOCATION TRACKING CARD WIDGET */}
+      <div style={{ marginBottom: "16px" }}>
+        <EmployeeTrackingCard />
       </div>
 
       {/* MAIN DASHBOARD CONTENT GRID */}

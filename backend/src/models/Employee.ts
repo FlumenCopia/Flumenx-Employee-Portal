@@ -2,6 +2,17 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export type EmployeeStatus = 'Active' | 'On Leave' | 'Inactive';
 export type EmploymentStatus = 'Probation' | 'Permanent' | 'Contract' | 'Intern';
+export type TrackingStatus = 'ONLINE' | 'OFFLINE' | 'DISCONNECTED' | 'ERROR';
+
+export interface ICurrentLocation {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  speed: number;
+  heading: number;
+  timestamp: Date;
+  batteryLevel?: number;
+}
 
 export interface IEmployee extends Document {
   legacyId?: number;
@@ -23,7 +34,26 @@ export interface IEmployee extends Document {
   avatar: string;
   location: string;
   teamLead?: mongoose.Types.ObjectId | null;
+  // Location Tracking State
+  trackingStatus: TrackingStatus;
+  activeTrackingSession?: mongoose.Types.ObjectId | null;
+  trackingStartedAt?: Date | null;
+  lastLocationAt?: Date | null;
+  currentLocation?: ICurrentLocation | null;
 }
+
+const currentLocationSchema = new Schema(
+  {
+    latitude: { type: Number, required: true },
+    longitude: { type: Number, required: true },
+    accuracy: { type: Number, default: 0 },
+    speed: { type: Number, default: 0 },
+    heading: { type: Number, default: 0 },
+    timestamp: { type: Date, default: Date.now },
+    batteryLevel: { type: Number, default: null },
+  },
+  { _id: false }
+);
 
 const employeeSchema = new Schema<IEmployee>(
   {
@@ -55,6 +85,21 @@ const employeeSchema = new Schema<IEmployee>(
     avatar: { type: String, default: '' },
     location: { type: String, default: '' },
     teamLead: { type: Schema.Types.ObjectId, ref: 'Employee', default: null },
+    // Tracking fields
+    trackingStatus: {
+      type: String,
+      enum: ['ONLINE', 'OFFLINE', 'DISCONNECTED', 'ERROR'],
+      default: 'OFFLINE',
+      index: true,
+    },
+    activeTrackingSession: {
+      type: Schema.Types.ObjectId,
+      ref: 'TrackingSession',
+      default: null,
+    },
+    trackingStartedAt: { type: Date, default: null },
+    lastLocationAt: { type: Date, default: null },
+    currentLocation: { type: currentLocationSchema, default: null },
   },
   {
     timestamps: true,

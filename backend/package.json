@@ -8,9 +8,11 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
-    "seed": "tsx src/scripts/seed.ts"
+    "seed": "tsx src/scripts/seed.ts",
+    "seed:pages-roles": "tsx src/scripts/seed_pages_and_roles.ts"
   },
   "dependencies": {
+    "@turf/turf": "^7.4.0",
     "@types/nodemailer": "^8.0.1",
     "@types/pdfkit": "^0.17.6",
     "bcryptjs": "^2.4.3",

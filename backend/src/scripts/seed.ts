@@ -26,6 +26,7 @@ import { AuditLog } from '../models/AuditLog.js';
 import { EmployeeDocument } from '../models/EmployeeDocument.js';
 import { EmployeeKPIRating } from '../models/EmployeeKPIRating.js';
 import { seedAttendance } from './seed_attendance.js';
+import { defaultRoleActionMatrix } from '../middleware/rbac.js';
 
 async function seed() {
   await connectDB();
@@ -65,27 +66,30 @@ async function seed() {
   ]);
   console.log('[Seed] ✅ Database completely purged. 0 leftover documents.');
 
-  // 1. Seed 19 Portal Pages
+  // 1. Seed 22 Portal Pages
   const pagesData = [
     { moduleCode: 'COMMAND_CENTER', title: 'Command Center', routePath: '/work?view=command-center', icon: 'Sparkles', sidebarOrder: 1 },
-    { moduleCode: 'TASKS', title: 'Task Board', routePath: '/work?view=kanban', icon: 'Kanban', sidebarOrder: 2 },
-    { moduleCode: 'TIMER', title: 'Time Tracker', routePath: '/timer', icon: 'Clock3', sidebarOrder: 3 },
-    { moduleCode: 'TEAM_WORK', title: 'Team Work', routePath: '/team-work', icon: 'Users', sidebarOrder: 4 },
-    { moduleCode: 'CLIENTS', title: 'Clients Master', routePath: '/clients', icon: 'BriefcaseBusiness', sidebarOrder: 5 },
-    { moduleCode: 'TIMELINE', title: 'Timeline & Phases', routePath: '/work?view=timeline', icon: 'Layers', sidebarOrder: 6 },
-    { moduleCode: 'KPI', title: 'KPI Performance', routePath: '/kpi', icon: 'TrendingUp', sidebarOrder: 7 },
-    { moduleCode: 'EMPLOYEES', title: 'Employees Directory', routePath: '/employees', icon: 'Users', sidebarOrder: 8 },
-    { moduleCode: 'ATTENDANCE', title: 'Attendance', routePath: '/attendance', icon: 'CalendarCheck', sidebarOrder: 9 },
-    { moduleCode: 'LEAVES', title: 'Leave Requests', routePath: '/leaves', icon: 'CalendarDays', sidebarOrder: 10 },
-    { moduleCode: 'MEETINGS', title: 'Meetings', routePath: '/meetings', icon: 'UserRound', sidebarOrder: 11 },
-    { moduleCode: 'REPORTS', title: 'Reports Center', routePath: '/reports', icon: 'FileSpreadsheet', sidebarOrder: 12 },
-    { moduleCode: 'ROLES', title: 'Dynamic Roles', routePath: '/admin/roles', icon: 'ShieldAlert', sidebarOrder: 13 },
-    { moduleCode: 'SUPER_ADMIN_USERS', title: 'User Management', routePath: '/admin/users', icon: 'UserCheck', sidebarOrder: 14 },
-    { moduleCode: 'PAGE_MANAGEMENT', title: 'Page Management', routePath: '/pages', icon: 'FileCode', sidebarOrder: 15 },
-    { moduleCode: 'SALARY_SLIPS', title: 'Salary & Payroll', routePath: '/admin/salary-slips', icon: 'Receipt', sidebarOrder: 16 },
-    { moduleCode: 'ANNOUNCEMENTS', title: 'Announcements', routePath: '/admin/announcements', icon: 'Megaphone', sidebarOrder: 17 },
-    { moduleCode: 'AUDIT_LOGS', title: 'Audit Logs', routePath: '/admin/audit-logs', icon: 'History', sidebarOrder: 18 },
-    { moduleCode: 'SETTINGS_ACCESS', title: 'Settings & Access', routePath: '/settings', icon: 'Settings', sidebarOrder: 19 },
+    { moduleCode: 'CHAT', title: 'Team Chat Hub', routePath: '/chat', icon: 'MessageSquare', sidebarOrder: 2 },
+    { moduleCode: 'TASKS', title: 'Task Board', routePath: '/work?view=kanban', icon: 'Kanban', sidebarOrder: 3 },
+    { moduleCode: 'TIMER', title: 'Time Tracker', routePath: '/timer', icon: 'Clock3', sidebarOrder: 4 },
+    { moduleCode: 'TEAM_WORK', title: 'Team Work', routePath: '/team-work', icon: 'Users', sidebarOrder: 5 },
+    { moduleCode: 'CLIENTS', title: 'Clients Master', routePath: '/clients', icon: 'BriefcaseBusiness', sidebarOrder: 6 },
+    { moduleCode: 'CLIENT_TASKS', title: 'Client Tasks & Calendar', routePath: '/clients/tasks', icon: 'Calendar', sidebarOrder: 7 },
+    { moduleCode: 'TIMELINE', title: 'Timeline & Phases', routePath: '/work?view=timeline', icon: 'Layers', sidebarOrder: 8 },
+    { moduleCode: 'KPI', title: 'KPI Performance', routePath: '/kpi', icon: 'TrendingUp', sidebarOrder: 9 },
+    { moduleCode: 'EMPLOYEES', title: 'Employees Directory', routePath: '/employees', icon: 'Users', sidebarOrder: 10 },
+    { moduleCode: 'ATTENDANCE', title: 'Attendance', routePath: '/attendance', icon: 'CalendarCheck', sidebarOrder: 11 },
+    { moduleCode: 'EMPLOYEE_TRACKING', title: 'Employee Location Tracking', routePath: '/tracking', icon: 'MapPin', sidebarOrder: 12 },
+    { moduleCode: 'LEAVES', title: 'Leave Requests', routePath: '/leaves', icon: 'CalendarDays', sidebarOrder: 13 },
+    { moduleCode: 'MEETINGS', title: 'Meetings', routePath: '/meetings', icon: 'UserRound', sidebarOrder: 14 },
+    { moduleCode: 'REPORTS', title: 'Reports Center', routePath: '/reports', icon: 'FileSpreadsheet', sidebarOrder: 15 },
+    { moduleCode: 'ROLES', title: 'Dynamic Roles', routePath: '/admin/roles', icon: 'ShieldAlert', sidebarOrder: 16 },
+    { moduleCode: 'SUPER_ADMIN_USERS', title: 'User Management', routePath: '/admin/users', icon: 'UserCheck', sidebarOrder: 17 },
+    { moduleCode: 'PAGE_MANAGEMENT', title: 'Page Management', routePath: '/pages', icon: 'FileCode', sidebarOrder: 18 },
+    { moduleCode: 'SALARY_SLIPS', title: 'Salary & Payroll', routePath: '/admin/salary-slips', icon: 'Receipt', sidebarOrder: 19 },
+    { moduleCode: 'ANNOUNCEMENTS', title: 'Announcements', routePath: '/admin/announcements', icon: 'Megaphone', sidebarOrder: 20 },
+    { moduleCode: 'AUDIT_LOGS', title: 'Audit Logs', routePath: '/admin/audit-logs', icon: 'History', sidebarOrder: 21 },
+    { moduleCode: 'SETTINGS_ACCESS', title: 'Settings & Access', routePath: '/settings', icon: 'Settings', sidebarOrder: 22 },
   ];
 
   const pageDocMap: Record<string, any> = {};
@@ -97,89 +101,61 @@ async function seed() {
   }
   console.log(`[Seed] ✅ Seeded ${Object.keys(pageDocMap).length} Portal Pages.`);
 
-  // 2. Seed 9 Dynamic Roles with Granular Page Permissions
+  // 2. Seed 10 Dynamic Roles with Granular Page Permissions
   const rolesData = [
     { code: 'SUPER_ADMIN', name: 'Super Admin', description: 'Full wildcard access to all modules and settings', isSuperadminWildcard: true, isSystemRole: true },
     { code: 'ADMIN', name: 'Administrator', description: 'Full operational management access', isSuperadminWildcard: false, isSystemRole: true },
-    { code: 'HR', name: 'Human Resources', description: 'HR Manager with employee, leave, attendance, holiday, and payroll access', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'HR', name: 'Human Resources', description: 'HR Manager with employee, leave, attendance, holiday, tracking, and payroll access', isSuperadminWildcard: false, isSystemRole: true },
     { code: 'ACCOUNTANT', name: 'Accountant', description: 'Accountant with financial, statutory, and salary/payroll access', isSuperadminWildcard: false, isSystemRole: true },
-    { code: 'TEAM_LEAD', name: 'Team Lead', description: 'Team Leader managing assignments, attendance, and reviews', isSuperadminWildcard: false, isSystemRole: true },
-    { code: 'EMPLOYEE', name: 'Employee', description: 'Regular employee with self-service portal and payslip access', isSuperadminWildcard: false, isSystemRole: true },
-    { code: 'BDE', name: 'Business Development', description: 'BDM managing clients, leads, and proposals', isSuperadminWildcard: false, isSystemRole: true },
-    { code: 'OPERATIONS', name: 'Operations', description: 'Operations Specialist managing daily deliverables', isSuperadminWildcard: false, isSystemRole: true },
-    { code: 'OPERATIONS_HEAD', name: 'Operations Head', description: 'Head of Operations overseeing team deliverables', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'TEAM_LEAD', name: 'Team Lead', description: 'Team Leader managing assignments, attendance, tracking, and reviews', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'EMPLOYEE', name: 'Employee', description: 'Regular employee with self-service portal, location tracking, and payslip access', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'BDE', name: 'Business Development', description: 'BDM managing clients, leads, location tracking, and proposals', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'BDO', name: 'Business Development Officer', description: 'BDO managing client acquisition, location tracking, and accounts', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'OPERATIONS', name: 'Operations', description: 'Operations Specialist managing daily deliverables and live workforce tracking', isSuperadminWildcard: false, isSystemRole: true },
+    { code: 'OPERATIONS_HEAD', name: 'Operations Head', description: 'Head of Operations overseeing team deliverables and workforce mobility', isSuperadminWildcard: false, isSystemRole: true },
   ];
 
   const roleDocMap: Record<string, any> = {};
 
   for (const r of rolesData) {
-    const ROLE_MODULE_MAP: Record<string, string[]> = {
-      SUPER_ADMIN: Object.keys(pageDocMap),
-      ADMIN: Object.keys(pageDocMap),
-      OPERATIONS: Object.keys(pageDocMap),
-      OPERATIONS_HEAD: Object.keys(pageDocMap),
-      HR: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS'],
-      ACCOUNTANT: ['TASKS', 'TIMER', 'CLIENTS', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
-      TEAM_LEAD: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS', 'SALARY_SLIPS'],
-      BDE: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'CLIENTS', 'TIMELINE', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS', 'SALARY_SLIPS'],
-      EMPLOYEE: ['TASKS', 'TIMER', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS', 'SALARY_SLIPS'],
-    };
-
-    const allowed = ROLE_MODULE_MAP[r.code] || ['TASKS', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS'];
-    const permissions = allowed
-      .map((mod) => pageDocMap[mod])
-      .filter(Boolean)
-      .map((page) => {
-        const mod = page.moduleCode;
-        const role = r.code;
-        let canCreate = false;
-        let canEdit = false;
-        let canDelete = false;
-
-        if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'OPERATIONS_HEAD') {
-          canCreate = true;
-          canEdit = true;
-          canDelete = true;
-        } else if (role === 'HR') {
-          canCreate = ['EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'KPI', 'TASKS', 'ANNOUNCEMENTS'].includes(mod);
-          canEdit = ['EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'KPI', 'TASKS', 'ANNOUNCEMENTS'].includes(mod);
-          canDelete = false;
-        } else if (role === 'ACCOUNTANT') {
-          canCreate = ['SALARY_SLIPS'].includes(mod);
-          canEdit = ['SALARY_SLIPS'].includes(mod);
-          canDelete = ['SALARY_SLIPS'].includes(mod);
-        } else if (role === 'TEAM_LEAD') {
-          canCreate = ['TASKS', 'TEAM_WORK', 'LEAVES'].includes(mod);
-          canEdit = ['TASKS', 'TEAM_WORK', 'LEAVES', 'KPI'].includes(mod);
-          canDelete = false;
-        } else if (role === 'EMPLOYEE' || role === 'BDE') {
-          canCreate = ['LEAVES', 'ATTENDANCE'].includes(mod);
-          canEdit = ['TASKS'].includes(mod);
-          canDelete = false;
-        }
-
+    const isSuper = r.isSuperadminWildcard || r.code === 'SUPER_ADMIN';
+    const permissions = pagesData.map((pageDef) => {
+      const pageDoc = pageDocMap[pageDef.moduleCode];
+      if (isSuper) {
         return {
-          page: page._id,
+          page: pageDoc._id,
           canView: true,
-          canCreate,
-          canEdit,
-          canDelete,
+          canCreate: true,
+          canEdit: true,
+          canDelete: true,
         };
-      });
+      }
 
-    const roleObj = new DynamicRole({
-      code: r.code,
-      name: r.name,
-      description: r.description,
-      isSuperadminWildcard: r.isSuperadminWildcard,
-      isSystemRole: r.isSystemRole,
-      permissions,
+      const roleMatrix = (defaultRoleActionMatrix as any)[r.code] || {};
+      const perms = roleMatrix[pageDef.moduleCode] || {
+        canView: false,
+        canCreate: false,
+        canEdit: false,
+        canDelete: false,
+      };
+
+      return {
+        page: pageDoc._id,
+        canView: Boolean(perms.canView),
+        canCreate: Boolean(perms.canCreate),
+        canEdit: Boolean(perms.canEdit),
+        canDelete: Boolean(perms.canDelete),
+      };
     });
 
+    const roleObj = new DynamicRole({
+      ...r,
+      permissions,
+    });
     await roleObj.save();
     roleDocMap[r.code] = roleObj;
   }
-  console.log(`[Seed] ✅ Seeded ${Object.keys(roleDocMap).length} Dynamic Roles with granular page access.`);
+  console.log(`[Seed] ✅ Seeded ${Object.keys(roleDocMap).length} Dynamic Roles.`);
 
   // 3. Seed 8 Departments
   const deptData = [

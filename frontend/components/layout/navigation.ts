@@ -15,6 +15,7 @@ import {
   Kanban,
   Layers,
   LayoutDashboard,
+  MapPin,
   Megaphone,
   MessageSquare,
   Pencil,
@@ -59,6 +60,7 @@ export const iconMap: Record<string, LucideIcon> = {
   Wrench,
   Settings,
   Grid,
+  MapPin,
 };
 
 export function getLucideIcon(iconName?: string): LucideIcon {
@@ -89,6 +91,7 @@ const adminNav = [
   ["KPI Performance", "/admin/kpi", TrendingUp],
   ["Employees Directory", "/employees", Users],
   ["Attendance", "/admin/attendance", CalendarCheck],
+  ["Employee Tracking", "/tracking", MapPin],
   ["Leave Requests", "/admin/leaves", CalendarDays],
   ["Meetings", "/admin/meetings", UserRound],
   ["Reports Center", "/admin/reports", FileSpreadsheet],
@@ -107,6 +110,7 @@ const employeeNav = [
   ["Time Tracker", "/timer", Clock3],
   ["Timeline", "/employee/work?view=timeline", Layers],
   ["My Attendance", "/employee/attendance", CalendarCheck],
+  ["Location Tracking", "/tracking", MapPin],
   ["My Leave", "/employee/leaves", CalendarDays],
   ["My Performance", "/employee/profile", TrendingUp],
   ["My Salary Slips", "/employee/salary-slips", FileSpreadsheet],
@@ -122,6 +126,7 @@ const hrNav = [
   ["Time Tracker", "/timer", Clock3],
   ["Clients Master", "/clients", BriefcaseBusiness],
   ["Attendance", "/hr/attendance", CalendarCheck],
+  ["Employee Tracking", "/tracking", MapPin],
   ["Leave Requests", "/hr/leaves", CalendarDays],
   ["KPI Performance", "/hr/kpi", TrendingUp],
   ["Employees Directory", "/employees", Users],
@@ -136,6 +141,7 @@ const accountantNav = [
   ["Salary Slips Hub", "/accountant/salary-slips", FileSpreadsheet],
   ["Employees Directory", "/employees", Users],
   ["Attendance", "/accountant/attendance", CalendarCheck],
+  ["Employee Tracking", "/tracking", MapPin],
   ["Leave Requests", "/accountant/leaves", CalendarDays],
   ["Reports Center", "/accountant/reports", FileSpreadsheet],
   ["Meetings", "/accountant/meetings", Users],
@@ -149,6 +155,7 @@ const bdoNav = [
   ["Time Tracker", "/timer", Clock3],
   ["Clients Master", "/clients", BriefcaseBusiness],
   ["My Attendance", "/bdo/attendance", CalendarCheck],
+  ["Location Tracking", "/tracking", MapPin],
   ["My Leave", "/bdo/leaves", CalendarDays],
   ["Salary & Payslips", "/bdo/salary-slips", FileSpreadsheet],
   ["Meetings", "/bdo/meetings", Users],
@@ -163,6 +170,7 @@ const teamLeadNav = [
   ["Time Tracker", "/timer", Clock3],
   ["Team Work", "/team-lead/team-work", Users],
   ["Attendance", "/team-lead/attendance", CalendarCheck],
+  ["Employee Tracking", "/tracking", MapPin],
   ["Leave Requests", "/team-lead/leaves", CalendarDays],
   ["KPI Performance", "/team-lead/kpi", TrendingUp],
   ["Employees Directory", "/employees", Users],
@@ -242,6 +250,9 @@ export function normalizeWorkspaceRoute(routePath: string, workspaceRole: Worksp
   }
   if (pathname === "/attendance" || pathname === "/admin/attendance" || pathname.endsWith("/attendance")) {
     return `/${workspaceRole}/attendance`;
+  }
+  if (pathname === "/tracking" || pathname === "/admin/tracking" || pathname.endsWith("/tracking")) {
+    return "/tracking";
   }
   if (pathname === "/leaves" || pathname === "/admin/leaves" || pathname.endsWith("/leaves")) {
     return `/${workspaceRole}/leaves`;

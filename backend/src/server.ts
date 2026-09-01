@@ -11,12 +11,13 @@ import { verifyCsrf } from './middleware/csrf.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authenticateToken } from './middleware/auth.js';
 import { setupMeetingSockets } from './services/meetingSocket.js';
+import { setupTrackingSockets } from './services/trackingSocket.js';
 import { syncDefaultPortalPages } from './services/portalSync.js';
 
 const app = express();
 const server = http.createServer(app);
 
-// Initialize Socket.io Server for WebRTC signaling and meeting chat
+// Initialize Socket.io Server for WebRTC signaling, meeting chat, and live tracking
 const io = new SocketIOServer(server, {
   path: '/socket.io',
   transports: ['polling', 'websocket'],
@@ -32,6 +33,7 @@ const io = new SocketIOServer(server, {
 });
 
 setupMeetingSockets(io);
+setupTrackingSockets(io);
 
 // Handle any proxied /socket.io HTTP polling requests seamlessly
 app.use((req, res, next) => {

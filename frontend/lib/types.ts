@@ -760,3 +760,141 @@ export type StandupWorkSummary = {
   blockers: string[];
 };
 
+// ==========================================
+// 📍 EMPLOYEE LOCATION TRACKING TYPES
+// ==========================================
+
+export type TrackingStatus = 'ONLINE' | 'OFFLINE' | 'GPS_LOST' | 'DISCONNECTED' | 'ERROR';
+
+export type LiveLocationPoint = {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  speed: number;
+  heading: number;
+  timestamp: string | Date;
+  batteryLevel?: number;
+  address?: string;
+};
+
+export type TrackingSession = {
+  id?: string;
+  _id?: string;
+  employee: string | any;
+  user?: string | null;
+  startedAt: string;
+  endedAt?: string | null;
+  startLocation?: LiveLocationPoint | null;
+  endLocation?: LiveLocationPoint | null;
+  totalDistance: number;
+  totalDuration: number;
+  status: 'ACTIVE' | 'COMPLETED' | 'INTERRUPTED';
+  interruptedReason?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type LiveEmployeeTracking = {
+  id: string;
+  _id: string;
+  name: string;
+  employeeCode: string;
+  department: string;
+  designation: string;
+  avatar?: string;
+  trackingStatus: TrackingStatus;
+  isStale?: boolean;
+  trackingStartedAt?: string | null;
+  lastLocationAt?: string | null;
+  currentLocation?: LiveLocationPoint | null;
+  activeSession?: {
+    startedAt: string;
+    totalDistance: number;
+    totalDuration: number;
+    status: string;
+  } | null;
+};
+
+export type DailyStationaryStop = {
+  latitude: number;
+  longitude: number;
+  startedAt: string;
+  endedAt: string;
+  durationSeconds: number;
+};
+
+export type DailyRouteData = {
+  employee?: {
+    id: string;
+    name: string;
+    employeeCode: string;
+    department: string;
+    designation: string;
+    avatar?: string;
+  };
+  routeGeoJson: {
+    type: 'FeatureCollection';
+    features: any[];
+  };
+  summary: {
+    date: string;
+    totalDistanceKm: number;
+    totalDurationSeconds: number;
+    pointCount: number;
+    startedAt: string | null;
+    endedAt: string | null;
+  };
+  points: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    speed: number;
+    heading: number;
+    timestamp: string;
+    batteryLevel?: number;
+    isMoving?: boolean;
+  }[];
+  stops: DailyStationaryStop[];
+};
+
+export type DailyLocationSummary = {
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  department: string;
+  avatar: string;
+  date: string;
+  trackingStarted: string | null;
+  trackingEnded: string | null;
+  trackingDurationSeconds: number;
+  totalDistanceKm: number;
+  totalPoints: number;
+  firstKnownLocation: LiveLocationPoint | null;
+  lastKnownLocation: LiveLocationPoint | null;
+  movementTimeSeconds: number;
+  stationaryTimeSeconds: number;
+  longestStationaryPeriod: {
+    startedAt: string | null;
+    endedAt: string | null;
+    durationSeconds: number;
+    latitude: number | null;
+    longitude: number | null;
+  } | null;
+};
+
+export type LocationHistoryPoint = {
+  id?: string;
+  _id?: string;
+  employee: string;
+  session?: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  speed: number;
+  heading: number;
+  timestamp: string;
+  batteryLevel?: number;
+  isMoving?: boolean;
+};
+
+
