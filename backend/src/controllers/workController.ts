@@ -560,38 +560,42 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
       return;
     }
 
-    if (isTeamLead) {
-      // Team lead sees their own tasks + tasks assigned to team members in their department
-      const deptRegex = ownEmployee.department ? new RegExp(`^${ownEmployee.department.trim()}$`, 'i') : null;
-      const teamEmployees = deptRegex ? await Employee.find({ department: deptRegex }).select('_id user') : [];
-      const teamEmpIds = [ownEmployee._id, ...teamEmployees.map((e) => e._id)];
-      const teamUserIds = teamEmployees.map((e) => e.user).filter(Boolean);
+    const isMasterTaskQuery = req.query.is_master_client_task === 'true';
 
-      if (assigned_to_me === 'true' || employee_id === 'me') {
-        filter.$or = [{ employee: ownEmployee._id }, { employee: req.user?._id }];
-      } else if (employee_id) {
-        const targetEmpId = await resolveEmployeeDoc(employee_id);
-        if (targetEmpId && teamEmpIds.some((id) => id.toString() === targetEmpId.toString())) {
-          filter.$or = [{ employee: targetEmpId }];
+    if (!isMasterTaskQuery) {
+      if (isTeamLead) {
+        // Team lead sees their own tasks + tasks assigned to team members in their department
+        const deptRegex = ownEmployee.department ? new RegExp(`^${ownEmployee.department.trim()}$`, 'i') : null;
+        const teamEmployees = deptRegex ? await Employee.find({ department: deptRegex }).select('_id user') : [];
+        const teamEmpIds = [ownEmployee._id, ...teamEmployees.map((e) => e._id)];
+        const teamUserIds = teamEmployees.map((e) => e.user).filter(Boolean);
+
+        if (assigned_to_me === 'true' || employee_id === 'me') {
+          filter.$or = [{ employee: ownEmployee._id }, { employee: req.user?._id }];
+        } else if (employee_id) {
+          const targetEmpId = await resolveEmployeeDoc(employee_id);
+          if (targetEmpId && teamEmpIds.some((id) => id.toString() === targetEmpId.toString())) {
+            filter.$or = [{ employee: targetEmpId }];
+          } else {
+            // Cross-department access blocked
+            res.json({ count: 0, next: null, previous: null, results: [] });
+            return;
+          }
         } else {
-          // Cross-department access blocked
-          res.json({ count: 0, next: null, previous: null, results: [] });
-          return;
+          filter.$or = [
+            { employee: { $in: [...teamEmpIds, ...teamUserIds] } },
+            { assignedBy: req.user?._id },
+            { reviewer: ownEmployee._id },
+            { reviewer: req.user?._id },
+          ];
         }
       } else {
+        // Standard EMPLOYEE or BDE strictly sees only own tasks
         filter.$or = [
-          { employee: { $in: [...teamEmpIds, ...teamUserIds] } },
-          { assignedBy: req.user?._id },
-          { reviewer: ownEmployee._id },
-          { reviewer: req.user?._id },
+          { employee: ownEmployee._id },
+          ...(req.user?._id ? [{ employee: req.user._id }] : []),
         ];
       }
-    } else {
-      // Standard EMPLOYEE or BDE strictly sees only own tasks
-      filter.$or = [
-        { employee: ownEmployee._id },
-        ...(req.user?._id ? [{ employee: req.user._id }] : []),
-      ];
     }
   } else {
     // SuperAdmin / Admin / HR / Operations
