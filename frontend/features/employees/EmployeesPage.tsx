@@ -50,12 +50,36 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
   const [items, setItems] = useState<Employee[]>([]);
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("All");
+  const [departmentsList, setDepartmentsList] = useState<string[]>(DEPARTMENT_OPTIONS);
+  const [dynamicRolesList, setDynamicRolesList] = useState<{ value: PortalRole | string; label: string }[]>(DEFAULT_ROLE_ITEMS);
   const [page, setPage] = useState(1);
   const [count, setCount] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    api<{ results: { name: string }[] } | { name: string }[]>("/departments/")
+      .then((res) => {
+        const list = Array.isArray(res) ? res : (res as any)?.results || [];
+        if (list.length > 0) {
+          const names = Array.from(new Set(list.map((d: any) => d.name).filter(Boolean)));
+          setDepartmentsList(names as string[]);
+        }
+      })
+      .catch(() => {});
+
+    api<{ results: { code: string; name: string }[] } | { code: string; name: string }[]>("/portal/roles/")
+      .then((res) => {
+        const list = Array.isArray(res) ? res : (res as any)?.results || [];
+        if (list.length > 0) {
+          const roles = list.map((r: any) => ({ value: r.code, label: r.name }));
+          setDynamicRolesList(roles);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -166,7 +190,7 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
     >
       <option>All</option>
 
-      {DEPARTMENT_OPTIONS.map(departmentName => (
+      {departmentsList.map(departmentName => (
         <option key={departmentName}>
           {departmentName}
         </option>
@@ -492,11 +516,31 @@ export function EmployeeForm({
       .finally(() => setLoading(false));
   }, [employeeId, employee]);
 
+  const [formDepartments, setFormDepartments] = useState<string[]>(DEPARTMENT_OPTIONS);
+  const [formRoles, setFormRoles] = useState<{ value: string; label: string }[]>(DEFAULT_ROLE_ITEMS);
+
+  useEffect(() => {
+    api<{ results: { name: string }[] } | { name: string }[]>("/departments/")
+      .then((res) => {
+        const list = Array.isArray(res) ? res : (res as any)?.results || [];
+        if (list.length > 0) {
+          setFormDepartments(Array.from(new Set(list.map((d: any) => d.name).filter(Boolean))) as string[]);
+        }
+      })
+      .catch(() => {});
+
+    api<{ results: { code: string; name: string }[] } | { code: string; name: string }[]>("/portal/roles/")
+      .then((res) => {
+        const list = Array.isArray(res) ? res : (res as any)?.results || [];
+        if (list.length > 0) {
+          setFormRoles(list.map((r: any) => ({ value: r.code, label: r.name })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const currentEmployee = loadedEmployee;
-  const baseOptions = (role && ROLE_OPTIONS[role]) ? ROLE_OPTIONS[role] : DEFAULT_ROLE_ITEMS;
-  const roleOptions = currentEmployee?.portal_role === "ADMIN"
-    ? [{ value: "ADMIN" as PortalRole, label: "Admin" }, ...baseOptions]
-    : baseOptions;
+  const roleOptions = formRoles;
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -577,7 +621,7 @@ export function EmployeeForm({
           Department
           <select name="department" defaultValue={currentEmployee?.department || ""} required>
             <option value="" disabled>Select department</option>
-            {DEPARTMENT_OPTIONS.map(option => <option key={option}>{option}</option>)}
+            {formDepartments.map(option => <option key={option} value={option}>{option}</option>)}
           </select>
           {fieldErrors.department && <small style={{ color: "#FF6B6B", display: "block", marginTop: "4px", fontSize: "11px", fontWeight: 600 }}>{fieldErrors.department}</small>}
         </label>
