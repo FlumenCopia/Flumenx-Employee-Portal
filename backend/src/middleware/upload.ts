@@ -5,7 +5,7 @@ import fs from 'fs';
 const mediaDir = path.join(process.cwd(), 'media');
 
 // Ensure upload directories exist
-const uploadDirs = ['salary_slips', 'attendance_photos', 'avatars', 'employee_documents'];
+const uploadDirs = ['salary_slips', 'attendance_photos', 'avatars', 'employee_documents', 'chat'];
 uploadDirs.forEach((dir) => {
   const fullPath = path.join(mediaDir, dir);
   if (!fs.existsSync(fullPath)) {
@@ -15,13 +15,15 @@ uploadDirs.forEach((dir) => {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    let dest = 'salary_slips';
+    let dest = 'employee_documents';
     if (file.fieldname === 'photo' || file.fieldname === 'attendance_photo') {
       dest = 'attendance_photos';
     } else if (file.fieldname === 'avatar') {
       dest = 'avatars';
-    } else if (file.fieldname === 'file' || file.fieldname === 'document') {
-      dest = 'employee_documents';
+    } else if (file.fieldname === 'salary_slip' || file.fieldname === 'slip') {
+      dest = 'salary_slips';
+    } else if (file.fieldname === 'chat' || req.originalUrl?.includes('/chat/')) {
+      dest = 'chat';
     }
     cb(null, path.join(mediaDir, dest));
   },

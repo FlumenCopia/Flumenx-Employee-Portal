@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
         destination: `${backendHost}/media/:path*`,
       },
       {
+        source: "/uploads/:path*",
+        destination: `${backendHost}/uploads/:path*`,
+      },
+      {
         source: "/socket.io",
         destination: `${backendHost}/socket.io/`,
       },

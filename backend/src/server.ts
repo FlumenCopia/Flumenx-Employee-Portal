@@ -66,9 +66,14 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve media files statically (Avatars, documents, photos)
+// Serve media files statically (Avatars, documents, photos, chat attachments)
 const mediaPath = path.join(process.cwd(), 'media');
 app.use('/media', express.static(mediaPath));
+app.use('/uploads', express.static(mediaPath));
+app.use('/uploads', express.static(path.join(mediaPath, 'chat')));
+app.use('/uploads', express.static(path.join(mediaPath, 'employee_documents')));
+app.use('/api/media', express.static(mediaPath));
+app.use('/api/uploads', express.static(mediaPath));
 
 // CSRF Verification for state-changing requests
 app.use(verifyCsrf);

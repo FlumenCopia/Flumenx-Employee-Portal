@@ -2048,6 +2048,10 @@ body{font-size:13px;line-height:1.45}.sidebar nav a{font-size:13px;padding:12px 
   }
 
   /* Chat Top Action Buttons on Mobile */
+  .chat-header-mobile-hidden {
+    display: none !important;
+  }
+
   .chat-top-actions-wrapper {
     display: flex !important;
     width: 100% !important;
@@ -2063,9 +2067,14 @@ body{font-size:13px;line-height:1.45}.sidebar nav a{font-size:13px;padding:12px 
   .chat-mobile-container {
     display: flex !important;
     flex-direction: column !important;
-    height: calc(100dvh - 165px) !important;
-    min-height: 440px !important;
+    height: calc(100dvh - 130px) !important;
+    min-height: 460px !important;
     border-radius: 12px !important;
+    margin-bottom: 24px !important;
+  }
+
+  .chat-input-footer-wrapper {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .chat-sidebar-mobile-hidden {

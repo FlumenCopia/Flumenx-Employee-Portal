@@ -422,7 +422,8 @@ export async function uploadChatAttachment(req: Request, res: Response): Promise
   }
 
   const file = req.file;
-  const fileUrl = `/uploads/${file.filename}`;
+  const folder = file.destination?.replace(/\\/g, '/').split('/').pop() || 'chat';
+  const fileUrl = `/media/${folder}/${file.filename}`;
   let fileType = 'file';
   if (file.mimetype.startsWith('image/')) fileType = 'image';
   else if (file.mimetype.startsWith('video/')) fileType = 'video';

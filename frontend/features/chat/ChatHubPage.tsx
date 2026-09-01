@@ -68,6 +68,16 @@ import {
 import { DirectCallModal } from "./DirectCallModal";
 import { DailyStandupModal } from "./DailyStandupModal";
 
+function resolveChatMediaUrl(url?: string): string {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:") || url.startsWith("data:")) return url;
+  if (url.startsWith("/uploads/")) {
+    const filename = url.replace("/uploads/", "");
+    return `/media/chat/${filename}`;
+  }
+  return url.startsWith("/") ? url : `/${url}`;
+}
+
 type Props = {
   role?: WorkspaceRole;
 };
@@ -447,66 +457,68 @@ export function ChatHubPage({ role }: Props) {
 
   return (
     <Shell role={role}>
-      <PageHeader
-        title="Team Chat & Collaboration Hub"
-        subtitle="1-to-1 direct messaging, group channels, direct calls, and smart FLUMENX task/client embeds"
-        action={
-          <div className="chat-top-actions-wrapper" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={() => {
-                setNewChatMode("DIRECT");
-                setNewChatModalOpen(true);
-              }}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "6px",
-                padding: "8px 14px",
-                borderRadius: "10px",
-                fontSize: "13px",
-                fontWeight: 700,
-                background: "var(--color-primary-subtle, #E7F3EE)",
-                border: "1.5px solid var(--color-brand-border, #B2D8CB)",
-                color: "var(--color-primary, #087A5B)",
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-              }}
-            >
-              <UserPlus size={15} />
-              <span>New DM</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setNewChatMode("GROUP");
-                setNewChatModalOpen(true);
-              }}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "6px",
-                padding: "8px 14px",
-                borderRadius: "10px",
-                fontSize: "13px",
-                fontWeight: 700,
-                background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
-                border: "1.5px solid #066348",
-                color: "#FFFFFF",
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-                boxShadow: "0 2px 8px rgba(8, 122, 91, 0.25)",
-              }}
-            >
-              <Plus size={15} />
-              <span>Create Group</span>
-            </button>
-          </div>
-        }
-      />
+      <div className={activeConversationId ? "chat-header-mobile-hidden" : ""}>
+        <PageHeader
+          title="Team Chat & Collaboration Hub"
+          subtitle="1-to-1 direct messaging, group channels, direct calls, and smart FLUMENX task/client embeds"
+          action={
+            <div className="chat-top-actions-wrapper" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setNewChatMode("DIRECT");
+                  setNewChatModalOpen(true);
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  background: "var(--color-primary-subtle, #E7F3EE)",
+                  border: "1.5px solid var(--color-brand-border, #B2D8CB)",
+                  color: "var(--color-primary, #087A5B)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                }}
+              >
+                <UserPlus size={15} />
+                <span>New DM</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNewChatMode("GROUP");
+                  setNewChatModalOpen(true);
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  padding: "8px 14px",
+                  borderRadius: "10px",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
+                  border: "1.5px solid #066348",
+                  color: "#FFFFFF",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  boxShadow: "0 2px 8px rgba(8, 122, 91, 0.25)",
+                }}
+              >
+                <Plus size={15} />
+                <span>Create Group</span>
+              </button>
+            </div>
+          }
+        />
+      </div>
 
       {/* MAIN CHAT CONTAINER */}
       <div
@@ -918,10 +930,29 @@ export function ChatHubPage({ role }: Props) {
                           {msg.message_type === "IMAGE" && msg.attachments?.[0] && (
                             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                               <img
-                                src={msg.attachments[0].url}
+                                src={resolveChatMediaUrl(msg.attachments[0].url)}
                                 alt={msg.attachments[0].name}
-                                onClick={() => setPreviewMediaUrl(msg.attachments![0].url)}
-                                style={{ maxWidth: "280px", maxHeight: "220px", borderRadius: "8px", objectFit: "cover", cursor: "zoom-in" }}
+                                onClick={() => setPreviewMediaUrl(resolveChatMediaUrl(msg.attachments![0].url))}
+                                onError={(e) => {
+                                  const target = e.currentTarget;
+                                  const currentSrc = target.src;
+                                  if (currentSrc.includes("/media/chat/")) {
+                                    target.src = currentSrc.replace("/media/chat/", "/media/employee_documents/");
+                                  } else if (currentSrc.includes("/media/employee_documents/")) {
+                                    target.src = currentSrc.replace("/media/employee_documents/", "/media/");
+                                  }
+                                }}
+                                style={{
+                                  maxWidth: "100%",
+                                  width: "280px",
+                                  maxHeight: "240px",
+                                  borderRadius: "10px",
+                                  objectFit: "cover",
+                                  cursor: "zoom-in",
+                                  border: "1px solid rgba(0,0,0,0.1)",
+                                  background: "rgba(0,0,0,0.04)",
+                                  display: "block",
+                                }}
                               />
                               <span style={{ fontSize: "11px", opacity: 0.8 }}>{msg.attachments[0].name}</span>
                             </div>
@@ -932,8 +963,8 @@ export function ChatHubPage({ role }: Props) {
                             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                               <video
                                 controls
-                                src={msg.attachments[0].url}
-                                style={{ maxWidth: "300px", maxHeight: "200px", borderRadius: "8px" }}
+                                src={resolveChatMediaUrl(msg.attachments[0].url)}
+                                style={{ maxWidth: "100%", width: "300px", maxHeight: "200px", borderRadius: "10px" }}
                               />
                               <span style={{ fontSize: "11px", opacity: 0.8 }}>{msg.attachments[0].name}</span>
                             </div>
@@ -942,7 +973,7 @@ export function ChatHubPage({ role }: Props) {
                           {/* 4. FILE ATTACHMENT */}
                           {msg.message_type === "FILE" && msg.attachments?.[0] && (
                             <a
-                              href={msg.attachments[0].url}
+                              href={resolveChatMediaUrl(msg.attachments[0].url)}
                               target="_blank"
                               rel="noreferrer"
                               style={{
@@ -1194,7 +1225,7 @@ export function ChatHubPage({ role }: Props) {
               </div>
 
               {/* SMART MESSAGE INPUT FOOTER */}
-              <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border, #DCE3E0)", background: "var(--panel, #ffffff)" }}>
+              <div className="chat-input-footer-wrapper" style={{ padding: "12px 16px", borderTop: "1px solid var(--border, #DCE3E0)", background: "var(--panel, #ffffff)" }}>
                 {/* Smart Action Bar */}
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px", overflowX: "auto", paddingBottom: "2px", WebkitOverflowScrolling: "touch" }}>
                   <button
