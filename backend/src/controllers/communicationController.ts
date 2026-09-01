@@ -5,6 +5,7 @@ import { Announcement } from '../models/Announcement.js';
 import { Notification } from '../models/Notification.js';
 import { User } from '../models/User.js';
 import { AuditLog } from '../models/AuditLog.js';
+import { broadcastMeetingScheduled } from '../services/chatSocket.js';
 
 function generateMeetingCode(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz';
@@ -158,7 +159,7 @@ export async function createMeeting(req: Request, res: Response): Promise<void> 
     console.error('Failed to broadcast meeting notifications:', err);
   }
 
-  res.status(201).json({
+  const responsePayload = {
     id: meeting._id,
     meeting_code: meeting.meetingCode,
     title: meeting.title,
@@ -166,7 +167,11 @@ export async function createMeeting(req: Request, res: Response): Promise<void> 
     time: meeting.time,
     department: meeting.department,
     status: meeting.status,
-  });
+    description: meeting.description,
+  };
+
+  broadcastMeetingScheduled(responsePayload);
+  res.status(201).json(responsePayload);
 }
 
 export async function endMeeting(req: Request, res: Response): Promise<void> {

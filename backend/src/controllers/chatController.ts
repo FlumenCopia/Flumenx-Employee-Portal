@@ -7,6 +7,7 @@ import { Employee } from '../models/Employee.js';
 import { WorkAssignment } from '../models/WorkAssignment.js';
 import { Client } from '../models/Client.js';
 import { Meeting } from '../models/Meeting.js';
+import { broadcastChatMessage } from '../services/chatSocket.js';
 
 // Format conversation for client
 function formatConversation(doc: any, currentUserId: string, employeeMap?: Map<string, any>) {
@@ -392,7 +393,7 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
   conversation.lastMessageSenderName = senderName;
   await conversation.save();
 
-  res.status(201).json({
+  const formattedMsg = {
     id: message._id,
     conversation_id: message.conversation,
     sender_id: currentUserId,
@@ -410,6 +411,13 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
     reply_to: message.replyTo,
     reply_to_snapshot: message.replyToSnapshot,
     created_at: message.createdAt.toISOString(),
+  };
+
+  const participantUserIds = (conversation.participants || []).map((p) => String(p.user));
+  broadcastChatMessage(String(id), formattedMsg, participantUserIds);
+
+  res.status(201).json({
+    ...formattedMsg,
     is_self: true,
   });
 }

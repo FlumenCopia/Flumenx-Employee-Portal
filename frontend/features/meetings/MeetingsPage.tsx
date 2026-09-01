@@ -7,18 +7,23 @@ import { api } from "@/lib/api";
 import { Badge, EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
 
-const MEETING_DEPARTMENTS: Department[] = [
+import { getGlobalSocket } from "@/lib/socket";
+
+const MEETING_DEPARTMENTS: string[] = [
+  "All Employees",
   "Web Development",
   "Video Editing",
   "Design",
   "Digital Marketing",
-  "Accountant",
-  "HR",
+  "Accounts",
+  "Human Resources",
   "Operations",
+  "Business Development",
 ];
 
 export function MeetingsPage({ employee = false }: { employee?: boolean }) {
   const [items, setItems] = useState<Meeting[]>([]);
+  const [departmentsList, setDepartmentsList] = useState<string[]>(MEETING_DEPARTMENTS);
   const [page, setPage] = useState(1);
   const [count, setCount] = useState(0);
   const [hasNext, setHasNext] = useState(false);
@@ -53,7 +58,32 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadMeetings(); }, [page]);
+  useEffect(() => {
+    loadMeetings();
+    api<{ results: { name: string }[] } | { name: string }[]>("/departments/")
+      .then((res) => {
+        const list = Array.isArray(res) ? res : (res as any)?.results || [];
+        if (list.length > 0) {
+          setDepartmentsList(["All Employees", ...Array.from(new Set(list.map((d: any) => d.name).filter(Boolean))) as string[]]);
+        }
+      })
+      .catch(() => {});
+  }, [page]);
+
+  // Real-time socket listener for new scheduled meetings
+  useEffect(() => {
+    const socket = getGlobalSocket();
+    if (!socket) return;
+
+    const handleMeetingScheduled = () => {
+      loadMeetings();
+    };
+
+    socket.on("meeting:scheduled", handleMeetingScheduled);
+    return () => {
+      socket.off("meeting:scheduled", handleMeetingScheduled);
+    };
+  }, []);
 
   async function createMeeting(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -97,7 +127,12 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
   const firstItem = safeItems[0];
 
   return <>
-    <PageHeader eyebrow="CALENDAR / ALIGNMENT" title="Meetings." subtitle={employee ? "The conversations shaping your week." : "Create space for decisions and shared direction."} action={!employee ? <PrimaryButton onClick={() => setModal(true)}>Schedule meeting</PrimaryButton> : undefined} />
+    <PageHeader
+      eyebrow="CALENDAR / ALIGNMENT"
+      title="Meetings."
+      subtitle={employee ? "The conversations shaping your week." : "Create space for decisions and shared direction."}
+      action={<PrimaryButton onClick={() => setModal(true)}>Schedule meeting</PrimaryButton>}
+    />
     {message && <div className="toast success">{message}</div>}
     {actionError && <div className="toast error">{actionError}</div>}
     <div className="meeting-layout">
@@ -218,6 +253,38 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
         </div>
       </div>
     )}
-    {modal && <Modal title="Schedule a meeting" onClose={() => setModal(false)}><form className="modal-form" onSubmit={createMeeting}><label>Meeting title<input name="title" required placeholder="What are we aligning on?" /></label><div className="two-col"><label>Date<input name="date" type="date" required /></label><label>Time<input name="time" type="time" required /></label></div><label>Audience<select name="department"><option>All Employees</option>{MEETING_DEPARTMENTS.map(x=><option key={x}>{x}</option>)}</select></label><PrimaryButton type="submit" disabled={submitPending}>{submitPending ? "Creating..." : "Create meeting"}</PrimaryButton></form></Modal>}
+    {modal && (
+      <Modal title="Schedule a meeting" onClose={() => setModal(false)}>
+        <form className="modal-form" onSubmit={createMeeting}>
+          <label>
+            Meeting title
+            <input name="title" required placeholder="What are we aligning on?" />
+          </label>
+          <div className="two-col">
+            <label>
+              Date
+              <input name="date" type="date" required defaultValue={new Date().toISOString().split("T")[0]} />
+            </label>
+            <label>
+              Time
+              <input name="time" type="time" required defaultValue="10:00" />
+            </label>
+          </div>
+          <label>
+            Audience / Department
+            <select name="department">
+              {departmentsList.map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </select>
+          </label>
+          <PrimaryButton type="submit" disabled={submitPending}>
+            {submitPending ? "Creating..." : "Create meeting"}
+          </PrimaryButton>
+        </form>
+      </Modal>
+    )}
   </>;
 }

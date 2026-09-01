@@ -12,6 +12,8 @@ import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, getWorkspace
 import { PwaInstallButton } from "./PwaInstallButton";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { ChangePasswordModal } from "./ChangePasswordModal";
+import { getGlobalSocket } from "@/lib/socket";
+import { GlobalIncomingCallListener } from "@/features/chat/GlobalIncomingCallListener";
 
 const dynamicNavCache: Record<string, readonly (readonly [string, string, any])[]> = {};
 
@@ -422,6 +424,13 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   }, [workspaceRole, router]);
 
   useEffect(() => {
+    if (!user) return;
+    const socket = getGlobalSocket();
+    if (!socket) return;
+    socket.emit("presence:get-online-users");
+  }, [user]);
+
+  useEffect(() => {
     let active = true;
     let checkingBfCache = false;
 
@@ -665,6 +674,8 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
         onConfirm={handleConfirmLogout}
         loading={loggingOut}
       />
+
+      <GlobalIncomingCallListener />
     </div>
     </ShellUserContext.Provider>
   );

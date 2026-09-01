@@ -67,6 +67,8 @@ import {
 } from "@/lib/types";
 import { DirectCallModal } from "./DirectCallModal";
 import { DailyStandupModal } from "./DailyStandupModal";
+import { useWebRTCCall } from "./useWebRTCCall";
+import { getGlobalSocket } from "@/lib/socket";
 
 function resolveChatMediaUrl(url?: string): string {
   if (!url) return "";
@@ -121,14 +123,9 @@ export function ChatHubPage({ role }: Props) {
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [standupModalOpen, setStandupModalOpen] = useState(false);
 
-  // Calling state
-  const [callState, setCallState] = useState<{
-    active: boolean;
-    mode: "incoming" | "outgoing" | "connected";
-    callType: "audio" | "video";
-    partnerName: string;
-    partnerAvatar?: string;
-  } | null>(null);
+  // Real-Time WebRTC Calling & Online Presence
+  const { activeCall, localStream, remoteStream, startCall, acceptCall, endCall } = useWebRTCCall();
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
   // Lightbox Media Preview
   const [previewMediaUrl, setPreviewMediaUrl] = useState<string | null>(null);
@@ -194,6 +191,77 @@ export function ChatHubPage({ role }: Props) {
     if (activeConversationId) {
       loadMessages(activeConversationId);
     }
+  }, [activeConversationId]);
+
+  // Real-time Chat & Presence Socket listeners
+  useEffect(() => {
+    const socket = getGlobalSocket();
+    if (!socket) return;
+
+    if (activeConversationId) {
+      socket.emit("chat:join-conversation", { conversationId: activeConversationId });
+    }
+
+    const handlePresence = (data: { onlineUserIds: string[] }) => {
+      if (data?.onlineUserIds) setOnlineUserIds(data.onlineUserIds);
+    };
+
+    socket.emit("presence:get-online-users");
+    socket.on("presence:update", handlePresence);
+    socket.on("presence:online-users", handlePresence);
+
+    const handleNewMessage = (data: { conversationId: string; message: ChatMessageItem }) => {
+      if (data.conversationId === activeConversationId) {
+        setMessages((prev) => {
+          if (prev.some((m) => String(m.id) === String(data.message.id))) return prev;
+          return [...prev, data.message];
+        });
+        setTimeout(scrollToBottom, 50);
+      }
+
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === data.conversationId
+            ? {
+                ...c,
+                last_message_text: data.message.text || "New media attached",
+                last_message_at: data.message.created_at,
+                last_message_sender_name: data.message.sender_name,
+                has_unread: data.conversationId !== activeConversationId,
+              }
+            : c
+        )
+      );
+    };
+
+    const handleConversationUpdated = (data: { conversationId: string; lastMessage: any }) => {
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === data.conversationId
+            ? {
+                ...c,
+                last_message_text: data.lastMessage?.text || "New message",
+                last_message_at: data.lastMessage?.created_at || new Date().toISOString(),
+                last_message_sender_name: data.lastMessage?.sender_name || "",
+                has_unread: data.conversationId !== activeConversationId,
+              }
+            : c
+        )
+      );
+    };
+
+    socket.on("chat:new-message", handleNewMessage);
+    socket.on("chat:conversation-updated", handleConversationUpdated);
+
+    return () => {
+      if (activeConversationId) {
+        socket.emit("chat:leave-conversation", { conversationId: activeConversationId });
+      }
+      socket.off("presence:update", handlePresence);
+      socket.off("presence:online-users", handlePresence);
+      socket.off("chat:new-message", handleNewMessage);
+      socket.off("chat:conversation-updated", handleConversationUpdated);
+    };
   }, [activeConversationId]);
 
   const scrollToBottom = () => {
@@ -441,12 +509,21 @@ export function ChatHubPage({ role }: Props) {
   // Start 1-to-1 WebRTC Call
   const handleStartCall = (callType: "audio" | "video") => {
     if (!activeConversation) return;
-    setCallState({
-      active: true,
-      mode: "outgoing",
-      callType,
+    const targetUserId =
+      activeConversation.other_participant?.id ||
+      (activeConversation.other_participant as any)?.user_id ||
+      activeConversation.participants?.find((p: any) => String(p.user_id || p.user) !== String(activeConversation.created_by))?.user_id;
+
+    if (!targetUserId) {
+      toast.error("Please select a direct 1-to-1 colleague chat to start a call.");
+      return;
+    }
+    startCall({
+      toUserId: String(targetUserId),
       partnerName: activeConversation.name,
       partnerAvatar: activeConversation.avatar,
+      callType,
+      conversationId: activeConversation.id,
     });
   };
 
@@ -1785,13 +1862,17 @@ export function ChatHubPage({ role }: Props) {
       {/* ========================================================= */}
       {/* MODAL 6: 1-TO-1 AUDIO/VIDEO CALL MODAL */}
       {/* ========================================================= */}
-      {callState && (
+      {activeCall && (
         <DirectCallModal
-          mode={callState.mode}
-          callType={callState.callType}
-          partnerName={callState.partnerName}
-          partnerAvatar={callState.partnerAvatar}
-          onEndCall={() => setCallState(null)}
+          mode={activeCall.mode}
+          callType={activeCall.callType}
+          partnerName={activeCall.partnerName}
+          partnerAvatar={activeCall.partnerAvatar}
+          onAccept={acceptCall}
+          onDecline={endCall}
+          onEndCall={endCall}
+          localStream={localStream}
+          remoteStream={remoteStream}
         />
       )}
 

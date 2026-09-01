@@ -26,32 +26,6 @@ interface RoomPeer {
 const activeRooms: Map<string, Map<string, RoomPeer>> = new Map();
 
 export function setupMeetingSockets(io: SocketIOServer) {
-  // Authentication Middleware for Sockets
-  io.use(async (socket: AuthenticatedSocket, next) => {
-    try {
-      const token =
-        socket.handshake.auth?.token ||
-        socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
-        socket.handshake.query?.token;
-
-      if (token && typeof token === 'string') {
-        const decoded: any = jwt.verify(token, config.jwtSecret);
-        if (decoded && decoded.id) {
-          const user = await User.findById(decoded.id).select('-password');
-          if (user) {
-            const emp = await Employee.findOne({ user: user._id });
-            socket.user = user;
-            (socket.user as any).employee = emp;
-          }
-        }
-      }
-      return next();
-    } catch {
-      // Allow guest / unauthenticated connection if permitted by room, but mark user as guest
-      return next();
-    }
-  });
-
   io.on('connection', (socket: AuthenticatedSocket) => {
     let currentMeetingCode: string | null = null;
 

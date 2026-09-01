@@ -11,52 +11,6 @@ interface AuthenticatedTrackingSocket extends Socket {
 }
 
 export function setupTrackingSockets(io: SocketIOServer) {
-  // Authentication middleware for socket connections
-  io.use(async (socket: AuthenticatedTrackingSocket, next) => {
-    try {
-      if (socket.user && socket.employee) {
-        return next();
-      }
-
-      let cookieToken = '';
-      const cookieHeader = socket.handshake.headers?.cookie;
-      if (cookieHeader) {
-        const match = cookieHeader.match(/(?:^|;\s*)(?:flumenx_access_token|access_token)=([^;]+)/);
-        if (match) cookieToken = decodeURIComponent(match[1]);
-      }
-
-      const token =
-        socket.handshake.auth?.token ||
-        socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
-        cookieToken ||
-        socket.handshake.query?.token;
-
-      if (token && typeof token === 'string') {
-        const decoded: any = jwt.verify(token, config.jwtSecret);
-        const targetId = decoded.userId || decoded.id || decoded.sub;
-
-        if (targetId) {
-          const user = await User.findById(targetId).select('-password').populate('dynamicRole');
-          if (user && user.isActive) {
-            socket.user = user;
-            let emp = await Employee.findOne({ user: user._id });
-            if (!emp && user.email) {
-              emp = await Employee.findOne({ email: user.email });
-            }
-            if (!emp && user.username) {
-              emp = await Employee.findOne({ name: user.username });
-            }
-            socket.employee = emp;
-          }
-        }
-      }
-      return next();
-    } catch (err) {
-      // Continue anyway, but socket.user will be undefined
-      return next();
-    }
-  });
-
   io.on('connection', (socket: AuthenticatedTrackingSocket) => {
     // 1. Subscribe to Live Tracking Room (for Admins / Managers / Team Leads)
     socket.on('tracking:subscribe-live', async () => {

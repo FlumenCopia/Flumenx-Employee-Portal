@@ -10,14 +10,18 @@ import routes from './routes/index.js';
 import { verifyCsrf } from './middleware/csrf.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authenticateToken } from './middleware/auth.js';
+import jwt from 'jsonwebtoken';
+import { User } from './models/User.js';
+import { Employee } from './models/Employee.js';
 import { setupMeetingSockets } from './services/meetingSocket.js';
 import { setupTrackingSockets } from './services/trackingSocket.js';
+import { setupChatAndCallSockets } from './services/chatSocket.js';
 import { syncDefaultPortalPages } from './services/portalSync.js';
 
 const app = express();
 const server = http.createServer(app);
 
-// Initialize Socket.io Server for WebRTC signaling, meeting chat, and live tracking
+// Initialize Socket.io Server for WebRTC signaling, meeting chat, presence, and live tracking
 const io = new SocketIOServer(server, {
   path: '/socket.io',
   transports: ['polling', 'websocket'],
@@ -32,15 +36,67 @@ const io = new SocketIOServer(server, {
   },
 });
 
+function parseSocketCookies(cookieHeader?: string): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  if (!cookieHeader) return cookies;
+  cookieHeader.split(';').forEach((c) => {
+    const parts = c.split('=');
+    if (parts.length >= 2) {
+      cookies[parts[0].trim()] = decodeURIComponent(parts.slice(1).join('=').trim());
+    }
+  });
+  return cookies;
+}
+
+// Unified Universal Socket Authentication Middleware
+io.use(async (socket: any, next) => {
+  try {
+    console.log('[io.use Debug Handshake]', {
+      auth: socket.handshake?.auth,
+      query: socket.handshake?.query,
+      headersAuth: socket.handshake?.headers?.authorization,
+      cookie: socket.handshake?.headers?.cookie,
+    });
+    const cookies = parseSocketCookies(socket.handshake.headers?.cookie);
+    const token =
+      socket.handshake.auth?.token ||
+      socket.handshake.headers?.authorization?.replace(/^Bearer\s+/i, '') ||
+      cookies['flumenx_access_token'] ||
+      cookies['access_token'] ||
+      cookies['jwt'] ||
+      socket.handshake.query?.token;
+
+    if (token && typeof token === 'string' && token !== 'undefined' && token !== 'null') {
+      const decoded: any = jwt.verify(token, config.jwtSecret);
+      const userId = decoded.userId || decoded.id || decoded.sub;
+      if (userId) {
+        const user = await User.findById(userId).select('-password');
+        if (user && user.isActive) {
+          socket.user = user;
+          socket.userId = user._id.toString();
+          let emp = await Employee.findOne({ $or: [{ user: user._id }, { email: user.email }] });
+          if (!emp && user.username) {
+            emp = await Employee.findOne({ name: user.username });
+          }
+          socket.employee = emp;
+        }
+      }
+    }
+    console.log(`[io.use Auth] socketId: ${socket.id}, userId: ${socket.userId || 'none'}, token: ${token ? 'present' : 'none'}`);
+    return next();
+  } catch (err) {
+    console.error('[io.use Auth Error]', err);
+    return next();
+  }
+});
+
 setupMeetingSockets(io);
 setupTrackingSockets(io);
+setupChatAndCallSockets(io);
 
 // Handle any proxied /socket.io HTTP polling requests seamlessly
 app.use((req, res, next) => {
-  if (req.path === '/socket.io' || req.originalUrl?.startsWith('/socket.io')) {
-    if (!req.url.startsWith('/socket.io/')) {
-      req.url = req.url.replace('/socket.io', '/socket.io/');
-    }
+  if (req.path.startsWith('/socket.io')) {
     (io.engine as any).handleRequest(req, res);
     return;
   }
