@@ -350,10 +350,12 @@ export function useLocationTracker(): UseLocationTrackerReturn {
       };
 
       // 2. Call backend via Socket or REST
+      const activeToken = typeof window !== "undefined" ? (localStorage.getItem("flumenx_access_token") || localStorage.getItem("access_token") || "") : "";
       if (socketRef.current && socketRef.current.connected) {
         socketRef.current.emit("tracking:go-online", {
           location: initialPoint,
           deviceInfo: navigator.userAgent,
+          token: activeToken,
         });
       } else {
         const res = await api<any>("/tracking/go-online/", {

@@ -18,9 +18,17 @@ export function setupTrackingSockets(io: SocketIOServer) {
         return next();
       }
 
+      let cookieToken = '';
+      const cookieHeader = socket.handshake.headers?.cookie;
+      if (cookieHeader) {
+        const match = cookieHeader.match(/(?:^|;\s*)(?:flumenx_access_token|access_token)=([^;]+)/);
+        if (match) cookieToken = decodeURIComponent(match[1]);
+      }
+
       const token =
         socket.handshake.auth?.token ||
         socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
+        cookieToken ||
         socket.handshake.query?.token;
 
       if (token && typeof token === 'string') {
@@ -34,6 +42,9 @@ export function setupTrackingSockets(io: SocketIOServer) {
             let emp = await Employee.findOne({ user: user._id });
             if (!emp && user.email) {
               emp = await Employee.findOne({ email: user.email });
+            }
+            if (!emp && user.username) {
+              emp = await Employee.findOne({ name: user.username });
             }
             socket.employee = emp;
           }
@@ -82,8 +93,21 @@ export function setupTrackingSockets(io: SocketIOServer) {
     });
 
     // 2. Employee GO ONLINE
-    socket.on('tracking:go-online', async (data: { location?: LocationInput; deviceInfo?: string }) => {
+    socket.on('tracking:go-online', async (data: { location?: LocationInput; deviceInfo?: string; token?: string }) => {
       try {
+        if (!socket.user) {
+          const fallbackToken = data?.token || socket.handshake.auth?.token;
+          if (fallbackToken && typeof fallbackToken === 'string') {
+            try {
+              const decoded: any = jwt.verify(fallbackToken, config.jwtSecret);
+              const targetId = decoded.userId || decoded.id || decoded.sub;
+              if (targetId) {
+                socket.user = await User.findById(targetId).select('-password').populate('dynamicRole');
+              }
+            } catch {}
+          }
+        }
+
         if (!socket.user) {
           return socket.emit('tracking:error', { message: 'Authentication required.' });
         }
@@ -91,6 +115,12 @@ export function setupTrackingSockets(io: SocketIOServer) {
         let employee = socket.employee;
         if (!employee) {
           employee = await Employee.findOne({ user: socket.user._id });
+          if (!employee && socket.user.email) {
+            employee = await Employee.findOne({ email: socket.user.email });
+          }
+          if (!employee && socket.user.username) {
+            employee = await Employee.findOne({ name: socket.user.username });
+          }
           socket.employee = employee;
         }
 
