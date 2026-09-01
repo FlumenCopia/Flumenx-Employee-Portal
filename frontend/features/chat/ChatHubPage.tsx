@@ -451,25 +451,59 @@ export function ChatHubPage({ role = "admin" }: Props) {
         title="Team Chat & Collaboration Hub"
         subtitle="1-to-1 direct messaging, group channels, direct calls, and smart FLUMENX task/client embeds"
         action={
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div className="chat-top-actions-wrapper" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             <button
+              type="button"
               onClick={() => {
                 setNewChatMode("DIRECT");
                 setNewChatModalOpen(true);
               }}
-              className="btn btn-secondary"
-              style={{ display: "flex", alignItems: "center", gap: "6px" }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+                padding: "8px 14px",
+                borderRadius: "10px",
+                fontSize: "13px",
+                fontWeight: 700,
+                background: "var(--color-primary-subtle, #E7F3EE)",
+                border: "1.5px solid var(--color-brand-border, #B2D8CB)",
+                color: "var(--color-primary, #087A5B)",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+              }}
             >
-              <UserPlus size={16} /> New DM
+              <UserPlus size={15} />
+              <span>New DM</span>
             </button>
-            <PrimaryButton
+            <button
+              type="button"
               onClick={() => {
                 setNewChatMode("GROUP");
                 setNewChatModalOpen(true);
               }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+                padding: "8px 14px",
+                borderRadius: "10px",
+                fontSize: "13px",
+                fontWeight: 700,
+                background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
+                border: "1.5px solid #066348",
+                color: "#FFFFFF",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                boxShadow: "0 2px 8px rgba(8, 122, 91, 0.25)",
+              }}
             >
-              <Plus size={16} /> Create Group / Channel
-            </PrimaryButton>
+              <Plus size={15} />
+              <span>Create Group</span>
+            </button>
           </div>
         }
       />
@@ -1429,20 +1463,21 @@ export function ChatHubPage({ role = "admin" }: Props) {
         <Modal onClose={() => setNewChatModalOpen(false)} title={newChatMode === "DIRECT" ? "Start Direct Message" : "Create Team Group / Channel"}>
           <form onSubmit={handleCreateConversation} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             {/* Mode Switcher */}
-            <div style={{ display: "flex", gap: "10px", padding: "4px", background: "rgba(255,255,255,0.05)", borderRadius: "10px" }}>
+            <div style={{ display: "flex", gap: "6px", padding: "4px", background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border, #DCE3E0)", borderRadius: "10px" }}>
               <button
                 type="button"
                 onClick={() => setNewChatMode("DIRECT")}
                 style={{
                   flex: 1,
-                  padding: "8px",
+                  padding: "8px 12px",
                   borderRadius: "8px",
                   border: 0,
-                  background: newChatMode === "DIRECT" ? "var(--accent, #10b981)" : "transparent",
-                  color: newChatMode === "DIRECT" ? "#000" : "#fff",
+                  background: newChatMode === "DIRECT" ? "var(--color-primary, #087A5B)" : "transparent",
+                  color: newChatMode === "DIRECT" ? "#FFFFFF" : "var(--color-text-secondary, #4A5568)",
                   fontWeight: 700,
-                  fontSize: "12px",
+                  fontSize: "12.5px",
                   cursor: "pointer",
+                  transition: "all 0.15s ease",
                 }}
               >
                 1:1 Direct Chat
@@ -1452,14 +1487,15 @@ export function ChatHubPage({ role = "admin" }: Props) {
                 onClick={() => setNewChatMode("GROUP")}
                 style={{
                   flex: 1,
-                  padding: "8px",
+                  padding: "8px 12px",
                   borderRadius: "8px",
                   border: 0,
-                  background: newChatMode === "GROUP" ? "var(--accent, #10b981)" : "transparent",
-                  color: newChatMode === "GROUP" ? "#000" : "#fff",
+                  background: newChatMode === "GROUP" ? "var(--color-primary, #087A5B)" : "transparent",
+                  color: newChatMode === "GROUP" ? "#FFFFFF" : "var(--color-text-secondary, #4A5568)",
                   fontWeight: 700,
-                  fontSize: "12px",
+                  fontSize: "12.5px",
                   cursor: "pointer",
+                  transition: "all 0.15s ease",
                 }}
               >
                 Group Channel
@@ -1469,7 +1505,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
             {newChatMode === "GROUP" && (
               <>
                 <div>
-                  <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted, #888)", display: "block", marginBottom: "6px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "block", marginBottom: "6px" }}>
                     Channel Name *
                   </label>
                   <input
@@ -1485,7 +1521,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                   <div>
-                    <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted, #888)", display: "block", marginBottom: "6px" }}>
+                    <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "block", marginBottom: "6px" }}>
                       Group Type
                     </label>
                     <select
@@ -1501,7 +1537,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
                   </div>
 
                   <div>
-                    <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted, #888)", display: "block", marginBottom: "6px" }}>
+                    <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "block", marginBottom: "6px" }}>
                       Department (Optional)
                     </label>
                     <input
@@ -1519,10 +1555,10 @@ export function ChatHubPage({ role = "admin" }: Props) {
 
             {/* User Selector */}
             <div>
-              <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted, #888)", display: "block", marginBottom: "6px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--color-text, #18231F)", display: "block", marginBottom: "6px" }}>
                 {newChatMode === "DIRECT" ? "Select Colleague *" : "Add Members to Group"}
               </label>
-              <div style={{ maxHeight: "180px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "4px" }}>
+              <div style={{ maxHeight: "200px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "4px" }}>
                 {usersList.map((u) => {
                   const isSelected = selectedUserIds.includes(String(u.id));
                   return (
@@ -1543,19 +1579,20 @@ export function ChatHubPage({ role = "admin" }: Props) {
                         justifyContent: "space-between",
                         padding: "8px 10px",
                         borderRadius: "8px",
-                        background: isSelected ? "rgba(16, 185, 129, 0.15)" : "rgba(255,255,255,0.03)",
-                        border: isSelected ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid transparent",
+                        background: isSelected ? "var(--color-primary-subtle, #E7F3EE)" : "var(--panel2, #F8FAF9)",
+                        border: isSelected ? "1.5px solid var(--color-brand-border, #B2D8CB)" : "1px solid var(--border, #DCE3E0)",
                         cursor: "pointer",
+                        transition: "all 0.15s ease",
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <Avatar name={u.name} avatar={u.avatar} size={28} />
                         <div>
-                          <b style={{ fontSize: "12px", display: "block" }}>{u.name}</b>
-                          <span style={{ fontSize: "10px", color: "var(--muted, #888)" }}>{u.department} • {u.portal_role}</span>
+                          <b style={{ fontSize: "12.5px", color: "var(--color-text, #18231F)", display: "block" }}>{u.name}</b>
+                          <span style={{ fontSize: "10.5px", color: "var(--color-text-muted, #718096)" }}>{u.department} • {u.portal_role}</span>
                         </div>
                       </div>
-                      {isSelected && <Check size={14} color="#10b981" />}
+                      {isSelected && <Check size={16} color="var(--color-primary, #087A5B)" />}
                     </div>
                   );
                 })}
@@ -1563,7 +1600,20 @@ export function ChatHubPage({ role = "admin" }: Props) {
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setNewChatModalOpen(false)}>
+              <button
+                type="button"
+                onClick={() => setNewChatModalOpen(false)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border, #DCE3E0)",
+                  background: "var(--panel2, #F8FAF9)",
+                  color: "var(--color-text, #18231F)",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
                 Cancel
               </button>
               <PrimaryButton type="submit">
