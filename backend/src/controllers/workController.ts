@@ -1493,6 +1493,7 @@ export async function getWorkEmployeeOptions(req: Request, res: Response): Promi
     display_name: string;
     employee_code: string;
     department: string;
+    avatar?: string;
     team_lead_id?: string | null;
     team_lead_name?: string | null;
     team_lead_user_id?: string | null;
@@ -1522,12 +1523,15 @@ export async function getWorkEmployeeOptions(req: Request, res: Response): Promi
       }
     }
 
+    const avatarUrl = e.avatar || ((e.user as any)?.avatar) || '';
+
     map.set(e._id.toString(), {
       id: e._id,
       name: e.name,
       display_name: e.name || e.employeeCode || 'Employee',
       employee_code: e.employeeCode || '',
       department: e.department || 'General',
+      avatar: avatarUrl,
       team_lead_id: leadId,
       team_lead_name: leadName,
       team_lead_user_id: leadUserId,
@@ -1551,11 +1555,13 @@ export async function getWorkEmployeeOptions(req: Request, res: Response): Promi
           status: 'Active',
           employmentStatus: 'Permanent',
           employeeCode: `EMP${String(Date.now()).slice(-4)}`,
-          avatar: '',
+          avatar: u.avatar || '',
           location: 'Main Office',
           trackingStatus: 'OFFLINE',
         });
       }
+
+      const avatarUrl = empDoc.avatar || u.avatar || '';
 
       map.set(empDoc._id.toString(), {
         id: empDoc._id,
@@ -1563,6 +1569,7 @@ export async function getWorkEmployeeOptions(req: Request, res: Response): Promi
         display_name: fullName,
         employee_code: empDoc.employeeCode || 'EMP',
         department: empDoc.department || 'Operations',
+        avatar: avatarUrl,
         team_lead_id: null,
         team_lead_name: null,
         team_lead_user_id: null,

@@ -9,6 +9,7 @@ import { api, ApiError } from "@/lib/api";
 import type { DynamicRole, SuperAdminUser } from "@/lib/types";
 import { UserFormModal } from "./UserFormModal";
 import { UserPasswordModal } from "./UserPasswordModal";
+import { Avatar } from "@/components/icons";
 
 export function UserAccountsPage() {
   const router = useRouter();
@@ -185,9 +186,7 @@ export function UserAccountsPage() {
                   <tr key={item.user_id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                     <td style={{ padding: "12px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <div style={{ width: "30px", height: "30px", borderRadius: "50%", background: "rgba(203,168,110,0.15)", color: "var(--goldD)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "11.5px" }}>
-                          {item.full_name ? item.full_name.charAt(0).toUpperCase() : "U"}
-                        </div>
+                        <Avatar name={item.full_name} avatar={item.avatar} size={32} />
                         <b style={{ color: "var(--text)", fontSize: "13px" }}>{item.full_name}</b>
                       </div>
                     </td>

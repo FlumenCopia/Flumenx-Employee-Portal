@@ -27,10 +27,27 @@ export function setCachedAuthUser(user: AuthUser) {
   if (typeof window !== "undefined") {
     try {
       localStorage.setItem("flumenx_auth_user", JSON.stringify(user));
+      window.dispatchEvent(new CustomEvent("flumenx:auth_user_updated", { detail: user }));
     } catch {
       // Ignore storage errors
     }
   }
+}
+
+export function updateCachedAuthUser(patch: Partial<AuthUser>): AuthUser | null {
+  const current = getCachedAuthUser();
+  if (current) {
+    const updated: AuthUser = {
+      ...current,
+      ...patch,
+      employee: patch.employee !== undefined
+        ? (patch.employee ? { ...(current.employee || {}), ...patch.employee } as any : null)
+        : (patch.avatar && current.employee ? { ...current.employee, avatar: patch.avatar } : current.employee),
+    };
+    setCachedAuthUser(updated);
+    return updated;
+  }
+  return null;
 }
 
 export function clearCachedAuthUser() {

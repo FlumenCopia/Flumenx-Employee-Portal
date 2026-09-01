@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { Shell } from "@/components/shell";
 import { PageHeader, PrimaryButton, Badge, StatCard } from "@/components/ui";
+import { Avatar } from "@/components/icons";
 import { Modal } from "@/features/common/Modal";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
@@ -577,21 +578,25 @@ export function ChatHubPage({ role = "admin" }: Props) {
                   >
                     {/* Avatar with Status indicator */}
                     <div style={{ position: "relative", flexShrink: 0 }}>
-                      <div
-                        style={{
-                          width: "42px",
-                          height: "42px",
-                          borderRadius: isGroup ? "10px" : "50%",
-                          background: isGroup ? "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" : "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
-                          display: "grid",
-                          placeItems: "center",
-                          fontSize: "15px",
-                          fontWeight: 700,
-                          color: "#fff",
-                        }}
-                      >
-                        {isGroup ? <Users size={18} /> : conv.name.charAt(0).toUpperCase()}
-                      </div>
+                      {isGroup ? (
+                        <div
+                          style={{
+                            width: "42px",
+                            height: "42px",
+                            borderRadius: "10px",
+                            background: "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)",
+                            display: "grid",
+                            placeItems: "center",
+                            fontSize: "15px",
+                            fontWeight: 700,
+                            color: "#fff",
+                          }}
+                        >
+                          <Users size={18} />
+                        </div>
+                      ) : (
+                        <Avatar name={conv.name} avatar={conv.avatar || conv.other_participant?.avatar} size={42} />
+                      )}
                       {conv.has_unread && (
                         <span
                           style={{
@@ -648,21 +653,25 @@ export function ChatHubPage({ role = "admin" }: Props) {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <div
-                    style={{
-                      width: "38px",
-                      height: "38px",
-                      borderRadius: activeConversation.type !== "DIRECT" ? "8px" : "50%",
-                      background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
-                      display: "grid",
-                      placeItems: "center",
-                      fontWeight: 700,
-                      color: "#fff",
-                      fontSize: "14px",
-                    }}
-                  >
-                    {activeConversation.type !== "DIRECT" ? <Users size={18} /> : activeConversation.name.charAt(0).toUpperCase()}
-                  </div>
+                  {activeConversation.type !== "DIRECT" ? (
+                    <div
+                      style={{
+                        width: "38px",
+                        height: "38px",
+                        borderRadius: "8px",
+                        background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
+                        display: "grid",
+                        placeItems: "center",
+                        fontWeight: 700,
+                        color: "#fff",
+                        fontSize: "14px",
+                      }}
+                    >
+                      <Users size={18} />
+                    </div>
+                  ) : (
+                    <Avatar name={activeConversation.name} avatar={activeConversation.avatar || activeConversation.other_participant?.avatar} size={38} />
+                  )}
                   <div>
                     <h3 style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: "var(--color-text, #18231F)", display: "flex", alignItems: "center", gap: "8px" }}>
                       {activeConversation.name}
@@ -1282,22 +1291,28 @@ export function ChatHubPage({ role = "admin" }: Props) {
 
             {/* Avatar & Title */}
             <div style={{ textAlign: "center", padding: "10px 0" }}>
-              <div
-                style={{
-                  width: "56px",
-                  height: "56px",
-                  borderRadius: activeConversation.type !== "DIRECT" ? "12px" : "50%",
-                  background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
-                  display: "grid",
-                  placeItems: "center",
-                  fontSize: "20px",
-                  fontWeight: 800,
-                  color: "#fff",
-                  margin: "0 auto 8px",
-                }}
-              >
-                {activeConversation.type !== "DIRECT" ? <Users size={24} /> : activeConversation.name.charAt(0).toUpperCase()}
-              </div>
+              {activeConversation.type !== "DIRECT" ? (
+                <div
+                  style={{
+                    width: "56px",
+                    height: "56px",
+                    borderRadius: "12px",
+                    background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
+                    display: "grid",
+                    placeItems: "center",
+                    fontSize: "20px",
+                    fontWeight: 800,
+                    color: "#fff",
+                    margin: "0 auto 8px",
+                  }}
+                >
+                  <Users size={24} />
+                </div>
+              ) : (
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: "8px" }}>
+                  <Avatar name={activeConversation.name} avatar={activeConversation.avatar || activeConversation.other_participant?.avatar} size={56} />
+                </div>
+              )}
               <h4 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 4px", color: "var(--color-text, #18231F)" }}>
                 {activeConversation.name}
               </h4>
@@ -1338,9 +1353,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-                        <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#CBD5E1", display: "grid", placeItems: "center", fontSize: "11px", fontWeight: 700, color: "#18231F" }}>
-                          {p.name.charAt(0).toUpperCase()}
-                        </div>
+                        <Avatar name={p.name} avatar={p.avatar} size={24} />
                         <div style={{ minWidth: 0 }}>
                           <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text, #18231F)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {p.name}
@@ -1496,9 +1509,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div style={{ width: "26px", height: "26px", borderRadius: "50%", background: "#333", display: "grid", placeItems: "center", fontSize: "11px", fontWeight: 700, color: "#fff" }}>
-                          {u.name.charAt(0).toUpperCase()}
-                        </div>
+                        <Avatar name={u.name} avatar={u.avatar} size={28} />
                         <div>
                           <b style={{ fontSize: "12px", display: "block" }}>{u.name}</b>
                           <span style={{ fontSize: "10px", color: "var(--muted, #888)" }}>{u.department} • {u.portal_role}</span>
@@ -1552,9 +1563,7 @@ export function ChatHubPage({ role = "admin" }: Props) {
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <div style={{ width: "26px", height: "26px", borderRadius: "50%", background: "#333", display: "grid", placeItems: "center", fontSize: "11px", fontWeight: 700, color: "#fff" }}>
-                        {u.name.charAt(0).toUpperCase()}
-                      </div>
+                      <Avatar name={u.name} avatar={u.avatar} size={26} />
                       <b style={{ fontSize: "12px" }}>{u.name} ({u.department})</b>
                     </div>
                     {isSelected && <Check size={14} color="#10b981" />}

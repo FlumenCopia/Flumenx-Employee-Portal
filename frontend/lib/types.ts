@@ -73,6 +73,7 @@ export type SuperAdminUser = {
   team_lead_id: number | null;
   dynamic_role: { id: number; code: string; name: string } | null;
   legacy_portal_role: PortalRole;
+  avatar?: string;
   status: EmployeeStatus;
   is_active: boolean;
   date_joined: string;

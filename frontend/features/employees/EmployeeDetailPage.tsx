@@ -332,22 +332,7 @@ export function EmployeeDetailPage({ id, role = "admin" }: { id: string; role?: 
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
-          <div
-            style={{
-              width: "72px",
-              height: "72px",
-              borderRadius: "16px",
-              backgroundColor: "#E6F4EA",
-              color: "#087A5B",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "26px",
-              fontWeight: 800,
-            }}
-          >
-            {profile.name.charAt(0)}
-          </div>
+          <Avatar name={profile.name} avatar={profile.avatar} size={72} />
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
               <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 800, color: "#0F172A" }}>{profile.name}</h2>

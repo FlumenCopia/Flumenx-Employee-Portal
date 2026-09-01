@@ -12,6 +12,7 @@ import { DepartmentFormModal } from "./DepartmentFormModal";
 import { RoleFormModal } from "./RoleFormModal";
 import { UserFormModal } from "./UserFormModal";
 import { UserPasswordModal } from "./UserPasswordModal";
+import { Avatar } from "@/components/icons";
 import { AttendancePolicySettings } from "@/features/attendance/AttendancePolicySettings";
 
 export function SettingsAccessPage() {
@@ -351,22 +352,7 @@ export function SettingsAccessPage() {
                       <tr key={u.user_id} style={{ borderBottom: "1px solid var(--line)" }}>
                         <td style={{ padding: "10px 10px 10px 0", verticalAlign: "top" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                            <div
-                              style={{
-                                width: "30px",
-                                height: "30px",
-                                borderRadius: "50%",
-                                background: "rgba(203, 168, 110, 0.15)",
-                                color: "var(--neon)",
-                                display: "grid",
-                                placeItems: "center",
-                                fontWeight: 700,
-                                fontSize: "12px",
-                                flexShrink: 0,
-                              }}
-                            >
-                              {(u.full_name || u.work_email).charAt(0).toUpperCase()}
-                            </div>
+                            <Avatar name={u.full_name || u.work_email} avatar={u.avatar} size={30} />
                             <div style={{ display: "flex", flexDirection: "column" }}>
                               <b style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--text)" }}>{u.full_name || u.work_email}</b>
                               <small style={{ fontSize: "11px", color: "var(--muted)" }}>{u.work_email}</small>

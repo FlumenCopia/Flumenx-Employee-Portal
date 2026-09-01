@@ -409,6 +409,7 @@ export async function getSuperAdminUsers(req: Request, res: Response): Promise<v
   const formatted = await Promise.all(
     users.map(async (u) => {
       const emp = await Employee.findOne({ $or: [{ user: u._id }, { email: u.email }] });
+      const avatarUrl = u.avatar || (emp ? emp.avatar : null) || '';
       return {
         user_id: u._id,
         id: u._id,
@@ -423,6 +424,7 @@ export async function getSuperAdminUsers(req: Request, res: Response): Promise<v
         department_id: emp ? emp.departmentRef : null,
         role: u.role,
         legacy_portal_role: u.role,
+        avatar: avatarUrl,
         dynamic_role: u.dynamicRole
           ? {
               id: (u.dynamicRole as any)._id,

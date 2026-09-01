@@ -111,7 +111,7 @@ export function EmployeeDashboard() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-          <Avatar name={name} size={68} />
+          <Avatar name={name} avatar={user?.avatar || (user as any)?.employee?.avatar || (employee as any)?.avatar} size={68} />
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
               <span

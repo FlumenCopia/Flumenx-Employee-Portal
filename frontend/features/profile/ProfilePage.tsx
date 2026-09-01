@@ -21,7 +21,8 @@ import { EmptyState } from "@/components/ui";
 import { useShellUser } from "@/components/shell";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
-import type { WorkAssignment, Paginated, KPIEmployeeData, Client } from "@/lib/types";
+import type { WorkAssignment, Paginated, KPIEmployeeData, Client, AuthUser } from "@/lib/types";
+import { setCachedAuthUser } from "@/lib/auth-cache";
 import { EmployeeDocumentsModal } from "@/features/employees/EmployeeDocumentsModal";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 
@@ -170,12 +171,13 @@ export function ProfilePage() {
         body: formData,
       });
 
+      // Refresh auth user so header, sidebar, and profile update immediately
+      const freshUser = await api<AuthUser>("/auth/me/");
+      setCachedAuthUser(freshUser);
+
       setAvatarSuccess("Profile picture updated!");
       toast.success("Profile picture updated successfully!");
       setTimeout(() => setAvatarSuccess(""), 4000);
-      if (typeof window !== "undefined") {
-        window.location.reload();
-      }
     } catch (err: any) {
       toast.error(err.message || "Could not upload profile picture. Please check the image format and size.", "Upload Failed");
     } finally {

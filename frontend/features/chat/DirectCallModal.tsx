@@ -14,6 +14,7 @@ import {
   Volume2,
   X,
 } from "lucide-react";
+import { Avatar } from "@/components/icons";
 
 type CallMode = "incoming" | "outgoing" | "connected";
 
@@ -125,25 +126,8 @@ export function DirectCallModal({
           <div style={{ padding: "40px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "20px" }}>
             {/* Caller Avatar Pulse */}
             <div style={{ position: "relative" }}>
-              <div
-                style={{
-                  width: "100px",
-                  height: "100px",
-                  borderRadius: "50%",
-                  background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
-                  display: "grid",
-                  placeItems: "center",
-                  fontSize: "36px",
-                  fontWeight: 800,
-                  color: "#fff",
-                  boxShadow: "0 0 0 10px rgba(16, 185, 129, 0.15)",
-                }}
-              >
-                {partnerAvatar ? (
-                  <img src={partnerAvatar} alt={partnerName} style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
-                ) : (
-                  partnerName.charAt(0).toUpperCase()
-                )}
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <Avatar name={partnerName} avatar={partnerAvatar} size={96} />
               </div>
             </div>
 
@@ -275,22 +259,7 @@ export function DirectCallModal({
               ) : (
                 /* Audio Only Avatar View */
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "30px 0" }}>
-                  <div
-                    style={{
-                      width: "80px",
-                      height: "80px",
-                      borderRadius: "50%",
-                      background: "linear-gradient(135deg, #059669 0%, #10b981 100%)",
-                      display: "grid",
-                      placeItems: "center",
-                      fontSize: "28px",
-                      fontWeight: 800,
-                      color: "#fff",
-                      boxShadow: "0 0 0 8px rgba(16, 185, 129, 0.2)",
-                    }}
-                  >
-                    {partnerName.charAt(0).toUpperCase()}
-                  </div>
+                  <Avatar name={partnerName} avatar={partnerAvatar} size={80} />
                   <span style={{ fontSize: "12px", color: "var(--muted, #888)", fontWeight: 600 }}>FLUMENX Direct Audio Active</span>
                 </div>
               )}

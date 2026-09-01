@@ -101,7 +101,7 @@ export function AttendanceDetailModal({ record, onClose }: AttendanceDetailModal
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <Avatar name={record.employee_name} />
+              <Avatar name={record.employee_name} avatar={(record as any).employee_avatar || (record as any).avatar} />
               <div>
                 <b style={{ fontSize: "14px", display: "block" }}>{record.employee_name}</b>
                 <span style={{ fontSize: "11px", color: "var(--muted, #8e8e93)" }}>

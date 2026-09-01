@@ -280,7 +280,7 @@ export async function uploadAvatar(req: Request, res: Response): Promise<void> {
 
     await User.findByIdAndUpdate(req.user._id, { avatar: avatarUrl });
     const employee = await Employee.findOneAndUpdate(
-      { user: req.user._id },
+      { $or: [{ user: req.user._id }, { email: req.user.email }] },
       { avatar: avatarUrl },
       { new: true }
     );

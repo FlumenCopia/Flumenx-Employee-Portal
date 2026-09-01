@@ -381,9 +381,17 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
     const handleRefresh = () => {
       fetchDynamicNavigation();
     };
+    const handleAuthUserUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<AuthUser>;
+      if (customEvent.detail) {
+        setUser(customEvent.detail);
+      }
+    };
     window.addEventListener("flumenx:navigation_refresh", handleRefresh);
+    window.addEventListener("flumenx:auth_user_updated", handleAuthUserUpdated);
     return () => {
       window.removeEventListener("flumenx:navigation_refresh", handleRefresh);
+      window.removeEventListener("flumenx:auth_user_updated", handleAuthUserUpdated);
     };
   }, [fetchDynamicNavigation]);
 

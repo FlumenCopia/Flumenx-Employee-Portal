@@ -258,17 +258,20 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
             height: 36px;
             border-radius: 50%;
             border: 2.5px solid ${isOnline ? "#087A5B" : isDisconnected ? "#D97706" : "#94A3B8"};
-            background: #FFFFFF;
+            background: #087A5B;
             overflow: hidden;
             box-shadow: 0 4px 12px rgba(0,0,0,0.18);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            font-size: 13px;
-            color: #18231F;
+            font-size: 12px;
+            color: #FFFFFF;
           ">
-            ${emp.avatar ? `<img src="${emp.avatar}" style="width: 100%; height: 100%; object-fit: cover;" />` : emp.name.charAt(0)}
+            ${emp.avatar ? `<img src="${emp.avatar}" style="width: 100%; height: 100%; object-fit: cover;" />` : (() => {
+              const parts = (emp.name || "User").trim().split(/\s+/).filter(Boolean);
+              return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : emp.name.slice(0, 2).toUpperCase();
+            })()}
           </div>
           <div class="marker-status-dot" style="
             position: absolute;
@@ -657,29 +660,8 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                       border: `1px solid ${isSelected ? TOKENS.colors.brandBorder : "transparent"}`,
                     }}
                   >
-                    <div style={{ position: "relative" }}>
-                      <div
-                        style={{
-                          width: "36px",
-                          height: "36px",
-                          borderRadius: "50%",
-                          overflow: "hidden",
-                          background: TOKENS.colors.surfaceMuted,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          color: TOKENS.colors.textSecondary,
-                          border: `1.5px solid ${isOnline ? TOKENS.colors.success : TOKENS.colors.borderLight}`,
-                        }}
-                      >
-                        {emp.avatar ? (
-                          <img src={emp.avatar} alt={emp.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        ) : (
-                          emp.name.charAt(0)
-                        )}
-                      </div>
+                    <div style={{ position: "relative", flexShrink: 0 }}>
+                      <Avatar name={emp.name} avatar={emp.avatar} size={32} />
                       <span
                         style={{
                           position: "absolute",
@@ -762,35 +744,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <div
-                    style={{
-                      width: "44px",
-                      height: "44px",
-                      borderRadius: "50%",
-                      overflow: "hidden",
-                      background: TOKENS.colors.surfaceMuted,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 700,
-                      fontSize: "16px",
-                      border: `2px solid ${
-                        selectedEmployee.trackingStatus === "ONLINE"
-                          ? TOKENS.colors.success
-                          : TOKENS.colors.borderLight
-                      }`,
-                    }}
-                  >
-                    {selectedEmployee.avatar ? (
-                      <img
-                        src={selectedEmployee.avatar}
-                        alt={selectedEmployee.name}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    ) : (
-                      selectedEmployee.name.charAt(0)
-                    )}
-                  </div>
+                  <Avatar name={selectedEmployee.name} avatar={selectedEmployee.avatar} size={44} />
                   <div>
                     <h3 style={{ fontSize: "15px", fontWeight: 700, margin: 0, color: TOKENS.colors.textPrimary }}>
                       {selectedEmployee.name}

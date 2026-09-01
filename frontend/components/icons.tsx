@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 export function FlumenxMark({ small = false, height }: { small?: boolean; height?: number }) {
   if (small) {
@@ -27,6 +27,10 @@ export function FlumenxMark({ small = false, height }: { small?: boolean; height
 
 export function Avatar({ name = "", avatar = "", size = 38 }: { name?: string; avatar?: string; size?: number }) {
   const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [avatar]);
 
   const safeName = (name || "User").trim();
   const words = safeName.split(/\s+/).filter(Boolean);

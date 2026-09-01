@@ -21,6 +21,7 @@ import {
 import { Modal } from "@/features/common/Modal";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
+import { Avatar } from "@/components/icons";
 import type { Employee, EmployeeDocumentItem } from "@/lib/types";
 
 const DOCUMENT_TYPES = [
@@ -219,23 +220,7 @@ export function EmployeeDocumentsModal({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div
-              style={{
-                width: "42px",
-                height: "42px",
-                borderRadius: "10px",
-                background: "#ffffff",
-                border: "1px solid #e5e7eb",
-                display: "grid",
-                placeItems: "center",
-                fontWeight: 800,
-                color: "#a8874e",
-                fontSize: "15px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-              }}
-            >
-              {employee.name.charAt(0)}
-            </div>
+            <Avatar name={employee.name} avatar={employee.avatar} size={42} />
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <h3 style={{ margin: 0, fontSize: "14px", fontWeight: 700, color: "#111827" }}>{employee.name}</h3>

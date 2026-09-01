@@ -233,6 +233,7 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
         name: string;
         department: string;
         designation: string;
+        avatar?: string;
         tasks: WorkAssignment[];
         activeCount: number;
         pendingCount: number;
@@ -258,6 +259,7 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
         name: m.display_name,
         department: m.department || "General",
         designation: "Team Member",
+        avatar: (m as any).avatar || "",
         tasks: [],
         activeCount: 0,
         pendingCount: 0,
@@ -281,6 +283,7 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
           name: a.employee_name || `Employee #${empIdStr}`,
           department: a.employee_department || "General",
           designation: "Team Member",
+          avatar: (a as any).employee_avatar || "",
           tasks: [],
           activeCount: 0,
           pendingCount: 0,
@@ -522,7 +525,7 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
             {/* Employee Summary Header Row */}
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <Avatar name={group.name} size={36} />
+                <Avatar name={group.name} avatar={group.avatar} size={36} />
                 <div>
                   <h3 style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)", margin: 0 }}>
                     {group.name}

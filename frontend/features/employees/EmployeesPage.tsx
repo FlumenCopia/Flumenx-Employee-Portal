@@ -195,7 +195,7 @@ export function EmployeesPage({ role = "admin" }: { role?: EmployeeWorkspaceRole
             key={e.id}
           >
             <div className="person-cell">
-              <Avatar name={e.name} />
+              <Avatar name={e.name} avatar={e.avatar} size={36} />
 
               <div>
                 <Link href={`${employeeBasePath}/${e.id}`}>

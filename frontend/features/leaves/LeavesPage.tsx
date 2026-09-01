@@ -178,7 +178,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
           <div className="table-row" key={l.id}>
             {!isEmployee && (
               <div className="person-cell">
-                <Avatar name={l.employee_name || ""} />
+                <Avatar name={l.employee_name || ""} avatar={(l as any).employee_avatar || (l as any).avatar} />
                 <div>
                   <b>{l.employee_name}</b>
                   <span>{l.employee_code}</span>

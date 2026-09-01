@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { TOKENS } from "@/components/design-system/tokens";
+import { Avatar } from "@/components/icons";
 import type { DailyLocationSummary } from "@/lib/types";
 
 function formatDuration(seconds: number): string {
@@ -225,27 +226,7 @@ export function DailyLocationSummaryCard({
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div
-                style={{
-                  width: "48px",
-                  height: "48px",
-                  borderRadius: "50%",
-                  overflow: "hidden",
-                  background: TOKENS.colors.surfaceMuted,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 700,
-                  fontSize: "18px",
-                  border: `2px solid ${TOKENS.colors.brandPrimary}`,
-                }}
-              >
-                {summary.avatar ? (
-                  <img src={summary.avatar} alt={summary.employeeName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                ) : (
-                  summary.employeeName.charAt(0)
-                )}
-              </div>
+              <Avatar name={summary.employeeName} avatar={summary.avatar} size={48} />
               <div>
                 <h2 style={{ fontSize: "18px", fontWeight: 800, margin: 0, color: TOKENS.colors.textPrimary }}>
                   {summary.employeeName}

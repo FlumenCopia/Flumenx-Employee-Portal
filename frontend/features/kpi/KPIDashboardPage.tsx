@@ -35,6 +35,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { Avatar } from "@/components/icons";
 import type { Department, KPIDashboardData, KPIEmployeeData, KPIGrade } from "@/lib/types";
 
 const DEPARTMENTS: Department[] = [
@@ -341,9 +342,7 @@ export function KPIDashboardPage({ basePath = "/admin" }: { basePath?: string })
                   <tr key={emp.employee_id} className="hover:bg-[#f9f8f4] transition">
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-[#f9f8f4] border border-[#dad7ce] flex items-center justify-center font-extrabold text-[#a8874e] text-xs">
-                          {emp.employee_name.charAt(0)}
-                        </div>
+                        <Avatar name={emp.employee_name} avatar={(emp as any).avatar} size={36} />
                         <div>
                           <div className="font-semibold text-[#1a1b1e]">{emp.employee_name}</div>
                           <div className="text-[10px] text-[#6b707d] font-mono">

@@ -285,7 +285,7 @@ export function AdminAttendancePage() {
                 return (
                   <div className="table-row" key={cId} style={{ background: isPending ? "rgba(245, 158, 11, 0.04)" : "transparent" }}>
                     <div className="person-cell">
-                      <Avatar name={empName} />
+                      <Avatar name={empName} avatar={(c as any).employee_avatar || (c as any).avatar || (c.attendanceRecord as any)?.employee_avatar} />
                       <div>
                         <b>{empName}</b>
                         <span>{empCode} {dept ? `• ${dept}` : ""}</span>
@@ -390,7 +390,7 @@ export function AdminAttendancePage() {
             {!recordsLoading && !recordsError && rows.map(r => (
               <div className="table-row" key={r.id}>
                 <div className="person-cell">
-                  <Avatar name={r.employee_name} />
+                  <Avatar name={r.employee_name} avatar={(r as any).employee_avatar || (r as any).avatar} />
                   <div>
                     <b>{r.employee_name}</b>
                     <span>{r.employee_code} - {r.department}</span>

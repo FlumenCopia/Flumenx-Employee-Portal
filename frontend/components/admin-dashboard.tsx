@@ -385,7 +385,7 @@ export function AdminDashboard({ basePath = "/admin" }: { basePath?: "/admin" | 
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                    <Avatar name={l.employee_name} size={40} />
+                    <Avatar name={l.employee_name} avatar={(l as any).employee_avatar || (l as any).avatar} size={40} />
                     <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                         <b style={{ fontSize: "13px", color: "var(--text)" }}>{l.employee_name}</b>
