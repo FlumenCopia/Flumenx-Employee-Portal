@@ -22,7 +22,27 @@ const ICE_SERVERS: RTCConfiguration = {
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
     { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" },
+    { urls: "stun:global.stun.twilio.com:3478" },
+    { urls: "stun:openrelay.metered.ca:80" },
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 export function useWebRTCCall(currentUserId?: string) {
@@ -32,6 +52,7 @@ export function useWebRTCCall(currentUserId?: string) {
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const localQueuedCandidatesRef = useRef<RTCIceCandidate[]>([]);
   const incomingOfferRef = useRef<any>(null);
   const activeCallRef = useRef<ActiveCall | null>(null);
   activeCallRef.current = activeCall;
@@ -51,6 +72,7 @@ export function useWebRTCCall(currentUserId?: string) {
       setRemoteStream(null);
     }
     pendingCandidatesRef.current = [];
+    localQueuedCandidatesRef.current = [];
     incomingOfferRef.current = null;
     setActiveCall(null);
   }, [localStream, remoteStream]);
@@ -63,16 +85,29 @@ export function useWebRTCCall(currentUserId?: string) {
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         const socket = getGlobalSocket();
-        socket?.emit("call:ice-candidate", {
-          toSocketId: targetSocketId,
-          candidate: event.candidate,
-        });
+        const partnerSocket = targetSocketId || activeCallRef.current?.partnerSocketId;
+        if (partnerSocket && socket) {
+          socket.emit("call:ice-candidate", {
+            toSocketId: partnerSocket,
+            candidate: event.candidate,
+          });
+        } else {
+          localQueuedCandidatesRef.current.push(event.candidate);
+        }
       }
     };
 
     pc.ontrack = (event) => {
       if (event.streams && event.streams[0]) {
         setRemoteStream(event.streams[0]);
+      } else if (event.track) {
+        setRemoteStream(new MediaStream([event.track]));
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === "failed") {
+        pc.restartIce();
       }
     };
 
@@ -110,16 +145,30 @@ export function useWebRTCCall(currentUserId?: string) {
       fromUserId: string;
       sdpAnswer: any;
     }) => {
-      if (peerConnectionRef.current && data.sdpAnswer) {
+      const pc = peerConnectionRef.current;
+      if (pc && data.sdpAnswer) {
         try {
-          await peerConnectionRef.current.setRemoteDescription(
-            new RTCSessionDescription(data.sdpAnswer)
-          );
-          // Apply any pending queued candidates
+          await pc.setRemoteDescription(new RTCSessionDescription(data.sdpAnswer));
+
+          // Send any local ICE candidates queued before receiver socket was known
+          while (localQueuedCandidatesRef.current.length > 0) {
+            const cand = localQueuedCandidatesRef.current.shift();
+            if (cand) {
+              socket.emit("call:ice-candidate", {
+                toSocketId: data.fromSocketId,
+                candidate: cand,
+              });
+            }
+          }
+
+          // Apply any pending remote candidates queued before remote description
           while (pendingCandidatesRef.current.length > 0) {
             const cand = pendingCandidatesRef.current.shift();
-            if (cand) await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(cand));
+            if (cand) {
+              await pc.addIceCandidate(new RTCIceCandidate(cand));
+            }
           }
+
           setActiveCall((prev) => (prev ? { ...prev, mode: "connected", partnerSocketId: data.fromSocketId } : null));
         } catch (err) {
           console.error("Error setting remote description on accept:", err);
@@ -128,9 +177,10 @@ export function useWebRTCCall(currentUserId?: string) {
     };
 
     const handleIceCandidate = async (data: { fromSocketId: string; candidate: any }) => {
-      if (peerConnectionRef.current && peerConnectionRef.current.remoteDescription) {
+      const pc = peerConnectionRef.current;
+      if (pc && pc.remoteDescription) {
         try {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch (err) {
           console.error("Error adding ice candidate:", err);
         }
@@ -175,8 +225,8 @@ export function useWebRTCCall(currentUserId?: string) {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: params.callType === "video",
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: params.callType === "video" ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
       });
       setLocalStream(stream);
 
@@ -189,26 +239,39 @@ export function useWebRTCCall(currentUserId?: string) {
         conversationId: params.conversationId,
       });
 
-      // Target socket id will be resolved on ring or accept, we create PC and add local tracks
       const pc = new RTCPeerConnection(ICE_SERVERS);
       peerConnectionRef.current = pc;
+      localQueuedCandidatesRef.current = [];
+      pendingCandidatesRef.current = [];
 
       stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
 
       pc.onicecandidate = (event) => {
-        if (event.candidate && activeCallRef.current?.partnerSocketId) {
-          socket.emit("call:ice-candidate", {
-            toSocketId: activeCallRef.current.partnerSocketId,
-            candidate: event.candidate,
-          });
+        if (event.candidate) {
+          if (activeCallRef.current?.partnerSocketId) {
+            socket.emit("call:ice-candidate", {
+              toSocketId: activeCallRef.current.partnerSocketId,
+              candidate: event.candidate,
+            });
+          } else {
+            localQueuedCandidatesRef.current.push(event.candidate);
+          }
         }
       };
 
       pc.ontrack = (event) => {
         if (event.streams && event.streams[0]) {
           setRemoteStream(event.streams[0]);
+        } else if (event.track) {
+          setRemoteStream(new MediaStream([event.track]));
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === "failed") {
+          pc.restartIce();
         }
       };
 
@@ -234,8 +297,8 @@ export function useWebRTCCall(currentUserId?: string) {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: activeCall.callType === "video",
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: activeCall.callType === "video" ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
       });
       setLocalStream(stream);
 
@@ -257,10 +320,12 @@ export function useWebRTCCall(currentUserId?: string) {
         sdpAnswer: answer,
       });
 
-      // Process any queued candidates
+      // Process any queued candidates received before setRemoteDescription
       while (pendingCandidatesRef.current.length > 0) {
         const cand = pendingCandidatesRef.current.shift();
-        if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand));
+        if (cand) {
+          await pc.addIceCandidate(new RTCIceCandidate(cand));
+        }
       }
 
       setActiveCall((prev) => (prev ? { ...prev, mode: "connected" } : null));

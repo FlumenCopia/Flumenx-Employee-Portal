@@ -2211,30 +2211,42 @@ function RemotePeerTile({
     const audioEl = audioRef.current;
     if (!peer.stream) return;
 
-    if (videoEl) {
-      videoEl.srcObject = peer.stream;
-      videoEl.play().catch((err) => console.warn("Remote video play catch:", err));
-    }
-    if (audioEl) {
-      audioEl.srcObject = peer.stream;
-      audioEl.play().catch((err) => console.warn("Remote audio play catch:", err));
-    }
-
-    const handleStreamTrackEvent = () => {
+    const playMedia = () => {
       if (videoEl && peer.stream) {
         videoEl.srcObject = peer.stream;
-        videoEl.play().catch(() => {});
+        videoEl.play().catch((err) => console.warn("Remote video play catch:", err));
       }
       if (audioEl && peer.stream) {
         audioEl.srcObject = peer.stream;
+        audioEl.play().catch((err) => console.warn("Remote audio play catch:", err));
+      }
+    };
+
+    playMedia();
+
+    // Auto-retry playing audio/video on first user gesture if browser blocked autoplay policy
+    const unlockAutoplay = () => {
+      if (audioEl && audioEl.paused) {
         audioEl.play().catch(() => {});
       }
+      if (videoEl && videoEl.paused) {
+        videoEl.play().catch(() => {});
+      }
+    };
+
+    document.addEventListener("click", unlockAutoplay, { once: true });
+    document.addEventListener("touchstart", unlockAutoplay, { once: true });
+
+    const handleStreamTrackEvent = () => {
+      playMedia();
     };
 
     peer.stream.addEventListener("addtrack", handleStreamTrackEvent);
     peer.stream.addEventListener("removetrack", handleStreamTrackEvent);
 
     return () => {
+      document.removeEventListener("click", unlockAutoplay);
+      document.removeEventListener("touchstart", unlockAutoplay);
       if (peer.stream) {
         peer.stream.removeEventListener("addtrack", handleStreamTrackEvent);
         peer.stream.removeEventListener("removetrack", handleStreamTrackEvent);
@@ -2332,31 +2344,43 @@ function RemotePinnedVideo({ peer }: { peer?: PeerConnection | null }) {
   useEffect(() => {
     const videoEl = videoRef.current;
     const audioEl = audioRef.current;
-    if (!videoEl || !peer?.stream) return;
+    if (!peer?.stream) return;
 
-    videoEl.srcObject = peer.stream;
-    videoEl.play().catch((err) => console.warn("Remote pinned video playback catch:", err));
-
-    if (audioEl) {
-      audioEl.srcObject = peer.stream;
-      audioEl.play().catch((err) => console.warn("Remote pinned audio catch:", err));
-    }
-
-    const handleStreamTrackEvent = () => {
-      if (videoEl && peer?.stream) {
+    const playMedia = () => {
+      if (videoEl && peer.stream) {
         videoEl.srcObject = peer.stream;
-        videoEl.play().catch(() => {});
+        videoEl.play().catch((err) => console.warn("Remote pinned video playback catch:", err));
       }
-      if (audioEl && peer?.stream) {
+      if (audioEl && peer.stream) {
         audioEl.srcObject = peer.stream;
+        audioEl.play().catch((err) => console.warn("Remote pinned audio catch:", err));
+      }
+    };
+
+    playMedia();
+
+    const unlockAutoplay = () => {
+      if (audioEl && audioEl.paused) {
         audioEl.play().catch(() => {});
       }
+      if (videoEl && videoEl.paused) {
+        videoEl.play().catch(() => {});
+      }
+    };
+
+    document.addEventListener("click", unlockAutoplay, { once: true });
+    document.addEventListener("touchstart", unlockAutoplay, { once: true });
+
+    const handleStreamTrackEvent = () => {
+      playMedia();
     };
 
     peer.stream.addEventListener("addtrack", handleStreamTrackEvent);
     peer.stream.addEventListener("removetrack", handleStreamTrackEvent);
 
     return () => {
+      document.removeEventListener("click", unlockAutoplay);
+      document.removeEventListener("touchstart", unlockAutoplay);
       if (peer?.stream) {
         peer.stream.removeEventListener("addtrack", handleStreamTrackEvent);
         peer.stream.removeEventListener("removetrack", handleStreamTrackEvent);

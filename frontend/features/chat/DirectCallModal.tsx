@@ -43,22 +43,37 @@ export function DirectCallModal({
 }: Props) {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(callType === "audio");
   const [callDuration, setCallDuration] = useState(0);
 
+  // Local stream attachment
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch(() => {});
     }
   }, [localStream]);
 
+  // Remote stream attachment (Both Audio & Video)
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
+    if (remoteStream) {
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = remoteStream;
+        remoteAudioRef.current.play().catch((err) => {
+          console.warn("Remote audio autoplay blocked by browser policy, waiting for user gesture:", err);
+        });
+      }
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStream;
+        remoteVideoRef.current.play().catch((err) => {
+          console.warn("Remote video autoplay catch:", err);
+        });
+      }
     }
-  }, [remoteStream]);
+  }, [remoteStream, mode]);
 
   // Call timer when connected
   useEffect(() => {
@@ -93,63 +108,79 @@ export function DirectCallModal({
     }
   };
 
+  const handleAcceptClick = () => {
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.play().catch(() => {});
+    }
+    if (onAccept) onAccept();
+  };
+
   return (
     <div
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0, 0, 0, 0.85)",
+        backgroundColor: "rgba(0, 0, 0, 0.75)",
         backdropFilter: "blur(8px)",
-        display: "grid",
-        placeItems: "center",
-        zIndex: 2000,
-        padding: "20px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+        padding: "16px",
       }}
     >
+      {/* Dedicated Hidden Audio Element for Remote Stream (Always mounted) */}
+      <audio ref={remoteAudioRef} autoPlay playsInline />
+
       <div
         style={{
           width: "100%",
-          maxWidth: mode === "connected" && callType === "video" ? "min(880px, 94vw)" : "min(440px, 92vw)",
-          background: "linear-gradient(180deg, #1e1e24 0%, #15151a 100%)",
-          border: "1px solid var(--border2, #333)",
+          maxWidth: callType === "video" && mode === "connected" ? "680px" : "400px",
+          background: "#121816",
           borderRadius: "20px",
-          boxShadow: "0 25px 60px rgba(0,0,0,0.6)",
           overflow: "hidden",
+          border: "1.5px solid rgba(16, 185, 129, 0.3)",
+          boxShadow: "0 20px 50px rgba(0,0,0,0.6)",
+          color: "#fff",
           display: "flex",
           flexDirection: "column",
-          position: "relative",
-          animation: "scaleUp 0.25s ease",
+          transition: "all 0.3s ease",
         }}
       >
-        {/* INCOMING / OUTGOING RINGING SCREEN */}
         {mode !== "connected" ? (
-          <div style={{ padding: "36px 20px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "22px" }}>
-            {/* Caller Avatar Pulse */}
-            <div style={{ position: "relative" }}>
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <Avatar name={partnerName} avatar={partnerAvatar} size={96} />
-              </div>
+          /* RINGING / INCOMING / CALLING SCREEN */
+          <div style={{ padding: "36px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
+            <div style={{ position: "relative", marginBottom: "20px" }}>
+              <div
+                style={{
+                  position: "absolute",
+                  inset: "-12px",
+                  borderRadius: "50%",
+                  border: "2px solid #10b981",
+                  animation: "pulseRing 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite",
+                }}
+              />
+              <Avatar name={partnerName} avatar={partnerAvatar} size={84} />
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "center", width: "100%" }}>
-              <h3 style={{ fontSize: "20px", fontWeight: 800, color: "#fff", margin: 0, lineHeight: 1.3, wordBreak: "break-word" }}>
-                {partnerName}
-              </h3>
-              <div style={{ fontSize: "13.5px", color: "#34d399", fontWeight: 700, margin: 0, lineHeight: 1.4, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                {callType === "video" ? <Video size={16} /> : <PhoneCall size={16} />}
-                <span>{mode === "incoming" ? `Incoming ${callType.toUpperCase()} Call...` : `Calling ${partnerName}...`}</span>
-              </div>
-            </div>
+            <h3 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 6px 0", color: "#FFFFFF" }}>
+              {partnerName}
+            </h3>
 
-            {/* Action Buttons */}
-            <div style={{ display: "flex", gap: "24px", marginTop: "12px" }}>
+            <p style={{ fontSize: "13px", color: "var(--muted, #94A3B8)", margin: "0 0 28px 0" }}>
+              {mode === "incoming"
+                ? `Incoming ${callType === "video" ? "Video" : "Voice"} Call...`
+                : `Calling ${partnerName}...`}
+            </p>
+
+            <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
               {mode === "incoming" ? (
                 <>
                   <button
-                    onClick={onDecline}
+                    onClick={onDecline || onEndCall}
                     style={{
-                      width: "60px",
-                      height: "60px",
+                      width: "56px",
+                      height: "56px",
                       borderRadius: "50%",
                       background: "#ef4444",
                       color: "#fff",
@@ -161,14 +192,14 @@ export function DirectCallModal({
                     }}
                     title="Decline Call"
                   >
-                    <PhoneOff size={24} />
+                    <PhoneOff size={22} />
                   </button>
 
                   <button
-                    onClick={onAccept}
+                    onClick={handleAcceptClick}
                     style={{
-                      width: "60px",
-                      height: "60px",
+                      width: "56px",
+                      height: "56px",
                       borderRadius: "50%",
                       background: "#10b981",
                       color: "#fff",
@@ -181,15 +212,15 @@ export function DirectCallModal({
                     }}
                     title="Accept Call"
                   >
-                    <Phone size={24} />
+                    <Phone size={22} />
                   </button>
                 </>
               ) : (
                 <button
                   onClick={onEndCall}
                   style={{
-                    width: "60px",
-                    height: "60px",
+                    width: "56px",
+                    height: "56px",
                     borderRadius: "50%",
                     background: "#ef4444",
                     color: "#fff",
@@ -201,7 +232,7 @@ export function DirectCallModal({
                   }}
                   title="Cancel Call"
                 >
-                  <PhoneOff size={24} />
+                  <PhoneOff size={22} />
                 </button>
               )}
             </div>
@@ -212,7 +243,7 @@ export function DirectCallModal({
             {/* Header info */}
             <div style={{ padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.3)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981" }} />
+                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px #10b981" }} />
                 <span style={{ fontSize: "14px", fontWeight: 700, color: "#fff" }}>{partnerName}</span>
               </div>
               <span style={{ fontSize: "13px", fontWeight: 800, color: "#34d399", fontFamily: "monospace" }}>
@@ -221,7 +252,7 @@ export function DirectCallModal({
             </div>
 
             {/* Video Streams / Audio Avatar Canvas */}
-            <div style={{ position: "relative", minHeight: callType === "video" ? "380px" : "220px", background: "#0c0c10", display: "grid", placeItems: "center" }}>
+            <div style={{ position: "relative", minHeight: callType === "video" ? "380px" : "240px", background: "#0c0c10", display: "grid", placeItems: "center" }}>
               {callType === "video" ? (
                 <>
                   {/* Remote Video (Main) */}
@@ -258,9 +289,20 @@ export function DirectCallModal({
                 </>
               ) : (
                 /* Audio Only Avatar View */
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "30px 0" }}>
-                  <Avatar name={partnerName} avatar={partnerAvatar} size={80} />
-                  <span style={{ fontSize: "12px", color: "var(--muted, #888)", fontWeight: 600 }}>FLUMENX Direct Audio Active</span>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "14px", padding: "36px 0" }}>
+                  <div style={{ position: "relative" }}>
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: "-10px",
+                        borderRadius: "50%",
+                        border: "2px solid #10b981",
+                        animation: "pulseRing 2.5s infinite",
+                      }}
+                    />
+                    <Avatar name={partnerName} avatar={partnerAvatar} size={84} />
+                  </div>
+                  <span style={{ fontSize: "13px", color: "#34D399", fontWeight: 700 }}>FLUMENX Audio Call Connected</span>
                 </div>
               )}
             </div>
@@ -279,6 +321,7 @@ export function DirectCallModal({
                   cursor: "pointer",
                   display: "grid",
                   placeItems: "center",
+                  transition: "all 0.15s ease",
                 }}
                 title={isAudioMuted ? "Unmute Mic" : "Mute Mic"}
               >
@@ -298,6 +341,7 @@ export function DirectCallModal({
                     cursor: "pointer",
                     display: "grid",
                     placeItems: "center",
+                    transition: "all 0.15s ease",
                   }}
                   title={isVideoOff ? "Start Camera" : "Stop Camera"}
                 >
@@ -318,6 +362,7 @@ export function DirectCallModal({
                   display: "grid",
                   placeItems: "center",
                   boxShadow: "0 4px 15px rgba(239, 68, 68, 0.4)",
+                  transition: "transform 0.15s ease",
                 }}
                 title="End Call"
               >
@@ -327,6 +372,22 @@ export function DirectCallModal({
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        @keyframes pulseRing {
+          0% {
+            transform: scale(0.9);
+            opacity: 0.8;
+          }
+          50% {
+            opacity: 0.3;
+          }
+          100% {
+            transform: scale(1.4);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }
