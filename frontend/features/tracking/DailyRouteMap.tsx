@@ -24,29 +24,29 @@ import { api } from "@/lib/api";
 import { TOKENS } from "@/components/design-system/tokens";
 import type { DailyRouteData } from "@/lib/types";
 
-// Standard production-ready OSM/Carto tile style
+// 100% Free OpenStreetMap raster tile style (No API key required, zero watermark)
 const MAP_STYLE: any = {
   version: 8,
   sources: {
-    "carto-voyager": {
+    "osm-tiles": {
       type: "raster",
       tiles: [
-        "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-        "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-        "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
       ],
       tileSize: 256,
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
     },
   },
   layers: [
     {
-      id: "carto-voyager-layer",
+      id: "osm-tiles-layer",
       type: "raster",
-      source: "carto-voyager",
+      source: "osm-tiles",
       minzoom: 0,
-      maxzoom: 20,
+      maxzoom: 19,
     },
   ],
 };
