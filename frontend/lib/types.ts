@@ -209,6 +209,7 @@ export type AttendanceRecord = {
   latitude?: number | null; longitude?: number | null; check_in_distance_meters?: number | null;
   check_out_latitude?: number | null; check_out_longitude?: number | null; check_out_distance_meters?: number | null;
   photo?: string | null;
+  notes?: string;
   is_auto_checkout?: boolean;
   auto_checkout_reason?: string;
 };

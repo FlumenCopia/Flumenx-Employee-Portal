@@ -632,6 +632,19 @@ export async function updateAttendanceCorrection(req: Request, res: Response): P
       if (correction.requestedCheckOut) record.checkOutTime = correction.requestedCheckOut;
       const policy = await getAttendancePolicy();
       calculateAttendanceRecordState(record, policy);
+
+      // When management approves attendance correction, waive the late penalty and restore Present status
+      record.isLate = false;
+      record.lateMinutes = 0;
+      if (record.checkInStatus === 'Late' || !record.checkInStatus) {
+        record.checkInStatus = 'On Time';
+      }
+      if (record.attendanceStatus === 'Half Day' || record.attendanceStatus === 'Present (Late)') {
+        record.attendanceStatus = 'Present';
+      }
+      const noteSuffix = `Correction Approved (${correction.reason || 'Admin Adjusted'})`;
+      record.notes = record.notes ? `${record.notes} | ${noteSuffix}` : noteSuffix;
+
       await record.save();
     }
   }
@@ -648,7 +661,7 @@ export async function triggerForcedCheckoutHandler(req: Request, res: Response):
 
 export async function adjustAttendanceTimeHandler(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
-  const { check_in_time, check_out_time, notes } = req.body;
+  const { check_in_time, check_out_time, notes, is_late, check_in_status, attendance_status, waive_late } = req.body;
 
   const record = await AttendanceRecord.findById(id).populate('employee');
   if (!record) {
@@ -662,6 +675,19 @@ export async function adjustAttendanceTimeHandler(req: Request, res: Response): 
 
   const policy = await getAttendancePolicy();
   calculateAttendanceRecordState(record, policy);
+
+  // If waive_late or is_late is explicitly set by admin:
+  if (waive_late || is_late === false) {
+    record.isLate = false;
+    record.lateMinutes = 0;
+    record.checkInStatus = check_in_status || 'On Time';
+    record.attendanceStatus = attendance_status || 'Present';
+  } else {
+    if (is_late !== undefined) record.isLate = Boolean(is_late);
+    if (check_in_status) record.checkInStatus = check_in_status;
+    if (attendance_status) record.attendanceStatus = attendance_status;
+  }
+
   await record.save();
 
   res.json(formatSingleRecord(record, record.employee));

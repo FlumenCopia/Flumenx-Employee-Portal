@@ -31,7 +31,10 @@ export function setupTrackingSockets(io: SocketIOServer) {
           const user = await User.findById(targetId).select('-password').populate('dynamicRole');
           if (user && user.isActive) {
             socket.user = user;
-            const emp = await Employee.findOne({ user: user._id });
+            let emp = await Employee.findOne({ user: user._id });
+            if (!emp && user.email) {
+              emp = await Employee.findOne({ email: user.email });
+            }
             socket.employee = emp;
           }
         }

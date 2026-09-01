@@ -1,18 +1,56 @@
 "use client";
 
+import { useState } from "react";
 import { AttendanceRecord } from "@/lib/types";
 import { Avatar } from "@/components/icons";
 import { Badge } from "@/components/ui";
 import { displayTime, statusTone } from "./helpers";
-import { Calendar, CheckCircle2, Clock3, MapPin, User, X } from "lucide-react";
+import { Calendar, CheckCircle2, Clock3, Edit3, MapPin, RotateCcw, Save, ShieldAlert, Sparkles, User, X } from "lucide-react";
+import { api } from "@/lib/api";
+import { toast } from "@/components/ToastContext";
 
 interface AttendanceDetailModalProps {
   record: AttendanceRecord;
   onClose: () => void;
+  onUpdated?: () => void;
 }
 
-export function AttendanceDetailModal({ record, onClose }: AttendanceDetailModalProps) {
+export function AttendanceDetailModal({ record, onClose, onUpdated }: AttendanceDetailModalProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [checkInTime, setCheckInTime] = useState(record.check_in_time || "09:30");
+  const [checkOutTime, setCheckOutTime] = useState(record.check_out_time || "");
+  const [waiveLate, setWaiveLate] = useState(record.is_late || false);
+  const [attendanceStatus, setAttendanceStatus] = useState(record.attendance_status || "Present");
+  const [adminNote, setAdminNote] = useState(record.notes || "");
+  const [saving, setSaving] = useState(false);
+
   const photoUrl = record.photo ? (record.photo.startsWith("http") ? record.photo : record.photo) : null;
+
+  const handleSaveAdjustment = async () => {
+    setSaving(true);
+    try {
+      await api(`/attendance/${record.id}/adjust-time/`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          check_in_time: checkInTime,
+          check_out_time: checkOutTime || null,
+          waive_late: waiveLate,
+          is_late: !waiveLate && record.is_late,
+          check_in_status: waiveLate ? "On Time" : undefined,
+          attendance_status: waiveLate && (attendanceStatus === "Half Day" || attendanceStatus === "Present (Late)") ? "Present" : attendanceStatus,
+          notes: adminNote ? `${adminNote} (Admin Adjusted)` : "Adjusted by Admin",
+        }),
+      });
+
+      toast.success("Attendance record successfully updated & recalculated!");
+      if (onUpdated) onUpdated();
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update attendance record");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div
@@ -34,7 +72,7 @@ export function AttendanceDetailModal({ record, onClose }: AttendanceDetailModal
         onMouseDown={(e) => e.stopPropagation()}
         style={{
           width: "100%",
-          maxWidth: "520px",
+          maxWidth: "560px",
           background: "var(--panel, #1e1e24)",
           border: "1px solid var(--border2, #2e2e38)",
           borderRadius: "16px",
@@ -65,28 +103,50 @@ export function AttendanceDetailModal({ record, onClose }: AttendanceDetailModal
                 textTransform: "uppercase",
               }}
             >
-              ATTENDANCE VERIFICATION RECORD
+              ATTENDANCE VERIFICATION &amp; CORRECTION
             </span>
             <h2 style={{ fontSize: "17px", fontWeight: 700, margin: "2px 0 0 0" }}>
               Attendance Details
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "transparent",
-              border: 0,
-              color: "var(--muted, #8e8e93)",
-              cursor: "pointer",
-              padding: "4px",
-            }}
-          >
-            <X size={20} />
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <button
+              type="button"
+              onClick={() => setIsEditing(!isEditing)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "5px 10px",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: 700,
+                background: isEditing ? "var(--accent, #087A5B)" : "rgba(255,255,255,0.06)",
+                color: isEditing ? "#fff" : "var(--text)",
+                border: "1px solid var(--border)",
+                cursor: "pointer",
+              }}
+            >
+              <Edit3 size={13} />
+              {isEditing ? "View Details" : "Quick Correct"}
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                background: "transparent",
+                border: 0,
+                color: "var(--muted, #8e8e93)",
+                cursor: "pointer",
+                padding: "4px",
+              }}
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Modal Content */}
-        <div style={{ padding: "20px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "20px" }}>
+        <div style={{ padding: "20px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "16px" }}>
           {/* Employee Header */}
           <div
             style={{
@@ -103,14 +163,230 @@ export function AttendanceDetailModal({ record, onClose }: AttendanceDetailModal
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <Avatar name={record.employee_name} avatar={(record as any).employee_avatar || (record as any).avatar} />
               <div>
-                <b style={{ fontSize: "14px", display: "block" }}>{record.employee_name}</b>
-                <span style={{ fontSize: "11px", color: "var(--muted, #8e8e93)" }}>
+                <b style={{ fontSize: "15px", display: "block" }}>{record.employee_name}</b>
+                <span style={{ fontSize: "12px", color: "var(--muted)" }}>
                   {record.employee_code} • {record.department}
                 </span>
               </div>
             </div>
-            <Badge tone={statusTone(record)}>{record.attendance_status}</Badge>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+              <Badge tone={statusTone(record)}>{record.check_in_status || (record.is_late ? "Late" : "On Time")}</Badge>
+              <span style={{ fontSize: "11px", color: "var(--muted)" }}>
+                {record.attendance_date}
+              </span>
+            </div>
           </div>
+
+          {/* Quick Correction Editor Mode */}
+          {isEditing ? (
+            <div
+              style={{
+                padding: "16px",
+                borderRadius: "12px",
+                background: "rgba(8, 122, 91, 0.04)",
+                border: "1px solid rgba(8, 122, 91, 0.25)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 800, color: "#10b981" }}>
+                <Sparkles size={15} />
+                QUICK ATTENDANCE CORRECTION &amp; TIME ADJUSTMENT
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "var(--muted)", marginBottom: "4px" }}>
+                    Check-In Time
+                  </label>
+                  <input
+                    type="text"
+                    value={checkInTime}
+                    onChange={(e) => setCheckInTime(e.target.value)}
+                    placeholder="e.g. 09:30 AM or 09:30"
+                    style={{
+                      width: "100%",
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      background: "var(--panel)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text)",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                    }}
+                  />
+                  <div style={{ display: "flex", gap: "4px", marginTop: "4px" }}>
+                    <button
+                      type="button"
+                      onClick={() => { setCheckInTime("09:30"); setWaiveLate(true); }}
+                      style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--text)", cursor: "pointer" }}
+                    >
+                      9:30 AM
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setCheckInTime("09:35"); setWaiveLate(true); }}
+                      style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--text)", cursor: "pointer" }}
+                    >
+                      9:35 AM (Grace)
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "var(--muted)", marginBottom: "4px" }}>
+                    Check-Out Time
+                  </label>
+                  <input
+                    type="text"
+                    value={checkOutTime}
+                    onChange={(e) => setCheckOutTime(e.target.value)}
+                    placeholder="e.g. 06:30 PM or 18:30"
+                    style={{
+                      width: "100%",
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      background: "var(--panel)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text)",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                    }}
+                  />
+                  <div style={{ display: "flex", gap: "4px", marginTop: "4px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setCheckOutTime("18:30")}
+                      style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(255,255,255,0.06)", border: "1px solid var(--border)", color: "var(--text)", cursor: "pointer" }}
+                    >
+                      6:30 PM
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Waive Late Checkbox */}
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  background: waiveLate ? "rgba(16, 185, 129, 0.1)" : "rgba(255,255,255,0.03)",
+                  border: waiveLate ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid var(--border)",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: waiveLate ? "#10b981" : "var(--text)",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={waiveLate}
+                  onChange={(e) => {
+                    setWaiveLate(e.target.checked);
+                    if (e.target.checked) {
+                      setAttendanceStatus("Present");
+                    }
+                  }}
+                  style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                />
+                ✓ Waive Late Penalty &amp; Mark as On Time (Remove Half Day penalty)
+              </label>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "var(--muted)", marginBottom: "4px" }}>
+                    Daily Attendance Status
+                  </label>
+                  <select
+                    value={attendanceStatus}
+                    onChange={(e) => setAttendanceStatus(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      background: "var(--panel)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text)",
+                      fontSize: "12.5px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <option value="Present">Present (Full Day)</option>
+                    <option value="Half Day">Half Day</option>
+                    <option value="Absent">Absent</option>
+                    <option value="Leave">On Leave</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "var(--muted)", marginBottom: "4px" }}>
+                    Admin Justification / Note
+                  </label>
+                  <input
+                    type="text"
+                    value={adminNote}
+                    onChange={(e) => setAdminNote(e.target.value)}
+                    placeholder="e.g. Traffic waiver approved by HR"
+                    style={{
+                      width: "100%",
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      background: "var(--panel)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text)",
+                      fontSize: "12.5px",
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "6px" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  disabled={saving}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--border)",
+                    background: "transparent",
+                    color: "var(--text)",
+                    fontSize: "12.5px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAdjustment}
+                  disabled={saving}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "8px 18px",
+                    borderRadius: "8px",
+                    border: 0,
+                    background: "var(--accent, #087A5B)",
+                    color: "#ffffff",
+                    fontSize: "12.5px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    boxShadow: "0 2px 8px rgba(8, 122, 91, 0.3)",
+                  }}
+                >
+                  <Save size={14} />
+                  {saving ? "Saving..." : "Apply & Save Correction"}
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           {/* Verification Photo */}
           {photoUrl ? (
@@ -163,7 +439,7 @@ export function AttendanceDetailModal({ record, onClose }: AttendanceDetailModal
             </div>
           )}
 
-          {/* Details Grid */}
+          {/* Time & Distance Cards */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             {/* Check In Box */}
             <div
@@ -183,8 +459,13 @@ export function AttendanceDetailModal({ record, onClose }: AttendanceDetailModal
               </div>
               <b style={{ fontSize: "16px" }}>{displayTime(record.check_in_time)}</b>
               <div style={{ fontSize: "11px", color: "var(--muted)" }}>
-                Status: <span style={{ color: record.check_in_status === "Late" || record.is_late ? "var(--danger, #ef4444)" : record.check_in_status === "Grace Period" ? "var(--goldD, #d97706)" : "var(--text)" }}>{record.check_in_status || (record.is_late ? "Late" : "On Time")}</span>
+                Status: <span style={{ color: record.check_in_status === "Late" || record.is_late ? "var(--danger, #ef4444)" : record.check_in_status === "Grace Period" ? "var(--goldD, #d97706)" : "#10b981", fontWeight: 700 }}>{record.check_in_status || (record.is_late ? "Late" : "On Time")}</span>
               </div>
+              {record.is_late && (
+                <div style={{ fontSize: "11px", color: "var(--danger, #ef4444)", fontWeight: 700 }}>
+                  Late Arrival: {record.late_minutes} minutes
+                </div>
+              )}
               {record.check_in_distance_meters !== null && record.check_in_distance_meters !== undefined && (
                 <div style={{ fontSize: "11px", color: "#4ade80", display: "flex", alignItems: "center", gap: "4px", marginTop: "4px" }}>
                   <MapPin size={12} /> {record.check_in_distance_meters}m from office
@@ -219,6 +500,41 @@ export function AttendanceDetailModal({ record, onClose }: AttendanceDetailModal
               )}
             </div>
           </div>
+
+          {/* Daily Status & Notes */}
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: "10px",
+              background: "var(--panel2, rgba(255,255,255,0.03))",
+              border: "1px solid var(--border)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontSize: "12.5px",
+            }}
+          >
+            <span style={{ color: "var(--muted)" }}>Daily Attendance Status:</span>
+            <b style={{ color: record.attendance_status === "Half Day" || record.is_late ? "#f59e0b" : "#10b981" }}>
+              {record.attendance_status || "Present"}
+            </b>
+          </div>
+
+          {record.notes && (
+            <div
+              style={{
+                padding: "10px 12px",
+                borderRadius: "8px",
+                background: "rgba(255,255,255,0.02)",
+                border: "1px solid var(--border)",
+                fontSize: "12px",
+                color: "var(--text)",
+              }}
+            >
+              <b style={{ color: "var(--muted)", display: "block", marginBottom: "2px" }}>Notes:</b>
+              {record.notes}
+            </div>
+          )}
 
           {/* Auto Forced Checkout Notice if Applicable */}
           {record.is_auto_checkout && (

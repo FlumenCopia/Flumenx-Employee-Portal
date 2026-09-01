@@ -614,7 +614,10 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
 
   const { is_master_client_task, project_id, project, department_category } = req.query;
   if (is_master_client_task === 'true') {
-    filter.isMasterClientTask = true;
+    filter.$or = [
+      { isMasterClientTask: true },
+      { client: { $exists: true, $ne: null }, parentTask: null },
+    ];
   } else if (is_master_client_task === 'all') {
     // No filter on isMasterClientTask
   } else if (!review_queue) {

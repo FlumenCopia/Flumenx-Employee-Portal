@@ -76,12 +76,15 @@ export function useLocationTracker(): UseLocationTrackerReturn {
   // 1. Initialize Socket.IO connection
   useEffect(() => {
     let socketUrl = "";
+    let token = "";
     if (typeof window !== "undefined") {
       socketUrl = window.location.origin;
+      token = localStorage.getItem("flumenx_access_token") || localStorage.getItem("access_token") || "";
     }
 
     const socket = io(socketUrl || "", {
       path: "/socket.io/",
+      auth: { token },
       transports: ["polling", "websocket"],
       reconnection: true,
       reconnectionAttempts: 10,

@@ -426,6 +426,7 @@ export function AdminAttendancePage() {
         <AttendanceDetailModal
           record={selectedRecord}
           onClose={() => setSelectedRecord(null)}
+          onUpdated={reloadAllAttendance}
         />
       )}
     </>

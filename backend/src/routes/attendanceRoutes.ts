@@ -37,6 +37,8 @@ router.post('/attendance/check-out/?', requirePermission('attendance', 'canView'
 router.post('/attendance/forced-checkout/?', requirePermission('attendance', 'canEdit'), triggerForcedCheckoutHandler);
 router.patch('/attendance/:id/adjust-time/?', requirePermission('attendance', 'canEdit'), adjustAttendanceTimeHandler);
 router.put('/attendance/:id/adjust-time/?', requirePermission('attendance', 'canEdit'), adjustAttendanceTimeHandler);
+router.patch('/attendance/:id/adjust/?', requirePermission('attendance', 'canEdit'), adjustAttendanceTimeHandler);
+router.post('/attendance/:id/adjust/?', requirePermission('attendance', 'canEdit'), adjustAttendanceTimeHandler);
 
 // Attendance Records
 router.get('/attendance/?', requirePermission('attendance', 'canView'), getAttendanceRecords);

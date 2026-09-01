@@ -92,7 +92,7 @@ export function ClientTasksPage({ role = "admin" }: Props) {
     try {
       const [clientsData, tasksData] = await Promise.all([
         api<any>("/clients/").catch(() => []),
-        api<any>("/work-assignments/?is_master_client_task=all").catch(() => []),
+        api<any>("/work-assignments/?is_master_client_task=true").catch(() => []),
       ]);
 
       const clientList = Array.isArray(clientsData) ? clientsData : clientsData?.results || [];
@@ -113,6 +113,10 @@ export function ClientTasksPage({ role = "admin" }: Props) {
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
+      // Must be a client-linked task (not a standalone internal employee task)
+      const hasClient = Boolean(t.client || t.client_name || (t as any).client_id);
+      if (!hasClient) return false;
+
       const matchSearch =
         !searchQuery ||
         t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
