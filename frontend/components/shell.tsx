@@ -13,7 +13,7 @@ import { PwaInstallButton } from "./PwaInstallButton";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { getGlobalSocket } from "@/lib/socket";
-import { GlobalIncomingCallListener } from "@/features/chat/GlobalIncomingCallListener";
+import { WebRTCProvider } from "@/features/chat/WebRTCContext";
 
 const dynamicNavCache: Record<string, readonly (readonly [string, string, any])[]> = {};
 
@@ -592,17 +592,18 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
 
   return (
     <ShellUserContext.Provider value={user}>
-    <div className="app-shell">
-      <aside className={`sidebar ${open ? "open" : ""}`}>
-        <div className="side-brand" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px", paddingBottom: "14px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "12px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-            <FlumenxMark />
-            <button className="mobile-close" onClick={() => setOpen(false)} aria-label="Close navigation sidebar"><X /></button>
-          </div>
-          <div className="sub-brand" style={{ paddingLeft: "2px", marginTop: "4px", fontSize: "11.5px", fontWeight: 800, letterSpacing: "0.15em", color: "var(--brand-primary, #087A5B)" }}>
-            FLUMENX BOS
-          </div>
-        </div>
+      <WebRTCProvider>
+        <div className="app-shell">
+          <aside className={`sidebar ${open ? "open" : ""}`}>
+            <div className="side-brand" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px", paddingBottom: "14px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                <FlumenxMark />
+                <button className="mobile-close" onClick={() => setOpen(false)} aria-label="Close navigation sidebar"><X /></button>
+              </div>
+              <div className="sub-brand" style={{ paddingLeft: "2px", marginTop: "4px", fontSize: "11.5px", fontWeight: 800, letterSpacing: "0.15em", color: "var(--brand-primary, #087A5B)" }}>
+                FLUMENX BOS
+              </div>
+            </div>
         <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label.toLowerCase().includes("leave") && pendingLeaveCount > 0 && <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>}</Link>)}</nav>
         <div className="sidebar-foot">
           <PwaInstallButton variant="sidebar" />
@@ -674,10 +675,8 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
         onConfirm={handleConfirmLogout}
         loading={loggingOut}
       />
-
-      <GlobalIncomingCallListener />
     </div>
+    </WebRTCProvider>
     </ShellUserContext.Provider>
   );
-
 }

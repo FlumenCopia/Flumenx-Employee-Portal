@@ -65,10 +65,9 @@ import {
   Client,
   WorkspaceRole,
 } from "@/lib/types";
-import { DirectCallModal } from "./DirectCallModal";
 import { DailyStandupModal } from "./DailyStandupModal";
 import { ChatMediaLightbox } from "./ChatMediaLightbox";
-import { useWebRTCCall } from "./useWebRTCCall";
+import { useWebRTC } from "./WebRTCContext";
 import { getGlobalSocket } from "@/lib/socket";
 
 function resolveChatMediaUrl(url?: string): string {
@@ -139,7 +138,7 @@ export function ChatHubPage({ role }: Props) {
   const [standupModalOpen, setStandupModalOpen] = useState(false);
 
   // Real-Time WebRTC Calling & Online Presence
-  const { activeCall, localStream, remoteStream, startCall, acceptCall, endCall } = useWebRTCCall();
+  const { startCall } = useWebRTC();
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
   // Lightbox Media Preview
@@ -2105,22 +2104,6 @@ export function ChatHubPage({ role }: Props) {
         onSubmit={handleEmbedStandup}
       />
 
-      {/* ========================================================= */}
-      {/* MODAL 6: 1-TO-1 AUDIO/VIDEO CALL MODAL */}
-      {/* ========================================================= */}
-      {activeCall && (
-        <DirectCallModal
-          mode={activeCall.mode}
-          callType={activeCall.callType}
-          partnerName={activeCall.partnerName}
-          partnerAvatar={activeCall.partnerAvatar}
-          onAccept={acceptCall}
-          onDecline={endCall}
-          onEndCall={endCall}
-          localStream={localStream}
-          remoteStream={remoteStream}
-        />
-      )}
 
       {/* ========================================================= */}
       {/* LIGHTBOX MEDIA PREVIEW */}
