@@ -419,7 +419,15 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
   );
 
   const createPeerConnection = useCallback(
-    (socketId: string, name: string, role: string, avatar: string, isInitiator: boolean) => {
+    (
+      socketId: string,
+      name: string,
+      role: string,
+      avatar: string,
+      isInitiator: boolean,
+      initialAudioMuted?: boolean,
+      initialVideoOff?: boolean
+    ) => {
       if (peersRef.current.has(socketId)) {
         return peersRef.current.get(socketId)!.pc;
       }
@@ -487,8 +495,8 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         name,
         avatar,
         role,
-        isAudioMuted: false,
-        isVideoOff: false,
+        isAudioMuted: initialAudioMuted ?? false,
+        isVideoOff: initialVideoOff ?? false,
         isScreenSharing: false,
       };
 
@@ -574,19 +582,37 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     socket.emit("join-meeting", {
       meetingCode,
       name: user?.employee?.name || user?.first_name || user?.username || "Participant",
+      isAudioMuted: isAudioMutedRef.current,
+      isVideoOff: isVideoOffRef.current,
     });
 
     socket.on("joined-successfully", async (data: { meeting: any; self: any; peers: any[] }) => {
       for (const peer of data.peers) {
         if (peer.socketId !== socket.id) {
-          createPeerConnection(peer.socketId, peer.name, peer.role, peer.avatar || "", true);
+          createPeerConnection(
+            peer.socketId,
+            peer.name,
+            peer.role,
+            peer.avatar || "",
+            true,
+            peer.isAudioMuted,
+            peer.isVideoOff
+          );
         }
       }
     });
 
-    socket.on("peer-joined", (peer: { socketId: string; name: string; role: string; avatar?: string }) => {
+    socket.on("peer-joined", (peer: { socketId: string; name: string; role: string; avatar?: string; isAudioMuted?: boolean; isVideoOff?: boolean }) => {
       if (peer.socketId !== socket.id) {
-        createPeerConnection(peer.socketId, peer.name, peer.role, peer.avatar || "", false);
+        createPeerConnection(
+          peer.socketId,
+          peer.name,
+          peer.role,
+          peer.avatar || "",
+          false,
+          peer.isAudioMuted,
+          peer.isVideoOff
+        );
       }
     });
 
@@ -1503,9 +1529,11 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
   const totalCount = peerList.length + 1; // +1 for local user
   const isHostUser = Boolean(meeting.is_host || user?.role === "SUPER_ADMIN" || Boolean((user as any)?.is_superuser));
 
-  const isPinned = pinnedSocketId !== null;
-  const pinnedPeer = pinnedSocketId ? peerList.find((p) => p.socketId === pinnedSocketId) : null;
-  const isLocalPinned = pinnedSocketId === "local";
+  const sharingPeerSocketId = peerList.find((p) => p.isScreenSharing)?.socketId || null;
+  const activeSpotlightId = pinnedSocketId || (isScreenSharing ? "local" : sharingPeerSocketId || null);
+  const isPinned = activeSpotlightId !== null;
+  const isLocalPinned = activeSpotlightId === "local";
+  const pinnedPeer = activeSpotlightId && activeSpotlightId !== "local" ? peerList.find((p) => p.socketId === activeSpotlightId) || null : null;
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0A110F", display: "flex", flexDirection: "column", overflow: "hidden", color: "#FFFFFF", zIndex: 99999 }}>
@@ -1612,7 +1640,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
                 <div style={{ position: "absolute", top: "12px", left: "12px", background: "rgba(8, 122, 91, 0.9)", backdropFilter: "blur(6px)", padding: "4px 10px", borderRadius: "8px", fontSize: "11px", fontWeight: 800, color: "#FFFFFF", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }} onClick={() => setPinnedSocketId(null)}>
                   <Pin size={13} />
-                  <span>Spotlight ({isLocalPinned ? "You" : pinnedPeer?.name}) — Click to Unpin</span>
+                  <span>Spotlight ({isLocalPinned ? "You" : pinnedPeer?.name || "Participant"}) — Click to Unpin</span>
                 </div>
               </div>
 
@@ -1620,15 +1648,14 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
                 {!isLocalPinned && (
                   <div
                     onClick={() => setPinnedSocketId("local")}
-                    style={{ width: "135px", height: "100%", flexShrink: 0, background: "#13231F", borderRadius: "12px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.15)", position: "relative", cursor: "pointer" }}
+                    style={{ width: "135px", height: "100%", flexShrink: 0, background: "#13231F", borderRadius: "12px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.15)", position: "relative", cursor: "pointer", display: "grid", placeItems: "center" }}
                   >
-                    <video ref={localVideoRef} autoPlay playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)", display: isVideoOff ? "none" : "block" }} />
-                    {isVideoOff && <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center" }}><Avatar name="Me" avatar={user?.avatar || user?.employee?.avatar} size={32} /></div>}
-                    <span style={{ position: "absolute", bottom: "4px", left: "6px", fontSize: "10px", background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: "4px" }}>You</span>
+                    <Avatar name="Me" avatar={user?.avatar || user?.employee?.avatar} size={36} />
+                    <span style={{ position: "absolute", bottom: "4px", left: "6px", fontSize: "10px", background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: "4px" }}>You (Click to Pin)</span>
                   </div>
                 )}
 
-                {peerList.filter((p) => p.socketId !== pinnedSocketId).map((peer) => (
+                {peerList.filter((p) => p.socketId !== activeSpotlightId).map((peer) => (
                   <div
                     key={peer.socketId}
                     onClick={() => setPinnedSocketId(peer.socketId)}
@@ -2218,6 +2245,8 @@ function RemotePeerTile({
       }
       if (audioEl && peer.stream) {
         audioEl.srcObject = peer.stream;
+        audioEl.volume = 1.0;
+        audioEl.muted = false;
         audioEl.play().catch((err) => console.warn("Remote audio play catch:", err));
       }
     };
@@ -2226,7 +2255,9 @@ function RemotePeerTile({
 
     // Auto-retry playing audio/video on first user gesture if browser blocked autoplay policy
     const unlockAutoplay = () => {
-      if (audioEl && audioEl.paused) {
+      if (audioEl) {
+        audioEl.volume = 1.0;
+        audioEl.muted = false;
         audioEl.play().catch(() => {});
       }
       if (videoEl && videoEl.paused) {
@@ -2253,6 +2284,13 @@ function RemotePeerTile({
       }
     };
   }, [peer.stream]);
+
+  const hasVideoTrack = Boolean(
+    peer.stream &&
+    peer.stream.getVideoTracks().length > 0 &&
+    peer.stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live")
+  );
+  const shouldShowVideo = !peer.isVideoOff && (hasVideoTrack || peer.isScreenSharing);
 
   return (
     <div
@@ -2288,7 +2326,7 @@ function RemotePeerTile({
           width: "100%",
           height: "100%",
           objectFit: peer.isScreenSharing ? "contain" : "cover",
-          display: peer.isVideoOff && !peer.isScreenSharing ? "none" : "block",
+          display: shouldShowVideo ? "block" : "none",
           borderRadius: "14px",
         }}
       />
@@ -2296,10 +2334,10 @@ function RemotePeerTile({
       {/* Hidden Dedicated Audio Stream Player */}
       <audio ref={audioRef} autoPlay playsInline />
 
-      {peer.isVideoOff && !peer.isScreenSharing && (
+      {!shouldShowVideo && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <Avatar name={peer.name} avatar={peer.avatar} size={compact ? 36 : totalCount <= 2 ? 68 : 50} />
-          {!compact && <span style={{ marginTop: "10px", fontSize: "12px", color: "#94A3B8" }}>Camera is off</span>}
+          {!compact && <span style={{ marginTop: "10px", fontSize: "12px", color: "#94A3B8" }}>{peer.isVideoOff ? "Camera is off" : "Connecting video..."}</span>}
         </div>
       )}
 
@@ -2353,6 +2391,8 @@ function RemotePinnedVideo({ peer }: { peer?: PeerConnection | null }) {
       }
       if (audioEl && peer.stream) {
         audioEl.srcObject = peer.stream;
+        audioEl.volume = 1.0;
+        audioEl.muted = false;
         audioEl.play().catch((err) => console.warn("Remote pinned audio catch:", err));
       }
     };
@@ -2360,7 +2400,9 @@ function RemotePinnedVideo({ peer }: { peer?: PeerConnection | null }) {
     playMedia();
 
     const unlockAutoplay = () => {
-      if (audioEl && audioEl.paused) {
+      if (audioEl) {
+        audioEl.volume = 1.0;
+        audioEl.muted = false;
         audioEl.play().catch(() => {});
       }
       if (videoEl && videoEl.paused) {
@@ -2389,8 +2431,15 @@ function RemotePinnedVideo({ peer }: { peer?: PeerConnection | null }) {
   }, [peer?.stream]);
 
   if (!peer) {
-    return <div style={{ color: "#94A3B8", fontSize: "13px" }}>Pinned participant not available</div>;
+    return <div style={{ color: "#94A3B8", fontSize: "13px" }}>Spotlight participant media stream loading...</div>;
   }
+
+  const hasVideoTrack = Boolean(
+    peer.stream &&
+    peer.stream.getVideoTracks().length > 0 &&
+    peer.stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live")
+  );
+  const shouldShowVideo = !peer.isVideoOff && (hasVideoTrack || peer.isScreenSharing);
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -2402,13 +2451,14 @@ function RemotePinnedVideo({ peer }: { peer?: PeerConnection | null }) {
           width: "100%",
           height: "100%",
           objectFit: peer.isScreenSharing ? "contain" : "cover",
-          display: peer.isVideoOff && !peer.isScreenSharing ? "none" : "block",
+          display: shouldShowVideo ? "block" : "none",
         }}
       />
       <audio ref={audioRef} autoPlay playsInline />
-      {peer.isVideoOff && !peer.isScreenSharing && (
+      {!shouldShowVideo && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <Avatar name={peer.name} avatar={peer.avatar} size={64} />
+          <span style={{ marginTop: "10px", fontSize: "12px", color: "#94A3B8" }}>{peer.isVideoOff ? "Camera is off" : "Connecting video..."}</span>
         </div>
       )}
     </div>

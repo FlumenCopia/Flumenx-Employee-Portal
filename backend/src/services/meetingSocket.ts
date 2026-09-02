@@ -30,8 +30,8 @@ export function setupMeetingSockets(io: SocketIOServer) {
     let currentMeetingCode: string | null = null;
 
     // 1. Join Meeting Room
-    socket.on('join-meeting', async (data: { meetingCode: string; name?: string }) => {
-      const { meetingCode, name } = data;
+    socket.on('join-meeting', async (data: { meetingCode: string; name?: string; isAudioMuted?: boolean; isVideoOff?: boolean }) => {
+      const { meetingCode, name, isAudioMuted = false, isVideoOff = false } = data;
       if (!meetingCode) return socket.emit('error', { message: 'Meeting code is required.' });
 
       try {
@@ -104,8 +104,8 @@ export function setupMeetingSockets(io: SocketIOServer) {
           name: participantName,
           role: participantRole,
           avatar: socket.user?.avatar || socket.user?.employee?.avatar || '',
-          isAudioMuted: false,
-          isVideoOff: false,
+          isAudioMuted: Boolean(isAudioMuted),
+          isVideoOff: Boolean(isVideoOff),
           isScreenSharing: false,
           joinedAt: new Date(),
         };
