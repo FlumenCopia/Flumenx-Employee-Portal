@@ -6,6 +6,7 @@ import {
   getMeetingByCode,
   getMeetingChatHistory,
   createMeeting,
+  createInstantMeeting,
   endMeeting,
   deleteMeeting,
   getAnnouncements,
@@ -50,6 +51,7 @@ router.delete('/salary-slips/:id/?', requirePermission('salary_slips', 'canDelet
 router.get('/meetings/?', requirePermission('meetings', 'canView'), getMeetings);
 router.get('/meetings/code/:code/?', getMeetingByCode);
 router.get('/meetings/code/:code/messages/?', getMeetingChatHistory);
+router.post('/meetings/create-instant/?', createInstantMeeting);
 router.post('/meetings/code/:code/end/?', endMeeting);
 router.post('/meetings/?', requirePermission('meetings', 'canCreate'), createMeeting);
 router.delete('/meetings/:id/?', requirePermission('meetings', 'canDelete'), deleteMeeting);

@@ -174,6 +174,51 @@ export async function createMeeting(req: Request, res: Response): Promise<void> 
   res.status(201).json(responsePayload);
 }
 
+export async function createInstantMeeting(req: Request, res: Response): Promise<void> {
+  const { title, conversation_id } = req.body;
+  const meetingCode = generateMeetingCode();
+  const now = new Date();
+
+  const meeting = new Meeting({
+    meetingCode,
+    title: title ? title.trim() : 'Instant Sync Meeting',
+    date: now,
+    time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    description: conversation_id ? `Instant sync started from chat conversation ${conversation_id}` : 'Instant ad-hoc team meeting',
+    department: 'All Employees',
+    status: 'LIVE',
+    startedAt: now,
+    createdBy: req.user ? req.user._id : null,
+    host: req.user ? req.user._id : null,
+    participants: [
+      {
+        user: req.user?._id || null,
+        name: (req.user as any)?.firstName ? `${(req.user as any).firstName} ${(req.user as any).lastName || ''}`.trim() : req.user?.username || 'Host',
+        email: req.user?.email || '',
+        role: 'HOST',
+        joinedAt: now,
+      }
+    ],
+    settings: {
+      isLocked: false,
+      allowScreenShare: true,
+      allowChat: true,
+      muteOnEntry: false,
+    },
+  });
+
+  await meeting.save();
+
+  res.status(201).json({
+    id: meeting._id,
+    meeting_code: meeting.meetingCode,
+    code: meeting.meetingCode,
+    title: meeting.title,
+    status: meeting.status,
+    started_at: meeting.startedAt,
+  });
+}
+
 export async function endMeeting(req: Request, res: Response): Promise<void> {
   const { code } = req.params;
   const meeting = await Meeting.findOne({ meetingCode: code });

@@ -202,6 +202,20 @@ export async function getAttendanceRecords(req: Request, res: Response): Promise
     .populate('employee')
     .sort({ attendanceDate: -1 });
 
+  const policy = await getAttendancePolicy();
+  const startMins = timeStringToMinutes(policy.officeStartTime || '09:30');
+  const graceEndMins = startMins + (policy.gracePeriodMinutes ?? 5);
+
+  for (const r of records) {
+    if (r.checkInTime && r.checkInStatus === 'On Time') {
+      const mins = timeStringToMinutes(r.checkInTime);
+      if (mins > graceEndMins && !r.notes?.toLowerCase().includes('waiv')) {
+        calculateAttendanceRecordState(r, policy);
+        await r.save().catch(() => {});
+      }
+    }
+  }
+
   const formatted = records.map((r) => formatSingleRecord(r, r.employee));
 
   res.json({
@@ -619,7 +633,7 @@ export async function updateAttendanceCorrection(req: Request, res: Response): P
     return;
   }
 
-  const { status, admin_note } = req.body;
+  const { status, admin_note, waive_late } = req.body;
   if (status) correction.status = status;
   if (admin_note !== undefined) correction.adminNote = admin_note;
   correction.reviewedBy = req.user ? (req.user._id as any) : null;
@@ -633,15 +647,16 @@ export async function updateAttendanceCorrection(req: Request, res: Response): P
       const policy = await getAttendancePolicy();
       calculateAttendanceRecordState(record, policy);
 
-      // When management approves attendance correction, waive the late penalty and restore Present status
-      record.isLate = false;
-      record.lateMinutes = 0;
-      if (record.checkInStatus === 'Late' || !record.checkInStatus) {
+      // Only if management explicitly requests to waive late penalties:
+      if (waive_late) {
+        record.isLate = false;
+        record.lateMinutes = 0;
         record.checkInStatus = 'On Time';
+        if (record.attendanceStatus === 'Half Day' || record.attendanceStatus === 'Present (Late)') {
+          record.attendanceStatus = 'Present';
+        }
       }
-      if (record.attendanceStatus === 'Half Day' || record.attendanceStatus === 'Present (Late)') {
-        record.attendanceStatus = 'Present';
-      }
+
       const noteSuffix = `Correction Approved (${correction.reason || 'Admin Adjusted'})`;
       record.notes = record.notes ? `${record.notes} | ${noteSuffix}` : noteSuffix;
 

@@ -226,6 +226,23 @@ export async function createGroupConversation(req: Request, res: Response): Prom
   res.status(201).json(formatConversation(populated, currentUserId, employeeMap));
 }
 
+// 3b. Unified Create or Get Conversation (Handles POST /api/chat/conversations/)
+export async function createConversation(req: Request, res: Response): Promise<void> {
+  const { type = 'DIRECT', participant_ids = [], participant_user_ids = [], target_user_id, target_employee_id, name } = req.body;
+  const userIds = participant_ids.length > 0 ? participant_ids : participant_user_ids;
+
+  if (type === 'DIRECT' || (!name && userIds.length === 1)) {
+    req.body.target_user_id = target_user_id || userIds[0];
+    req.body.target_employee_id = target_employee_id;
+    return getOrCreateDirectConversation(req, res);
+  } else {
+    req.body.name = name;
+    req.body.type = type;
+    req.body.participant_user_ids = userIds;
+    return createGroupConversation(req, res);
+  }
+}
+
 // 4. Get Conversation Messages
 export async function getConversationMessages(req: Request, res: Response): Promise<void> {
   const currentUserId = req.user ? req.user._id.toString() : '';

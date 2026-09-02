@@ -10,10 +10,15 @@ export const displayTime = (value: string | null | undefined): string => {
       return d.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true });
     }
   }
-  const parts = value.split(":");
+  const clean = value.trim();
+  const isPM = clean.toUpperCase().includes("PM");
+  const isAM = clean.toUpperCase().includes("AM");
+  const parts = clean.split(":");
   if (parts.length >= 2) {
-    let hours = parseInt(parts[0], 10);
-    const minutes = parts[1].padStart(2, "0");
+    let hours = parseInt(parts[0], 10) || 0;
+    const minutes = parts[1].replace(/[^\d]/g, "").padStart(2, "0").slice(0, 2);
+    if (isPM && hours < 12) hours += 12;
+    if (isAM && hours === 12) hours = 0;
     const ampm = hours >= 12 ? "PM" : "AM";
     hours = hours % 12 || 12;
     return `${hours.toString().padStart(2, "0")}:${minutes} ${ampm}`;

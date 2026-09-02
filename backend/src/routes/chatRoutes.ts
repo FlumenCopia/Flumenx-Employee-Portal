@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getConversations,
+  createConversation,
   getOrCreateDirectConversation,
   createGroupConversation,
   getConversationMessages,
@@ -21,6 +22,7 @@ router.use(authenticateToken);
 
 // Conversation management
 router.get('/conversations/?', getConversations);
+router.post('/conversations/?', createConversation);
 router.post('/conversations/direct/?', getOrCreateDirectConversation);
 router.post('/conversations/group/?', createGroupConversation);
 router.get('/conversations/:id/messages/?', getConversationMessages);

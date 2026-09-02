@@ -19,7 +19,7 @@ export function AttendanceDetailModal({ record, onClose, onUpdated }: Attendance
   const [isEditing, setIsEditing] = useState(false);
   const [checkInTime, setCheckInTime] = useState(record.check_in_time || "09:30");
   const [checkOutTime, setCheckOutTime] = useState(record.check_out_time || "");
-  const [waiveLate, setWaiveLate] = useState(record.is_late || false);
+  const [waiveLate, setWaiveLate] = useState(false);
   const [attendanceStatus, setAttendanceStatus] = useState(record.attendance_status || "Present");
   const [adminNote, setAdminNote] = useState(record.notes || "");
   const [saving, setSaving] = useState(false);
