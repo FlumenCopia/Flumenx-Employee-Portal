@@ -538,15 +538,15 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
     let activeStream = localStreamRef.current;
     if (!activeStream) {
-      try {
-        activeStream = await navigator.mediaDevices.getUserMedia({
-          audio: !isAudioMuted ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : false,
-          video: !isVideoOff ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
-        });
-        setLocalStream(activeStream);
-      } catch (err) {
-        console.warn("Joining with muted stream:", err);
-      }
+      activeStream = await requestMediaPermissions(true);
+    }
+
+    if (activeStream) {
+      activeStream.getTracks().forEach((track) => {
+        if (track.kind === "audio") track.enabled = !isAudioMutedRef.current;
+        if (track.kind === "video") track.enabled = !isVideoOffRef.current;
+      });
+      syncLocalStreamToPeers(activeStream);
     }
 
     if (localVideoRef.current && activeStream) {
@@ -687,25 +687,31 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     });
 
     socket.on("peer-media-toggled", (data: { socketId: string; isAudioMuted: boolean; isVideoOff: boolean }) => {
+      const peerInRef = peersRef.current.get(data.socketId);
+      if (peerInRef) {
+        peerInRef.isAudioMuted = data.isAudioMuted;
+        peerInRef.isVideoOff = data.isVideoOff;
+      }
       setPeers((prev) => {
         const next = new Map(prev);
         const p = next.get(data.socketId);
         if (p) {
-          p.isAudioMuted = data.isAudioMuted;
-          p.isVideoOff = data.isVideoOff;
-          next.set(data.socketId, { ...p });
+          next.set(data.socketId, { ...p, isAudioMuted: data.isAudioMuted, isVideoOff: data.isVideoOff });
         }
         return next;
       });
     });
 
     socket.on("peer-screen-shared", (data: { socketId: string; name: string; isSharing: boolean }) => {
+      const peerInRef = peersRef.current.get(data.socketId);
+      if (peerInRef) {
+        peerInRef.isScreenSharing = data.isSharing;
+      }
       setPeers((prev) => {
         const next = new Map(prev);
         const p = next.get(data.socketId);
         if (p) {
-          p.isScreenSharing = data.isSharing;
-          next.set(data.socketId, { ...p });
+          next.set(data.socketId, { ...p, isScreenSharing: data.isSharing });
         }
         return next;
       });
