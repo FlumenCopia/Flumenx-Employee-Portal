@@ -5,6 +5,7 @@ import { AttendancePolicy, IAttendancePolicy } from '../models/AttendancePolicy.
 import { AttendanceCorrection } from '../models/AttendanceCorrection.js';
 import { Employee } from '../models/Employee.js';
 import { calculateAttendanceRecordState, calculateHaversineDistanceMeters } from '../services/attendanceEngine.js';
+import { timeStringToMinutes } from '../utils/tzUtils.js';
 
 export async function getAttendancePolicy(): Promise<IAttendancePolicy> {
   let policy = await AttendancePolicy.findOne();
