@@ -470,7 +470,7 @@ export class TrackingService {
     }
 
     const employees = await Employee.find(query)
-      .select('name employeeCode department designation avatar trackingStatus trackingStartedAt lastLocationAt currentLocation teamLead user')
+      .select('name employeeCode department designation phone avatar trackingStatus trackingStartedAt lastLocationAt currentLocation teamLead user')
       .populate('user', 'avatar')
       .populate('activeTrackingSession', 'startedAt totalDistance totalDuration status')
       .lean();
@@ -498,6 +498,7 @@ export class TrackingService {
         department: emp.department,
         designation: emp.designation,
         avatar: emp.avatar || emp.user?.avatar || '',
+        phone: emp.phone || '',
         trackingStatus: effectiveStatus,
         isStale,
         trackingStartedAt: emp.trackingStartedAt,

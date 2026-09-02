@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Check, Eye, FileText, Pencil, Search, Trash2, UserPlus } from "lucide-react";
+import { Check, Eye, FileText, MessageSquare, Pencil, Phone, Search, Trash2, UserPlus, Video } from "lucide-react";
 import { Department, Employee, Paginated, PortalRole } from "@/lib/types";
 import { api, ApiError } from "@/lib/api";
 import { Avatar } from "@/components/icons";
@@ -262,11 +262,49 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
               </span>
             </div>
 
-            {canManageEmployees ? (
-              <div className="row-actions">
-                <Link
-                  href={`${employeeBasePath}/${e.id}`}
-                  title="View 360° Profile & Salary Details"
+            <div className="row-actions">
+              <Link
+                href={`${employeeBasePath}/${e.id}`}
+                title="View 360° Profile & Details"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "6px",
+                  border: "1px solid #CBD5E1",
+                  backgroundColor: "#F8FAFC",
+                  color: "#334155",
+                  textDecoration: "none",
+                }}
+              >
+                <Eye size={16} />
+              </Link>
+
+              <Link
+                href={`/chat?emp=${e.id}`}
+                title={`Start Chat with ${e.name}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "6px",
+                  border: "1px solid #B2D8CB",
+                  backgroundColor: "#E7F3EE",
+                  color: "#087A5B",
+                  textDecoration: "none",
+                }}
+              >
+                <MessageSquare size={15} />
+              </Link>
+
+              {e.phone ? (
+                <a
+                  href={`tel:${e.phone}`}
+                  title={`Call ${e.name} (${e.phone})`}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -276,55 +314,74 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
                     borderRadius: "6px",
                     border: "1px solid #CBD5E1",
                     backgroundColor: "#F8FAFC",
-                    color: "#334155",
+                    color: "#087A5B",
                     textDecoration: "none",
                   }}
                 >
-                  <Eye size={16} />
-                </Link>
+                  <Phone size={15} />
+                </a>
+              ) : null}
 
-                <button
-                  type="button"
-                  title="Employee documents"
-                  onClick={(evt) => {
-                    evt.stopPropagation();
-                    setSelectedEmployee(e);
-                    setDocumentsModalOpen(true);
-                  }}
-                >
-                  <FileText size={16} />
-                </button>
+              <Link
+                href={`/chat?emp=${e.id}`}
+                title={`Video Call ${e.name}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "6px",
+                  border: "1px solid #BFDBFE",
+                  backgroundColor: "#EFF6FF",
+                  color: "#2563EB",
+                  textDecoration: "none",
+                }}
+              >
+                <Video size={15} />
+              </Link>
 
-                <button
-                  type="button"
-                  title="Edit employee"
-                  onClick={(evt) => {
-                    evt.stopPropagation();
-                    setSelectedEmployee(e);
-                    setEditModalOpen(true);
-                  }}
-                >
-                  <Pencil size={16} />
-                </button>
+              {canManageEmployees && (
+                <>
+                  <button
+                    type="button"
+                    title="Employee documents"
+                    onClick={(evt) => {
+                      evt.stopPropagation();
+                      setSelectedEmployee(e);
+                      setDocumentsModalOpen(true);
+                    }}
+                  >
+                    <FileText size={16} />
+                  </button>
 
-                <button
-                  type="button"
-                  title="Delete employee"
-                  onClick={(evt) => {
-                    evt.stopPropagation();
-                    setSelectedEmployee(e);
-                    setDeleteError("");
-                    setDeleteModalOpen(true);
-                  }}
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ) : (
-              <div className="row-actions" style={{ visibility: "hidden" }}>
-                <span />
-              </div>
-            )}
+                  <button
+                    type="button"
+                    title="Edit employee"
+                    onClick={(evt) => {
+                      evt.stopPropagation();
+                      setSelectedEmployee(e);
+                      setEditModalOpen(true);
+                    }}
+                  >
+                    <Pencil size={16} />
+                  </button>
+
+                  <button
+                    type="button"
+                    title="Delete employee"
+                    onClick={(evt) => {
+                      evt.stopPropagation();
+                      setSelectedEmployee(e);
+                      setDeleteError("");
+                      setDeleteModalOpen(true);
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         ))}
     </div>

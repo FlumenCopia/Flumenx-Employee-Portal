@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from "react";
 import { getGlobalSocket } from "@/lib/socket";
 import { DirectCallModal } from "./DirectCallModal";
+import { toast } from "@/components/ToastContext";
 
 export type CallType = "audio" | "video";
 export type CallStateMode = "incoming" | "outgoing" | "connected";
@@ -235,11 +236,23 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const handleCallRejected = () => {
+    const handleCallRejected = (data?: { reason?: string }) => {
+      toast.error(data?.reason || "Call was declined.");
       endCallCleanup();
     };
 
     const handleCallEnded = () => {
+      toast.info("Call ended.");
+      endCallCleanup();
+    };
+
+    const handleCallUnavailable = (data: { message?: string }) => {
+      toast.error(data?.message || "The recipient is currently offline.");
+      endCallCleanup();
+    };
+
+    const handleCallError = (data: { message?: string }) => {
+      toast.error(data?.message || "Failed to establish call.");
       endCallCleanup();
     };
 
@@ -248,6 +261,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     socket.on("call:ice-candidate", handleIceCandidate);
     socket.on("call:rejected", handleCallRejected);
     socket.on("call:ended", handleCallEnded);
+    socket.on("call:unavailable", handleCallUnavailable);
+    socket.on("call:error", handleCallError);
 
     return () => {
       socket.off("call:incoming", handleIncomingCall);
@@ -255,6 +270,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       socket.off("call:ice-candidate", handleIceCandidate);
       socket.off("call:rejected", handleCallRejected);
       socket.off("call:ended", handleCallEnded);
+      socket.off("call:unavailable", handleCallUnavailable);
+      socket.off("call:error", handleCallError);
     };
   }, [endCallCleanup]);
 

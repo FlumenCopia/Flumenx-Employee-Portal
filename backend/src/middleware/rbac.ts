@@ -135,7 +135,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
     TIMELINE: FULL_ACCESS,
     KPI: FULL_ACCESS,
     EMPLOYEES: READ_ONLY,
-    ATTENDANCE: VIEW_CREATE,
+    ATTENDANCE: { canView: true, canCreate: true, canEdit: true, canDelete: false },
     EMPLOYEE_TRACKING: FULL_ACCESS,
     TRACKING: FULL_ACCESS,
     LEAVES: { canView: true, canCreate: true, canEdit: true, canDelete: false },

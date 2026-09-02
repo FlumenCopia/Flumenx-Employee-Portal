@@ -564,8 +564,8 @@ export function DailyRouteMap({
         display: "flex",
         flexDirection: "column",
         gap: "16px",
-        height: "calc(100vh - 120px)",
-        minHeight: "650px",
+        height: "calc(100vh - 180px)",
+        minHeight: "440px",
       }}
     >
       {/* Controls Header & Metric Cards */}

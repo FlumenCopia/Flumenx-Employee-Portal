@@ -804,6 +804,7 @@ export type LiveEmployeeTracking = {
   department: string;
   designation: string;
   avatar?: string;
+  phone?: string;
   trackingStatus: TrackingStatus;
   isStale?: boolean;
   trackingStartedAt?: string | null;

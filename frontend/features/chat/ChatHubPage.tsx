@@ -57,6 +57,7 @@ import { Avatar } from "@/components/icons";
 import { Modal } from "@/features/common/Modal";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
+import { getCachedAuthUser } from "@/lib/auth-cache";
 import {
   ChatConversationItem,
   ChatMessageItem,
@@ -137,9 +138,44 @@ export function ChatHubPage({ role }: Props) {
   const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [standupModalOpen, setStandupModalOpen] = useState(false);
 
+  // Group Call Member Selector Modal
+  const [callPickerOpen, setCallPickerOpen] = useState(false);
+  const [callPickerType, setCallPickerType] = useState<"audio" | "video">("audio");
+
   // Real-Time WebRTC Calling & Online Presence
   const { startCall } = useWebRTC();
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
+
+  // Helper for 1-to-1 Direct Chat creation / navigation
+  const handleStartDirectChatWithUser = async (targetUserId?: string | number, targetEmpId?: string | number) => {
+    try {
+      const conv = await api<ChatConversationItem>("/chat/conversations/direct/", {
+        method: "POST",
+        body: JSON.stringify({ target_user_id: targetUserId, target_employee_id: targetEmpId }),
+      });
+      if (conv && conv.id) {
+        setActiveConversationId(conv.id);
+        loadConversations(true);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to open direct conversation");
+    }
+  };
+
+  // URL search param auto-selection logic
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const targetUserId = params.get("user") || params.get("targetUserId");
+    const targetEmpId = params.get("emp") || params.get("targetEmpId");
+    const convId = params.get("conversationId") || params.get("conv");
+
+    if (convId) {
+      setActiveConversationId(convId);
+    } else if (targetUserId || targetEmpId) {
+      handleStartDirectChatWithUser(targetUserId || undefined, targetEmpId || undefined);
+    }
+  }, []);
 
   // Lightbox Media Preview
   const [previewMedia, setPreviewMedia] = useState<{ src: string; alt?: string; isVideo?: boolean } | null>(null);
@@ -544,21 +580,47 @@ export function ChatHubPage({ role }: Props) {
     }
   };
 
-  const handleStartCall = (type: "audio" | "video") => {
+  const handleStartCall = (type: "audio" | "video", targetMember?: { id: string | number; name: string; avatar?: string }) => {
     if (!activeConversation) return;
-    const partner = activeConversation.other_participant;
-    const targetUserId = partner?.id || (partner as any)?.user_id || activeConversation.participants?.[0]?.user_id;
+
+    const currentUser = getCachedAuthUser();
+    const currentUserId = String(currentUser?.id || (currentUser as any)?.user_id || "");
+
+    let targetUserId = targetMember?.id ? String(targetMember.id) : "";
+    let partnerName = targetMember?.name || activeConversation.name;
+    let partnerAvatar = targetMember?.avatar || activeConversation.avatar;
 
     if (!targetUserId) {
-      toast.error("No callable participant found");
+      if (activeConversation.type === "DIRECT") {
+        const partner = activeConversation.other_participant;
+        targetUserId = partner?.id ? String(partner.id) : "";
+        if (!targetUserId || targetUserId === currentUserId) {
+          const otherP = activeConversation.participants?.find((p) => String(p.user_id) !== currentUserId);
+          targetUserId = otherP?.user_id ? String(otherP.user_id) : "";
+          if (otherP?.name) partnerName = otherP.name;
+          if (otherP?.avatar) partnerAvatar = otherP.avatar;
+        } else {
+          if (partner?.name) partnerName = partner.name;
+          if (partner?.avatar) partnerAvatar = partner.avatar;
+        }
+      } else {
+        // Group or channel chat: open participant picker modal
+        setCallPickerType(type);
+        setCallPickerOpen(true);
+        return;
+      }
+    }
+
+    if (!targetUserId || targetUserId === currentUserId) {
+      toast.error("No callable colleague found in this conversation.");
       return;
     }
 
     startCall({
-      toUserId: String(targetUserId),
+      toUserId: targetUserId,
       callType: type,
-      partnerName: activeConversation.name,
-      partnerAvatar: activeConversation.avatar,
+      partnerName,
+      partnerAvatar,
       conversationId: activeConversation.id,
     });
   };
@@ -642,8 +704,9 @@ export function ChatHubPage({ role }: Props) {
           border: "1px solid var(--border, #DCE3E0)",
           borderRadius: "16px",
           overflow: "hidden",
-          height: "calc(100vh - 200px)",
-          minHeight: "650px",
+          height: "calc(100vh - 235px)",
+          minHeight: "440px",
+          maxHeight: "calc(100vh - 180px)",
           boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
           position: "relative",
         }}
@@ -1700,42 +1763,77 @@ export function ChatHubPage({ role }: Props) {
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    {(activeConversation.participants || []).map((p) => (
-                      <div
-                        key={p.user_id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: "8px 10px",
-                          background: "var(--panel, #ffffff)",
-                          border: "1px solid var(--border, #DCE3E0)",
-                          borderRadius: "8px",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-                          <Avatar name={p.name} avatar={p.avatar} size={26} />
-                          <div style={{ minWidth: 0 }}>
-                            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text, #18231F)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {p.name}
-                            </span>
-                            <span style={{ fontSize: "10px", color: "var(--color-text-muted, #718096)" }}>
-                              {p.role === "ADMIN" ? "Admin" : "Member"}
-                            </span>
+                    {(activeConversation.participants || []).map((p) => {
+                      const currentUser = getCachedAuthUser();
+                      const isSelf = String(p.user_id) === String(currentUser?.id || (currentUser as any)?.user_id || "");
+                      return (
+                        <div
+                          key={p.user_id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "8px 10px",
+                            background: "var(--panel, #ffffff)",
+                            border: "1px solid var(--border, #DCE3E0)",
+                            borderRadius: "8px",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                            <Avatar name={p.name} avatar={p.avatar} size={26} />
+                            <div style={{ minWidth: 0 }}>
+                              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text, #18231F)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {p.name} {isSelf ? "(You)" : ""}
+                              </span>
+                              <span style={{ fontSize: "10px", color: "var(--color-text-muted, #718096)" }}>
+                                {p.role === "ADMIN" ? "Admin" : "Member"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            {!isSelf && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartCall("audio", { id: p.user_id, name: p.name, avatar: p.avatar })}
+                                  style={{ background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border, #DCE3E0)", borderRadius: "6px", color: "#087A5B", cursor: "pointer", padding: "4px 6px", display: "inline-flex", alignItems: "center" }}
+                                  title={`Voice Call ${p.name}`}
+                                >
+                                  <Phone size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartCall("video", { id: p.user_id, name: p.name, avatar: p.avatar })}
+                                  style={{ background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border, #DCE3E0)", borderRadius: "6px", color: "#2563EB", cursor: "pointer", padding: "4px 6px", display: "inline-flex", alignItems: "center" }}
+                                  title={`Video Call ${p.name}`}
+                                >
+                                  <Video size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartDirectChatWithUser(p.user_id)}
+                                  style={{ background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border, #DCE3E0)", borderRadius: "6px", color: "#64748B", cursor: "pointer", padding: "4px 6px", display: "inline-flex", alignItems: "center" }}
+                                  title={`Direct Chat with ${p.name}`}
+                                >
+                                  <MessageSquare size={12} />
+                                </button>
+                              </>
+                            )}
+
+                            {activeConversation.is_admin && !isSelf && (
+                              <button
+                                onClick={() => handleRemoveMember(p.user_id)}
+                                style={{ background: "transparent", border: 0, color: "#DC2626", cursor: "pointer", padding: "4px" }}
+                                title="Remove member"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
                           </div>
                         </div>
-
-                        {activeConversation.is_admin && p.user_id !== (activeConversation as any).current_user_id && (
-                          <button
-                            onClick={() => handleRemoveMember(p.user_id)}
-                            style={{ background: "transparent", border: 0, color: "#DC2626", cursor: "pointer", padding: "4px" }}
-                            title="Remove member"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2104,6 +2202,100 @@ export function ChatHubPage({ role }: Props) {
         onSubmit={handleEmbedStandup}
       />
 
+
+      {/* ========================================================= */}
+      {/* MODAL 6: GROUP CALL MEMBER SELECTOR */}
+      {/* ========================================================= */}
+      {callPickerOpen && activeConversation && (
+        <Modal
+          onClose={() => setCallPickerOpen(false)}
+          title={`Initiate ${callPickerType === "video" ? "Video" : "Voice"} Call in ${activeConversation.name}`}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <p style={{ margin: 0, fontSize: "13px", color: "var(--color-text-muted, #718096)" }}>
+              Select a group member below to initiate a 1-to-1 direct call, or join the shared Video Meeting Room for full team participation.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "300px", overflowY: "auto" }}>
+              {(activeConversation.participants || [])
+                .filter((p) => {
+                  const currentUser = getCachedAuthUser();
+                  return String(p.user_id) !== String(currentUser?.id || (currentUser as any)?.user_id || "");
+                })
+                .map((p) => (
+                  <div
+                    key={p.user_id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 14px",
+                      background: "var(--panel2, #F8FAF9)",
+                      border: "1px solid var(--border, #DCE3E0)",
+                      borderRadius: "10px",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <Avatar name={p.name} avatar={p.avatar} size={32} />
+                      <div>
+                        <b style={{ fontSize: "13px", color: "var(--color-text, #18231F)", display: "block" }}>{p.name}</b>
+                        <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
+                          {p.department || p.role || "Team Member"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCallPickerOpen(false);
+                        handleStartCall(callPickerType, { id: p.user_id, name: p.name, avatar: p.avatar });
+                      }}
+                      style={{
+                        padding: "6px 14px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        borderRadius: "8px",
+                        border: 0,
+                        background: callPickerType === "video" ? "#2563EB" : "#087A5B",
+                        color: "#ffffff",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      {callPickerType === "video" ? <Video size={14} /> : <Phone size={14} />}
+                      Call {p.name.split(" ")[0]}
+                    </button>
+                  </div>
+                ))}
+            </div>
+
+            <div style={{ borderTop: "1px solid var(--border, #DCE3E0)", paddingTop: "12px", marginTop: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "12px", color: "var(--color-text-muted, #718096)" }}>Or start a multi-user meeting:</span>
+              <a
+                href="/meetings"
+                style={{
+                  padding: "8px 16px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  borderRadius: "8px",
+                  background: "var(--panel, #ffffff)",
+                  border: "1.5px solid var(--color-primary, #087A5B)",
+                  color: "var(--color-primary, #087A5B)",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <Video size={14} /> Open Meeting Room
+              </a>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* ========================================================= */}
       {/* LIGHTBOX MEDIA PREVIEW */}

@@ -23,6 +23,8 @@ import {
   MapPin,
   Calendar,
   Layers,
+  MessageSquare,
+  Phone,
   Sparkles,
   Radio,
   Crosshair,
@@ -759,8 +761,8 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
         display: "flex",
         flexDirection: "column",
         gap: "16px",
-        height: "calc(100vh - 120px)",
-        minHeight: "650px",
+        height: "calc(100vh - 180px)",
+        minHeight: "440px",
       }}
     >
       {/* Top Controls Header */}
@@ -1158,11 +1160,50 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
                           {timeAgo(emp.lastLocationAt)}
                         </span>
                       </div>
-                      <div style={{ fontSize: "11px", color: TOKENS.colors.textSecondary, display: "flex", gap: "6px" }}>
+                      <div style={{ fontSize: "11px", color: TOKENS.colors.textSecondary, display: "flex", gap: "6px", alignItems: "center" }}>
                         <span>{emp.employeeCode}</span>
                         <span>•</span>
                         <span>{emp.department}</span>
                       </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+                      <a
+                        href={`/chat?emp=${id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        title={`Chat with ${emp.name}`}
+                        style={{
+                          padding: "5px 7px",
+                          borderRadius: "6px",
+                          background: "var(--color-primary-subtle, #E7F3EE)",
+                          border: "1px solid var(--color-brand-border, #B2D8CB)",
+                          color: "#087A5B",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          textDecoration: "none",
+                        }}
+                      >
+                        <MessageSquare size={13} />
+                      </a>
+                      {emp.phone ? (
+                        <a
+                          href={`tel:${emp.phone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          title={`Call ${emp.name}`}
+                          style={{
+                            padding: "5px 7px",
+                            borderRadius: "6px",
+                            background: "#F8FAFC",
+                            border: "1px solid #CBD5E1",
+                            color: "#334155",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            textDecoration: "none",
+                          }}
+                        >
+                          <Phone size={13} />
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                 );

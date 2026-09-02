@@ -155,90 +155,94 @@ export async function getEmployeeById(req: Request, res: Response): Promise<void
 }
 
 export async function createEmployee(req: Request, res: Response): Promise<void> {
-  const body = req.body || {};
-  const {
-    employee_code,
-    name,
-    email,
-    phone,
-    department,
-    designation,
-    joining_date,
-    status,
-    employment_status,
-    probation_start_date,
-    probation_end_date,
-    confirmation_date,
-    avatar,
-    location,
-    team_lead,
-    user_id,
-  } = body;
+  try {
+    const body = req.body || {};
+    const {
+      employee_code,
+      name,
+      email,
+      phone,
+      department,
+      designation,
+      joining_date,
+      status,
+      employment_status,
+      probation_start_date,
+      probation_end_date,
+      confirmation_date,
+      avatar,
+      location,
+      team_lead,
+      user_id,
+    } = body;
 
-  let code = employee_code ? String(employee_code).trim() : '';
-  if (!code) {
-    const totalCount = await Employee.countDocuments();
-    let num = totalCount + 1;
-    code = `FX-${String(num).padStart(3, '0')}`;
-    while (await Employee.findOne({ employeeCode: code })) {
-      num += 1;
+    let code = employee_code ? String(employee_code).trim() : '';
+    if (!code) {
+      const totalCount = await Employee.countDocuments();
+      let num = totalCount + 1;
       code = `FX-${String(num).padStart(3, '0')}`;
+      while (await Employee.findOne({ employeeCode: code })) {
+        num += 1;
+        code = `FX-${String(num).padStart(3, '0')}`;
+      }
     }
+
+    if (!name || !email || !phone || !department || !designation || !joining_date) {
+      res.status(400).json({ detail: 'Required employee fields are missing.' });
+      return;
+    }
+
+    const existingCode = await Employee.findOne({ employeeCode: code });
+    if (existingCode) {
+      res.status(400).json({ detail: 'Employee code already exists.' });
+      return;
+    }
+
+    const deptObj = await Department.findOne({ name: department });
+
+    const empStatus = employment_status || 'Probation';
+    const joinDateObj = new Date(joining_date);
+    const pStart = probation_start_date ? new Date(probation_start_date) : joinDateObj;
+    const pEnd = probation_end_date ? new Date(probation_end_date) : new Date(joinDateObj.getTime() + 90 * 24 * 3600 * 1000);
+
+    const employee = new Employee({
+      employeeCode: code,
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
+      department,
+      departmentRef: deptObj ? deptObj._id : null,
+      designation: designation.trim(),
+      joiningDate: joinDateObj,
+      status: status || 'Active',
+      employmentStatus: empStatus,
+      probationStartDate: pStart,
+      probationEndDate: empStatus === 'Probation' ? pEnd : null,
+      confirmationDate: empStatus === 'Permanent' ? (confirmation_date ? new Date(confirmation_date) : new Date()) : null,
+      avatar: avatar || '',
+      location: location || '',
+      teamLead: team_lead || null,
+      user: user_id || null,
+    });
+
+    await employee.save();
+    res.status(201).json({
+      id: employee._id,
+      employee_code: employee.employeeCode,
+      name: employee.name,
+      email: employee.email,
+      phone: employee.phone,
+      department: employee.department,
+      designation: employee.designation,
+      joining_date: employee.joiningDate.toISOString().split('T')[0],
+      status: employee.status,
+      employment_status: employee.employmentStatus,
+      probation_end_date: employee.probationEndDate ? employee.probationEndDate.toISOString().split('T')[0] : null,
+      confirmation_date: employee.confirmationDate ? employee.confirmationDate.toISOString().split('T')[0] : null,
+    });
+  } catch (error: any) {
+    res.status(400).json({ detail: error?.message || 'Failed to create employee.' });
   }
-
-  if (!name || !email || !phone || !department || !designation || !joining_date) {
-    res.status(400).json({ detail: 'Required employee fields are missing.' });
-    return;
-  }
-
-  const existingCode = await Employee.findOne({ employeeCode: code });
-  if (existingCode) {
-    res.status(400).json({ detail: 'Employee code already exists.' });
-    return;
-  }
-
-  const deptObj = await Department.findOne({ name: department });
-
-  const empStatus = employment_status || 'Probation';
-  const joinDateObj = new Date(joining_date);
-  const pStart = probation_start_date ? new Date(probation_start_date) : joinDateObj;
-  const pEnd = probation_end_date ? new Date(probation_end_date) : new Date(joinDateObj.getTime() + 90 * 24 * 3600 * 1000);
-
-  const employee = new Employee({
-    employeeCode: code,
-    name: name.trim(),
-    email: email.trim().toLowerCase(),
-    phone: phone.trim(),
-    department,
-    departmentRef: deptObj ? deptObj._id : null,
-    designation: designation.trim(),
-    joiningDate: joinDateObj,
-    status: status || 'Active',
-    employmentStatus: empStatus,
-    probationStartDate: pStart,
-    probationEndDate: empStatus === 'Probation' ? pEnd : null,
-    confirmationDate: empStatus === 'Permanent' ? (confirmation_date ? new Date(confirmation_date) : new Date()) : null,
-    avatar: avatar || '',
-    location: location || '',
-    teamLead: team_lead || null,
-    user: user_id || null,
-  });
-
-  await employee.save();
-  res.status(201).json({
-    id: employee._id,
-    employee_code: employee.employeeCode,
-    name: employee.name,
-    email: employee.email,
-    phone: employee.phone,
-    department: employee.department,
-    designation: employee.designation,
-    joining_date: employee.joiningDate.toISOString().split('T')[0],
-    status: employee.status,
-    employment_status: employee.employmentStatus,
-    probation_end_date: employee.probationEndDate ? employee.probationEndDate.toISOString().split('T')[0] : null,
-    confirmation_date: employee.confirmationDate ? employee.confirmationDate.toISOString().split('T')[0] : null,
-  });
 }
 
 export async function updateEmployee(req: Request, res: Response): Promise<void> {

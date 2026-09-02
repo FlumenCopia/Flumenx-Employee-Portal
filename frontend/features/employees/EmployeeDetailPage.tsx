@@ -14,6 +14,7 @@ import {
   History,
   Mail,
   MapPin,
+  MessageSquare,
   Pencil,
   Phone,
   Plus,
@@ -23,6 +24,7 @@ import {
   Trash2,
   Upload,
   User,
+  Video,
   UserCheck,
   Wallet,
 } from "lucide-react";
@@ -371,8 +373,69 @@ export function EmployeeDetailPage({ id, role }: { id: string; role?: "admin" | 
           </div>
         </div>
 
-        {/* Key Fast Stats */}
-        <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+        {/* Key Fast Stats & Quick Communication Actions */}
+        <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <Link
+              href={`/chat?emp=${profile.id}`}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 14px",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 700,
+                backgroundColor: "#087A5B",
+                color: "#FFFFFF",
+                textDecoration: "none",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              }}
+            >
+              <MessageSquare size={15} /> Chat Now
+            </Link>
+
+            {profile.phone ? (
+              <a
+                href={`tel:${profile.phone}`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 14px",
+                  borderRadius: "8px",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  backgroundColor: "#FFFFFF",
+                  border: "1.5px solid #CBD5E1",
+                  color: "#0F172A",
+                  textDecoration: "none",
+                }}
+              >
+                <Phone size={15} color="#087A5B" /> Voice Call
+              </a>
+            ) : null}
+
+            <Link
+              href={`/chat?emp=${profile.id}`}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "8px 14px",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 700,
+                backgroundColor: "#EFF6FF",
+                border: "1.5px solid #BFDBFE",
+                color: "#1D4ED8",
+                textDecoration: "none",
+              }}
+            >
+              <Video size={15} /> Video Call
+            </Link>
+          </div>
+
           <div style={{ padding: "12px 18px", backgroundColor: "#F8FAFC", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
             <div style={{ fontSize: "11px", fontWeight: 600, color: "#64748B" }}>Monthly Gross</div>
             <div style={{ fontSize: "18px", fontWeight: 800, color: "#087A5B" }}>

@@ -83,7 +83,7 @@ router.get('/work-reviewer-options/?', getWorkReviewerOptions);
 
 // Share Links
 router.get('/work-share-links/?', requirePermission('clients', 'canView'), getShareLinks);
-router.post('/work-share-links/?', requirePermission('clients', 'canCreate'), createShareLinkHandler);
+router.post('/work-share-links/?', requirePermission('clients', 'canView'), createShareLinkHandler);
 router.post('/work-share-links/:id/revoke/?', requirePermission('clients', 'canEdit'), revokeShareLink);
 router.post('/work-share-links/:id/regenerate/?', requirePermission('clients', 'canEdit'), regenerateShareLink);
 
