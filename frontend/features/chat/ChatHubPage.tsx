@@ -59,6 +59,7 @@ import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
 import { getCachedAuthUser } from "@/lib/auth-cache";
 import {
+  AuthUser,
   ChatConversationItem,
   ChatMessageItem,
   ChatUserOption,
@@ -281,6 +282,20 @@ export function ChatHubPage({ role }: Props) {
     }
   };
 
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const currentUserRef = useRef<AuthUser | null>(null);
+
+  useEffect(() => {
+    api<AuthUser>("/auth/me/")
+      .then((u) => {
+        if (u) {
+          setCurrentUser(u);
+          currentUserRef.current = u;
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     loadConversations();
     loadOptionsData();
@@ -304,14 +319,42 @@ export function ChatHubPage({ role }: Props) {
       socket.emit("join_conversation", { conversationId: activeConversationId });
     }
 
+    const handlePresenceUpdate = (data: any) => {
+      if (data?.onlineUserIds && Array.isArray(data.onlineUserIds)) {
+        setOnlineUserIds(data.onlineUserIds.map(String));
+      } else if (data?.userId) {
+        setOnlineUserIds((prev) =>
+          data.status === "online"
+            ? Array.from(new Set([...prev, String(data.userId)]))
+            : prev.filter((id) => id !== String(data.userId))
+        );
+      }
+    };
+
+    const handlePresenceOnlineUsers = (ids: any) => {
+      if (Array.isArray(ids)) {
+        setOnlineUserIds(ids.map(String));
+      }
+    };
+
+    socket.on("presence:update", handlePresenceUpdate);
+    socket.on("presence:online-users", handlePresenceOnlineUsers);
+
     const handleNewMessage = (payload: any) => {
       const msg: ChatMessageItem = payload?.message || payload;
       if (!msg || !msg.conversation_id) return;
 
+      const isSenderSelf = Boolean(
+        msg.is_self ||
+        (currentUserRef.current && (String(msg.sender_id) === String(currentUserRef.current.id) || String(msg.sender_id) === String((currentUserRef.current as any)._id)))
+      );
+
+      const formattedMsg = { ...msg, is_self: isSenderSelf };
+
       if (String(msg.conversation_id) === String(activeConversationId)) {
         setMessages((prev) => {
           if (prev.some((m) => String(m.id) === String(msg.id))) return prev;
-          return [...prev, msg];
+          return [...prev, formattedMsg];
         });
         setTimeout(() => scrollToBottom("smooth"), 50);
       }
@@ -330,6 +373,8 @@ export function ChatHubPage({ role }: Props) {
         })
       );
     };
+
+    socket.on("chat:new-message", handleNewMessage);
 
     const handleConversationUpdated = (data: any) => {
       if (data?.conversationId && data?.lastMessage) {
@@ -612,8 +657,8 @@ export function ChatHubPage({ role }: Props) {
   const handleStartCall = (type: "audio" | "video", targetMember?: { id: string | number; name: string; avatar?: string }) => {
     if (!activeConversation) return;
 
-    const currentUser = getCachedAuthUser();
-    const currentUserId = String(currentUser?.id || (currentUser as any)?.user_id || "");
+    const loggedInUser = currentUser || getCachedAuthUser();
+    const currentUserId = String(loggedInUser?.id || (loggedInUser as any)?._id || (loggedInUser as any)?.user_id || "");
 
     let targetUserId = targetMember?.id ? String(targetMember.id) : "";
     let partnerName = targetMember?.name || activeConversation.name;
@@ -622,15 +667,13 @@ export function ChatHubPage({ role }: Props) {
     if (!targetUserId) {
       if (activeConversation.type === "DIRECT") {
         const partner = activeConversation.other_participant;
-        targetUserId = partner?.id ? String(partner.id) : "";
-        if (!targetUserId || targetUserId === currentUserId) {
-          const otherP = activeConversation.participants?.find((p) => String(p.user_id) !== currentUserId);
-          targetUserId = otherP?.user_id ? String(otherP.user_id) : "";
-          if (otherP?.name) partnerName = otherP.name;
-          if (otherP?.avatar) partnerAvatar = otherP.avatar;
-        } else {
-          if (partner?.name) partnerName = partner.name;
-          if (partner?.avatar) partnerAvatar = partner.avatar;
+        const otherP = activeConversation.participants?.find((p) => String(p.user_id) !== currentUserId);
+
+        const candidateId = partner?.id || (partner as any)?.user_id || otherP?.user_id;
+        if (candidateId && String(candidateId) !== currentUserId) {
+          targetUserId = String(candidateId);
+          partnerName = partner?.name || otherP?.name || partnerName;
+          partnerAvatar = partner?.avatar || otherP?.avatar || partnerAvatar;
         }
       } else {
         // Group or channel chat: open participant picker modal
@@ -640,7 +683,7 @@ export function ChatHubPage({ role }: Props) {
       }
     }
 
-    if (!targetUserId || targetUserId === currentUserId) {
+    if (!targetUserId) {
       toast.error("No callable colleague found in this conversation.");
       return;
     }
@@ -1171,7 +1214,11 @@ export function ChatHubPage({ role }: Props) {
                   </div>
                 ) : (
                   messages.map((msg) => {
-                    const isSelf = msg.is_self;
+                    const isSelf = Boolean(
+                      msg.is_self ||
+                      (currentUser && (String(msg.sender_id) === String(currentUser.id) || String(msg.sender_id) === String((currentUser as any)._id))) ||
+                      (msg.sender_name && currentUser && msg.sender_name === (currentUser.employee?.name || currentUser.first_name || currentUser.username))
+                    );
 
                     return (
                       <div
@@ -1212,7 +1259,7 @@ export function ChatHubPage({ role }: Props) {
 
                           {/* 1. TEXT MESSAGE */}
                           {msg.message_type === "TEXT" && (
-                            <p style={{ margin: 0, fontSize: "13px", lineHeight: "1.5", wordBreak: "break-word" }}>
+                            <p style={{ margin: 0, fontSize: "13.5px", lineHeight: 1.5, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
                               {msg.text}
                             </p>
                           )}
@@ -1260,22 +1307,15 @@ export function ChatHubPage({ role }: Props) {
                           {msg.message_type === "VIDEO" && msg.attachments?.[0] && (
                             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                               <video
-                                controls
                                 src={resolveChatMediaUrl(msg.attachments[0].url)}
-                                onClick={() =>
-                                  setPreviewMedia({
-                                    src: resolveChatMediaUrl(msg.attachments![0].url),
-                                    alt: msg.attachments![0].name,
-                                    isVideo: true,
-                                  })
-                                }
-                                style={{ maxWidth: "100%", width: "300px", maxHeight: "200px", borderRadius: "10px", cursor: "pointer" }}
+                                controls
+                                style={{ maxWidth: "100%", width: "320px", maxHeight: "240px", borderRadius: "10px" }}
                               />
                               <span style={{ fontSize: "11px", opacity: 0.8 }}>{msg.attachments[0].name}</span>
                             </div>
                           )}
 
-                          {/* 4. FILE ATTACHMENT */}
+                          {/* 4. FILE / DOCUMENT MESSAGE */}
                           {msg.message_type === "FILE" && msg.attachments?.[0] && (
                             <a
                               href={resolveChatMediaUrl(msg.attachments[0].url)}
@@ -1288,144 +1328,86 @@ export function ChatHubPage({ role }: Props) {
                                 padding: "8px 12px",
                                 background: isSelf ? "rgba(0,0,0,0.15)" : "var(--panel2, #F8FAF9)",
                                 borderRadius: "8px",
+                                color: isSelf ? "#fff" : "var(--color-primary, #087A5B)",
                                 textDecoration: "none",
-                                color: isSelf ? "#fff" : "var(--color-text, #18231F)",
-                                border: isSelf ? "1px solid rgba(255,255,255,0.2)" : "1px solid var(--border, #DCE3E0)",
+                                fontSize: "13px",
+                                fontWeight: 600,
                               }}
                             >
-                              <FileText size={20} color={isSelf ? "#fff" : "#2563EB"} />
-                              <div style={{ minWidth: 0 }}>
-                                <b style={{ fontSize: "12px", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {msg.attachments[0].name}
-                                </b>
-                                <span style={{ fontSize: "10px", opacity: 0.7 }}>Click to open / download</span>
-                              </div>
+                              <FileText size={20} />
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "200px" }}>
+                                {msg.attachments[0].name}
+                              </span>
+                              <ExternalLink size={14} style={{ marginLeft: "auto", flexShrink: 0 }} />
                             </a>
                           )}
 
-                          {/* 5. SMART TASK EMBED CARD */}
+                          {/* 5. TASK EMBED CARD */}
                           {msg.message_type === "TASK_EMBED" && msg.task_embed && (
                             <div
                               style={{
-                                padding: "12px",
+                                padding: "10px 12px",
                                 background: isSelf ? "rgba(0,0,0,0.15)" : "var(--panel2, #F8FAF9)",
                                 border: isSelf ? "1px solid rgba(255,255,255,0.2)" : "1px solid var(--border, #DCE3E0)",
-                                borderRadius: "10px",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "8px",
-                                minWidth: "260px",
-                              }}
-                            >
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: "10px", fontWeight: 800, color: isSelf ? "#fff" : "var(--color-primary, #087A5B)", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "4px" }}>
-                                  <ListTodo size={12} /> FLUMENX TASK EMBED
-                                </span>
-                                <Badge tone={msg.task_embed.priority === "Urgent" ? "danger" : "neutral"}>
-                                  {msg.task_embed.priority}
-                                </Badge>
-                              </div>
-
-                              <b style={{ fontSize: "14px", color: isSelf ? "#fff" : "var(--color-text, #18231F)" }}>{msg.task_embed.title}</b>
-
-                              <div style={{ fontSize: "11px", color: isSelf ? "rgba(255,255,255,0.85)" : "var(--color-text-muted, #718096)", display: "flex", justifyContent: "space-between" }}>
-                                <span>Assignee: <b>{msg.task_embed.employeeName}</b></span>
-                                <span>Status: <b style={{ color: isSelf ? "#fff" : "#16855B" }}>{msg.task_embed.status}</b></span>
-                              </div>
-
-                              {/* Progress bar */}
-                              <div style={{ width: "100%", height: "6px", background: isSelf ? "rgba(255,255,255,0.25)" : "#DCE3E0", borderRadius: "4px", overflow: "hidden" }}>
-                                <div
-                                  style={{
-                                    width: `${Math.min(100, Math.round(((msg.task_embed.completedQuantity || 0) / (msg.task_embed.assignedQuantity || 1)) * 100))}%`,
-                                    height: "100%",
-                                    background: isSelf ? "#fff" : "#087A5B",
-                                  }}
-                                />
-                              </div>
-
-                              <a
-                                href={`/clients/tasks`}
-                                style={{
-                                  padding: "6px 10px",
-                                  background: isSelf ? "rgba(255,255,255,0.15)" : "#E7F5EE",
-                                  border: isSelf ? "1px solid rgba(255,255,255,0.25)" : "1px solid #B2D8CB",
-                                  borderRadius: "6px",
-                                  textAlign: "center",
-                                  fontSize: "11.5px",
-                                  color: isSelf ? "#fff" : "#087A5B",
-                                  textDecoration: "none",
-                                  fontWeight: 700,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  gap: "4px",
-                                }}
-                              >
-                                View Task Details <ExternalLink size={11} />
-                              </a>
-                            </div>
-                          )}
-
-                          {/* 6. SMART CLIENT EMBED CARD */}
-                          {msg.message_type === "CLIENT_EMBED" && msg.client_embed && (
-                            <div
-                              style={{
-                                padding: "12px",
-                                background: isSelf ? "rgba(0,0,0,0.15)" : "var(--panel2, #F8FAF9)",
-                                border: isSelf ? "1px solid rgba(255,255,255,0.2)" : "1px solid var(--border, #DCE3E0)",
-                                borderRadius: "10px",
+                                borderRadius: "8px",
                                 display: "flex",
                                 flexDirection: "column",
                                 gap: "6px",
-                                minWidth: "240px",
+                                minWidth: "220px",
                               }}
                             >
-                              <span style={{ fontSize: "10px", fontWeight: 800, color: isSelf ? "#fff" : "var(--color-primary, #087A5B)", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "4px" }}>
-                                <Briefcase size={12} /> CLIENT ACCOUNT LINK
+                              <span style={{ fontSize: "11px", fontWeight: 700, color: isSelf ? "#fff" : "var(--color-primary, #087A5B)", display: "flex", alignItems: "center", gap: "4px" }}>
+                                <ListTodo size={13} /> ATTACHED WORK TASK
                               </span>
-                              <b style={{ fontSize: "14px", color: isSelf ? "#fff" : "var(--color-text, #18231F)" }}>{msg.client_embed.name}</b>
-                              <span style={{ fontSize: "11px", color: isSelf ? "rgba(255,255,255,0.8)" : "var(--color-text-muted, #718096)" }}>
-                                Industry: {msg.client_embed.industry} • Contact: {msg.client_embed.contactPerson || "Primary Lead"}
-                              </span>
-                              <a
-                                href={`/clients/tasks`}
-                                style={{
-                                  padding: "6px 10px",
-                                  background: isSelf ? "rgba(255,255,255,0.15)" : "var(--color-primary-subtle, #E7F3EE)",
-                                  border: isSelf ? "1px solid rgba(255,255,255,0.25)" : "1px solid var(--color-brand-border, #B2D8CB)",
-                                  borderRadius: "6px",
-                                  textAlign: "center",
-                                  fontSize: "11.5px",
-                                  color: isSelf ? "#fff" : "var(--color-primary, #087A5B)",
-                                  textDecoration: "none",
-                                  fontWeight: 700,
-                                }}
-                              >
-                                View Client Deliverables →
-                              </a>
+                              <b style={{ fontSize: "13.5px", color: isSelf ? "#fff" : "var(--color-text, #18231F)" }}>{msg.task_embed.title}</b>
+                              <div style={{ display: "flex", gap: "8px", fontSize: "11px", opacity: 0.9 }}>
+                                <span>Status: {msg.task_embed.status}</span>
+                                <span>• Priority: {msg.task_embed.priority}</span>
+                              </div>
                             </div>
                           )}
 
-                          {/* 7. SMART DAILY STANDUP CARD */}
+                          {/* 6. CLIENT EMBED CARD */}
+                          {msg.message_type === "CLIENT_EMBED" && msg.client_embed && (
+                            <div
+                              style={{
+                                padding: "10px 12px",
+                                background: isSelf ? "rgba(0,0,0,0.15)" : "var(--panel2, #F8FAF9)",
+                                border: isSelf ? "1px solid rgba(255,255,255,0.2)" : "1px solid var(--border, #DCE3E0)",
+                                borderRadius: "8px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "4px",
+                                minWidth: "220px",
+                              }}
+                            >
+                              <span style={{ fontSize: "11px", fontWeight: 700, color: isSelf ? "#fff" : "#D97706", display: "flex", alignItems: "center", gap: "4px" }}>
+                                <Briefcase size={13} /> CLIENT REFERENCE
+                              </span>
+                              <b style={{ fontSize: "13.5px", color: isSelf ? "#fff" : "var(--color-text, #18231F)" }}>{msg.client_embed.name}</b>
+                              {msg.client_embed.industry && <span style={{ fontSize: "11px", opacity: 0.8 }}>Industry: {msg.client_embed.industry}</span>}
+                            </div>
+                          )}
+
+                          {/* 7. STANDUP UPDATE CARD */}
                           {msg.message_type === "STANDUP_UPDATE" && msg.standup_data && (
                             <div
                               style={{
-                                padding: "14px",
+                                padding: "12px",
                                 background: isSelf ? "rgba(0,0,0,0.15)" : "var(--panel2, #F8FAF9)",
-                                border: isSelf ? "1px solid rgba(255,255,255,0.2)" : "1px solid #B2D8CB",
-                                borderRadius: "12px",
+                                border: isSelf ? "1px solid rgba(255,255,255,0.2)" : "1px solid var(--border, #DCE3E0)",
+                                borderRadius: "10px",
                                 display: "flex",
                                 flexDirection: "column",
                                 gap: "10px",
-                                minWidth: "280px",
+                                minWidth: "260px",
                               }}
                             >
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: isSelf ? "1px solid rgba(255,255,255,0.15)" : "1px solid var(--border, #DCE3E0)", paddingBottom: "6px" }}>
-                                <span style={{ fontSize: "11px", fontWeight: 800, color: isSelf ? "#fff" : "#087A5B", display: "flex", alignItems: "center", gap: "4px" }}>
-                                  <Sparkles size={13} /> DAILY WORK STANDUP
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: isSelf ? "1px solid rgba(255,255,255,0.2)" : "1px solid var(--border, #DCE3E0)", paddingBottom: "6px" }}>
+                                <span style={{ fontSize: "12px", fontWeight: 800, color: isSelf ? "#fff" : "var(--color-primary, #087A5B)", display: "flex", alignItems: "center", gap: "5px" }}>
+                                  <Flame size={14} color={isSelf ? "#FDE68A" : "#D97706"} /> DAILY STANDUP UPDATE
                                 </span>
-                                <span style={{ fontSize: "11px", color: isSelf ? "rgba(255,255,255,0.8)" : "var(--color-text-muted, #718096)" }}>{msg.standup_data.date}</span>
+                                <span style={{ fontSize: "11px", opacity: 0.8 }}>{msg.standup_data.date}</span>
                               </div>
 
                               {/* Completed */}
@@ -1508,8 +1490,8 @@ export function ChatHubPage({ role }: Props) {
                             </div>
                           )}
 
-                          {/* Timestamp & Pin Quick Action */}
-                          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+                          {/* Timestamp, Delivery / Seen Ticks & Pin Quick Action */}
+                          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "6px", marginTop: "4px" }}>
                             <button
                               onClick={() => handleTogglePin(msg.id)}
                               style={{ background: "transparent", border: 0, color: isSelf ? "rgba(255,255,255,0.6)" : "var(--color-text-muted, #718096)", cursor: "pointer", padding: "2px" }}
@@ -1520,6 +1502,22 @@ export function ChatHubPage({ role }: Props) {
                             <span style={{ fontSize: "10px", opacity: isSelf ? 0.8 : 0.65, color: isSelf ? "#fff" : "var(--color-text-muted, #718096)" }}>
                               {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
+
+                            {/* Message Status Ticks: 1 tick = sent, 2 gray ticks = delivered, 2 blue ticks = read/seen */}
+                            {isSelf && (
+                              <span
+                                style={{ display: "inline-flex", alignItems: "center", marginLeft: "2px" }}
+                                title={(msg as any).is_read ? "Seen (Read)" : (msg as any).is_delivered ? "Delivered" : "Sent"}
+                              >
+                                {(msg as any).is_read ? (
+                                  <CheckCheck size={13} color="#60A5FA" />
+                                ) : (msg as any).is_delivered ? (
+                                  <CheckCheck size={13} color="rgba(255,255,255,0.85)" />
+                                ) : (
+                                  <Check size={13} color="rgba(255,255,255,0.75)" />
+                                )}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

@@ -207,16 +207,44 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
 
       const callerAvatar = u?.avatar || emp?.avatar || '';
 
-      const targetSockets = onlineUsersMap.get(String(toUserId));
+      let targetSockets = onlineUsersMap.get(String(toUserId));
+      let resolvedUserId = String(toUserId);
+
+      // Search by employeeId in onlineUsersMap if direct userId lookup was empty
+      if (!targetSockets || targetSockets.size === 0) {
+        for (const [uIdKey, userMap] of onlineUsersMap.entries()) {
+          for (const meta of userMap.values()) {
+            if (meta.employeeId && String(meta.employeeId) === String(toUserId)) {
+              targetSockets = userMap;
+              resolvedUserId = uIdKey;
+              break;
+            }
+          }
+          if (targetSockets && targetSockets.size > 0) break;
+        }
+      }
+
+      // Try database lookup if target is Employee ID
+      if (!targetSockets || targetSockets.size === 0) {
+        try {
+          const empObj = await Employee.findById(toUserId).select('user');
+          if (empObj && empObj.user) {
+            resolvedUserId = empObj.user.toString();
+            targetSockets = onlineUsersMap.get(resolvedUserId);
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
       if (!targetSockets || targetSockets.size === 0) {
         return socket.emit('call:unavailable', {
           toUserId,
-          message: 'The recipient is currently offline.',
+          message: 'The recipient is currently offline or unreachable.',
         });
       }
 
-      // Forward incoming call invitation to all sockets of target user
-      io.to(`user:${toUserId}`).emit('call:incoming', {
+      io.to(`user:${resolvedUserId}`).emit('call:incoming', {
         fromUserId: uId,
         fromSocketId: socket.id,
         callerName,
