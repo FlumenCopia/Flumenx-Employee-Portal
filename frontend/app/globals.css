@@ -2231,11 +2231,11 @@ body{font-size:13px;line-height:1.45}.sidebar nav a{font-size:13px;padding:12px 
 /* Viewport & Laptop UI Scroll Fix for Chat & Full-Screen Components */
 @media (min-width: 641px) {
   .chat-mobile-container {
-    height: calc(100vh - 235px) !important;
-    height: calc(100dvh - 235px) !important;
+    height: calc(100vh - 165px) !important;
+    height: calc(100dvh - 165px) !important;
     min-height: 440px !important;
-    max-height: calc(100vh - 180px) !important;
-    margin-bottom: 16px !important;
+    max-height: calc(100vh - 140px) !important;
+    margin-bottom: 12px !important;
   }
 }
 

@@ -300,13 +300,17 @@ export function ChatHubPage({ role }: Props) {
     if (!socket) return;
 
     if (activeConversationId) {
+      socket.emit("chat:join-conversation", { conversationId: activeConversationId });
       socket.emit("join_conversation", { conversationId: activeConversationId });
     }
 
-    const handleNewMessage = (msg: ChatMessageItem) => {
+    const handleNewMessage = (payload: any) => {
+      const msg: ChatMessageItem = payload?.message || payload;
+      if (!msg || !msg.conversation_id) return;
+
       if (String(msg.conversation_id) === String(activeConversationId)) {
         setMessages((prev) => {
-          if (prev.some((m) => m.id === msg.id)) return prev;
+          if (prev.some((m) => String(m.id) === String(msg.id))) return prev;
           return [...prev, msg];
         });
         setTimeout(() => scrollToBottom("smooth"), 50);
@@ -316,8 +320,8 @@ export function ChatHubPage({ role }: Props) {
           if (String(c.id) === String(msg.conversation_id)) {
             return {
               ...c,
-              last_message_text: msg.text || (msg.message_type === "IMAGE" ? "📷 Image" : "📁 File"),
-              last_message_at: msg.created_at,
+              last_message_text: msg.text || (msg.message_type === "IMAGE" ? "📷 Image" : msg.message_type === "VIDEO" ? "🎥 Video" : "📁 File attachment"),
+              last_message_at: msg.created_at || new Date().toISOString(),
               last_message_sender_name: msg.sender_name,
               has_unread: String(msg.conversation_id) !== String(activeConversationId),
             };
@@ -327,19 +331,44 @@ export function ChatHubPage({ role }: Props) {
       );
     };
 
+    const handleConversationUpdated = (data: any) => {
+      if (data?.conversationId && data?.lastMessage) {
+        const msg = data.lastMessage;
+        setConversations((prev) =>
+          prev.map((c) => {
+            if (String(c.id) === String(data.conversationId)) {
+              return {
+                ...c,
+                last_message_text: msg.text || (msg.message_type === "IMAGE" ? "📷 Image" : "📁 File"),
+                last_message_at: msg.created_at || new Date().toISOString(),
+                last_message_sender_name: msg.sender_name,
+                has_unread: String(data.conversationId) !== String(activeConversationId),
+              };
+            }
+            return c;
+          })
+        );
+      }
+    };
+
     const handlePresence = (data: { onlineUsers: string[] }) => {
       if (data?.onlineUsers) {
         setOnlineUserIds(data.onlineUsers.map(String));
       }
     };
 
+    socket.on("chat:new-message", handleNewMessage);
     socket.on("chat_message", handleNewMessage);
+    socket.on("chat:conversation-updated", handleConversationUpdated);
     socket.on("presence_update", handlePresence);
 
     return () => {
+      socket.off("chat:new-message", handleNewMessage);
       socket.off("chat_message", handleNewMessage);
+      socket.off("chat:conversation-updated", handleConversationUpdated);
       socket.off("presence_update", handlePresence);
       if (activeConversationId) {
+        socket.emit("chat:leave-conversation", { conversationId: activeConversationId });
         socket.emit("leave_conversation", { conversationId: activeConversationId });
       }
     };
@@ -631,67 +660,63 @@ export function ChatHubPage({ role }: Props) {
 
   return (
     <Shell role={role}>
-      <div style={{ padding: "0 4px" }}>
-        <PageHeader
-          title="Team Communication Hub"
-          subtitle="Real-time collaboration, 1:1 direct messaging, department channels, client discussions, and voice/video sync."
-          action={
-            <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setNewChatMode("DIRECT");
-                  setNewChatModalOpen(true);
-                }}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "6px",
-                  padding: "8px 14px",
-                  borderRadius: "10px",
-                  fontSize: "13px",
-                  fontWeight: 700,
-                  background: "var(--panel, #ffffff)",
-                  border: "1.5px solid var(--border, #DCE3E0)",
-                  color: "var(--color-text, #18231F)",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                }}
-              >
-                <UserPlus size={15} />
-                <span>New DM</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setNewChatMode("GROUP");
-                  setNewChatModalOpen(true);
-                }}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "6px",
-                  padding: "8px 14px",
-                  borderRadius: "10px",
-                  fontSize: "13px",
-                  fontWeight: 700,
-                  background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
-                  border: "1.5px solid #066348",
-                  color: "#FFFFFF",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                  boxShadow: "0 2px 8px rgba(8, 122, 91, 0.25)",
-                }}
-              >
-                <Plus size={15} />
-                <span>Create Group</span>
-              </button>
-            </div>
-          }
-        />
+      <div style={{ padding: "0 2px 8px 2px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <MessageSquare size={19} color="var(--color-primary, #087A5B)" />
+          <h2 style={{ fontSize: "17px", fontWeight: 800, margin: 0, color: "var(--color-text, #18231F)" }}>
+            Team Chat
+          </h2>
+        </div>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={() => {
+              setNewChatMode("DIRECT");
+              setNewChatModalOpen(true);
+            }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              padding: "6px 12px",
+              borderRadius: "8px",
+              fontSize: "12px",
+              fontWeight: 700,
+              background: "var(--panel, #ffffff)",
+              border: "1.5px solid var(--border, #DCE3E0)",
+              color: "var(--color-text, #18231F)",
+              cursor: "pointer",
+            }}
+          >
+            <UserPlus size={14} />
+            <span>New DM</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setNewChatMode("GROUP");
+              setNewChatModalOpen(true);
+            }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              padding: "6px 12px",
+              borderRadius: "8px",
+              fontSize: "12px",
+              fontWeight: 700,
+              background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
+              border: "1.5px solid #066348",
+              color: "#FFFFFF",
+              cursor: "pointer",
+            }}
+          >
+            <Plus size={14} />
+            <span>Create Group</span>
+          </button>
+        </div>
       </div>
 
       {/* MAIN CHAT CONTAINER */}
@@ -704,9 +729,9 @@ export function ChatHubPage({ role }: Props) {
           border: "1px solid var(--border, #DCE3E0)",
           borderRadius: "16px",
           overflow: "hidden",
-          height: "calc(100vh - 235px)",
+          height: "calc(100vh - 165px)",
           minHeight: "440px",
-          maxHeight: "calc(100vh - 180px)",
+          maxHeight: "calc(100vh - 140px)",
           boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
           position: "relative",
         }}

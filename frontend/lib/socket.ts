@@ -6,12 +6,19 @@ let currentToken: string = "";
 function getStoredToken(): string {
   if (typeof window === "undefined") return "";
   try {
-    const cached = localStorage.getItem("auth_user");
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (parsed.token) return parsed.token;
+    const flumenxToken = localStorage.getItem("flumenx_access_token");
+    if (flumenxToken) return flumenxToken;
+
+    const access = localStorage.getItem("access_token");
+    if (access) return access;
+
+    const cachedAuth = localStorage.getItem("flumenx_auth_user") || localStorage.getItem("auth_user");
+    if (cachedAuth) {
+      const parsed = JSON.parse(cachedAuth);
+      if (parsed.token || parsed.access) return parsed.token || parsed.access;
     }
-    const rawToken = localStorage.getItem("token");
+
+    const rawToken = localStorage.getItem("token") || localStorage.getItem("jwt");
     if (rawToken) return rawToken;
   } catch {
     // fallback
