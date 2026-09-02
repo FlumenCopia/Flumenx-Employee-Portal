@@ -357,45 +357,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     }
   }, [isInLobby, isMeetingEnded, requestMediaPermissions]);
 
-  // Attach local stream when in live meeting
-  useEffect(() => {
-    if (!isInLobby && localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
-      localVideoRef.current.play().catch(() => {});
-    }
-  }, [isInLobby, localStream]);
-
-  // Network Sync & Latency RTT Monitoring Loop
-  useEffect(() => {
-    if (isInLobby || isMeetingEnded) return;
-
-    const interval = setInterval(async () => {
-      let maxRtt = 0;
-      let peerCount = 0;
-      for (const [, peer] of peersRef.current) {
-        try {
-          const stats = await peer.pc.getStats();
-          stats.forEach((report) => {
-            if (report.type === "candidate-pair" && report.state === "succeeded") {
-              const rtt = report.currentRoundTripTime ? Math.round(report.currentRoundTripTime * 1000) : 0;
-              if (rtt > 0) {
-                maxRtt = Math.max(maxRtt, rtt);
-                peerCount++;
-              }
-            }
-          });
-        } catch {}
-      }
-      if (peerCount > 0) {
-        setNetworkRtt(maxRtt);
-      } else {
-        setNetworkRtt(null);
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [isInLobby, isMeetingEnded]);
-
   const renegotiatePeer = useCallback(
     async (peer: PeerConnection) => {
       try {
@@ -417,6 +378,50 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     },
     [applyQualityToPeerSenders, videoQuality]
   );
+
+  const syncLocalStreamToPeers = useCallback(
+    (stream: MediaStream | null) => {
+      if (!stream) return;
+      localStreamRef.current = stream;
+
+      for (const [, peer] of peersRef.current.entries()) {
+        const pc = peer.pc;
+        const senders = pc.getSenders();
+        let trackAdded = false;
+
+        stream.getTracks().forEach((track) => {
+          if (track.kind === "audio") track.enabled = !isAudioMutedRef.current;
+          if (track.kind === "video") track.enabled = !isVideoOffRef.current;
+
+          const existingSender = senders.find(
+            (s) => s.track?.kind === track.kind || (s.track && s.track.id === track.id)
+          );
+          if (existingSender) {
+            existingSender.replaceTrack(track).catch(() => {});
+          } else {
+            try {
+              pc.addTrack(track, stream);
+              trackAdded = true;
+            } catch {}
+          }
+        });
+
+        if (trackAdded && pc.signalingState === "stable") {
+          renegotiatePeer(peer);
+        }
+      }
+    },
+    [renegotiatePeer]
+  );
+
+  // Attach local stream when in live meeting & sync to remote peers
+  useEffect(() => {
+    if (!isInLobby && localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch(() => {});
+      syncLocalStreamToPeers(localStream);
+    }
+  }, [isInLobby, localStream, syncLocalStreamToPeers]);
 
   const createPeerConnection = useCallback(
     (
@@ -2288,7 +2293,7 @@ function RemotePeerTile({
   const hasVideoTrack = Boolean(
     peer.stream &&
     peer.stream.getVideoTracks().length > 0 &&
-    peer.stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live")
+    peer.stream.getVideoTracks().some((t) => t.readyState !== "ended")
   );
   const shouldShowVideo = !peer.isVideoOff && (hasVideoTrack || peer.isScreenSharing);
 
@@ -2437,7 +2442,7 @@ function RemotePinnedVideo({ peer }: { peer?: PeerConnection | null }) {
   const hasVideoTrack = Boolean(
     peer.stream &&
     peer.stream.getVideoTracks().length > 0 &&
-    peer.stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live")
+    peer.stream.getVideoTracks().some((t) => t.readyState !== "ended")
   );
   const shouldShowVideo = !peer.isVideoOff && (hasVideoTrack || peer.isScreenSharing);
 
