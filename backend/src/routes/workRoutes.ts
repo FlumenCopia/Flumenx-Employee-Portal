@@ -17,6 +17,7 @@ import {
   updateWorkAssignment,
   reviewWorkAssignment,
   deleteWorkAssignment,
+  deleteAllWorkAssignments,
   startTaskTimer,
   stopTaskTimer,
   adjustTaskTime,
@@ -70,6 +71,8 @@ router.put('/work-assignments/:id/?', requirePermission('tasks', 'canEdit'), upd
 router.patch('/work-assignments/:id/?', requirePermission('tasks', 'canEdit'), updateWorkAssignment);
 router.post('/work-assignments/:id/review/?', requirePermission('tasks', 'canEdit'), reviewWorkAssignment);
 router.post('/work-assignments/:id/deliverables/:deliverableId/increment/?', requirePermission('tasks', 'canEdit'), incrementDeliverable);
+router.delete('/work-assignments/all/?', requirePermission('tasks', 'canDelete'), deleteAllWorkAssignments);
+router.delete('/tasks/delete-all/?', requirePermission('tasks', 'canDelete'), deleteAllWorkAssignments);
 router.delete('/work-assignments/:id/?', requirePermission('tasks', 'canDelete'), deleteWorkAssignment);
 
 // Work Deliverables

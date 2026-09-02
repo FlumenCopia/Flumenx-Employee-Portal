@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
     "seed": "tsx src/scripts/seed.ts",
-    "seed:pages-roles": "tsx src/scripts/seed_pages_and_roles.ts"
+    "seed:pages-roles": "tsx src/scripts/seed_pages_and_roles.ts",
+    "delete-all-tasks": "tsx src/scripts/delete_all_tasks.ts"
   },
   "dependencies": {
     "@turf/turf": "^7.4.0",

@@ -1357,6 +1357,21 @@ export async function deleteWorkAssignment(req: Request, res: Response): Promise
   res.status(204).send();
 }
 
+export async function deleteAllWorkAssignments(req: Request, res: Response): Promise<void> {
+  try {
+    const count = await WorkAssignment.countDocuments();
+    const result = await WorkAssignment.deleteMany({});
+    res.json({
+      success: true,
+      message: `Successfully deleted ${result.deletedCount} tasks.`,
+      deletedCount: result.deletedCount,
+      previousCount: count,
+    });
+  } catch (err: any) {
+    res.status(500).json({ detail: err?.message || 'Failed to delete all tasks.' });
+  }
+}
+
 // --- Work Deliverables ---
 export async function getWorkDeliverables(req: Request, res: Response): Promise<void> {
   const { assignment_id } = req.query;
