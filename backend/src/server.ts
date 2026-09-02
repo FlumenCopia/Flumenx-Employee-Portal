@@ -3,6 +3,7 @@ import http from 'http';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import path from 'path';
+import fs from 'fs';
 import { Server as SocketIOServer } from 'socket.io';
 import { config } from './config/env.js';
 import { connectDB } from './config/db.js';
