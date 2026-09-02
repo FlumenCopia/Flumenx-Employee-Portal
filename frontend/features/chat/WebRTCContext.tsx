@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useRef, useState, useCallb
 import { getGlobalSocket } from "@/lib/socket";
 import { DirectCallModal } from "./DirectCallModal";
 import { toast } from "@/components/ToastContext";
+import { api } from "@/lib/api";
 
 export type CallType = "audio" | "video";
 export type CallStateMode = "incoming" | "outgoing" | "connected";
@@ -284,24 +285,35 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     conversationId?: string;
   }) => {
     const socket = getGlobalSocket();
-    if (!socket) return;
+
+    // 1. Instantly display Outgoing Call UI Modal
+    setActiveCall({
+      mode: "outgoing",
+      callType: params.callType,
+      partnerId: params.toUserId,
+      partnerName: params.partnerName,
+      partnerAvatar: params.partnerAvatar,
+      conversationId: params.conversationId,
+    });
+
+    // 2. Trigger REST API call initiation so HTTP request shows in Network tab and notifies server
+    api("/chat/call/initiate/", {
+      method: "POST",
+      body: JSON.stringify({
+        to_user_id: params.toUserId,
+        call_type: params.callType,
+        conversation_id: params.conversationId,
+      }),
+    }).catch(() => {});
 
     try {
       const stream = await acquireMediaStream(params.callType);
       if (!stream) {
-        alert("Could not access camera or microphone. Please ensure permissions are granted.");
+        toast.error("Could not access camera or microphone. Please check browser permissions.");
+        endCallCleanup();
         return;
       }
       setLocalStream(stream);
-
-      setActiveCall({
-        mode: "outgoing",
-        callType: params.callType,
-        partnerId: params.toUserId,
-        partnerName: params.partnerName,
-        partnerAvatar: params.partnerAvatar,
-        conversationId: params.conversationId,
-      });
 
       const pc = new RTCPeerConnection(ICE_SERVERS);
       peerConnectionRef.current = pc;
@@ -315,7 +327,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           if (activeCallRef.current?.partnerSocketId) {
-            socket.emit("call:ice-candidate", {
+            socket?.emit("call:ice-candidate", {
               toSocketId: activeCallRef.current.partnerSocketId,
               candidate: event.candidate,
             });
@@ -342,12 +354,14 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      socket.emit("call:start", {
-        toUserId: params.toUserId,
-        callType: params.callType,
-        sdpOffer: offer,
-        conversationId: params.conversationId,
-      });
+      if (socket) {
+        socket.emit("call:start", {
+          toUserId: params.toUserId,
+          callType: params.callType,
+          sdpOffer: offer,
+          conversationId: params.conversationId,
+        });
+      }
     } catch (err: any) {
       console.error("Failed to start call:", err);
       endCallCleanup();

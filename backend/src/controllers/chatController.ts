@@ -7,7 +7,7 @@ import { Employee } from '../models/Employee.js';
 import { WorkAssignment } from '../models/WorkAssignment.js';
 import { Client } from '../models/Client.js';
 import { Meeting } from '../models/Meeting.js';
-import { broadcastChatMessage } from '../services/chatSocket.js';
+import { broadcastChatMessage, getSocketServer } from '../services/chatSocket.js';
 
 // Format conversation for client
 function formatConversation(doc: any, currentUserId: string, employeeMap?: Map<string, any>) {
@@ -684,4 +684,45 @@ export async function getChatUsersList(req: Request, res: Response): Promise<voi
   });
 
   res.json(result);
+}
+
+// 12. Initiate Call REST API fallback & signaling endpoint
+export async function initiateCallApi(req: Request, res: Response): Promise<void> {
+  try {
+    const { to_user_id, toUserId, call_type, callType, conversation_id, conversationId } = req.body || {};
+    const targetUserId = to_user_id || toUserId;
+    const type = call_type || callType || 'audio';
+    const convId = conversation_id || conversationId;
+
+    if (!targetUserId) {
+      res.status(400).json({ detail: 'Recipient target user ID is required.' });
+      return;
+    }
+
+    const callerId = req.user ? req.user._id.toString() : '';
+    const emp = await Employee.findOne({ user: callerId });
+    const callerName = emp?.name || ((req.user as any)?.firstName ? `${(req.user as any).firstName} ${(req.user as any).lastName || ''}`.trim() : req.user?.username || 'Colleague');
+    const callerAvatar = req.user?.avatar || emp?.avatar || '';
+
+    const io = getSocketServer();
+    if (io) {
+      io.to(`user:${targetUserId}`).emit('call:incoming', {
+        fromUserId: callerId,
+        fromSocketId: '',
+        callerName,
+        callerAvatar,
+        callType: type,
+        conversationId: convId,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Call signal dispatched',
+      targetUserId,
+      callType: type,
+    });
+  } catch (err: any) {
+    res.status(500).json({ detail: err?.message || 'Failed to initiate call' });
+  }
 }

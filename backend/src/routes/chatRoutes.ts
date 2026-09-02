@@ -12,6 +12,7 @@ import {
   togglePinMessage,
   getQuickStandupData,
   getChatUsersList,
+  initiateCallApi,
 } from '../controllers/chatController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
@@ -19,6 +20,9 @@ import { upload } from '../middleware/upload.js';
 const router = Router();
 
 router.use(authenticateToken);
+
+// Call initiation API fallback
+router.post('/call/initiate/?', initiateCallApi);
 
 // Conversation management
 router.get('/conversations/?', getConversations);
