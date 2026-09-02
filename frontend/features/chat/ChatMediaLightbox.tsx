@@ -38,19 +38,30 @@ export function ChatMediaLightbox({ src, alt = "Preview", isVideo = false, onClo
   }, [onClose]);
 
   const handleImageError = () => {
-    const filename = currentSrc.split("/").pop() || "";
-    if (fallbackAttempt === 0) {
+    const cleanPath = currentSrc.split("?")[0];
+    const ext = cleanPath.split(".").pop()?.toLowerCase() || "";
+    const lastDotIndex = cleanPath.lastIndexOf(".");
+    const basePath = lastDotIndex > -1 ? cleanPath.substring(0, lastDotIndex) : cleanPath;
+    const filename = cleanPath.split("/").pop() || "";
+
+    if (fallbackAttempt === 0 && ext !== "webp") {
       setFallbackAttempt(1);
-      setCurrentSrc(`/media/chat/${filename}`);
+      setCurrentSrc(`${basePath}.webp`);
+    } else if (fallbackAttempt === 0 && ext === "webp") {
+      setFallbackAttempt(1);
+      setCurrentSrc(`${basePath}.png`);
     } else if (fallbackAttempt === 1) {
       setFallbackAttempt(2);
-      setCurrentSrc(`/media/employee_documents/${filename}`);
+      setCurrentSrc(`${basePath}.png`);
     } else if (fallbackAttempt === 2) {
       setFallbackAttempt(3);
-      setCurrentSrc(`/media/${filename}`);
+      setCurrentSrc(`${basePath}.jpg`);
     } else if (fallbackAttempt === 3) {
       setFallbackAttempt(4);
-      setCurrentSrc(`/uploads/${filename}`);
+      setCurrentSrc(`/media/chat/${filename}`);
+    } else if (fallbackAttempt === 4) {
+      setFallbackAttempt(5);
+      setCurrentSrc(`/media/${filename}`);
     } else {
       setLoading(false);
       setHasError(true);

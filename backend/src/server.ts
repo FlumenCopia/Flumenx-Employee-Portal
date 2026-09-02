@@ -124,12 +124,35 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve media files statically (Avatars, documents, photos, chat attachments)
 const mediaPath = path.join(process.cwd(), 'media');
-app.use('/media', express.static(mediaPath));
-app.use('/uploads', express.static(mediaPath));
+
+const mediaFallbackMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  const reqPath = req.path;
+  const fullFilePath = path.join(mediaPath, reqPath);
+
+  if (fs.existsSync(fullFilePath)) return next();
+
+  const ext = path.extname(reqPath).toLowerCase();
+  if (['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) {
+    const basePath = fullFilePath.substring(0, fullFilePath.lastIndexOf('.'));
+    const altExts = ['.webp', '.png', '.jpg', '.jpeg'].filter((e) => e !== ext);
+
+    for (const altExt of altExts) {
+      const altFile = `${basePath}${altExt}`;
+      if (fs.existsSync(altFile)) {
+        return res.sendFile(altFile);
+      }
+    }
+  }
+  next();
+};
+
+app.use('/media', mediaFallbackMiddleware, express.static(mediaPath));
+app.use('/uploads', mediaFallbackMiddleware, express.static(mediaPath));
 app.use('/uploads', express.static(path.join(mediaPath, 'chat')));
 app.use('/uploads', express.static(path.join(mediaPath, 'employee_documents')));
-app.use('/api/media', express.static(mediaPath));
-app.use('/api/uploads', express.static(mediaPath));
+app.use('/api/media', mediaFallbackMiddleware, express.static(mediaPath));
+app.use('/api/uploads', mediaFallbackMiddleware, express.static(mediaPath));
 
 // CSRF Verification for state-changing requests
 app.use(verifyCsrf);
