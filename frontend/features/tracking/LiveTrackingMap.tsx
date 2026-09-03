@@ -69,12 +69,10 @@ const MAP_STYLES = {
       "dark-tiles": {
         type: "raster",
         tiles: [
-          "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-          "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-          "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+          "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
         ],
         tileSize: 256,
-        attribution: '&copy; CartoDB & OpenStreetMap',
+        attribution: '&copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
       },
     },
     layers: [
@@ -94,12 +92,11 @@ const MAP_STYLES = {
       "light-tiles": {
         type: "raster",
         tiles: [
-          "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-          "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-          "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+          "https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+          "https://b.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
         ],
         tileSize: 256,
-        attribution: '&copy; CartoDB & OpenStreetMap',
+        attribution: '&copy; OpenStreetMap contributors, Tiles style by Humanitarian OpenStreetMap Team',
       },
     },
     layers: [
@@ -149,7 +146,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
   const [mobileView, setMobileView] = useState<"map" | "list">("map");
-  const [currentMapStyle, setCurrentMapStyle] = useState<"streets" | "dark" | "light">("dark");
+  const [currentMapStyle, setCurrentMapStyle] = useState<"streets" | "dark" | "light">("streets");
   const [showAnimatedTrails, setShowAnimatedTrails] = useState<boolean>(true);
   const [showRadarPulses, setShowRadarPulses] = useState<boolean>(true);
   const [followSelected, setFollowSelected] = useState<boolean>(true);
@@ -510,111 +507,121 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
         el.style.alignItems = "center";
         el.style.justifyContent = "center";
         el.style.zIndex = isSelected ? "40" : isOnline ? "30" : "15";
-        el.style.transition = "transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)";
 
         const speedText = loc.speed ? `${Math.round(loc.speed * 3.6)} km/h` : "Stationary";
         const headingAngle = loc.heading || 0;
 
         el.innerHTML = `
-          <!-- Multi-Ring Expanding Pulsing Radar Waves -->
-          <div class="radar-wave wave-1" style="display: ${showRadarPulses && isOnline ? "block" : "none"};"></div>
-          <div class="radar-wave wave-2" style="display: ${showRadarPulses && isOnline ? "block" : "none"};"></div>
-          <div class="radar-wave wave-3" style="display: ${showRadarPulses && isOnline ? "block" : "none"};"></div>
-
-          <!-- Directional Compass Arrow -->
-          <div class="beacon-arrow" style="
-            position: absolute;
-            inset: -4px;
-            pointer-events: none;
-            transform: rotate(${headingAngle}deg);
-            display: ${loc.speed && loc.speed > 0.5 ? "block" : "none"};
-          ">
-            <div style="
-              width: 0;
-              height: 0;
-              border-left: 6px solid transparent;
-              border-right: 6px solid transparent;
-              border-bottom: 10px solid #10B981;
-              margin: 0 auto;
-              filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
-            "></div>
-          </div>
-
-          <!-- Floating High-Visibility Name & Speed Badge -->
-          <div class="beacon-nametag" style="
-            position: absolute;
-            bottom: calc(100% + 8px);
-            left: 50%;
-            transform: translateX(-50%);
-            white-space: nowrap;
-            background: rgba(15, 23, 42, 0.92);
-            color: #FFFFFF;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 4px 10px;
-            border-radius: 16px;
-            border: 1.5px solid ${isSelected ? "#10B981" : "rgba(255,255,255,0.25)"};
-            box-shadow: 0 4px 16px rgba(0,0,0,0.35);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            pointer-events: none;
-            z-index: 50;
-          ">
-            <span style="
-              width: 7px;
-              height: 7px;
-              border-radius: 50%;
-              background: ${isOnline ? "#10B981" : isDisconnected ? "#F59E0B" : "#94A3B8"};
-              box-shadow: 0 0 6px ${isOnline ? "#10B981" : "transparent"};
-            "></span>
-            <span>${emp.name}</span>
-            <span style="opacity: 0.75; font-size: 10px; font-weight: 500;">• ${speedText}</span>
-          </div>
-
-          <!-- Avatar Core with Glowing Rings -->
-          <div class="beacon-avatar-core" style="
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: #087A5B;
-            border: 3px solid ${isSelected ? "#FFFFFF" : isOnline ? "#10B981" : isDisconnected ? "#F59E0B" : "#64748B"};
-            box-shadow: 0 0 16px ${isSelected ? "rgba(16, 185, 129, 0.8)" : isOnline ? "rgba(16, 185, 129, 0.4)" : "rgba(0,0,0,0.25)"};
-            overflow: hidden;
+          <div class="beacon-inner" style="
+            position: relative;
+            width: 54px;
+            height: 54px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 13px;
-            font-weight: 800;
-            color: #FFFFFF;
-            position: relative;
-            z-index: 10;
+            transform: ${isSelected ? "scale(1.2)" : "scale(1.0)"};
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
           ">
-            ${
-              emp.avatar
-                ? `<img src="${emp.avatar}" style="width: 100%; height: 100%; object-fit: cover;" />`
-                : (() => {
-                    const parts = (emp.name || "User").trim().split(/\s+/).filter(Boolean);
-                    return parts.length >= 2
-                      ? (parts[0][0] + parts[1][0]).toUpperCase()
-                      : emp.name.slice(0, 2).toUpperCase();
-                  })()
-            }
-          </div>
+            <!-- Multi-Ring Expanding Pulsing Radar Waves -->
+            <div class="radar-wave wave-1" style="display: ${showRadarPulses && isOnline ? "block" : "none"};"></div>
+            <div class="radar-wave wave-2" style="display: ${showRadarPulses && isOnline ? "block" : "none"};"></div>
+            <div class="radar-wave wave-3" style="display: ${showRadarPulses && isOnline ? "block" : "none"};"></div>
 
-          <!-- Live Status Indicator Bead -->
-          <div class="beacon-status-bead" style="
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: ${isOnline ? "#10B981" : isDisconnected ? "#F59E0B" : "#64748B"};
-            border: 2.5px solid #FFFFFF;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            z-index: 20;
-          "></div>
+            <!-- Directional Compass Arrow -->
+            <div class="beacon-arrow" style="
+              position: absolute;
+              inset: -4px;
+              pointer-events: none;
+              transform: rotate(${headingAngle}deg);
+              display: ${loc.speed && loc.speed > 0.5 ? "block" : "none"};
+            ">
+              <div style="
+                width: 0;
+                height: 0;
+                border-left: 6px solid transparent;
+                border-right: 6px solid transparent;
+                border-bottom: 10px solid #10B981;
+                margin: 0 auto;
+                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+              "></div>
+            </div>
+
+            <!-- Floating High-Visibility Name & Speed Badge -->
+            <div class="beacon-nametag" style="
+              position: absolute;
+              top: -32px;
+              left: 50%;
+              transform: translateX(-50%);
+              white-space: nowrap;
+              background: rgba(15, 23, 42, 0.92);
+              color: #FFFFFF;
+              font-size: 11px;
+              font-weight: 700;
+              padding: 4px 10px;
+              border-radius: 16px;
+              border: 1.5px solid ${isSelected ? "#10B981" : "rgba(255,255,255,0.25)"};
+              box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              pointer-events: none;
+              z-index: 50;
+            ">
+              <span style="
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                background: ${isOnline ? "#10B981" : isDisconnected ? "#F59E0B" : "#94A3B8"};
+                box-shadow: 0 0 6px ${isOnline ? "#10B981" : "transparent"};
+              "></span>
+              <span>${emp.name}</span>
+              <span style="opacity: 0.75; font-size: 10px; font-weight: 500;">• ${speedText}</span>
+            </div>
+
+            <!-- Avatar Core with Glowing Rings -->
+            <div class="beacon-avatar-core" style="
+              width: 44px;
+              height: 44px;
+              border-radius: 50%;
+              background: #087A5B;
+              border: 3px solid ${isSelected ? "#FFFFFF" : isOnline ? "#10B981" : isDisconnected ? "#F59E0B" : "#64748B"};
+              box-shadow: 0 0 16px ${isSelected ? "rgba(16, 185, 129, 0.8)" : isOnline ? "rgba(16, 185, 129, 0.4)" : "rgba(0,0,0,0.25)"};
+              overflow: hidden;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 13px;
+              font-weight: 800;
+              color: #FFFFFF;
+              position: relative;
+              z-index: 10;
+            ">
+              ${
+                emp.avatar
+                  ? `<img src="${emp.avatar}" style="width: 100%; height: 100%; object-fit: cover;" />`
+                  : (() => {
+                      const parts = (emp.name || "User").trim().split(/\s+/).filter(Boolean);
+                      return parts.length >= 2
+                        ? (parts[0][0] + parts[1][0]).toUpperCase()
+                        : emp.name.slice(0, 2).toUpperCase();
+                    })()
+              }
+            </div>
+
+            <!-- Live Status Indicator Bead -->
+            <div class="beacon-status-bead" style="
+              position: absolute;
+              bottom: 2px;
+              right: 2px;
+              width: 14px;
+              height: 14px;
+              border-radius: 50%;
+              background: ${isOnline ? "#10B981" : isDisconnected ? "#F59E0B" : "#64748B"};
+              border: 2.5px solid #FFFFFF;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+              z-index: 20;
+            "></div>
+          </div>
         `;
 
         el.addEventListener("click", (e) => {
@@ -647,10 +654,9 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
         }`;
         el.style.zIndex = isSelected ? "40" : isOnline ? "30" : "15";
 
-        if (isSelected) {
-          el.style.transform = "scale(1.2)";
-        } else {
-          el.style.transform = "scale(1.0)";
+        const inner = el.querySelector(".beacon-inner") as HTMLElement;
+        if (inner) {
+          inner.style.transform = isSelected ? "scale(1.2)" : "scale(1.0)";
         }
 
         // Update radar waves visibility

@@ -132,11 +132,11 @@ export const CANONICAL_DEPARTMENTS: Record<CanonicalDepartmentKey, CanonicalDepa
 };
 
 export function normalizeDepartment(val?: string | null): CanonicalDepartmentKey {
-  if (!val) return "operations";
+  if (!val) return "web_development";
   const s = val.trim().toLowerCase();
 
   if (s === "operations" || s === "ops" || s === "operations_head" || s === "operations head") return "operations";
-  if (s === "web_development" || s === "web development" || s === "web dev" || s === "web" || s === "web_developer" || s === "software" || s === "it" || s === "it / web" || s === "it / web development" || s === "development") return "web_development";
+  if (s === "web_development" || s === "web development" || s === "web dev" || s === "web" || s === "web_developer" || s === "web developers" || s === "developer" || s === "developers" || s === "software" || s === "it" || s === "it / web" || s === "it / web development" || s === "development" || s === "frontend" || s === "backend" || s === "fullstack") return "web_development";
   if (s === "video_editing" || s === "video editing" || s === "video" || s === "editing" || s === "animation" || s === "reel") return "video_editing";
   if (s === "design" || s === "graphic design" || s === "graphic" || s === "ui/ux" || s === "ui" || s === "ux" || s === "poster") return "design";
   if (s === "digital_marketing" || s === "digital marketing" || s === "marketing" || s === "ads" || s === "ad" || s === "social media" || s === "content" || s === "copy") return "digital_marketing";
@@ -144,16 +144,16 @@ export function normalizeDepartment(val?: string | null): CanonicalDepartmentKey
   if (s === "hr" || s === "human resources") return "hr";
   if (s === "business_development" || s === "business development" || s === "bde" || s === "bdm" || s === "sales" || s === "bdo") return "business_development";
 
-  if (s.includes("ops") || s.includes("operation")) return "operations";
-  if (s.includes("web") || s.includes("software") || s.includes("development")) return "web_development";
-  if (s.includes("video") || s.includes("anim") || s.includes("editing")) return "video_editing";
-  if (s.includes("design") || s.includes("graphic")) return "design";
-  if (s.includes("marketing")) return "digital_marketing";
-  if (s.includes("account") || s.includes("finance")) return "accountant";
-  if (s.includes("hr") || s.includes("human")) return "hr";
+  if (s.includes("dev") || s.includes("web") || s.includes("software") || s.includes("code") || s.includes("program")) return "web_development";
+  if (s.includes("video") || s.includes("anim") || s.includes("edit")) return "video_editing";
+  if (s.includes("design") || s.includes("graphic") || s.includes("ui") || s.includes("ux")) return "design";
+  if (s.includes("marketing") || s.includes("seo") || s.includes("ads")) return "digital_marketing";
+  if (s.includes("account") || s.includes("finance") || s.includes("tax")) return "accountant";
+  if (s.includes("hr") || s.includes("human") || s.includes("recruit")) return "hr";
   if (s.includes("business") || s.includes("sales") || s.includes("bde") || s.includes("bdm") || s.includes("bdo")) return "business_development";
+  if (s.includes("ops") || s.includes("operation")) return "operations";
 
-  return "operations";
+  return "web_development";
 }
 export type EmployeeStatus = "Active" | "On Leave" | "Inactive";
 export type EmploymentStatus = "Probation" | "Permanent" | "Contract" | "Intern";

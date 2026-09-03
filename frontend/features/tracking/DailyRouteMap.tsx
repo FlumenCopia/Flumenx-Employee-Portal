@@ -34,12 +34,10 @@ const MAP_STYLES = {
       "dark-tiles": {
         type: "raster",
         tiles: [
-          "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-          "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-          "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+          "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
         ],
         tileSize: 256,
-        attribution: '&copy; CartoDB & OpenStreetMap',
+        attribution: '&copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
       },
     },
     layers: [
@@ -84,12 +82,11 @@ const MAP_STYLES = {
       "light-tiles": {
         type: "raster",
         tiles: [
-          "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-          "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-          "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+          "https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+          "https://b.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
         ],
         tileSize: 256,
-        attribution: '&copy; CartoDB & OpenStreetMap',
+        attribution: '&copy; OpenStreetMap contributors, Tiles style by Humanitarian OpenStreetMap Team',
       },
     },
     layers: [
@@ -144,7 +141,7 @@ export function DailyRouteMap({
   const [selectedDate, setSelectedDate] = useState<string>(
     initialDate || new Date().toISOString().split("T")[0]
   );
-  const [currentMapStyle, setCurrentMapStyle] = useState<"dark" | "streets" | "light">("dark");
+  const [currentMapStyle, setCurrentMapStyle] = useState<"dark" | "streets" | "light">("streets");
   const [routeData, setRouteData] = useState<DailyRouteData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorText, setErrorText] = useState<string>("");
@@ -474,9 +471,8 @@ export function DailyRouteMap({
       el.style.justifyContent = "center";
       el.style.color = "#FFFFFF";
       el.style.zIndex = "40";
-      el.style.transition = "transform 0.15s ease-out";
       el.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block; transition: transform 0.2s ease-out;">
           <polygon points="3 11 22 2 13 21 11 13 3 11"/>
         </svg>
       `;
@@ -519,8 +515,9 @@ export function DailyRouteMap({
         if (replayMarkerRef.current) {
           replayMarkerRef.current.setLngLat([curr.longitude, curr.latitude]);
           const el = replayMarkerRef.current.getElement();
-          if (curr.heading) {
-            el.style.transform = `rotate(${curr.heading}deg)`;
+          const svgIcon = el.querySelector("svg") as SVGElement;
+          if (svgIcon && curr.heading !== undefined) {
+            svgIcon.style.transform = `rotate(${curr.heading}deg)`;
           }
         }
       }

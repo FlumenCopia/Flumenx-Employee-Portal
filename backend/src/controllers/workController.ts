@@ -375,18 +375,26 @@ export function formatWorkAssignmentDoc(a: any) {
 
   let employeeName = 'Unassigned';
   let employeeId = null;
+  let employeeDepartment = '';
 
   if (emp) {
     if (typeof emp === 'object' && emp.name) {
       employeeName = emp.name;
       employeeId = emp._id;
+      employeeDepartment = emp.department || '';
     } else if (typeof emp === 'object' && (emp.username || emp.firstName)) {
       employeeName = `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.username;
       employeeId = emp._id;
+      employeeDepartment = emp.department || '';
     } else {
       employeeId = emp;
     }
   }
+
+  // Resolve department category: if specific, use it; otherwise inherit employee's department
+  const resolvedDeptCategory = (a.departmentCategory && a.departmentCategory !== 'General')
+    ? a.departmentCategory
+    : (employeeDepartment || 'General');
 
   return {
     id: a._id,
@@ -402,7 +410,9 @@ export function formatWorkAssignmentDoc(a: any) {
     progress_percentage: progressPct,
     progress: Math.min(100, Math.max(0, a.progress || progressPct)),
     unit: a.unit,
-    department_category: a.departmentCategory || 'General',
+    department_category: resolvedDeptCategory,
+    employee_department: employeeDepartment,
+    work_type: a.deliverableType || resolvedDeptCategory,
     estimated_hours: a.estimatedHours || 0,
     actual_hours: a.actualHours || 0,
     overrun_hours: a.overrunHours || 0,
@@ -445,7 +455,7 @@ export function formatWorkAssignmentDoc(a: any) {
       name: d.name || d.title,
       title: d.title || d.name,
       brief: d.brief,
-      work_type: d.workType || d.type || 'General',
+      work_type: (d.workType && d.workType !== 'General') ? d.workType : (employeeDepartment || d.workType || 'General'),
       contracted: d.contracted || 1,
       delivered: d.delivered || (d.status === 'Completed' || d.status === 'Published' ? 1 : 0),
       due_date: d.dueDate ? (d.dueDate instanceof Date ? d.dueDate.toISOString().split('T')[0] : String(d.dueDate).split('T')[0]) : '',
@@ -614,13 +624,66 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
     }
   }
 
-  if (client_id && mongoose.Types.ObjectId.isValid(client_id as string)) {
-    filter.client = client_id;
+  const rawClient = (client_id || req.query.client) as string;
+  if (rawClient && mongoose.Types.ObjectId.isValid(rawClient)) {
+    filter.client = rawClient;
   }
-  if (status) filter.status = status;
-  if (priority) filter.priority = priority;
+  if (status && status !== 'all') filter.status = status;
+  if (priority && priority !== 'all') filter.priority = priority;
 
-  const { is_master_client_task, project_id, project, department_category } = req.query;
+  const { is_master_client_task, project_id, project, department_category, due_date, assigned_date } = req.query;
+  if (due_date) {
+    const dStr = String(due_date);
+    const startOfDay = new Date(`${dStr}T00:00:00.000Z`);
+    const endOfDay = new Date(`${dStr}T23:59:59.999Z`);
+    filter.dueDate = { $gte: startOfDay, $lte: endOfDay };
+  }
+  if (assigned_date) {
+    const dStr = String(assigned_date);
+    const startOfDay = new Date(`${dStr}T00:00:00.000Z`);
+    const endOfDay = new Date(`${dStr}T23:59:59.999Z`);
+    filter.assignedDate = { $gte: startOfDay, $lte: endOfDay };
+  }
+
+  // Department-level filtering (matches department category, deliverable workType, or assigned employee's department)
+  const deptQuery = (department_category || req.query.department || req.query.work_type) as string;
+  if (deptQuery && deptQuery !== 'all' && deptQuery !== 'All Depts / Types') {
+    let deptRegex: RegExp;
+    const dq = deptQuery.toLowerCase();
+    if (dq.includes('web') || dq.includes('dev') || dq.includes('software') || dq.includes('code')) {
+      deptRegex = /web|development|developer|software|it/i;
+    } else if (dq.includes('video') || dq.includes('anim') || dq.includes('edit')) {
+      deptRegex = /video|editing|anim/i;
+    } else if (dq.includes('design') || dq.includes('graphic') || dq.includes('ui') || dq.includes('ux')) {
+      deptRegex = /design|graphic|ui|ux/i;
+    } else if (dq.includes('market') || dq.includes('ad') || dq.includes('seo')) {
+      deptRegex = /market|ads|social/i;
+    } else if (dq.includes('account') || dq.includes('finance') || dq.includes('tax')) {
+      deptRegex = /account|finance/i;
+    } else if (dq.includes('hr') || dq.includes('human')) {
+      deptRegex = /hr|human/i;
+    } else if (dq.includes('business') || dq.includes('sales') || dq.includes('bde') || dq.includes('bdm') || dq.includes('bdo')) {
+      deptRegex = /business|sales|bde|bdm|bdo/i;
+    } else if (dq.includes('op')) {
+      deptRegex = /operation|ops/i;
+    } else {
+      deptRegex = new RegExp(deptQuery, 'i');
+    }
+
+    const matchingEmployees = await Employee.find({ department: deptRegex }).select('_id user');
+    const matchingEmpIds = matchingEmployees.map((e) => e._id);
+    const matchingUserIds = matchingEmployees.map((e) => e.user).filter(Boolean);
+
+    filter.$and = filter.$and || [];
+    filter.$and.push({
+      $or: [
+        { departmentCategory: deptRegex },
+        { 'deliverables.workType': deptRegex },
+        { employee: { $in: [...matchingEmpIds, ...matchingUserIds] } },
+      ],
+    });
+  }
+
   if (is_master_client_task === 'true') {
     filter.isMasterClientTask = true;
   } else if (is_master_client_task === 'false') {
@@ -635,20 +698,31 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
   if (projId && mongoose.Types.ObjectId.isValid(projId as string)) {
     filter.project = projId;
   }
-  if (department_category) {
-    filter.departmentCategory = department_category;
+
+  const page = parseInt(req.query.page as string, 10) || 1;
+  const limit = parseInt(req.query.limit as string, 10) || (req.query.page ? 25 : 0);
+
+  const totalCount = await WorkAssignment.countDocuments(filter);
+
+  let dbQuery = WorkAssignment.find(filter)
+    .populate('employee client project assignedBy reviewer reviewedBy parentTask')
+    .sort({ dueDate: 1, createdAt: -1 });
+
+  if (limit > 0) {
+    const skip = (page - 1) * limit;
+    dbQuery = dbQuery.skip(skip).limit(limit);
   }
 
-  const assignments = await WorkAssignment.find(filter)
-    .populate('employee client project assignedBy reviewer reviewedBy parentTask')
-    .sort({ dueDate: 1 });
-
+  const assignments = await dbQuery;
   const formatted = assignments.map((a) => formatWorkAssignmentDoc(a));
 
+  const hasNext = limit > 0 ? page * limit < totalCount : false;
+  const hasPrevious = page > 1;
+
   res.json({
-    count: formatted.length,
-    next: null,
-    previous: null,
+    count: totalCount,
+    next: hasNext ? `/api/portal/work/assignments/?page=${page + 1}&limit=${limit}` : null,
+    previous: hasPrevious ? `/api/portal/work/assignments/?page=${page - 1}&limit=${limit}` : null,
     results: formatted,
   });
 }
@@ -776,12 +850,64 @@ export async function stopTaskTimer(req: Request, res: Response): Promise<void> 
 }
 
 export async function getWorkAssignmentsSummary(req: Request, res: Response): Promise<void> {
-  const { employee, client, priority, is_master_client_task } = req.query;
+  const { employee, client, priority, status, is_master_client_task, department, department_category, work_type, due_date, assigned_date } = req.query;
 
   const filter: any = {};
   if (employee) filter.employee = employee;
   if (client) filter.client = client;
-  if (priority) filter.priority = priority;
+  if (priority && priority !== 'all') filter.priority = priority;
+  if (status && status !== 'all') filter.status = status;
+
+  if (due_date) {
+    const dStr = String(due_date);
+    const startOfDay = new Date(`${dStr}T00:00:00.000Z`);
+    const endOfDay = new Date(`${dStr}T23:59:59.999Z`);
+    filter.dueDate = { $gte: startOfDay, $lte: endOfDay };
+  }
+  if (assigned_date) {
+    const dStr = String(assigned_date);
+    const startOfDay = new Date(`${dStr}T00:00:00.000Z`);
+    const endOfDay = new Date(`${dStr}T23:59:59.999Z`);
+    filter.assignedDate = { $gte: startOfDay, $lte: endOfDay };
+  }
+
+  const deptQuery = (department_category || department || work_type) as string;
+  if (deptQuery && deptQuery !== 'all' && deptQuery !== 'All Depts / Types') {
+    let deptRegex: RegExp;
+    const dq = deptQuery.toLowerCase();
+    if (dq.includes('web') || dq.includes('dev') || dq.includes('software') || dq.includes('code')) {
+      deptRegex = /web|development|developer|software|it/i;
+    } else if (dq.includes('video') || dq.includes('anim') || dq.includes('edit')) {
+      deptRegex = /video|editing|anim/i;
+    } else if (dq.includes('design') || dq.includes('graphic') || dq.includes('ui') || dq.includes('ux')) {
+      deptRegex = /design|graphic|ui|ux/i;
+    } else if (dq.includes('market') || dq.includes('ad') || dq.includes('seo')) {
+      deptRegex = /market|ads|social/i;
+    } else if (dq.includes('account') || dq.includes('finance') || dq.includes('tax')) {
+      deptRegex = /account|finance/i;
+    } else if (dq.includes('hr') || dq.includes('human')) {
+      deptRegex = /hr|human/i;
+    } else if (dq.includes('business') || dq.includes('sales') || dq.includes('bde') || dq.includes('bdm') || dq.includes('bdo')) {
+      deptRegex = /business|sales|bde|bdm|bdo/i;
+    } else if (dq.includes('op')) {
+      deptRegex = /operation|ops/i;
+    } else {
+      deptRegex = new RegExp(deptQuery, 'i');
+    }
+
+    const matchingEmployees = await Employee.find({ department: deptRegex }).select('_id user');
+    const matchingEmpIds = matchingEmployees.map((e) => e._id);
+    const matchingUserIds = matchingEmployees.map((e) => e.user).filter(Boolean);
+
+    filter.$and = filter.$and || [];
+    filter.$and.push({
+      $or: [
+        { departmentCategory: deptRegex },
+        { 'deliverables.workType': deptRegex },
+        { employee: { $in: [...matchingEmpIds, ...matchingUserIds] } },
+      ],
+    });
+  }
 
   if (is_master_client_task === 'true') {
     filter.isMasterClientTask = true;
@@ -931,7 +1057,14 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
 
   const parentId = parent_task || parentTask;
   const targetProjectId = project || project_id;
-  const targetDepartmentCat = department_category || departmentCategory || 'General';
+  let targetDepartmentCat = department_category || departmentCategory || '';
+  if ((!targetDepartmentCat || targetDepartmentCat === 'General') && resolvedEmpId) {
+    const assignedEmp = await Employee.findById(resolvedEmpId).select('department');
+    if (assignedEmp && assignedEmp.department) {
+      targetDepartmentCat = assignedEmp.department;
+    }
+  }
+  if (!targetDepartmentCat) targetDepartmentCat = 'General';
   const targetEstHours = Number(estimated_hours || estimatedHours || 0);
   const targetDeptData = department_data || departmentData || {};
 

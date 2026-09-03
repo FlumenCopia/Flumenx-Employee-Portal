@@ -427,9 +427,27 @@ export function CommandCenterView({
           High: "p1",
           Urgent: "p0",
         };
-        const rawWorkType = (a.deliverables && a.deliverables.length > 0 && a.deliverables[0].work_type)
-          ? a.deliverables[0].work_type
-          : a.employee_department;
+        // Multi-tiered department resolution:
+        // 1. Deliverable work type (if specific and not General)
+        const firstDeliverableType = a.deliverables && a.deliverables.length > 0 ? a.deliverables[0].work_type : "";
+        const specificDeliverableType = firstDeliverableType && firstDeliverableType.toLowerCase() !== "general" ? firstDeliverableType : "";
+
+        // 2. Task department category (if specific and not General)
+        const specificCategory = a.department_category && a.department_category.toLowerCase() !== "general" ? a.department_category : "";
+
+        // 3. Assigned employee's department from backend
+        const empDept = a.employee_department && a.employee_department.toLowerCase() !== "general" ? a.employee_department : "";
+
+        // 4. Member lookup in client-side employee directory
+        let memberDept = "";
+        if (members && members.length > 0 && a.employee) {
+          const matchedMember = members.find((m) => String(m.id) === String(a.employee) || (m as any).employee_code === String(a.employee));
+          if (matchedMember && matchedMember.department && matchedMember.department.toLowerCase() !== "general") {
+            memberDept = matchedMember.department;
+          }
+        }
+
+        const rawWorkType = specificDeliverableType || specificCategory || empDept || memberDept || firstDeliverableType || a.department_category || "web_development";
         const detectedType = normalizeDepartment(rawWorkType);
 
         const mappedStatus = statusMap[a.status] || "progress";

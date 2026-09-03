@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BriefcaseBusiness, Clock, Copy, Globe, Pencil, Plus, RotateCw, SlidersHorizontal, Trash2 } from "lucide-react";
+import { BriefcaseBusiness, CheckCircle2, Clock, Copy, Globe, Kanban, List, Pencil, Plus, RotateCw, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import type { Client, DepartmentItem, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary, WorkspaceRole } from "@/lib/types";
 import { SHOW_ADVANCED_WORKBOARD, normalizeDepartment } from "@/lib/types";
@@ -13,7 +13,6 @@ import { Modal } from "@/features/common/Modal";
 import { useShellUser } from "@/components/shell";
 import { toast } from "@/components/ToastContext";
 import { ShareLinkModal } from "./ShareLinkModal";
-import { CommandCenterView } from "./CommandCenterView";
 
 type ManagementWorkspace = WorkspaceRole;
 type WorkFormState = {
@@ -26,13 +25,13 @@ type DeliverableFormState = {
   id?: number; client: string; title: string; brief: string; work_type: string; due_date: string; status: WorkStatus;
 };
 type WorkFilters = {
-  employee: string; client: string; status: string; priority: string; due_date: string; assigned_date: string; is_overdue: string; review_status: string;
+  employee: string; client: string; status: string; priority: string; due_date: string; assigned_date: string; is_overdue: string; review_status: string; department: string; search: string;
 };
 
 const EMPTY_SUMMARY: WorkSummary = { total: 0, pending: 0, in_progress: 0, blocked: 0, completed: 0, overdue: 0, review_pending: 0, review_ok: 0, review_correction: 0 };
 const PRIORITIES: WorkPriority[] = ["Low", "Normal", "High", "Urgent"];
 const STATUSES: WorkStatus[] = ["Backlog", "Assigned", "In Progress", "In Review", "Approved", "Published"];
-const EMPTY_FILTERS: WorkFilters = { employee: "", client: "", status: "", priority: "", due_date: "", assigned_date: "", is_overdue: "", review_status: "" };
+const EMPTY_FILTERS: WorkFilters = { employee: "", client: "", status: "", priority: "", due_date: "", assigned_date: "", is_overdue: "", review_status: "", department: "", search: "" };
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -415,47 +414,104 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
   const selectedClient = useMemo(() => clients.find(client => String(client.id) === filters.client), [clients, filters.client]);
   const isDeliverableWorkflow = selectedEmployee?.department === "Design" || selectedEmployee?.department === "Video Editing" || form.deliverables.length > 0;
 
-  const updateFilters = (nextFilters: WorkFilters) => {
-    setFilters(nextFilters);
-    setPage(1);
-  };
+  const [activeViewMode, setActiveViewMode] = useState<"KANBAN" | "LIST">("KANBAN");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const loadWork = useCallback(async (nextFilters = filters, nextPage = page) => {
+  const loadWork = useCallback(async (nextFilters = filters, nextPage = 1, append = false) => {
     workAbortRef.current?.abort();
     const controller = new AbortController();
     workAbortRef.current = controller;
     const requestId = requestRef.current + 1;
     requestRef.current = requestId;
-    setLoading(true);
+
+    if (!append) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
     setError("");
+
     try {
-      const listQuery = queryFromFilters({ ...nextFilters, ...(nextPage > 1 ? { page: String(nextPage) } : {}) });
-      const summaryQuery = queryFromFilters({ client: nextFilters.client } as WorkFilters);
+      const listParams = {
+        ...nextFilters,
+        page: String(nextPage),
+        limit: "25",
+      };
+      const listQuery = queryFromFilters(listParams as any);
+      const summaryQuery = queryFromFilters({
+        client: nextFilters.client,
+        department: nextFilters.department,
+        employee: nextFilters.employee,
+        priority: nextFilters.priority,
+        status: nextFilters.status,
+      } as any);
+
       const [list, nextSummary] = await Promise.all([
         api<Paginated<WorkAssignment> | WorkAssignment[]>(`/work-assignments/${listQuery}`, { signal: controller.signal }),
         api<WorkSummary>(`/work-assignments/summary/${summaryQuery}`, { signal: controller.signal }),
       ]);
+
       if (requestRef.current !== requestId || controller.signal.aborted) return;
       const results = Array.isArray(list) ? list : (list?.results || []);
       const totalCount = Array.isArray(list) ? list.length : (list?.count ?? results.length);
-      setItems(results);
+
+      if (append) {
+        setItems((prev) => [...prev, ...results]);
+      } else {
+        setItems(results);
+      }
       setCount(totalCount);
+      setPage(nextPage);
       setHasNext(Array.isArray(list) ? false : Boolean(list?.next));
-      setHasPrevious(Array.isArray(list) ? false : Boolean(list?.previous));
+      setHasPrevious(nextPage > 1);
       setSummary(nextSummary);
     } catch (err) {
       if (!controller.signal.aborted) {
-        setItems([]);
-        setCount(0);
+        if (!append) {
+          setItems([]);
+          setCount(0);
+          setSummary(EMPTY_SUMMARY);
+        }
         setHasNext(false);
         setHasPrevious(false);
-        setSummary(EMPTY_SUMMARY);
         setError(apiError(err, "Could not load work assignments."));
       }
     } finally {
-      if (requestRef.current === requestId && !controller.signal.aborted) setLoading(false);
+      if (requestRef.current === requestId && !controller.signal.aborted) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
-  }, [filters, page]);
+  }, [filters]);
+
+  const updateFilter = <K extends keyof WorkFilters>(key: K, value: WorkFilters[K]) => {
+    const updated = { ...filters, [key]: value };
+    setFilters(updated);
+    setPage(1);
+    loadWork(updated, 1, false);
+  };
+
+  const updateFilters = (nextFilters: WorkFilters) => {
+    setFilters(nextFilters);
+    setPage(1);
+    loadWork(nextFilters, 1, false);
+  };
+
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const el = sentinelRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNext && !loading && !loadingMore) {
+          loadWork(filters, page + 1, true);
+        }
+      },
+      { rootMargin: "300px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNext, loading, loadingMore, filters, page, loadWork]);
 
   const loadOptions = useCallback(async () => {
     optionsAbortRef.current?.abort();
@@ -498,11 +554,6 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
   useEffect(() => {
     loadWork(filters);
   }, [filters, loadWork]);
-
-  function updateFilter(key: keyof WorkFilters, value: string) {
-    setFilters(current => ({ ...current, [key]: value }));
-    setPage(1);
-  }
 
   function openCreate() {
     loadOptions();
@@ -857,7 +908,6 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                   ? "budget"
                   : "overview");
 
-  const [activeViewMode] = useState<"COMMAND_CENTER" | "LIST">("COMMAND_CENTER");
 
 
   const handleStatusChange = async (id: number | string, status: WorkStatus) => {
@@ -990,79 +1040,453 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
     {actionError && <div className="toast error">{actionError}</div>}
     {optionsError && <div className="toast error">{optionsError}</div>}
 
-    {activeViewMode === "COMMAND_CENTER" ? (
-      <CommandCenterView
-        assignments={items}
-        clients={clients}
-        members={visibleEmployees}
-        userRole={role}
-        currentUser={shellUser ? { id: shellUser.id, employeeId: shellUser.employee?.id, name: shellUser.first_name || shellUser.username, username: shellUser.username, role: shellUser.portal_role } : undefined}
-        workSummary={summary}
-        selectedClientName={selectedClient?.name}
-        selectedClientId={filters.client}
-        onClientChange={(clientId) => updateFilters({ ...filters, client: clientId })}
-        onStatusChange={handleStatusChange}
-        onReviewCheck={handleReviewCheck}
-        onDeleteWork={canManageAll ? handleDeleteWork : undefined}
-        onEditWork={(assignment) => openEdit(assignment)}
-        initialTab={initialTab}
-      />
-    ) : (
-      <>
-        <div className="stats-grid">
-          <StatCard label="Total" value={loading ? "--" : summary.total} note="visible assignments" icon={<BriefcaseBusiness />} />
-          <StatCard label="Pending" value={loading ? "--" : summary.pending} note="waiting to begin" icon={<BriefcaseBusiness />} />
-          <StatCard label="In Progress" value={loading ? "--" : summary.in_progress} note="currently moving" icon={<BriefcaseBusiness />} accent />
-          <StatCard label="Blocked" value={loading ? "--" : summary.blocked} note="needs attention" icon={<BriefcaseBusiness />} />
-          <StatCard label="Completed" value={loading ? "--" : summary.completed} note="finished work" icon={<BriefcaseBusiness />} />
-          <StatCard label="Overdue" value={loading ? "--" : summary.overdue} note="past due date" icon={<BriefcaseBusiness />} />
+    {/* Dynamic Work Board & Execution Hub */}
+    <div className="stats-grid" style={{ marginBottom: "16px" }}>
+      <StatCard label="Total" value={loading ? "--" : summary.total} note="assignments" icon={<BriefcaseBusiness />} />
+      <StatCard label="Pending" value={loading ? "--" : summary.pending} note="to begin" icon={<BriefcaseBusiness />} />
+      <StatCard label="In Progress" value={loading ? "--" : summary.in_progress} note="actively moving" icon={<BriefcaseBusiness />} accent />
+      <StatCard label="Blocked" value={loading ? "--" : summary.blocked} note="needs attention" icon={<BriefcaseBusiness />} />
+      <StatCard label="Completed" value={loading ? "--" : summary.completed} note="finished work" icon={<BriefcaseBusiness />} />
+      <StatCard label="Overdue" value={loading ? "--" : summary.overdue} note="past due date" icon={<BriefcaseBusiness />} />
+    </div>
+
+    {/* Department Quick-Filter Tabs */}
+    <div
+      style={{
+        display: "flex",
+        gap: "8px",
+        overflowX: "auto",
+        padding: "4px 2px 14px 2px",
+        alignItems: "center",
+      }}
+    >
+      {[
+        { key: "", label: "All Departments" },
+        { key: "web_development", label: "💻 Web Development" },
+        { key: "video_editing", label: "🎬 Video Editing" },
+        { key: "design", label: "🎨 Design" },
+        { key: "digital_marketing", label: "📈 Digital Marketing" },
+        { key: "accountant", label: "💰 Accounts" },
+        { key: "hr", label: "👥 HR" },
+        { key: "business_development", label: "🚀 Business Dev" },
+        { key: "operations", label: "⚙️ Operations" },
+      ].map((dept) => {
+        const isSelected = filters.department === dept.key;
+        return (
+          <button
+            key={dept.key}
+            type="button"
+            onClick={() => updateFilter("department", dept.key)}
+            style={{
+              padding: "7px 16px",
+              borderRadius: "20px",
+              fontSize: "12.5px",
+              fontWeight: isSelected ? 800 : 600,
+              cursor: "pointer",
+              border: isSelected ? "1.5px solid #087A5B" : "1px solid var(--border)",
+              background: isSelected ? "#087A5B" : "var(--panel)",
+              color: isSelected ? "#FFFFFF" : "var(--foreground)",
+              boxShadow: isSelected ? "0 2px 8px rgba(8, 122, 91, 0.3)" : "none",
+              whiteSpace: "nowrap",
+              transition: "all 0.15s ease",
+            }}
+          >
+            {dept.label}
+          </button>
+        );
+      })}
+    </div>
+
+    {/* Primary Filter Toolbar & View Mode Toggle */}
+    <div
+      className="toolbar work-toolbar"
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "10px",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: "18px",
+      }}
+    >
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center", flex: 1 }}>
+        <div style={{ position: "relative", minWidth: "200px" }}>
+          <Search size={15} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={filters.search}
+            onChange={(e) => updateFilter("search", e.target.value)}
+            style={{ paddingLeft: "32px", width: "100%", borderRadius: "8px", fontSize: "13px" }}
+          />
         </div>
 
-        <div className="toolbar work-toolbar">
-          <SlidersHorizontal size={18} />
-          <select value={filters.employee} onChange={event => updateFilter("employee", event.target.value)} aria-label="Filter by employee">
-            <option value="">All employees</option>
-            {visibleEmployees.map(employee => <option key={employee.id} value={employee.id}>{employee.display_name}</option>)}
-          </select>
-          <select value={filters.client} onChange={event => updateFilter("client", event.target.value)} aria-label="Filter by client">
-            <option value="">All clients</option>
-            {clients.map(client => <option key={client.id} value={client.id}>{client.name}</option>)}
-          </select>
-          <select value={filters.status} onChange={event => updateFilter("status", event.target.value)} aria-label="Filter by status">
-            <option value="">All statuses</option>
-            {STATUSES.map(status => <option key={status}>{status}</option>)}
-          </select>
-          <select value={filters.priority} onChange={event => updateFilter("priority", event.target.value)} aria-label="Filter by priority">
-            <option value="">All priorities</option>
-            {PRIORITIES.map(priority => <option key={priority}>{priority}</option>)}
-          </select>
-          <input type="date" value={filters.assigned_date} onChange={event => updateFilter("assigned_date", event.target.value)} aria-label="Filter by assigned date" />
-          <input type="date" value={filters.due_date} onChange={event => updateFilter("due_date", event.target.value)} aria-label="Filter by due date" />
-          <select value={filters.is_overdue} onChange={event => updateFilter("is_overdue", event.target.value)} aria-label="Filter by overdue">
-            <option value="">Any due state</option>
-            <option value="true">Overdue</option>
-            <option value="false">Not overdue</option>
-          </select>
-          <button type="button" className="secondary-button" onClick={() => { setFilters(EMPTY_FILTERS); setPage(1); }}>Reset</button>
-          <button type="button" className="secondary-button" onClick={() => loadWork(filters)} disabled={loading}><RotateCw size={15} /> Refresh</button>
-        </div>
+        <select value={filters.employee} onChange={(e) => updateFilter("employee", e.target.value)} aria-label="Filter by employee">
+          <option value="">All employees</option>
+          {visibleEmployees.map((emp) => (
+            <option key={emp.id} value={emp.id}>{emp.display_name}</option>
+          ))}
+        </select>
 
-        <div className="data-card work-card">
-          <div className="data-table work-table">
-            <div className="table-head">
-              <span>Employee</span><span>Client</span><span>Work</span><span>Quantity</span><span>Priority</span><span>Status</span>
-              <span>Progress</span><span>Assigned</span><span>Due</span><span>Owner</span><span />
+        <select value={filters.client} onChange={(e) => updateFilter("client", e.target.value)} aria-label="Filter by client">
+          <option value="">All clients</option>
+          {clients.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+
+        <select value={filters.status} onChange={(e) => updateFilter("status", e.target.value)} aria-label="Filter by status">
+          <option value="">All statuses</option>
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+
+        <select value={filters.priority} onChange={(e) => updateFilter("priority", e.target.value)} aria-label="Filter by priority">
+          <option value="">All priorities</option>
+          {PRIORITIES.map((p) => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+
+        <input
+          type="date"
+          value={filters.due_date}
+          onChange={(e) => updateFilter("due_date", e.target.value)}
+          title="Filter by due date"
+          aria-label="Filter by due date"
+        />
+
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => {
+            setFilters(EMPTY_FILTERS);
+            loadWork(EMPTY_FILTERS, 1, false);
+          }}
+        >
+          Reset
+        </button>
+
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => loadWork(filters, 1, false)}
+          disabled={loading}
+        >
+          <RotateCw size={14} className={loading ? "spin" : ""} /> Refresh
+        </button>
+      </div>
+
+      {/* View Switcher: Kanban vs Table */}
+      <div style={{ display: "flex", gap: "4px", background: "var(--panel)", padding: "3px", borderRadius: "8px", border: "1px solid var(--border)" }}>
+        <button
+          type="button"
+          onClick={() => setActiveViewMode("KANBAN")}
+          style={{
+            padding: "6px 14px",
+            borderRadius: "6px",
+            border: "none",
+            background: activeViewMode === "KANBAN" ? "#087A5B" : "transparent",
+            color: activeViewMode === "KANBAN" ? "#FFFFFF" : "var(--muted)",
+            fontWeight: 700,
+            fontSize: "12px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            transition: "background 0.15s ease",
+          }}
+        >
+          <Kanban size={15} /> Board
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveViewMode("LIST")}
+          style={{
+            padding: "6px 14px",
+            borderRadius: "6px",
+            border: "none",
+            background: activeViewMode === "LIST" ? "#087A5B" : "transparent",
+            color: activeViewMode === "LIST" ? "#FFFFFF" : "var(--muted)",
+            fontWeight: 700,
+            fontSize: "12px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            transition: "background 0.15s ease",
+          }}
+        >
+          <List size={15} /> Table List
+        </button>
+      </div>
+    </div>
+
+    {/* Content Area: Kanban Board or Table List */}
+    {loading && items.length === 0 ? (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", padding: "16px 0" }}>
+        {[1, 2, 3, 4].map((n) => (
+          <div key={n} style={{ height: "300px", borderRadius: "12px", background: "var(--panel)", border: "1px solid var(--border)", opacity: 0.6, animation: "pulse 1.5s infinite" }} />
+        ))}
+      </div>
+    ) : error ? (
+      <EmptyState title="Could not load work" text={error} />
+    ) : items.length === 0 ? (
+      <EmptyState title="No tasks found" text="Try changing your filters or create a new task." />
+    ) : activeViewMode === "KANBAN" ? (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: "16px",
+          alignItems: "start",
+        }}
+      >
+        {[
+          { key: "Assigned", label: "Assigned / Pending", statuses: ["Assigned", "Pending"], color: "#3B82F6" },
+          { key: "In Progress", label: "In Progress", statuses: ["In Progress", "Ongoing"], color: "#F59E0B" },
+          { key: "In Review", label: "In Review", statuses: ["In Review"], color: "#8B5CF6" },
+          { key: "Approved", label: "Approved / Completed", statuses: ["Approved", "Completed", "Published"], color: "#10B981" },
+          { key: "Backlog", label: "Backlog", statuses: ["Backlog"], color: "#64748B" },
+        ].map((col) => {
+          const colTasks = items.filter((t) => {
+            const raw = t.status || "Assigned";
+            return col.statuses.some((s) => s.toLowerCase() === raw.toLowerCase());
+          });
+
+          return (
+            <div
+              key={col.key}
+              style={{
+                background: "var(--panel)",
+                borderRadius: "12px",
+                border: "1px solid var(--border)",
+                padding: "14px",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: "450px",
+              }}
+            >
+              {/* Column Header */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  paddingBottom: "12px",
+                  marginBottom: "12px",
+                  borderBottom: `2px solid ${col.color}`,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: col.color }} />
+                  <span style={{ fontWeight: 800, fontSize: "13px" }}>{col.label}</span>
+                </div>
+                <span
+                  style={{
+                    background: "var(--surface)",
+                    padding: "2px 8px",
+                    borderRadius: "12px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "var(--muted)",
+                  }}
+                >
+                  {colTasks.length}
+                </span>
+              </div>
+
+              {/* Task Cards */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1 }}>
+                {colTasks.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "30px 12px", color: "var(--muted)", fontSize: "12px" }}>
+                    No tasks here
+                  </div>
+                ) : (
+                  colTasks.map((t) => (
+                    <div
+                      key={t.id}
+                      style={{
+                        background: "var(--surface)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "10px",
+                        padding: "12px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+                        transition: "box-shadow 0.15s ease",
+                      }}
+                    >
+                      {/* Card Tags */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
+                        {t.client_name && (
+                          <span
+                            style={{
+                              background: "rgba(59, 130, 246, 0.12)",
+                              color: "#2563eb",
+                              borderRadius: "4px",
+                              padding: "2px 6px",
+                              fontSize: "10.5px",
+                              fontWeight: 700,
+                            }}
+                          >
+                            🏢 {t.client_name}
+                          </span>
+                        )}
+                        <span
+                          style={{
+                            background: "rgba(8, 122, 91, 0.12)",
+                            color: "#087A5B",
+                            borderRadius: "4px",
+                            padding: "2px 6px",
+                            fontSize: "10.5px",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {String(t.department_category || "").toLowerCase().includes("web") || String(t.department_category || "").toLowerCase().includes("dev") || t.employee_department?.toLowerCase().includes("web")
+                            ? "💻 Web Development"
+                            : t.department_category || "Task"}
+                        </span>
+                        <Badge tone={t.priority}>{t.priority}</Badge>
+                      </div>
+
+                      {/* Card Title */}
+                      <div
+                        onClick={() => openEdit(t)}
+                        style={{
+                          fontWeight: 700,
+                          fontSize: "13.5px",
+                          lineHeight: 1.35,
+                          cursor: "pointer",
+                          color: "var(--foreground)",
+                        }}
+                      >
+                        {t.title}
+                      </div>
+
+                      {t.description && (
+                        <div
+                          style={{
+                            fontSize: "11.5px",
+                            color: "var(--muted)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {t.description}
+                        </div>
+                      )}
+
+                      {/* Progress Bar */}
+                      <ProgressMeter value={t.progress} />
+
+                      {/* Card Footer: Assignee & Due Date */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          fontSize: "11px",
+                          color: "var(--muted)",
+                          paddingTop: "6px",
+                          borderTop: "1px solid var(--border)",
+                        }}
+                      >
+                        <span style={{ fontWeight: 600 }}>👤 {t.employee_name}</span>
+                        <span style={{ color: t.is_overdue ? "#EF4444" : "inherit", fontWeight: t.is_overdue ? 700 : 500 }}>
+                          📅 {t.due_date ? formatDate(t.due_date) : "No date"}
+                        </span>
+                      </div>
+
+                      {/* Quick Status Progression & Actions */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+                        <select
+                          value={t.status}
+                          onChange={(e) => handleStatusChange(t.id, e.target.value as WorkStatus)}
+                          style={{
+                            fontSize: "11px",
+                            padding: "3px 8px",
+                            borderRadius: "6px",
+                            border: "1px solid var(--border)",
+                            background: "var(--panel)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {STATUSES.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+
+                        {canManageAll && (
+                          <div style={{ display: "flex", gap: "4px" }}>
+                            <button
+                              type="button"
+                              onClick={() => openEdit(t)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                padding: "4px",
+                                color: "var(--muted)",
+                              }}
+                              aria-label="Edit task"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteAssignment(t)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                padding: "4px",
+                                color: "#EF4444",
+                              }}
+                              aria-label="Delete task"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
-            {!loading && !error && items.map(item => <div className={`table-row ${item.is_overdue ? "overdue-row" : ""}`} key={item.id}>
+          );
+        })}
+      </div>
+    ) : (
+      /* Classic Table List View */
+      <div className="data-card work-card">
+        <div className="data-table work-table">
+          <div className="table-head">
+            <span>Employee</span><span>Client</span><span>Work</span><span>Quantity</span><span>Priority</span><span>Status</span>
+            <span>Progress</span><span>Assigned</span><span>Due</span><span>Owner</span><span />
+          </div>
+          {items.map((item) => (
+            <div className={`table-row ${item.is_overdue ? "overdue-row" : ""}`} key={item.id}>
               <span>{item.employee_name}</span>
               <span>{item.client_name}</span>
-              <div className="work-title"><b>{item.title}</b><small>{item.description || "No description"}</small>{item.deliverables.length > 0 && <small>{item.deliverables.length} deliverable items</small>}</div>
-              <div className="quantity-cell"><b>{quantityLabel(item)}</b><small>{item.remaining_quantity} {item.unit} remaining</small></div>
+              <div className="work-title">
+                <b>{item.title}</b>
+                <small>{item.description || "No description"}</small>
+                {item.deliverables.length > 0 && <small>{item.deliverables.length} deliverable items</small>}
+              </div>
+              <div className="quantity-cell">
+                <b>{quantityLabel(item)}</b>
+                <small>{item.remaining_quantity} {item.unit} remaining</small>
+              </div>
               <Badge tone={item.priority}>{item.priority}</Badge>
               <Badge tone={item.status}>{item.status}</Badge>
               <ProgressMeter value={item.progress} />
-              <span>{formatDate(item.assigned_date)}</span>
-              <span>{formatDate(item.due_date)} {item.is_overdue && <em>Overdue</em>}</span>
+              <span>{item.assigned_date ? formatDate(item.assigned_date) : "-"}</span>
+              <span>{item.due_date ? formatDate(item.due_date) : "-"} {item.is_overdue && <em>Overdue</em>}</span>
               <span>{item.assigned_by_name || "Portal"}</span>
               {canManageAll && (
                 <div className="row-actions">
@@ -1070,39 +1494,20 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                   <button type="button" disabled={deletingId !== null} onClick={() => deleteAssignment(item)} aria-label={`Delete ${item.title}`}><Trash2 size={16} /></button>
                 </div>
               )}
-            </div>)}
-          </div>
-          {loading && <EmptyState title="Loading work" text="Fetching work assignments and summary." />}
-          {error && <EmptyState title="Could not load work" text={error} />}
-          {!loading && !error && !items.length && <EmptyState title="No work found" text="Try clearing filters or assign new work." />}
-          {!loading && !error && count > 0 && (
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderTop: "1px solid var(--line)" }}>
-              <span className="record-count" style={{ padding: 0 }}>
-                Page {page} of {Math.ceil(count / 20) || 1} ({count} total)
-              </span>
-              <div className="header-actions">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={!hasPrevious || loading}
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={!hasNext || loading}
-                  onClick={() => setPage(p => p + 1)}
-                >
-                  Next
-                </button>
-              </div>
             </div>
-          )}
+          ))}
         </div>
-      </>
+      </div>
     )}
+
+    {/* Infinite Scroll Sentinel */}
+    <div ref={sentinelRef} style={{ height: "40px", display: "flex", justifyContent: "center", alignItems: "center", margin: "16px 0" }}>
+      {loadingMore && (
+        <span style={{ fontSize: "12px", color: "var(--muted)", display: "flex", alignItems: "center", gap: "6px" }}>
+          <RotateCw size={14} className="spin" /> Loading more tasks...
+        </span>
+      )}
+    </div>
 
     {modalOpen && <Modal title={editing ? "Edit Task" : "New Task"} eyebrow={editing ? "FLUMENX / EDIT" : "FLUMENX / CREATE"} size="lg" onClose={() => !submitting && setModalOpen(false)}>
       <form className="modal-form" onSubmit={saveAssignment} style={{ display: "flex", flexDirection: "column", gap: "14px", maxHeight: "80vh", overflowY: "auto", paddingRight: "4px" }}>
