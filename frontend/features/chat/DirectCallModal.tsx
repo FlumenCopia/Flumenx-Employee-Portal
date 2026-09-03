@@ -52,15 +52,42 @@ export function DirectCallModal({
   const [isVideoOff, setIsVideoOff] = useState(callType === "audio");
   const [callDuration, setCallDuration] = useState(0);
 
+  const [hasLocalVideoTrack, setHasLocalVideoTrack] = useState(false);
+
+  // Monitor live video tracks on localStream
+  useEffect(() => {
+    if (!localStream) {
+      setHasLocalVideoTrack(false);
+      return;
+    }
+    const updateTrackStatus = () => {
+      const vTracks = localStream.getVideoTracks();
+      const isLive = vTracks.length > 0 && vTracks.some((t) => t.readyState === "live" && t.enabled);
+      setHasLocalVideoTrack(isLive);
+    };
+
+    updateTrackStatus();
+    localStream.addEventListener("addtrack", updateTrackStatus);
+    localStream.addEventListener("removetrack", updateTrackStatus);
+    return () => {
+      localStream.removeEventListener("addtrack", updateTrackStatus);
+      localStream.removeEventListener("removetrack", updateTrackStatus);
+    };
+  }, [localStream]);
+
   // Robust callback ref for local video attachment
   const attachLocalVideo = useCallback(
     (el: HTMLVideoElement | null) => {
       (localVideoRef as any).current = el;
       if (el && localStream) {
+        el.defaultMuted = true;
+        el.muted = true;
+        el.setAttribute("muted", "true");
+        el.setAttribute("playsinline", "true");
+        el.setAttribute("autoplay", "true");
         if (el.srcObject !== localStream) {
           el.srcObject = localStream;
         }
-        el.muted = true;
         el.play().catch((err) => {
           console.warn("[WebRTC] Local video play error:", err);
         });
@@ -74,6 +101,8 @@ export function DirectCallModal({
     (el: HTMLVideoElement | null) => {
       (remoteVideoRef as any).current = el;
       if (el && remoteStream) {
+        el.setAttribute("playsinline", "true");
+        el.setAttribute("autoplay", "true");
         if (el.srcObject !== remoteStream) {
           el.srcObject = remoteStream;
         }
@@ -85,15 +114,60 @@ export function DirectCallModal({
     [remoteStream]
   );
 
-  // Local stream attachment effect (triggers when localStream or mode changes to connected)
+  // Local stream attachment & camera auto-recovery effect
   useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      if (localVideoRef.current.srcObject !== localStream) {
-        localVideoRef.current.srcObject = localStream;
+    let active = true;
+    const videoEl = localVideoRef.current;
+
+    const syncLocalStream = async () => {
+      let stream = localStream;
+
+      // If call is video but localStream has no video tracks, attempt camera recovery
+      if (callType === "video" && (!stream || stream.getVideoTracks().length === 0)) {
+        try {
+          const camStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+            audio: false,
+          });
+          if (!active) return;
+          if (stream) {
+            camStream.getVideoTracks().forEach((t) => stream!.addTrack(t));
+          } else {
+            stream = camStream;
+          }
+          setHasLocalVideoTrack(true);
+        } catch (camErr) {
+          console.warn("[WebRTC] Camera auto-recovery failed:", camErr);
+        }
       }
-      localVideoRef.current.muted = true;
-      localVideoRef.current.play().catch(() => {});
-    }
+
+      if (!active || !videoEl || !stream) return;
+
+      videoEl.defaultMuted = true;
+      videoEl.muted = true;
+      videoEl.setAttribute("muted", "true");
+      videoEl.setAttribute("playsinline", "true");
+      videoEl.setAttribute("autoplay", "true");
+
+      if (videoEl.srcObject !== stream) {
+        videoEl.srcObject = stream;
+      }
+
+      const playSafely = () => {
+        videoEl.play().catch((err) => {
+          console.warn("[WebRTC] Local video play error:", err);
+        });
+      };
+
+      videoEl.onloadedmetadata = playSafely;
+      playSafely();
+    };
+
+    syncLocalStream();
+
+    return () => {
+      active = false;
+    };
   }, [localStream, mode, callType]);
 
   // Remote stream attachment (Both Audio & Video)
@@ -138,9 +212,30 @@ export function DirectCallModal({
     }
   };
 
-  const toggleVideo = () => {
+  const toggleVideo = async () => {
     if (localStream) {
-      localStream.getVideoTracks().forEach((track) => {
+      const vTracks = localStream.getVideoTracks();
+      if (vTracks.length === 0) {
+        try {
+          const camStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+            audio: false,
+          });
+          camStream.getVideoTracks().forEach((t) => localStream.addTrack(t));
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = localStream;
+            localVideoRef.current.play().catch(() => {});
+          }
+          setIsVideoOff(false);
+          setHasLocalVideoTrack(true);
+          return;
+        } catch {
+          toast.error("Could not access camera");
+          return;
+        }
+      }
+
+      vTracks.forEach((track) => {
         track.enabled = !track.enabled;
       });
       setIsVideoOff((prev) => !prev);
@@ -334,22 +429,33 @@ export function DirectCallModal({
                       background: "#18181b",
                       boxShadow: "0 6px 15px rgba(0,0,0,0.5)",
                       zIndex: 10,
+                      isolation: "isolate",
                     }}
                   >
                     <video
-                      ref={attachLocalVideo}
+                      ref={(el) => {
+                        (localVideoRef as any).current = el;
+                        attachLocalVideo(el);
+                      }}
                       autoPlay
                       playsInline
                       muted
+                      onLoadedMetadata={(e) => {
+                        const v = e.currentTarget;
+                        v.muted = true;
+                        v.play().catch(() => {});
+                      }}
                       style={{
                         width: "100%",
                         height: "100%",
                         objectFit: "cover",
                         transform: "scaleX(-1)",
+                        WebkitTransform: "scaleX(-1)",
                         display: isVideoOff ? "none" : "block",
+                        background: "#18181b",
                       }}
                     />
-                    {isVideoOff && (
+                    {isVideoOff ? (
                       <div
                         style={{
                           width: "100%",
@@ -365,7 +471,28 @@ export function DirectCallModal({
                         <VideoOff size={22} color="#94a3b8" />
                         <span style={{ fontSize: "10px", color: "#94a3b8", fontWeight: 600 }}>Camera Off</span>
                       </div>
-                    )}
+                    ) : !hasLocalVideoTrack ? (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "#18181b",
+                          gap: "4px",
+                          position: "absolute",
+                          inset: 0,
+                          cursor: "pointer",
+                        }}
+                        onClick={toggleVideo}
+                        title="Click to turn on camera"
+                      >
+                        <VideoOff size={22} color="#f59e0b" />
+                        <span style={{ fontSize: "9px", color: "#f59e0b", fontWeight: 700 }}>Enable Cam</span>
+                      </div>
+                    ) : null}
                   </div>
                 </>
               ) : (
@@ -416,7 +543,7 @@ export function DirectCallModal({
                     width: "46px",
                     height: "46px",
                     borderRadius: "50%",
-                    background: isVideoOff ? "#ef4444" : "rgba(255,255,255,0.1)",
+                    background: isVideoOff || !hasLocalVideoTrack ? "#ef4444" : "rgba(255,255,255,0.1)",
                     color: "#fff",
                     border: 0,
                     cursor: "pointer",
@@ -424,9 +551,9 @@ export function DirectCallModal({
                     placeItems: "center",
                     transition: "all 0.15s ease",
                   }}
-                  title={isVideoOff ? "Start Camera" : "Stop Camera"}
+                  title={isVideoOff || !hasLocalVideoTrack ? "Turn Camera On" : "Turn Camera Off"}
                 >
-                  {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
+                  {isVideoOff || !hasLocalVideoTrack ? <VideoOff size={20} /> : <Video size={20} />}
                 </button>
               )}
 

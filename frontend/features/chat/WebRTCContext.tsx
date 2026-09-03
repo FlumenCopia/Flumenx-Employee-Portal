@@ -103,14 +103,17 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
         try {
           return await navigator.mediaDevices.getUserMedia({
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
           });
-        } catch {
-          // Fallback to basic audio + video constraints
+        } catch (firstErr) {
+          console.warn("[WebRTC] Ideal video constraint failed, trying basic video:true:", firstErr);
           try {
-            return await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            return await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true },
+              video: true,
+            });
           } catch (errVideo) {
-            console.warn("[WebRTC] Video capture failed, falling back to audio only:", errVideo);
+            console.warn("[WebRTC] Video capture failed, attempting audio only:", errVideo);
             toast.warning("Camera could not be accessed. Proceeding with audio only.");
             return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
           }
