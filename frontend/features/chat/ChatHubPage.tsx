@@ -569,9 +569,34 @@ export function ChatHubPage({ role }: Props) {
         meeting_code: meetingCode,
       });
 
-      window.open(`/meetings/${meetingCode}`, "_blank");
+      window.open(`/meet/${meetingCode}`, "_blank");
     } catch (err: any) {
       toast.error(err?.message || "Could not start instant meeting");
+    }
+  };
+
+  const handleLaunchGroupCall = async (type: "audio" | "video" = "video") => {
+    if (!activeConversation) return;
+    try {
+      const res = await api<any>("/meetings/create-instant/", {
+        method: "POST",
+        body: JSON.stringify({
+          title: `${activeConversation.name} Group Call`,
+          conversation_id: activeConversation.id,
+        }),
+      });
+
+      const meetingCode = res.meeting_code || res.code || "flumenx-hq";
+      await handleSendMessage({
+        text: `📞 Group ${type === "video" ? "Video" : "Voice"} Call started in ${activeConversation.name}. Click below to join:`,
+        type: "MEETING_LINK",
+        meeting_code: meetingCode,
+      });
+
+      window.open(`/meet/${meetingCode}`, "_blank");
+      toast.success("Group call started! Room invitation shared in chat.");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not start group call");
     }
   };
 
@@ -1034,49 +1059,125 @@ export function ChatHubPage({ role }: Props) {
 
                 {/* Header Call & Meeting Actions */}
                 <div className="chat-header-actions" style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
-                  <button
-                    onClick={() => handleStartCall("audio")}
-                    style={{
-                      padding: "6px 12px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      background: "var(--panel, #ffffff)",
-                      border: "1px solid var(--border, #DCE3E0)",
-                      borderRadius: "8px",
-                      color: "var(--color-text, #18231F)",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                    }}
-                    title="Start Voice Call"
-                  >
-                    <Phone size={14} />
-                    <span className="chat-header-btn-text">Call</span>
-                  </button>
+                  {activeConversation.type !== "DIRECT" ? (
+                    <>
+                      {/* Instant Group Video Call */}
+                      <button
+                        onClick={() => handleLaunchGroupCall("video")}
+                        style={{
+                          padding: "6px 13px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          background: "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
+                          color: "#ffffff",
+                          border: 0,
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          boxShadow: "0 2px 6px rgba(8, 122, 91, 0.25)",
+                          transition: "all 0.15s ease",
+                        }}
+                        title="Start Instant Group Video Call with all members"
+                      >
+                        <Video size={14} />
+                        <span className="chat-header-btn-text">Group Call</span>
+                      </button>
 
-                  <button
-                    onClick={() => handleStartCall("video")}
-                    style={{
-                      padding: "6px 12px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      background: "var(--panel, #ffffff)",
-                      border: "1px solid var(--border, #DCE3E0)",
-                      borderRadius: "8px",
-                      color: "var(--color-text, #18231F)",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                    }}
-                    title="Start Video Call"
-                  >
-                    <Video size={14} />
-                    <span className="chat-header-btn-text">Video</span>
-                  </button>
+                      {/* Add Person / Colleague to Group */}
+                      <button
+                        onClick={() => setAddMemberModalOpen(true)}
+                        style={{
+                          padding: "6px 12px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          background: "var(--panel, #ffffff)",
+                          border: "1.5px solid var(--color-brand-border, #B2D8CB)",
+                          borderRadius: "8px",
+                          color: "var(--color-primary, #087A5B)",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                        title="Add persons to this group"
+                      >
+                        <UserPlus size={14} />
+                        <span className="chat-header-btn-text">Add Person</span>
+                      </button>
+
+                      {/* 1:1 Direct Call picker */}
+                      <button
+                        onClick={() => handleStartCall("audio")}
+                        style={{
+                          padding: "6px 10px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          background: "var(--panel, #ffffff)",
+                          border: "1px solid var(--border, #DCE3E0)",
+                          borderRadius: "8px",
+                          color: "var(--color-text, #18231F)",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                        title="Call an individual member directly"
+                      >
+                        <Phone size={14} />
+                        <span className="chat-header-btn-text">1:1 Call</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleStartCall("audio")}
+                        style={{
+                          padding: "6px 12px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          background: "var(--panel, #ffffff)",
+                          border: "1px solid var(--border, #DCE3E0)",
+                          borderRadius: "8px",
+                          color: "var(--color-text, #18231F)",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                        title="Start Voice Call"
+                      >
+                        <Phone size={14} />
+                        <span className="chat-header-btn-text">Call</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleStartCall("video")}
+                        style={{
+                          padding: "6px 12px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "5px",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          background: "var(--panel, #ffffff)",
+                          border: "1px solid var(--border, #DCE3E0)",
+                          borderRadius: "8px",
+                          color: "var(--color-text, #18231F)",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                        title="Start Video Call"
+                      >
+                        <Video size={14} />
+                        <span className="chat-header-btn-text">Video</span>
+                      </button>
+                    </>
+                  )}
 
                   <button
                     onClick={handleLaunchMeeting}
@@ -2077,40 +2178,55 @@ export function ChatHubPage({ role }: Props) {
             />
 
             <div style={{ maxHeight: "220px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
-              {usersList
-                .filter((u) => !addMemberSearchQuery || u.name.toLowerCase().includes(addMemberSearchQuery.toLowerCase()) || u.department?.toLowerCase().includes(addMemberSearchQuery.toLowerCase()))
-                .map((u) => {
-                  const isSelected = membersToAdd.includes(String(u.id));
+              {(() => {
+                const existingParticipantIds = new Set(
+                  (activeConversation?.participants || []).map((p) => String(p.user_id))
+                );
+                const availableUsers = usersList.filter((u) => !existingParticipantIds.has(String(u.id)));
+
+                if (availableUsers.length === 0) {
                   return (
-                    <div
-                      key={u.id}
-                      onClick={() => {
-                        setMembersToAdd((prev) =>
-                          isSelected ? prev.filter((id) => id !== String(u.id)) : [...prev, String(u.id)]
-                        );
-                      }}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "8px 12px",
-                        borderRadius: "8px",
-                        background: isSelected ? "var(--color-primary-subtle, #E7F3EE)" : "var(--panel2, #F8FAF9)",
-                        border: isSelected ? "1.5px solid var(--color-brand-border, #B2D8CB)" : "1px solid var(--border, #DCE3E0)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <Avatar name={u.name} avatar={u.avatar} size={28} />
-                        <div>
-                          <b style={{ fontSize: "12.5px", color: "var(--color-text, #18231F)", display: "block" }}>{u.name}</b>
-                          <span style={{ fontSize: "10.5px", color: "var(--color-text-muted, #718096)" }}>{u.department}</span>
-                        </div>
-                      </div>
-                      {isSelected && <Check size={16} color="var(--color-primary, #087A5B)" />}
+                    <div style={{ padding: "20px", textAlign: "center", fontSize: "12px", color: "var(--color-text-muted, #718096)" }}>
+                      All registered colleagues are already members of this group.
                     </div>
                   );
-                })}
+                }
+
+                return availableUsers
+                  .filter((u) => !addMemberSearchQuery || u.name.toLowerCase().includes(addMemberSearchQuery.toLowerCase()) || u.department?.toLowerCase().includes(addMemberSearchQuery.toLowerCase()))
+                  .map((u) => {
+                    const isSelected = membersToAdd.includes(String(u.id));
+                    return (
+                      <div
+                        key={u.id}
+                        onClick={() => {
+                          setMembersToAdd((prev) =>
+                            isSelected ? prev.filter((id) => id !== String(u.id)) : [...prev, String(u.id)]
+                          );
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 12px",
+                          borderRadius: "8px",
+                          background: isSelected ? "var(--color-primary-subtle, #E7F3EE)" : "var(--panel2, #F8FAF9)",
+                          border: isSelected ? "1.5px solid var(--color-brand-border, #B2D8CB)" : "1px solid var(--border, #DCE3E0)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <Avatar name={u.name} avatar={u.avatar} size={28} />
+                          <div>
+                            <b style={{ fontSize: "12.5px", color: "var(--color-text, #18231F)", display: "block" }}>{u.name}</b>
+                            <span style={{ fontSize: "10.5px", color: "var(--color-text-muted, #718096)" }}>{u.department}</span>
+                          </div>
+                        </div>
+                        {isSelected && <Check size={16} color="var(--color-primary, #087A5B)" />}
+                      </div>
+                    );
+                  });
+              })()}
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
@@ -2250,71 +2366,154 @@ export function ChatHubPage({ role }: Props) {
           onClose={() => setCallPickerOpen(false)}
           title={`Initiate ${callPickerType === "video" ? "Video" : "Voice"} Call in ${activeConversation.name}`}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            <p style={{ margin: 0, fontSize: "13px", color: "var(--color-text-muted, #718096)" }}>
-              Select a group member below to initiate a 1-to-1 direct call, or join the shared Video Meeting Room for full team participation.
-            </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* 1. TOP FEATURED: INSTANT GROUP CALL */}
+            <div
+              style={{
+                padding: "16px",
+                borderRadius: "12px",
+                background: "linear-gradient(135deg, rgba(8, 122, 91, 0.08) 0%, rgba(37, 99, 235, 0.08) 100%)",
+                border: "1.5px solid var(--color-brand-border, #B2D8CB)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
+                  <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--color-text, #18231F)" }}>
+                    {callPickerType === "video" ? "📹 Instant Group Video Call" : "📞 Instant Group Voice Call"}
+                  </span>
+                  <Badge tone="success">Group</Badge>
+                </div>
+                <span style={{ fontSize: "12px", color: "var(--color-text-muted, #718096)", display: "block" }}>
+                  Connect all {activeConversation.participants?.length || 0} members together in an instant collaborative room
+                </span>
+              </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "300px", overflowY: "auto" }}>
-              {(activeConversation.participants || [])
-                .filter((p) => {
-                  const currentUser = getCachedAuthUser();
-                  return String(p.user_id) !== String(currentUser?.id || (currentUser as any)?.user_id || "");
-                })
-                .map((p) => (
-                  <div
-                    key={p.user_id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "10px 14px",
-                      background: "var(--panel2, #F8FAF9)",
-                      border: "1px solid var(--border, #DCE3E0)",
-                      borderRadius: "10px",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                      <Avatar name={p.name} avatar={p.avatar} size={32} />
-                      <div>
-                        <b style={{ fontSize: "13px", color: "var(--color-text, #18231F)", display: "block" }}>{p.name}</b>
-                        <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
-                          {p.department || p.role || "Team Member"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCallPickerOpen(false);
-                        handleStartCall(callPickerType, { id: p.user_id, name: p.name, avatar: p.avatar });
-                      }}
-                      style={{
-                        padding: "6px 14px",
-                        fontSize: "12px",
-                        fontWeight: 700,
-                        borderRadius: "8px",
-                        border: 0,
-                        background: callPickerType === "video" ? "#2563EB" : "#087A5B",
-                        color: "#ffffff",
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                      }}
-                    >
-                      {callPickerType === "video" ? <Video size={14} /> : <Phone size={14} />}
-                      Call {p.name.split(" ")[0]}
-                    </button>
-                  </div>
-                ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setCallPickerOpen(false);
+                  handleLaunchGroupCall(callPickerType);
+                }}
+                style={{
+                  padding: "10px 18px",
+                  fontSize: "13px",
+                  fontWeight: 800,
+                  borderRadius: "9px",
+                  border: 0,
+                  background: callPickerType === "video" ? "linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)" : "linear-gradient(135deg, #087A5B 0%, #066348 100%)",
+                  color: "#ffffff",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  boxShadow: "0 3px 10px rgba(0,0,0,0.15)",
+                  flexShrink: 0,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {callPickerType === "video" ? <Video size={16} /> : <Phone size={16} />}
+                Start Group Call
+              </button>
             </div>
 
-            <div style={{ borderTop: "1px solid var(--border, #DCE3E0)", paddingTop: "12px", marginTop: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "12px", color: "var(--color-text-muted, #718096)" }}>Or start a multi-user meeting:</span>
-              <a
-                href="/meetings"
+            {/* 2. DIRECT 1:1 MEMBER CALL SECTION */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <span style={{ fontSize: "11.5px", fontWeight: 800, color: "var(--color-text-secondary, #4A5568)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Or Call Individual Member (1:1 Direct)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCallPickerOpen(false);
+                    setAddMemberModalOpen(true);
+                  }}
+                  style={{
+                    background: "transparent",
+                    border: 0,
+                    color: "var(--color-primary, #087A5B)",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  <UserPlus size={13} /> Add Person to Group
+                </button>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "240px", overflowY: "auto" }}>
+                {(activeConversation.participants || [])
+                  .filter((p) => {
+                    const currentUser = getCachedAuthUser();
+                    return String(p.user_id) !== String(currentUser?.id || (currentUser as any)?.user_id || "");
+                  })
+                  .map((p) => (
+                    <div
+                      key={p.user_id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 14px",
+                        background: "var(--panel2, #F8FAF9)",
+                        border: "1px solid var(--border, #DCE3E0)",
+                        borderRadius: "10px",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <Avatar name={p.name} avatar={p.avatar} size={32} />
+                        <div>
+                          <b style={{ fontSize: "13px", color: "var(--color-text, #18231F)", display: "block" }}>{p.name}</b>
+                          <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
+                            {p.department || p.role || "Team Member"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCallPickerOpen(false);
+                          handleStartCall(callPickerType, { id: p.user_id, name: p.name, avatar: p.avatar });
+                        }}
+                        style={{
+                          padding: "6px 14px",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          borderRadius: "8px",
+                          border: 0,
+                          background: callPickerType === "video" ? "#2563EB" : "#087A5B",
+                          color: "#ffffff",
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                        }}
+                      >
+                        {callPickerType === "video" ? <Video size={14} /> : <Phone size={14} />}
+                        Call {p.name.split(" ")[0]}
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* 3. MULTI-USER MEETING OPTION */}
+            <div style={{ borderTop: "1px solid var(--border, #DCE3E0)", paddingTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "12px", color: "var(--color-text-muted, #718096)" }}>Full Meeting Center:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCallPickerOpen(false);
+                  handleLaunchMeeting();
+                }}
                 style={{
                   padding: "8px 16px",
                   fontSize: "12px",
@@ -2323,14 +2522,14 @@ export function ChatHubPage({ role }: Props) {
                   background: "var(--panel, #ffffff)",
                   border: "1.5px solid var(--color-primary, #087A5B)",
                   color: "var(--color-primary, #087A5B)",
-                  textDecoration: "none",
+                  cursor: "pointer",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "6px",
                 }}
               >
-                <Video size={14} /> Open Meeting Room
-              </a>
+                <Calendar size={14} /> Open Meeting Room
+              </button>
             </div>
           </div>
         </Modal>

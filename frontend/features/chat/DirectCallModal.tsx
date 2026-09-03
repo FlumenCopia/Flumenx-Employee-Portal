@@ -9,12 +9,15 @@ import {
   PhoneOff,
   ScreenShare,
   ScreenShareOff,
+  UserPlus,
   Video,
   VideoOff,
   Volume2,
   X,
 } from "lucide-react";
 import { Avatar } from "@/components/icons";
+import { api } from "@/lib/api";
+import { toast } from "@/components/ToastContext";
 
 type CallMode = "incoming" | "outgoing" | "connected";
 
@@ -141,6 +144,24 @@ export function DirectCallModal({
         track.enabled = !track.enabled;
       });
       setIsVideoOff((prev) => !prev);
+    }
+  };
+
+  const handleUpgradeToGroupCall = async () => {
+    try {
+      const res = await api<any>("/meetings/create-instant/", {
+        method: "POST",
+        body: JSON.stringify({
+          title: `Group Call with ${partnerName}`,
+        }),
+      });
+      const code = res?.meeting_code || res?.code || "flumenx-hq";
+      const meetUrl = `${window.location.origin}/meet/${code}`;
+      await navigator.clipboard.writeText(meetUrl).catch(() => {});
+      toast.success("Group meeting link created & copied! Opening room...");
+      window.open(`/meet/${code}`, "_blank");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to create group meeting");
     }
   };
 
@@ -408,6 +429,26 @@ export function DirectCallModal({
                   {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
                 </button>
               )}
+
+              {/* Add Person / Switch to Group Meeting Room */}
+              <button
+                onClick={handleUpgradeToGroupCall}
+                style={{
+                  width: "46px",
+                  height: "46px",
+                  borderRadius: "50%",
+                  background: "rgba(255,255,255,0.12)",
+                  color: "#fff",
+                  border: 0,
+                  cursor: "pointer",
+                  display: "grid",
+                  placeItems: "center",
+                  transition: "all 0.15s ease",
+                }}
+                title="Add Persons / Convert to Group Meeting"
+              >
+                <UserPlus size={20} />
+              </button>
 
               <button
                 onClick={onEndCall}
