@@ -276,6 +276,8 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
         });
       }
 
+      const roomId = data.conversationId || `call_${uId}_${Date.now()}`;
+
       io.to(`user:${resolvedUserId}`).emit('call:incoming', {
         fromUserId: uId,
         fromSocketId: socket.id,
@@ -284,9 +286,10 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
         callType,
         sdpOffer,
         conversationId,
+        roomId,
       });
 
-      socket.emit('call:ringing', { toUserId });
+      socket.emit('call:ringing', { toUserId, roomId });
     });
 
     socket.on('call:group-start', async (data: {
@@ -308,6 +311,9 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
         'Colleague';
       const callerAvatar = u?.avatar || emp?.avatar || '';
 
+      const roomId = `room_${conversationId}`;
+      socket.join(`call-room:${roomId}`);
+
       // Broadcast call:incoming to all conversation members except caller
       socket.to(`conversation:${conversationId}`).emit('call:incoming', {
         fromUserId: uId,
@@ -317,19 +323,21 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
         callType,
         sdpOffer,
         conversationId,
+        roomId,
         isGroup: true,
       });
 
-      socket.emit('call:ringing', { conversationId });
+      socket.emit('call:ringing', { conversationId, roomId });
     });
 
     socket.on('call:invite-user', async (data: {
       toUserId: string;
       callType: 'audio' | 'video';
       conversationId?: string;
+      roomId?: string;
       sdpOffer?: any;
     }) => {
-      const { toUserId, callType, sdpOffer, conversationId } = data;
+      const { toUserId, callType, sdpOffer, conversationId, roomId } = data;
       const uId = socket.userId;
       const u = socket.user;
       const emp = socket.employee;
@@ -377,6 +385,8 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
         });
       }
 
+      const activeRoomId = roomId || conversationId || `call_${uId}`;
+
       io.to(`user:${resolvedUserId}`).emit('call:incoming', {
         fromUserId: uId,
         fromSocketId: socket.id,
@@ -385,24 +395,95 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
         callType,
         sdpOffer,
         conversationId,
+        roomId: activeRoomId,
         isGroup: true,
       });
 
-      socket.emit('call:invited', { toUserId, status: 'calling' });
+      socket.emit('call:invited', { toUserId, roomId: activeRoomId, status: 'calling' });
     });
 
     socket.on('call:accept', (data: {
       toSocketId: string;
       sdpAnswer?: any;
+      roomId?: string;
     }) => {
-      const { toSocketId, sdpAnswer } = data;
+      const { toSocketId, sdpAnswer, roomId } = data;
       const uId = socket.userId;
       if (!toSocketId) return;
+
+      if (roomId) {
+        socket.join(`call-room:${roomId}`);
+      }
 
       io.to(toSocketId).emit('call:accepted', {
         fromSocketId: socket.id,
         fromUserId: uId,
         sdpAnswer,
+        roomId,
+      });
+    });
+
+    // =========================================================================
+    // MULTI-PEER FULL MESH CALL SIGNALING (3+ Participants)
+    // =========================================================================
+    socket.on('call:join-room', (data: { roomId: string; name?: string; avatar?: string; callType?: 'audio' | 'video' }) => {
+      if (!data?.roomId) return;
+      const roomKey = `call-room:${data.roomId}`;
+      socket.join(roomKey);
+      const emp = socket.employee;
+      const u = socket.user;
+      const peerName = data.name || emp?.name || u?.username || 'Colleague';
+      const peerAvatar = data.avatar || u?.avatar || emp?.avatar || '';
+
+      // Announce new peer to existing room peers
+      socket.to(roomKey).emit('call:peer-joined', {
+        peerSocketId: socket.id,
+        userId: socket.userId,
+        name: peerName,
+        avatar: peerAvatar,
+        callType: data.callType || 'video',
+      });
+    });
+
+    socket.on('call:relay-offer', (data: { toSocketId: string; sdpOffer: any; name?: string; avatar?: string; roomId?: string }) => {
+      if (!data?.toSocketId) return;
+      const emp = socket.employee;
+      const u = socket.user;
+      io.to(data.toSocketId).emit('call:relay-offer', {
+        fromSocketId: socket.id,
+        fromUserId: socket.userId,
+        sdpOffer: data.sdpOffer,
+        name: data.name || emp?.name || u?.username || 'Colleague',
+        avatar: data.avatar || u?.avatar || emp?.avatar || '',
+        roomId: data.roomId,
+      });
+    });
+
+    socket.on('call:relay-answer', (data: { toSocketId: string; sdpAnswer: any; roomId?: string }) => {
+      if (!data?.toSocketId) return;
+      io.to(data.toSocketId).emit('call:relay-answer', {
+        fromSocketId: socket.id,
+        fromUserId: socket.userId,
+        sdpAnswer: data.sdpAnswer,
+        roomId: data.roomId,
+      });
+    });
+
+    socket.on('call:relay-ice', (data: { toSocketId: string; candidate: any }) => {
+      if (!data?.toSocketId || !data.candidate) return;
+      io.to(data.toSocketId).emit('call:relay-ice', {
+        fromSocketId: socket.id,
+        candidate: data.candidate,
+      });
+    });
+
+    socket.on('call:leave-room', (data: { roomId: string }) => {
+      if (!data?.roomId) return;
+      const roomKey = `call-room:${data.roomId}`;
+      socket.leave(roomKey);
+      socket.to(roomKey).emit('call:peer-left', {
+        peerSocketId: socket.id,
+        userId: socket.userId,
       });
     });
 

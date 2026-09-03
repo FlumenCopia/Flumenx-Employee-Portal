@@ -21,6 +21,95 @@ import { toast } from "@/components/ToastContext";
 
 type CallMode = "incoming" | "outgoing" | "connected";
 
+export interface RemotePeer {
+  socketId: string;
+  userId?: string;
+  name: string;
+  avatar?: string;
+  stream: MediaStream;
+}
+
+function RemotePeerAudio({ stream }: { stream: MediaStream }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    if (audioRef.current && stream) {
+      audioRef.current.srcObject = stream;
+      audioRef.current.play().catch(() => {});
+    }
+  }, [stream]);
+  return <audio ref={audioRef} autoPlay playsInline />;
+}
+
+function ParticipantVideoTile({ peer }: { peer: RemotePeer }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current && peer.stream) {
+      videoRef.current.srcObject = peer.stream;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [peer.stream]);
+
+  const hasVideo = peer.stream && peer.stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live");
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        minHeight: "180px",
+        background: "#18231F",
+        borderRadius: "12px",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        border: "1px solid rgba(255,255,255,0.1)",
+      }}
+    >
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: hasVideo ? "block" : "none",
+        }}
+      />
+      {!hasVideo && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", padding: "16px" }}>
+          <Avatar name={peer.name} avatar={peer.avatar} size={56} />
+          <span style={{ fontSize: "13px", color: "#e2e8f0", fontWeight: 700 }}>{peer.name}</span>
+        </div>
+      )}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "8px",
+          left: "8px",
+          background: "rgba(0,0,0,0.65)",
+          backdropFilter: "blur(4px)",
+          padding: "3px 8px",
+          borderRadius: "6px",
+          fontSize: "11px",
+          fontWeight: 700,
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          zIndex: 5,
+        }}
+      >
+        <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#10b981" }} />
+        {peer.name}
+      </div>
+    </div>
+  );
+}
+
 type Props = {
   mode: CallMode;
   callType: "audio" | "video";
@@ -31,6 +120,7 @@ type Props = {
   onEndCall: () => void;
   localStream?: MediaStream | null;
   remoteStream?: MediaStream | null;
+  remotePeers?: RemotePeer[];
   isGroup?: boolean;
   participants?: { id: string; name: string; avatar?: string; status: "calling" | "connected" }[];
   onInvitePerson?: (user: { id: string; name: string; avatar?: string }) => void;
@@ -46,6 +136,7 @@ export function DirectCallModal({
   onEndCall,
   localStream,
   remoteStream,
+  remotePeers,
   isGroup,
   participants,
   onInvitePerson,
@@ -286,12 +377,15 @@ export function DirectCallModal({
       }}
     >
       {/* Dedicated Hidden Audio Element for Remote Stream (Always mounted) */}
+      {/* Dedicated Hidden Audio Element for Remote Stream (Always mounted) */}
       <audio ref={remoteAudioRef} autoPlay playsInline />
+      {/* Audio playback for each multi-peer remote stream */}
+      {remotePeers && remotePeers.map((p) => <RemotePeerAudio key={p.socketId} stream={p.stream} />)}
 
       <div
         style={{
           width: "100%",
-          maxWidth: callType === "video" && mode === "connected" ? "680px" : "400px",
+          maxWidth: callType === "video" && mode === "connected" ? (remotePeers && remotePeers.length > 1 ? "920px" : "680px") : (remotePeers && remotePeers.length > 1 ? "560px" : "400px"),
           background: "#121816",
           borderRadius: "20px",
           overflow: "hidden",
@@ -404,7 +498,9 @@ export function DirectCallModal({
             <div style={{ padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.3)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px #10b981" }} />
-                <span style={{ fontSize: "14px", fontWeight: 700, color: "#fff" }}>{partnerName}</span>
+                <span style={{ fontSize: "14px", fontWeight: 700, color: "#fff" }}>
+                  {partnerName} {remotePeers && remotePeers.length > 1 && `(${remotePeers.length + 1} People)`}
+                </span>
               </div>
               <span style={{ fontSize: "13px", fontWeight: 800, color: "#34d399", fontFamily: "monospace" }}>
                 {formatDuration(callDuration)}
@@ -439,112 +535,200 @@ export function DirectCallModal({
             {/* Video Streams / Audio Avatar Canvas */}
             <div style={{ position: "relative", minHeight: callType === "video" ? "380px" : "240px", background: "#0c0c10", display: "grid", placeItems: "center" }}>
               {callType === "video" ? (
-                <>
-                  {/* Remote Video (Main) */}
-                  <video
-                    ref={attachRemoteVideo}
-                    autoPlay
-                    playsInline
-                    style={{ width: "100%", height: "100%", maxHeight: "420px", objectFit: "cover" }}
-                  />
-
-                  {/* Local Video (Floating Picture-in-Picture) */}
+                remotePeers && remotePeers.length > 1 ? (
+                  /* MULTI-PEER RESPONSIVE GRID (2, 3, 4+ participants) */
                   <div
                     style={{
-                      position: "absolute",
-                      bottom: "16px",
-                      right: "16px",
-                      width: "140px",
-                      height: "100px",
-                      borderRadius: "10px",
-                      overflow: "hidden",
-                      border: "2px solid #10b981",
-                      background: "#18181b",
-                      boxShadow: "0 6px 15px rgba(0,0,0,0.5)",
-                      zIndex: 10,
-                      isolation: "isolate",
+                      width: "100%",
+                      minHeight: "380px",
+                      display: "grid",
+                      gridTemplateColumns: remotePeers.length === 2 ? "repeat(2, 1fr)" : "repeat(auto-fit, minmax(260px, 1fr))",
+                      gap: "10px",
+                      padding: "12px",
+                      background: "#0c0c10",
+                      position: "relative",
                     }}
                   >
-                    <video
-                      ref={(el) => {
-                        (localVideoRef as any).current = el;
-                        attachLocalVideo(el);
-                      }}
-                      autoPlay
-                      playsInline
-                      muted
-                      onLoadedMetadata={(e) => {
-                        const v = e.currentTarget;
-                        v.muted = true;
-                        v.play().catch(() => {});
-                      }}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        transform: "scaleX(-1)",
-                        WebkitTransform: "scaleX(-1)",
-                        display: isVideoOff ? "none" : "block",
-                        background: "#18181b",
-                      }}
-                    />
-                    {isVideoOff ? (
-                      <div
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background: "#18181b",
-                          gap: "4px",
-                        }}
-                      >
-                        <VideoOff size={22} color="#94a3b8" />
-                        <span style={{ fontSize: "10px", color: "#94a3b8", fontWeight: 600 }}>Camera Off</span>
-                      </div>
-                    ) : !hasLocalVideoTrack ? (
-                      <div
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background: "#18181b",
-                          gap: "4px",
-                          position: "absolute",
-                          inset: 0,
-                          cursor: "pointer",
-                        }}
-                        onClick={toggleVideo}
-                        title="Click to turn on camera"
-                      >
-                        <VideoOff size={22} color="#f59e0b" />
-                        <span style={{ fontSize: "9px", color: "#f59e0b", fontWeight: 700 }}>Enable Cam</span>
-                      </div>
-                    ) : null}
-                  </div>
-                </>
-              ) : (
-                /* Audio Only Avatar View */
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "14px", padding: "36px 0" }}>
-                  <div style={{ position: "relative" }}>
+                    {remotePeers.map((peer) => (
+                      <ParticipantVideoTile key={peer.socketId} peer={peer} />
+                    ))}
+                    {/* Floating Local PIP */}
                     <div
                       style={{
                         position: "absolute",
-                        inset: "-10px",
-                        borderRadius: "50%",
+                        bottom: "16px",
+                        right: "16px",
+                        width: "140px",
+                        height: "100px",
+                        borderRadius: "10px",
+                        overflow: "hidden",
                         border: "2px solid #10b981",
-                        animation: "pulseRing 2.5s infinite",
+                        background: "#18181b",
+                        boxShadow: "0 6px 15px rgba(0,0,0,0.6)",
+                        zIndex: 40,
+                        isolation: "isolate",
                       }}
-                    />
-                    <Avatar name={partnerName} avatar={partnerAvatar} size={84} />
+                    >
+                      <video
+                        ref={(el) => {
+                          (localVideoRef as any).current = el;
+                          attachLocalVideo(el);
+                        }}
+                        autoPlay
+                        playsInline
+                        muted
+                        onLoadedMetadata={(e) => {
+                          const v = e.currentTarget;
+                          v.muted = true;
+                          v.play().catch(() => {});
+                        }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          transform: "scaleX(-1)",
+                          WebkitTransform: "scaleX(-1)",
+                          display: isVideoOff ? "none" : "block",
+                          background: "#18181b",
+                        }}
+                      />
+                      {isVideoOff && (
+                        <div style={{ width: "100%", height: "100%", background: "#18181b", display: "grid", placeItems: "center" }}>
+                          <VideoOff size={20} color="#94a3b8" />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <span style={{ fontSize: "13px", color: "#34D399", fontWeight: 700 }}>FLUMENX Audio Call Connected</span>
-                </div>
+                ) : (
+                  /* 1:1 CALL MAIN REMOTE + LOCAL PIP */
+                  <>
+                    <video
+                      ref={attachRemoteVideo}
+                      autoPlay
+                      playsInline
+                      style={{ width: "100%", height: "100%", maxHeight: "420px", objectFit: "cover" }}
+                    />
+
+                    {/* Local Video (Floating Picture-in-Picture) */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: "16px",
+                        right: "16px",
+                        width: "140px",
+                        height: "100px",
+                        borderRadius: "10px",
+                        overflow: "hidden",
+                        border: "2px solid #10b981",
+                        background: "#18181b",
+                        boxShadow: "0 6px 15px rgba(0,0,0,0.5)",
+                        zIndex: 10,
+                        isolation: "isolate",
+                      }}
+                    >
+                      <video
+                        ref={(el) => {
+                          (localVideoRef as any).current = el;
+                          attachLocalVideo(el);
+                        }}
+                        autoPlay
+                        playsInline
+                        muted
+                        onLoadedMetadata={(e) => {
+                          const v = e.currentTarget;
+                          v.muted = true;
+                          v.play().catch(() => {});
+                        }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          transform: "scaleX(-1)",
+                          WebkitTransform: "scaleX(-1)",
+                          display: isVideoOff ? "none" : "block",
+                          background: "#18181b",
+                        }}
+                      />
+                      {isVideoOff ? (
+                        <div
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "#18181b",
+                            gap: "4px",
+                          }}
+                        >
+                          <VideoOff size={22} color="#94a3b8" />
+                          <span style={{ fontSize: "10px", color: "#94a3b8", fontWeight: 600 }}>Camera Off</span>
+                        </div>
+                      ) : !hasLocalVideoTrack ? (
+                        <div
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "#18181b",
+                            gap: "4px",
+                            position: "absolute",
+                            inset: 0,
+                            cursor: "pointer",
+                          }}
+                          onClick={toggleVideo}
+                          title="Click to turn on camera"
+                        >
+                          <VideoOff size={22} color="#f59e0b" />
+                          <span style={{ fontSize: "9px", color: "#f59e0b", fontWeight: 700 }}>Enable Cam</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
+                )
+              ) : (
+                /* Audio Only Avatar View */
+                remotePeers && remotePeers.length > 1 ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: "24px", padding: "36px 20px" }}>
+                    {remotePeers.map((peer) => (
+                      <div key={peer.socketId} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                        <div style={{ position: "relative" }}>
+                          <div
+                            style={{
+                              position: "absolute",
+                              inset: "-8px",
+                              borderRadius: "50%",
+                              border: "2px solid #10b981",
+                              animation: "pulseRing 2.5s infinite",
+                            }}
+                          />
+                          <Avatar name={peer.name} avatar={peer.avatar} size={64} />
+                        </div>
+                        <span style={{ fontSize: "12px", color: "#fff", fontWeight: 700 }}>{peer.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "14px", padding: "36px 0" }}>
+                    <div style={{ position: "relative" }}>
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: "-10px",
+                          borderRadius: "50%",
+                          border: "2px solid #10b981",
+                          animation: "pulseRing 2.5s infinite",
+                        }}
+                      />
+                      <Avatar name={partnerName} avatar={partnerAvatar} size={84} />
+                    </div>
+                    <span style={{ fontSize: "13px", color: "#34D399", fontWeight: 700 }}>FLUMENX Audio Call Connected</span>
+                  </div>
+                )
               )}
             </div>
 

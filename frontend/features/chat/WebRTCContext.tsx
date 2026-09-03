@@ -18,6 +18,14 @@ export interface CallParticipant {
   status: "calling" | "connected";
 }
 
+export interface RemotePeer {
+  socketId: string;
+  userId?: string;
+  name: string;
+  avatar?: string;
+  stream: MediaStream;
+}
+
 export interface ActiveCall {
   mode: CallStateMode;
   callType: CallType;
@@ -26,6 +34,7 @@ export interface ActiveCall {
   partnerName: string;
   partnerAvatar?: string;
   conversationId?: string;
+  roomId?: string;
   isGroup?: boolean;
   participants?: CallParticipant[];
 }
@@ -63,6 +72,7 @@ interface WebRTCContextValue {
   activeCall: ActiveCall | null;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
+  remotePeers: RemotePeer[];
   startCall: (params: {
     toUserId: string;
     partnerName: string;
@@ -92,8 +102,10 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [remotePeers, setRemotePeers] = useState<RemotePeer[]>([]);
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const pendingRemoteCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const pendingLocalCandidatesRef = useRef<RTCIceCandidate[]>([]);
   const incomingOfferRef = useRef<any>(null);
@@ -120,6 +132,16 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
 
   const endCallCleanup = useCallback(() => {
     soundService.stopAll();
+    const socket = getGlobalSocket();
+    if (activeCallRef.current?.roomId && socket) {
+      socket.emit("call:leave-room", { roomId: activeCallRef.current.roomId });
+    }
+    peerConnectionsRef.current.forEach((pc) => {
+      try {
+        pc.close();
+      } catch {}
+    });
+    peerConnectionsRef.current.clear();
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
@@ -132,6 +154,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       remoteStream.getTracks().forEach((t) => t.stop());
       setRemoteStream(null);
     }
+    setRemotePeers([]);
     pendingRemoteCandidatesRef.current = [];
     pendingLocalCandidatesRef.current = [];
     incomingOfferRef.current = null;
@@ -208,6 +231,61 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     return pc;
   }, []);
 
+  const createPeerForSocket = useCallback(
+    (targetSocketId: string, stream: MediaStream, meta?: { name?: string; avatar?: string; userId?: string }) => {
+      const existing = peerConnectionsRef.current.get(targetSocketId);
+      if (existing && existing.signalingState !== "closed") {
+        return existing;
+      }
+
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+      peerConnectionsRef.current.set(targetSocketId, pc);
+
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          const socket = getGlobalSocket();
+          socket?.emit("call:relay-ice", {
+            toSocketId: targetSocketId,
+            candidate: event.candidate,
+          });
+        }
+      };
+
+      pc.ontrack = (event) => {
+        const incomingStream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+        setRemoteStream(incomingStream);
+        setRemotePeers((prev) => {
+          const filtered = prev.filter((p) => p.socketId !== targetSocketId);
+          return [
+            ...filtered,
+            {
+              socketId: targetSocketId,
+              userId: meta?.userId,
+              name: meta?.name || "Colleague",
+              avatar: meta?.avatar,
+              stream: incomingStream,
+            },
+          ];
+        });
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === "failed") {
+          pc.restartIce();
+        } else if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "closed") {
+          setRemotePeers((prev) => prev.filter((p) => p.socketId !== targetSocketId));
+        }
+      };
+
+      return pc;
+    },
+    []
+  );
+
   // Listen to Socket.IO signaling events
   useEffect(() => {
     const socket = getGlobalSocket();
@@ -221,6 +299,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       callType: CallType;
       sdpOffer: any;
       conversationId?: string;
+      roomId?: string;
+      isGroup?: boolean;
     }) => {
       incomingOfferRef.current = data.sdpOffer;
       setActiveCall({
@@ -231,6 +311,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
         partnerName: data.callerName || "Colleague",
         partnerAvatar: data.callerAvatar,
         conversationId: data.conversationId,
+        roomId: data.roomId,
+        isGroup: data.isGroup || false,
       });
     };
 
@@ -238,6 +320,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       fromSocketId: string;
       fromUserId: string;
       sdpAnswer: any;
+      roomId?: string;
     }) => {
       const pc = peerConnectionRef.current;
       if (pc && data.sdpAnswer) {
@@ -263,11 +346,140 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
             }
           }
 
-          setActiveCall((prev) => (prev ? { ...prev, mode: "connected", partnerSocketId: data.fromSocketId } : null));
+          const resolvedRoomId = data.roomId || activeCallRef.current?.roomId;
+          if (resolvedRoomId) {
+            socket.emit("call:join-room", {
+              roomId: resolvedRoomId,
+              name: activeCallRef.current?.partnerName || "Colleague",
+              callType: activeCallRef.current?.callType || "video",
+            });
+          }
+
+          setActiveCall((prev) => (prev ? { ...prev, mode: "connected", partnerSocketId: data.fromSocketId, roomId: resolvedRoomId } : null));
         } catch (err) {
           console.error("Error setting remote description on accept:", err);
         }
       }
+    };
+
+    // MULTI-PEER MESH EVENTS
+    const handlePeerJoined = async (data: {
+      peerSocketId: string;
+      userId: string;
+      name: string;
+      avatar?: string;
+      callType?: CallType;
+    }) => {
+      let stream = localStream;
+      if (!stream) {
+        stream = await acquireMediaStream(activeCallRef.current?.callType || "video");
+        if (stream) setLocalStream(stream);
+      }
+      if (!stream) return;
+
+      const pc = createPeerForSocket(data.peerSocketId, stream, {
+        name: data.name,
+        avatar: data.avatar,
+        userId: data.userId,
+      });
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      socket.emit("call:relay-offer", {
+        toSocketId: data.peerSocketId,
+        sdpOffer: offer,
+        name: activeCallRef.current?.partnerName || "Colleague",
+        roomId: activeCallRef.current?.roomId,
+      });
+
+      setActiveCall((prev) => {
+        if (!prev) return null;
+        const existing = prev.participants || [];
+        const filtered = existing.filter((p) => p.id !== data.userId);
+        return {
+          ...prev,
+          isGroup: true,
+          participants: [...filtered, { id: data.userId, name: data.name, avatar: data.avatar, status: "connected" }],
+        };
+      });
+    };
+
+    const handleRelayOffer = async (data: {
+      fromSocketId: string;
+      fromUserId: string;
+      sdpOffer: any;
+      name: string;
+      avatar?: string;
+      roomId?: string;
+    }) => {
+      let stream = localStream;
+      if (!stream) {
+        stream = await acquireMediaStream(activeCallRef.current?.callType || "video");
+        if (stream) setLocalStream(stream);
+      }
+      if (!stream) return;
+
+      const pc = createPeerForSocket(data.fromSocketId, stream, {
+        name: data.name,
+        avatar: data.avatar,
+        userId: data.fromUserId,
+      });
+
+      await pc.setRemoteDescription(new RTCSessionDescription(data.sdpOffer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      socket.emit("call:relay-answer", {
+        toSocketId: data.fromSocketId,
+        sdpAnswer: answer,
+        roomId: data.roomId,
+      });
+
+      setActiveCall((prev) => {
+        if (!prev) return null;
+        const existing = prev.participants || [];
+        const filtered = existing.filter((p) => p.id !== data.fromUserId);
+        return {
+          ...prev,
+          mode: "connected",
+          isGroup: true,
+          participants: [...filtered, { id: data.fromUserId, name: data.name, avatar: data.avatar, status: "connected" }],
+        };
+      });
+    };
+
+    const handleRelayAnswer = async (data: { fromSocketId: string; sdpAnswer: any }) => {
+      const pc = peerConnectionsRef.current.get(data.fromSocketId);
+      if (pc && pc.signalingState !== "closed") {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.sdpAnswer)).catch((e) => console.warn(e));
+        setActiveCall((prev) => (prev ? { ...prev, mode: "connected" } : null));
+      }
+    };
+
+    const handleRelayIce = async (data: { fromSocketId: string; candidate: any }) => {
+      const pc = peerConnectionsRef.current.get(data.fromSocketId);
+      if (pc && pc.remoteDescription) {
+        await pc.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(() => {});
+      }
+    };
+
+    const handlePeerLeft = (data: { peerSocketId: string; userId?: string }) => {
+      const pc = peerConnectionsRef.current.get(data.peerSocketId);
+      if (pc) {
+        try {
+          pc.close();
+        } catch {}
+        peerConnectionsRef.current.delete(data.peerSocketId);
+      }
+      setRemotePeers((prev) => prev.filter((p) => p.socketId !== data.peerSocketId));
+      setActiveCall((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          participants: (prev.participants || []).filter((p) => p.id !== data.userId),
+        };
+      });
     };
 
     const handleIceCandidate = async (data: { fromSocketId: string; candidate: any }) => {
@@ -311,6 +523,13 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     socket.on("call:unavailable", handleCallUnavailable);
     socket.on("call:error", handleCallError);
 
+    // Multi-peer listeners
+    socket.on("call:peer-joined", handlePeerJoined);
+    socket.on("call:relay-offer", handleRelayOffer);
+    socket.on("call:relay-answer", handleRelayAnswer);
+    socket.on("call:relay-ice", handleRelayIce);
+    socket.on("call:peer-left", handlePeerLeft);
+
     return () => {
       socket.off("call:incoming", handleIncomingCall);
       socket.off("call:accepted", handleCallAccepted);
@@ -319,8 +538,14 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       socket.off("call:ended", handleCallEnded);
       socket.off("call:unavailable", handleCallUnavailable);
       socket.off("call:error", handleCallError);
+
+      socket.off("call:peer-joined", handlePeerJoined);
+      socket.off("call:relay-offer", handleRelayOffer);
+      socket.off("call:relay-answer", handleRelayAnswer);
+      socket.off("call:relay-ice", handleRelayIce);
+      socket.off("call:peer-left", handlePeerLeft);
     };
-  }, [endCallCleanup]);
+  }, [endCallCleanup, createPeerForSocket, localStream]);
 
   // Start outgoing call
   const startCall = async (params: {
@@ -490,10 +715,13 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     const targetId = String(params.userId || params.id || "");
     if (!targetId) return;
 
+    const roomId = activeCall.roomId || activeCall.conversationId || `call_${activeCall.partnerId}`;
+
     socket.emit("call:invite-user", {
       toUserId: targetId,
       callType: activeCall.callType,
       conversationId: activeCall.conversationId,
+      roomId,
     });
 
     setActiveCall((prev) => {
@@ -503,6 +731,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       return {
         ...prev,
         isGroup: true,
+        roomId,
         participants: [
           ...existing,
           { id: targetId, name: params.name, avatar: params.avatar, status: "calling" },
@@ -543,7 +772,16 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       socket.emit("call:accept", {
         toSocketId: activeCall.partnerSocketId,
         sdpAnswer: answer,
+        roomId: activeCall.roomId,
       });
+
+      if (activeCall.roomId) {
+        socket.emit("call:join-room", {
+          roomId: activeCall.roomId,
+          name: activeCall.partnerName,
+          callType: activeCall.callType,
+        });
+      }
 
       // Process any queued candidates received before setRemoteDescription
       while (pendingRemoteCandidatesRef.current.length > 0) {
@@ -579,6 +817,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
         activeCall,
         localStream,
         remoteStream,
+        remotePeers,
         startCall,
         startGroupCall,
         inviteToCall,
@@ -600,6 +839,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
           onEndCall={endCall}
           localStream={localStream}
           remoteStream={remoteStream}
+          remotePeers={remotePeers}
           isGroup={activeCall.isGroup}
           participants={activeCall.participants}
           onInvitePerson={inviteToCall}
@@ -617,6 +857,7 @@ export function useWebRTC() {
       activeCall: null,
       localStream: null,
       remoteStream: null,
+      remotePeers: [],
       startCall: async () => {
         console.error("[WebRTC] startCall called outside WebRTCProvider");
         toast.error("Call service unavailable, please refresh page.");
