@@ -462,11 +462,15 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
 export function useWebRTC() {
   const context = useContext(WebRTCContext);
   if (!context) {
+    console.warn("[WebRTC] useWebRTC() was called outside <WebRTCProvider>.");
     return {
       activeCall: null,
       localStream: null,
       remoteStream: null,
-      startCall: async () => {},
+      startCall: async () => {
+        console.error("[WebRTC] startCall called outside WebRTCProvider");
+        toast.error("Call service unavailable, please refresh page.");
+      },
       acceptCall: async () => {},
       endCall: () => {},
     };

@@ -13,7 +13,6 @@ import { PwaInstallButton } from "./PwaInstallButton";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { getGlobalSocket } from "@/lib/socket";
-import { WebRTCProvider } from "@/features/chat/WebRTCContext";
 
 const dynamicNavCache: Record<string, readonly (readonly [string, string, any])[]> = {};
 
@@ -592,9 +591,8 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
 
   return (
     <ShellUserContext.Provider value={user}>
-      <WebRTCProvider>
-        <div className="app-shell">
-          <aside className={`sidebar ${open ? "open" : ""}`}>
+      <div className="app-shell">
+        <aside className={`sidebar ${open ? "open" : ""}`}>
             <div className="side-brand" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px", paddingBottom: "14px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
                 <FlumenxMark />
@@ -676,7 +674,6 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
         loading={loggingOut}
       />
     </div>
-    </WebRTCProvider>
     </ShellUserContext.Provider>
   );
 }

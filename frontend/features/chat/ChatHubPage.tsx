@@ -667,10 +667,20 @@ export function ChatHubPage({ role }: Props) {
     if (!targetUserId) {
       if (activeConversation.type === "DIRECT") {
         const partner = activeConversation.other_participant;
-        const otherP = activeConversation.participants?.find((p) => String(p.user_id) !== currentUserId);
+        // Search participants for the other party
+        const otherP = activeConversation.participants?.find((p) => {
+          const pId = String(p.user_id || (p as any)?._id || (p as any)?.id || "");
+          return pId && (!currentUserId || pId !== currentUserId);
+        });
 
-        const candidateId = partner?.id || (partner as any)?.user_id || otherP?.user_id;
-        if (candidateId && String(candidateId) !== currentUserId) {
+        let candidateId = partner?.id || (partner as any)?.user_id || otherP?.user_id;
+
+        // If candidateId matches self and we have other participants, pick the alternative
+        if (candidateId && currentUserId && String(candidateId) === currentUserId && otherP?.user_id) {
+          candidateId = otherP.user_id;
+        }
+
+        if (candidateId) {
           targetUserId = String(candidateId);
           partnerName = partner?.name || otherP?.name || partnerName;
           partnerAvatar = partner?.avatar || otherP?.avatar || partnerAvatar;
@@ -688,6 +698,12 @@ export function ChatHubPage({ role }: Props) {
       return;
     }
 
+    if (currentUserId && targetUserId === currentUserId) {
+      toast.warning("Cannot start a direct call with yourself.");
+      return;
+    }
+
+    console.log(`[ChatHubPage] Initiating ${type} call to target ${targetUserId} (${partnerName})`);
     startCall({
       toUserId: targetUserId,
       callType: type,
