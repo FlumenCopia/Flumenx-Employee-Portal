@@ -109,8 +109,9 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
           // Fallback to basic audio + video constraints
           try {
             return await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-          } catch {
-            // Fallback to audio only
+          } catch (errVideo) {
+            console.warn("[WebRTC] Video capture failed, falling back to audio only:", errVideo);
+            toast.warning("Camera could not be accessed. Proceeding with audio only.");
             return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
           }
         }

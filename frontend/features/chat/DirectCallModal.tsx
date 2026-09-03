@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Mic,
   MicOff,
@@ -49,31 +49,67 @@ export function DirectCallModal({
   const [isVideoOff, setIsVideoOff] = useState(callType === "audio");
   const [callDuration, setCallDuration] = useState(0);
 
-  // Local stream attachment
+  // Robust callback ref for local video attachment
+  const attachLocalVideo = useCallback(
+    (el: HTMLVideoElement | null) => {
+      (localVideoRef as any).current = el;
+      if (el && localStream) {
+        if (el.srcObject !== localStream) {
+          el.srcObject = localStream;
+        }
+        el.muted = true;
+        el.play().catch((err) => {
+          console.warn("[WebRTC] Local video play error:", err);
+        });
+      }
+    },
+    [localStream]
+  );
+
+  // Robust callback ref for remote video attachment
+  const attachRemoteVideo = useCallback(
+    (el: HTMLVideoElement | null) => {
+      (remoteVideoRef as any).current = el;
+      if (el && remoteStream) {
+        if (el.srcObject !== remoteStream) {
+          el.srcObject = remoteStream;
+        }
+        el.play().catch((err) => {
+          console.warn("[WebRTC] Remote video play error:", err);
+        });
+      }
+    },
+    [remoteStream]
+  );
+
+  // Local stream attachment effect (triggers when localStream or mode changes to connected)
   useEffect(() => {
     if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
+      if (localVideoRef.current.srcObject !== localStream) {
+        localVideoRef.current.srcObject = localStream;
+      }
+      localVideoRef.current.muted = true;
       localVideoRef.current.play().catch(() => {});
     }
-  }, [localStream]);
+  }, [localStream, mode, callType]);
 
   // Remote stream attachment (Both Audio & Video)
   useEffect(() => {
     if (remoteStream) {
-      if (remoteAudioRef.current) {
+      if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remoteStream) {
         remoteAudioRef.current.srcObject = remoteStream;
         remoteAudioRef.current.play().catch((err) => {
-          console.warn("Remote audio autoplay blocked by browser policy, waiting for user gesture:", err);
+          console.warn("[WebRTC] Remote audio autoplay blocked by browser policy:", err);
         });
       }
-      if (remoteVideoRef.current) {
+      if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remoteStream) {
         remoteVideoRef.current.srcObject = remoteStream;
         remoteVideoRef.current.play().catch((err) => {
-          console.warn("Remote video autoplay catch:", err);
+          console.warn("[WebRTC] Remote video autoplay error:", err);
         });
       }
     }
-  }, [remoteStream, mode]);
+  }, [remoteStream, mode, callType]);
 
   // Call timer when connected
   useEffect(() => {
@@ -257,7 +293,7 @@ export function DirectCallModal({
                 <>
                   {/* Remote Video (Main) */}
                   <video
-                    ref={remoteVideoRef}
+                    ref={attachRemoteVideo}
                     autoPlay
                     playsInline
                     style={{ width: "100%", height: "100%", maxHeight: "420px", objectFit: "cover" }}
@@ -276,15 +312,39 @@ export function DirectCallModal({
                       border: "2px solid #10b981",
                       background: "#18181b",
                       boxShadow: "0 6px 15px rgba(0,0,0,0.5)",
+                      zIndex: 10,
                     }}
                   >
                     <video
-                      ref={localVideoRef}
+                      ref={attachLocalVideo}
                       autoPlay
                       playsInline
                       muted
-                      style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        transform: "scaleX(-1)",
+                        display: isVideoOff ? "none" : "block",
+                      }}
                     />
+                    {isVideoOff && (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "#18181b",
+                          gap: "4px",
+                        }}
+                      >
+                        <VideoOff size={22} color="#94a3b8" />
+                        <span style={{ fontSize: "10px", color: "#94a3b8", fontWeight: 600 }}>Camera Off</span>
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
