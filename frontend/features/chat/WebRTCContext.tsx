@@ -73,6 +73,7 @@ interface WebRTCContextValue {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   remotePeers: RemotePeer[];
+  onlineUserIds: string[];
   startCall: (params: {
     toUserId: string;
     partnerName: string;
@@ -103,6 +104,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [remotePeers, setRemotePeers] = useState<RemotePeer[]>([]);
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -522,7 +524,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
 
     const handleCallRejected = (data?: { reason?: string; fromUserId?: string }) => {
       const currentCall = activeCallRef.current;
-      if (currentCall && (currentCall.mode === "connected" || currentCall.isGroup)) {
+      const isCallActive = currentCall && (currentCall.mode === "connected" || currentCall.isGroup || remotePeers.length > 0 || (currentCall.participants && currentCall.participants.length > 1));
+      if (isCallActive) {
         toast.info(data?.reason || "Invited colleague declined the call.");
         if (data?.fromUserId) {
           setActiveCall((prev) => {
@@ -539,9 +542,10 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       endCallCleanup();
     };
 
-    const handleCallEnded = (data?: { fromSocketId?: string; fromUserId?: string }) => {
+    const handleCallEnded = (data?: { fromSocketId?: string; fromUserId?: string; roomId?: string }) => {
       const currentCall = activeCallRef.current;
-      if (currentCall && (currentCall.isGroup || (currentCall.participants && currentCall.participants.length > 2))) {
+      // In a group/room call or when other remote peers are connected, one peer ending does NOT end the call for everyone else!
+      if (currentCall && (currentCall.isGroup || remotePeers.length > 1 || (currentCall.participants && currentCall.participants.length > 2))) {
         if (data?.fromUserId) {
           setActiveCall((prev) => {
             if (!prev) return null;
@@ -551,6 +555,10 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
             };
           });
         }
+        if (data?.fromSocketId) {
+          setRemotePeers((prev) => prev.filter((p) => p.socketId !== data.fromSocketId));
+        }
+        toast.info("A participant left the call.");
         return;
       }
       toast.info("Call ended.");
@@ -559,7 +567,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
 
     const handleCallUnavailable = (data: { message?: string; toUserId?: string }) => {
       const currentCall = activeCallRef.current;
-      if (currentCall && (currentCall.mode === "connected" || currentCall.isGroup)) {
+      const isCallActive = currentCall && (currentCall.mode === "connected" || currentCall.isGroup || remotePeers.length > 0 || (currentCall.participants && currentCall.participants.length > 1));
+      if (isCallActive) {
         toast.warning(data?.message || "Invited colleague is currently offline.");
         if (data?.toUserId) {
           setActiveCall((prev) => {
@@ -579,12 +588,30 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
 
     const handleCallError = (data: { message?: string }) => {
       const currentCall = activeCallRef.current;
-      if (currentCall && (currentCall.mode === "connected" || currentCall.isGroup)) {
+      const isCallActive = currentCall && (currentCall.mode === "connected" || currentCall.isGroup || remotePeers.length > 0 || (currentCall.participants && currentCall.participants.length > 1));
+      if (isCallActive) {
         toast.warning(data?.message || "Colleague could not be connected.");
         return;
       }
       toast.error(data?.message || "Failed to establish call.");
       endCallCleanup();
+    };
+
+    const handlePresenceUpdate = (data: { userId?: string; status?: string; onlineUserIds?: string[] }) => {
+      if (data?.onlineUserIds && Array.isArray(data.onlineUserIds)) {
+        setOnlineUserIds(data.onlineUserIds.map(String));
+      } else if (data?.userId) {
+        setOnlineUserIds((prev) =>
+          data.status === "online"
+            ? Array.from(new Set([...prev, String(data.userId)]))
+            : prev.filter((id) => id !== String(data.userId))
+        );
+      }
+    };
+
+    const handlePresenceOnlineUsers = (data: { onlineUserIds?: string[] } | string[]) => {
+      const ids = Array.isArray(data) ? data : data?.onlineUserIds || [];
+      setOnlineUserIds(ids.map(String));
     };
 
     socket.on("call:incoming", handleIncomingCall);
@@ -602,6 +629,11 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     socket.on("call:relay-ice", handleRelayIce);
     socket.on("call:peer-left", handlePeerLeft);
 
+    // Presence tracking
+    socket.on("presence:update", handlePresenceUpdate);
+    socket.on("presence:online-users", handlePresenceOnlineUsers);
+    socket.emit("presence:get-online-users");
+
     return () => {
       socket.off("call:incoming", handleIncomingCall);
       socket.off("call:accepted", handleCallAccepted);
@@ -616,6 +648,9 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       socket.off("call:relay-answer", handleRelayAnswer);
       socket.off("call:relay-ice", handleRelayIce);
       socket.off("call:peer-left", handlePeerLeft);
+
+      socket.off("presence:update", handlePresenceUpdate);
+      socket.off("presence:online-users", handlePresenceOnlineUsers);
     };
   }, [endCallCleanup, createPeerForSocket, localStream]);
 
@@ -627,6 +662,12 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     callType: CallType;
     conversationId?: string;
   }) => {
+    // Only allow calling colleagues if they are online
+    if (onlineUserIds.length > 0 && !onlineUserIds.includes(String(params.toUserId))) {
+      toast.warning(`Cannot call: ${params.partnerName || "Colleague"} is currently offline.`);
+      return;
+    }
+
     const socket = getGlobalSocket();
 
     const roomId = params.conversationId ? `room_${params.conversationId}` : `call_${params.toUserId}_${Date.now()}`;
@@ -777,6 +818,11 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     const targetId = String(params.userId || params.id || "");
     if (!targetId) return;
 
+    if (onlineUserIds.length > 0 && !onlineUserIds.includes(targetId)) {
+      toast.warning(`Cannot add: ${params.name || "Colleague"} is currently offline.`);
+      return;
+    }
+
     const roomId = activeCall.roomId || (activeCall.conversationId ? `room_${activeCall.conversationId}` : `call_${activeCall.partnerId}`);
 
     // Ensure the inviter is in the room
@@ -871,11 +917,21 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   // Decline / End Call
   const endCall = () => {
     const socket = getGlobalSocket();
-    if (activeCall && activeCall.partnerSocketId && socket) {
-      if (activeCall.mode === "incoming") {
-        socket.emit("call:reject", { toSocketId: activeCall.partnerSocketId });
-      } else {
-        socket.emit("call:end", { toSocketId: activeCall.partnerSocketId });
+    const currentCall = activeCallRef.current || activeCall;
+    if (currentCall && socket) {
+      if (currentCall.mode === "incoming") {
+        if (currentCall.partnerSocketId) {
+          socket.emit("call:reject", { toSocketId: currentCall.partnerSocketId });
+        }
+      } else if (currentCall.roomId) {
+        // Leave room so others in the call stay connected without being cut!
+        socket.emit("call:leave-room", { roomId: currentCall.roomId });
+        // Only terminate partner directly if it was strictly a 1:1 direct call with 0 other peers
+        if (!currentCall.isGroup && currentCall.partnerSocketId && remotePeers.length <= 1) {
+          socket.emit("call:end", { toSocketId: currentCall.partnerSocketId, roomId: currentCall.roomId });
+        }
+      } else if (currentCall.partnerSocketId) {
+        socket.emit("call:end", { toSocketId: currentCall.partnerSocketId });
       }
     }
     endCallCleanup();
@@ -888,6 +944,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
         localStream,
         remoteStream,
         remotePeers,
+        onlineUserIds,
         startCall,
         startGroupCall,
         inviteToCall,
@@ -913,6 +970,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
           isGroup={activeCall.isGroup}
           participants={activeCall.participants}
           onInvitePerson={inviteToCall}
+          onlineUserIds={onlineUserIds}
         />
       )}
     </WebRTCContext.Provider>

@@ -59,7 +59,12 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
       }
 
       // Auto-join all conversation rooms for this user so they receive new messages & calls on ANY page
-      ChatConversation.find({ 'participants.user': uId })
+      ChatConversation.find({
+        $or: [
+          { 'participants.user': uId },
+          ...(emp?._id ? [{ 'participants.employee': emp._id }, { 'participants.user': emp._id }] : []),
+        ],
+      })
         .select('_id')
         .then((userConvs) => {
           userConvs.forEach((c) => {
@@ -90,6 +95,14 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
       }
       onlineUsersMap.get(uId)!.set(socket.id, meta);
 
+      if (emp?._id) {
+        const empIdStr = emp._id.toString();
+        if (!onlineUsersMap.has(empIdStr)) {
+          onlineUsersMap.set(empIdStr, new Map());
+        }
+        onlineUsersMap.get(empIdStr)!.set(socket.id, meta);
+      }
+
       console.log(`[Socket Presence] User Online: ${uId} (${userName}) [Total online: ${onlineUsersMap.size}]`);
 
       io.emit('presence:update', {
@@ -99,6 +112,7 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
       });
 
       socket.emit('presence:registered', { userId: uId });
+      socket.emit('presence:online-users', { onlineUserIds: getOnlineUserIds() });
     };
 
     if (socket.user) {
@@ -119,6 +133,7 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
               });
               registerUser(u, emp);
               socket.emit('presence:registered', { userId: u._id.toString() });
+              socket.emit('presence:online-users', { onlineUserIds: getOnlineUserIds() });
             }
           }
         }
@@ -556,12 +571,24 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
     });
 
     socket.on('call:end', (data: {
-      toSocketId: string;
+      toSocketId?: string;
+      roomId?: string;
     }) => {
-      const { toSocketId } = data;
+      const { toSocketId, roomId } = data;
       if (toSocketId) {
         io.to(toSocketId).emit('call:ended', {
           fromSocketId: socket.id,
+          fromUserId: socket.userId,
+          roomId,
+        });
+      }
+      if (roomId) {
+        const roomKey = `call-room:${roomId}`;
+        socket.leave(roomKey);
+        socket.to(roomKey).emit('call:peer-left', {
+          peerSocketId: socket.id,
+          userId: socket.userId,
+          roomId,
         });
       }
     });
@@ -571,6 +598,8 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
     // =========================================================================
     socket.on('disconnect', () => {
       const uId = socket.userId;
+      const empId = socket.employee?._id?.toString();
+
       if (uId && onlineUsersMap.has(uId)) {
         const userSockets = onlineUsersMap.get(uId)!;
         userSockets.delete(socket.id);
@@ -578,13 +607,22 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
         if (userSockets.size === 0) {
           onlineUsersMap.delete(uId);
           console.log(`[Socket Presence] User Offline: ${uId} [Total online: ${onlineUsersMap.size}]`);
-          io.emit('presence:update', {
-            userId: uId,
-            status: 'offline',
-            onlineUserIds: getOnlineUserIds(),
-          });
         }
       }
+
+      if (empId && onlineUsersMap.has(empId)) {
+        const empSockets = onlineUsersMap.get(empId)!;
+        empSockets.delete(socket.id);
+        if (empSockets.size === 0) {
+          onlineUsersMap.delete(empId);
+        }
+      }
+
+      io.emit('presence:update', {
+        userId: uId,
+        status: 'offline',
+        onlineUserIds: getOnlineUserIds(),
+      });
     });
   });
 }

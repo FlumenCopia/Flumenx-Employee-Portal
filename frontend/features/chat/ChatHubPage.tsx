@@ -821,6 +821,11 @@ export function ChatHubPage({ role }: Props) {
       return;
     }
 
+    if (onlineUserIds.length > 0 && !onlineUserIds.includes(targetUserId)) {
+      toast.warning(`Cannot call: ${partnerName} is currently offline.`);
+      return;
+    }
+
     console.log(`[ChatHubPage] Initiating ${type} call to target ${targetUserId} (${partnerName})`);
     startCall({
       toUserId: targetUserId,
@@ -2579,54 +2584,96 @@ export function ChatHubPage({ role }: Props) {
                     const currentUser = getCachedAuthUser();
                     return String(p.user_id) !== String(currentUser?.id || (currentUser as any)?.user_id || "");
                   })
-                  .map((p) => (
-                    <div
-                      key={p.user_id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "10px 14px",
-                        background: "var(--panel2, #F8FAF9)",
-                        border: "1px solid var(--border, #DCE3E0)",
-                        borderRadius: "10px",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <Avatar name={p.name} avatar={p.avatar} size={32} />
-                        <div>
-                          <b style={{ fontSize: "13px", color: "var(--color-text, #18231F)", display: "block" }}>{p.name}</b>
-                          <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
-                            {p.department || p.role || "Team Member"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCallPickerOpen(false);
-                          handleStartCall(callPickerType, { id: p.user_id, name: p.name, avatar: p.avatar });
-                        }}
+                  .map((p) => {
+                    const isOnline = onlineUserIds.length === 0 || onlineUserIds.includes(String(p.user_id));
+                    return (
+                      <div
+                        key={p.user_id}
                         style={{
-                          padding: "6px 14px",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          borderRadius: "8px",
-                          border: 0,
-                          background: callPickerType === "video" ? "#2563EB" : "#087A5B",
-                          color: "#ffffff",
-                          cursor: "pointer",
-                          display: "inline-flex",
+                          display: "flex",
                           alignItems: "center",
-                          gap: "6px",
+                          justifyContent: "space-between",
+                          padding: "10px 14px",
+                          background: "var(--panel2, #F8FAF9)",
+                          border: "1px solid var(--border, #DCE3E0)",
+                          borderRadius: "10px",
                         }}
                       >
-                        {callPickerType === "video" ? <Video size={14} /> : <Phone size={14} />}
-                        Call {p.name.split(" ")[0]}
-                      </button>
-                    </div>
-                  ))}
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div style={{ position: "relative" }}>
+                            <Avatar name={p.name} avatar={p.avatar} size={32} />
+                            <span
+                              style={{
+                                position: "absolute",
+                                bottom: "-1px",
+                                right: "-1px",
+                                width: "9px",
+                                height: "9px",
+                                borderRadius: "50%",
+                                background: isOnline ? "#10b981" : "#94a3b8",
+                                border: "1.5px solid #ffffff",
+                              }}
+                              title={isOnline ? "Online" : "Offline"}
+                            />
+                          </div>
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <b style={{ fontSize: "13px", color: "var(--color-text, #18231F)" }}>{p.name}</b>
+                              <span
+                                style={{
+                                  fontSize: "9.5px",
+                                  fontWeight: 700,
+                                  padding: "1px 5px",
+                                  borderRadius: "4px",
+                                  background: isOnline ? "rgba(16, 185, 129, 0.15)" : "rgba(100, 116, 139, 0.15)",
+                                  color: isOnline ? "#087A5B" : "#64748b",
+                                }}
+                              >
+                                {isOnline ? "Online" : "Offline"}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
+                              {p.department || p.role || "Team Member"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={!isOnline}
+                          onClick={() => {
+                            if (!isOnline) {
+                              toast.warning(`Cannot call: ${p.name} is currently offline.`);
+                              return;
+                            }
+                            setCallPickerOpen(false);
+                            handleStartCall(callPickerType, { id: p.user_id, name: p.name, avatar: p.avatar });
+                          }}
+                          style={{
+                            padding: "6px 14px",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            borderRadius: "8px",
+                            border: 0,
+                            background: !isOnline ? "var(--border2, #CBD5E1)" : callPickerType === "video" ? "#2563EB" : "#087A5B",
+                            color: !isOnline ? "var(--color-text-muted, #718096)" : "#ffffff",
+                            cursor: !isOnline ? "not-allowed" : "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            opacity: !isOnline ? 0.6 : 1,
+                          }}
+                        >
+                          {!isOnline ? "Offline" : (
+                            <>
+                              {callPickerType === "video" ? <Video size={14} /> : <Phone size={14} />}
+                              Call {p.name.split(" ")[0]}
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
               </div>
             </div>
 

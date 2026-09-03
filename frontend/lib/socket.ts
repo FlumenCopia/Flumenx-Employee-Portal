@@ -2,8 +2,9 @@ import { io, Socket } from "socket.io-client";
 
 let socketInstance: Socket | null = null;
 let currentToken: string = "";
+const onlineUserIdsSet = new Set<string>();
 
-function getStoredToken(): string {
+export function getStoredToken(): string {
   if (typeof window === "undefined") return "";
   try {
     const flumenxToken = localStorage.getItem("flumenx_access_token");
@@ -26,6 +27,16 @@ function getStoredToken(): string {
   return "";
 }
 
+export function getGlobalOnlineUserIds(): string[] {
+  return Array.from(onlineUserIdsSet);
+}
+
+export function isUserOnline(id?: string | number | null): boolean {
+  if (!id) return false;
+  const strId = String(id);
+  return onlineUserIdsSet.has(strId);
+}
+
 export function getGlobalSocket(authToken?: string): Socket {
   if (typeof window === "undefined") {
     return null as any;
@@ -42,6 +53,9 @@ export function getGlobalSocket(authToken?: string): Socket {
       } else {
         socketInstance.connect();
       }
+    } else if (tokenToUse && socketInstance.connected) {
+      // Re-affirm presence registration
+      socketInstance.emit("presence:register", { token: tokenToUse });
     } else if (!socketInstance.connected) {
       socketInstance.connect();
     }
@@ -65,13 +79,39 @@ export function getGlobalSocket(authToken?: string): Socket {
     },
   });
 
-  socketInstance.on("connect", () => {
+  const registerPresence = () => {
     const activeToken = tokenToUse || getStoredToken();
     if (activeToken) {
       socketInstance?.emit("presence:register", { token: activeToken });
     }
     socketInstance?.emit("presence:get-online-users");
+  };
+
+  socketInstance.on("connect", registerPresence);
+
+  socketInstance.on("presence:update", (data: { userId?: string; status?: string; onlineUserIds?: string[] }) => {
+    if (data?.onlineUserIds && Array.isArray(data.onlineUserIds)) {
+      onlineUserIdsSet.clear();
+      data.onlineUserIds.forEach((id) => onlineUserIdsSet.add(String(id)));
+    } else if (data?.userId) {
+      if (data.status === "online") {
+        onlineUserIdsSet.add(String(data.userId));
+      } else {
+        onlineUserIdsSet.delete(String(data.userId));
+      }
+    }
   });
+
+  socketInstance.on("presence:online-users", (data: { onlineUserIds?: string[] } | string[]) => {
+    const ids = Array.isArray(data) ? data : data?.onlineUserIds || [];
+    onlineUserIdsSet.clear();
+    ids.forEach((id) => onlineUserIdsSet.add(String(id)));
+  });
+
+  // Trigger initial registration if already connected
+  if (socketInstance.connected) {
+    registerPresence();
+  }
 
   return socketInstance;
 }
@@ -81,6 +121,7 @@ export function disconnectGlobalSocket() {
     socketInstance.disconnect();
     socketInstance = null;
     currentToken = "";
+    onlineUserIdsSet.clear();
   }
 }
 

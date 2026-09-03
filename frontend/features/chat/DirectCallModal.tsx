@@ -124,6 +124,7 @@ type Props = {
   isGroup?: boolean;
   participants?: { id: string; name: string; avatar?: string; status: "calling" | "connected" }[];
   onInvitePerson?: (user: { id: string; name: string; avatar?: string }) => void;
+  onlineUserIds?: string[];
 };
 
 export function DirectCallModal({
@@ -140,6 +141,7 @@ export function DirectCallModal({
   isGroup,
   participants,
   onInvitePerson,
+  onlineUserIds = [],
 }: Props) {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -875,6 +877,7 @@ export function DirectCallModal({
                   .filter((c) => !addPersonSearch || c.name?.toLowerCase().includes(addPersonSearch.toLowerCase()))
                   .map((c) => {
                     const isAlreadyInCall = participants?.some((p) => String(p.id) === String(c.id || c.user_id));
+                    const isOnline = onlineUserIds.length === 0 || onlineUserIds.includes(String(c.user_id)) || onlineUserIds.includes(String(c.id));
                     return (
                       <div
                         key={c.id || c.user_id}
@@ -889,17 +892,50 @@ export function DirectCallModal({
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <Avatar name={c.name} avatar={c.avatar} size={34} />
+                          <div style={{ position: "relative" }}>
+                            <Avatar name={c.name} avatar={c.avatar} size={34} />
+                            <span
+                              style={{
+                                position: "absolute",
+                                bottom: "-1px",
+                                right: "-1px",
+                                width: "9px",
+                                height: "9px",
+                                borderRadius: "50%",
+                                background: isOnline ? "#10b981" : "#64748b",
+                                border: "1.5px solid #121816",
+                              }}
+                              title={isOnline ? "Online" : "Offline"}
+                            />
+                          </div>
                           <div>
-                            <b style={{ fontSize: "13px", color: "#fff", display: "block" }}>{c.name}</b>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <b style={{ fontSize: "13px", color: "#fff" }}>{c.name}</b>
+                              <span
+                                style={{
+                                  fontSize: "9px",
+                                  fontWeight: 700,
+                                  padding: "1px 5px",
+                                  borderRadius: "4px",
+                                  background: isOnline ? "rgba(16, 185, 129, 0.15)" : "rgba(100, 116, 139, 0.2)",
+                                  color: isOnline ? "#34d399" : "#94a3b8",
+                                }}
+                              >
+                                {isOnline ? "Online" : "Offline"}
+                              </span>
+                            </div>
                             <span style={{ fontSize: "11px", color: "#94a3b8" }}>{c.department || c.role || "Colleague"}</span>
                           </div>
                         </div>
 
                         <button
                           type="button"
-                          disabled={isAlreadyInCall}
+                          disabled={isAlreadyInCall || !isOnline}
                           onClick={() => {
+                            if (!isOnline) {
+                              toast.warning(`Cannot add ${c.name}: Colleague is currently offline.`);
+                              return;
+                            }
                             if (onInvitePerson) {
                               onInvitePerson({ id: String(c.user_id || c.id), name: c.name, avatar: c.avatar });
                             }
@@ -911,15 +947,16 @@ export function DirectCallModal({
                             fontWeight: 700,
                             borderRadius: "7px",
                             border: 0,
-                            background: isAlreadyInCall ? "rgba(255,255,255,0.1)" : "#10b981",
-                            color: isAlreadyInCall ? "#94a3b8" : "#ffffff",
-                            cursor: isAlreadyInCall ? "default" : "pointer",
+                            background: isAlreadyInCall ? "rgba(255,255,255,0.1)" : !isOnline ? "rgba(255,255,255,0.06)" : "#10b981",
+                            color: isAlreadyInCall ? "#94a3b8" : !isOnline ? "#64748b" : "#ffffff",
+                            cursor: isAlreadyInCall || !isOnline ? "not-allowed" : "pointer",
                             display: "inline-flex",
                             alignItems: "center",
                             gap: "6px",
+                            opacity: !isOnline ? 0.6 : 1,
                           }}
                         >
-                          {isAlreadyInCall ? "Calling..." : <><Phone size={12} /> Call</>}
+                          {isAlreadyInCall ? "In Call" : !isOnline ? "Offline" : <><Phone size={12} /> Call</>}
                         </button>
                       </div>
                     );

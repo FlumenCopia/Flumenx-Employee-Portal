@@ -425,9 +425,23 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
 
   useEffect(() => {
     if (!user) return;
-    const socket = getGlobalSocket();
+    const token = typeof window !== "undefined"
+      ? (localStorage.getItem("flumenx_access_token") || localStorage.getItem("access_token") || "")
+      : "";
+    const socket = getGlobalSocket(token);
     if (!socket) return;
+
+    if (token) {
+      socket.emit("presence:register", { token });
+    }
     socket.emit("presence:get-online-users");
+
+    // Periodic heartbeat to stay marked online on server across all portal tabs
+    const heartbeat = setInterval(() => {
+      if (socket.connected) {
+        socket.emit("presence:ping");
+      }
+    }, 25000);
 
     const handleNewMessage = (data: { conversationId: string; message: any }) => {
       const msg = data?.message;
@@ -455,6 +469,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
 
     socket.on("chat:new-message", handleNewMessage);
     return () => {
+      clearInterval(heartbeat);
       socket.off("chat:new-message", handleNewMessage);
     };
   }, [user]);
