@@ -1,0 +1,2512 @@
+[{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a8d"
+  },
+  "code": "SUS-001",
+  "title": "Git repository, branching & CI setup",
+  "type": "dev",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a68",
+  "reviewer": "6a71d7d277582ea82c7a1a65",
+  "status": "assigned",
+  "priority": "p0",
+  "due": "2026-07-16",
+  "hours": 6,
+  "deliverable": "d_web",
+  "desc": "Main, staging, and feature branching strategy initialized.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-24T08:00:31.604Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a8e"
+  },
+  "code": "SUS-002",
+  "title": "Next.js scaffold — App Router + TypeScript",
+  "type": "dev",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a6f",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-18",
+  "hours": 8,
+  "deliverable": "d_web",
+  "desc": "Next.js 14 setup with TypeScript and App Router.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a8f"
+  },
+  "code": "SUS-003",
+  "title": "Brand design tokens wired into Tailwind config",
+  "type": "dev",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a6b",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-20",
+  "hours": 6,
+  "deliverable": "d_design",
+  "desc": "Colors (green-deep, gold, parchment), typography, and spacing tokens.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a90"
+  },
+  "code": "SUS-004",
+  "title": "Node.js Express project + MongoDB schema initialised",
+  "type": "dev",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a6e",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-22",
+  "hours": 10,
+  "deliverable": "d_web",
+  "desc": "Node.js Express REST API connected to MongoDB database.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a91"
+  },
+  "code": "SUS-005",
+  "title": "Staging environment provisioned",
+  "type": "dev",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a68",
+  "reviewer": "6a71d7d277582ea82c7a1a65",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-24",
+  "hours": 4,
+  "deliverable": "d_web",
+  "desc": "Private preview URL for internal review and staging testing.",
+  "note": "Private preview URL for internal review",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a92"
+  },
+  "code": "SUS-006",
+  "title": "Core component library (header, mega-menu, footer, breadcrumb)",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6f",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-28",
+  "hours": 12,
+  "deliverable": "d_web",
+  "desc": "Reusable navigational components.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a93"
+  },
+  "code": "SUS-007",
+  "title": "Reusable cards — doctor / treatment / condition / package / article",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6f",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-30",
+  "hours": 10,
+  "deliverable": "d_web",
+  "desc": "Card templates with hover states and micro-interactions.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a94"
+  },
+  "code": "SUS-008",
+  "title": "Homepage build — hero + all documentary sections",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6f",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-01",
+  "hours": 16,
+  "deliverable": "d_web",
+  "desc": "Full homepage layout with responsive grid.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a95"
+  },
+  "code": "SUS-009",
+  "title": "About / heritage page + interactive milestone timeline",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6f",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p1",
+  "due": "2026-08-05",
+  "hours": 10,
+  "deliverable": "d_web",
+  "desc": "Founder story from 1970 to present.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:12:47.527Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a96"
+  },
+  "code": "SUS-010",
+  "title": "Dynamic doctor profile template",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6f",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-06",
+  "hours": 8,
+  "deliverable": "d_web",
+  "desc": "Director profiles with EEAT credential wiring.",
+  "note": "Directors elevated; author-entity wiring",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:12:54.680Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a97"
+  },
+  "code": "SUS-011",
+  "title": "Dynamic treatment & condition templates",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6f",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p1",
+  "due": "2026-08-08",
+  "hours": 10,
+  "deliverable": "d_web",
+  "desc": "Specialty treatment pages.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:12:59.792Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a98"
+  },
+  "code": "SUS-012",
+  "title": "Package detail templates (x12)",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6f",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p1",
+  "due": "2026-08-10",
+  "hours": 12,
+  "deliverable": "d_enquiry",
+  "desc": "Panchakarma & package pages.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:13:07.917Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a99"
+  },
+  "code": "SUS-013",
+  "title": "Branch pages (Kattakada, Kowdiar) + Ayur Village",
+  "type": "dev",
+  "phase": "ph3",
+  "assignee": "6a71d7d277582ea82c7a1a6f",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p1",
+  "due": "2026-08-12",
+  "hours": 8,
+  "deliverable": "d_web",
+  "desc": "Location landing pages with interactive maps.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:13:15.889Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a9a"
+  },
+  "code": "SUS-014",
+  "title": "International Patients page",
+  "type": "dev",
+  "phase": "ph3",
+  "assignee": "6a71d7d277582ea82c7a1a6f",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p2",
+  "due": "2026-08-14",
+  "hours": 6,
+  "deliverable": "d_web",
+  "desc": "Medical tourism landing page.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:13:20.609Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a9b"
+  },
+  "code": "SUS-015",
+  "title": "Responsive QA pass across breakpoints",
+  "type": "qc",
+  "phase": "ph3",
+  "assignee": "6a71d7d277582ea82c7a1a70",
+  "reviewer": "6a71d7d277582ea82c7a1a6f",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-16",
+  "hours": 10,
+  "deliverable": "d_web",
+  "desc": "Cross-device layout and interaction audit.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:18:52.832Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a9c"
+  },
+  "code": "SUS-016",
+  "title": "3D / parallax botanical hero scene",
+  "type": "video",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6d",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-07",
+  "hours": 14,
+  "deliverable": "d_3d",
+  "desc": "Lazy-loaded, LCP-safe Three.js botanical canvas.",
+  "note": "Lazy-loaded, LCP-safe",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.766Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a9d"
+  },
+  "code": "SUS-017",
+  "title": "Scroll-driven legacy timeline (1970 -> today)",
+  "type": "video",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6d",
+  "reviewer": "6a71d7d277582ea82c7a1a6b",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-08",
+  "hours": 8,
+  "deliverable": "d_3d",
+  "desc": "Timeline scroll trigger visual effects.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a9e"
+  },
+  "code": "SUS-018",
+  "title": "Animated Panchakarma / therapy process diagrams",
+  "type": "video",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6d",
+  "reviewer": "6a71d7d277582ea82c7a1a6b",
+  "status": "assigned",
+  "priority": "p1",
+  "due": "2026-08-12",
+  "hours": 10,
+  "deliverable": "d_3d",
+  "desc": "Interactive therapy step illustrations.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1a9f"
+  },
+  "code": "SUS-019",
+  "title": "Director cinematic scroll sections",
+  "type": "video",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6d",
+  "reviewer": "6a71d7d277582ea82c7a1a65",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-09",
+  "hours": 8,
+  "deliverable": "d_3d",
+  "desc": "Parallax section highlights for director profiles.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aa0"
+  },
+  "code": "SUS-020",
+  "title": "Premium hover & micro-interactions + reduced-motion fallbacks",
+  "type": "design",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6b",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "progress",
+  "priority": "p2",
+  "due": "2026-08-10",
+  "hours": 6,
+  "deliverable": "d_design",
+  "desc": "Accessible micro-animations.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aa1"
+  },
+  "code": "SUS-021",
+  "title": "CMS models — doctors, treatments, conditions, packages, branches",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6e",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-26",
+  "hours": 12,
+  "deliverable": "d_web",
+  "desc": "Express MongoDB core entities.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aa2"
+  },
+  "code": "SUS-022",
+  "title": "CMS models — FAQ, blog, testimonials, gallery, enquiries, appointments",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6e",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-28",
+  "hours": 10,
+  "deliverable": "d_web",
+  "desc": "Express operational models.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aa3"
+  },
+  "code": "SUS-023",
+  "title": "REST/JSON API layer for Next.js consumption",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6e",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-06",
+  "hours": 12,
+  "deliverable": "d_web",
+  "desc": "Express REST endpoints for frontend hydration.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:33:17.939Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aa4"
+  },
+  "code": "SUS-024",
+  "title": "Appointment booking flow (branch -> doctor -> service -> date)",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6e",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-11",
+  "hours": 14,
+  "deliverable": "d_booking",
+  "desc": "Respects real doctor availability; confirmation + record.",
+  "note": "Respects real doctor availability; confirmation + record",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:33:34.424Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aa5"
+  },
+  "code": "SUS-025",
+  "title": "Package enquiry flow (12 packages)",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6e",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-10",
+  "hours": 10,
+  "deliverable": "d_enquiry",
+  "desc": "Panchakarma enquiry engine.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:34:18.672Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aa6"
+  },
+  "code": "SUS-026",
+  "title": "Contact / Ask-a-Question / Feedback forms",
+  "type": "dev",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6e",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p1",
+  "due": "2026-08-09",
+  "hours": 8,
+  "deliverable": "d_web",
+  "desc": "Replacing broken legacy forms.",
+  "note": "Replacing broken legacy forms",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:34:13.688Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aa7"
+  },
+  "code": "SUS-027",
+  "title": "Predictive site search",
+  "type": "dev",
+  "phase": "ph3",
+  "assignee": "6a71d7d277582ea82c7a1a6f",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p2",
+  "due": "2026-08-14",
+  "hours": 8,
+  "deliverable": "d_web",
+  "desc": "Instant search across conditions, doctors and articles.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:34:25.731Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aa8"
+  },
+  "code": "SUS-028",
+  "title": "CMS admin UX polish + role permissions",
+  "type": "dev",
+  "phase": "ph3",
+  "assignee": "6a71d7d277582ea82c7a1a68",
+  "reviewer": "6a71d7d277582ea82c7a1a64",
+  "status": "published",
+  "priority": "p1",
+  "due": "2026-08-15",
+  "hours": 8,
+  "deliverable": "d_web",
+  "desc": "Role-based authorization and admin dashboard polish.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:34:36.141Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aa9"
+  },
+  "code": "SUS-029",
+  "title": "Legacy content audit — flagged dental-template placeholder copy & broken FAQ",
+  "type": "content",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-18",
+  "hours": 8,
+  "deliverable": "d_copy",
+  "desc": "Audit of legacy website copy.",
+  "note": "Old site was a repurposed dental template",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aaa"
+  },
+  "code": "SUS-030",
+  "title": "Sitemap & information architecture",
+  "type": "content",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-20",
+  "hours": 6,
+  "deliverable": "d_copy",
+  "desc": "Site structure and navigation tree.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aab"
+  },
+  "code": "SUS-031",
+  "title": "Page-by-page section & content blueprint",
+  "type": "content",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-22",
+  "hours": 8,
+  "deliverable": "d_copy",
+  "desc": "Detailed wireframe text outlines.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aac"
+  },
+  "code": "SUS-032",
+  "title": "Content-to-CMS field mapping",
+  "type": "content",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p1",
+  "due": "2026-07-24",
+  "hours": 4,
+  "deliverable": "d_copy",
+  "desc": "Schema field matching for writers.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aad"
+  },
+  "code": "SUS-033",
+  "title": "Homepage copy + trust narrative",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-26",
+  "hours": 10,
+  "deliverable": "d_copy",
+  "desc": "High-conversion hero and story copy.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aae"
+  },
+  "code": "SUS-034",
+  "title": "About / heritage narrative (founders 1970 -> directors)",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-27",
+  "hours": 8,
+  "deliverable": "d_copy",
+  "desc": "Heritage story since 1970.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aaf"
+  },
+  "code": "SUS-035",
+  "title": "Vision, mission & principles",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p1",
+  "due": "2026-07-28",
+  "hours": 4,
+  "deliverable": "d_copy",
+  "desc": "Core institutional principles.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ab0"
+  },
+  "code": "SUS-036",
+  "title": "8 specialty / condition pages",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-29",
+  "hours": 16,
+  "deliverable": "d_copy",
+  "desc": "Clinical condition landing page copy.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ab1"
+  },
+  "code": "SUS-037",
+  "title": "Treatment & therapy pages",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-04",
+  "hours": 12,
+  "deliverable": "d_copy",
+  "desc": "Panchakarma treatment procedures.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ab2"
+  },
+  "code": "SUS-038",
+  "title": "12 package pages",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-31",
+  "hours": 14,
+  "deliverable": "d_copy",
+  "desc": "Comprehensive package descriptions.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ab3"
+  },
+  "code": "SUS-039",
+  "title": "Branch + Ayur Village + International Patients copy",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-06",
+  "hours": 10,
+  "deliverable": "d_copy",
+  "desc": "Location and tourism landing pages.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ab4"
+  },
+  "code": "SUS-040",
+  "title": "Real Ayurveda-specific FAQ set (replacing dental placeholders)",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-01",
+  "hours": 8,
+  "deliverable": "d_copy",
+  "desc": "Authentic clinical Q&A database.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ab5"
+  },
+  "code": "SUS-041",
+  "title": "SAG-EO blocks — AI summaries, key takeaways, quick facts per page",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-02",
+  "hours": 12,
+  "deliverable": "d_seo",
+  "desc": "AI answer engine summaries.",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ab6"
+  },
+  "code": "SUS-042",
+  "title": "Dr. Krishnakumar K — profile + philosophy + research positioning",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-05",
+  "hours": 8,
+  "deliverable": "d_copy",
+  "note": "Awaiting verified bio/awards from client",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ab7"
+  },
+  "code": "SUS-043",
+  "title": "Dr. Sreeja Krishna S — profile + patient-experience voice",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-06",
+  "hours": 6,
+  "deliverable": "d_copy",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ab8"
+  },
+  "code": "SUS-044",
+  "title": "Dr. Priyanka R — profile + women's-health authority voice",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-07",
+  "hours": 6,
+  "deliverable": "d_copy",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ab9"
+  },
+  "code": "SUS-045",
+  "title": "Other doctors — EEAT-forward credential profiles (x6)",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p1",
+  "due": "2026-07-30",
+  "hours": 10,
+  "deliverable": "d_copy",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aba"
+  },
+  "code": "SUS-046",
+  "title": "Author-entity byline + \"Medically reviewed by\" system copy",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-01",
+  "hours": 6,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1abb"
+  },
+  "code": "SUS-047",
+  "title": "Blog content calendar + cluster mapping",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-25",
+  "hours": 6,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1abc"
+  },
+  "code": "SUS-048",
+  "title": "\"Why Kerala Became the Home of Authentic Ayurveda\"",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-26",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1abd"
+  },
+  "code": "SUS-049",
+  "title": "\"Panchakarma, Explained Simply: What Really Happens in the Five Therapies\"",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-07-27",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T16:02:41.131Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1abe"
+  },
+  "code": "SUS-050",
+  "title": "\"Back Pain? How Ayurveda Treats the Root, Not Just the Ache\"",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-07-28",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T16:02:47.999Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1abf"
+  },
+  "code": "SUS-051",
+  "title": "\"A Gynaecologist's Notes: Ayurveda for Women's Hormonal Balance\"",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-07-29",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T16:03:20.635Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ac0"
+  },
+  "code": "SUS-052",
+  "title": "\"The First 42 Days: Why Postnatal (Sutika) Care Matters\"",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-07-30",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T16:03:18.309Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ac1"
+  },
+  "code": "SUS-053",
+  "title": "\"Piles & Fistula: What Kshara Sutra Is, and Why It Works\"",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-07-31",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T16:03:16.058Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ac2"
+  },
+  "code": "SUS-054",
+  "title": "\"Psoriasis Isn't Just Skin-Deep: The Ayurvedic View\"",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-01",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T16:03:13.791Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ac3"
+  },
+  "code": "SUS-055",
+  "title": "\"After a Stroke: How Ayurvedic Rehabilitation Helps Families Rebuild\"",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-02",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T16:03:12.122Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ac4"
+  },
+  "code": "SUS-056",
+  "title": "\"Desk Job, Aching Body: The Tekky Package for Modern Professionals\"",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-02",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T16:03:10.343Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ac5"
+  },
+  "code": "SUS-057",
+  "title": "\"What 55 Years of Family Practice Taught Us About Healing\"",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-03",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T16:03:09.232Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ac6"
+  },
+  "code": "SUS-058",
+  "title": "\"Choosing an Ayurveda Hospital: 7 Honest Questions to Ask\"",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-03",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T16:03:07.739Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ac7"
+  },
+  "code": "SUS-059",
+  "title": "\"Stress, Sleep & Shirodhara: A Calmer Nervous System, Naturally\"",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-04",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T16:03:05.402Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ac8"
+  },
+  "code": "SUS-060",
+  "title": "Content loading into CMS + scheduling",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-08",
+  "hours": 10,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ac9"
+  },
+  "code": "SUS-061",
+  "title": "Keyword + search-intent research (primary / secondary / long-tail)",
+  "type": "seo",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a65",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-18",
+  "hours": 12,
+  "deliverable": "d_report",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aca"
+  },
+  "code": "SUS-062",
+  "title": "Entity map — Susrutha, directors, treatments, conditions, branches",
+  "type": "seo",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a65",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-20",
+  "hours": 10,
+  "deliverable": "d_schema",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1acb"
+  },
+  "code": "SUS-063",
+  "title": "Competitor SERP & authority benchmarking",
+  "type": "seo",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a65",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-22",
+  "hours": 8,
+  "deliverable": "d_report",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1acc"
+  },
+  "code": "SUS-064",
+  "title": "Topic-cluster & pillar architecture",
+  "type": "seo",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a65",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-24",
+  "hours": 10,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1acd"
+  },
+  "code": "SUS-065",
+  "title": "Internal-linking intelligence map",
+  "type": "seo",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a65",
+  "status": "published",
+  "priority": "p1",
+  "due": "2026-07-25",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ace"
+  },
+  "code": "SUS-066",
+  "title": "SEO-clean URL / slug architecture",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-26",
+  "hours": 6,
+  "deliverable": "d_web",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1acf"
+  },
+  "code": "SUS-067",
+  "title": "301 redirect map — legacy .php -> new URLs",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-27",
+  "hours": 8,
+  "deliverable": "d_web",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ad0"
+  },
+  "code": "SUS-068",
+  "title": "Schema strategy — 20+ types defined",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-28",
+  "hours": 10,
+  "deliverable": "d_schema",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ad1"
+  },
+  "code": "SUS-069",
+  "title": "Schema implementation (Organization, Hospital, MedicalClinic)",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-05",
+  "hours": 8,
+  "deliverable": "d_schema",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.767Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:35:54.104Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ad2"
+  },
+  "code": "SUS-070",
+  "title": "Schema implementation (Physician, Person, MedicalCondition, Therapy, Procedure)",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-07",
+  "hours": 10,
+  "deliverable": "d_schema",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ad3"
+  },
+  "code": "SUS-071",
+  "title": "Dynamic XML sitemap + robots.txt",
+  "type": "seo",
+  "phase": "ph3",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "assigned",
+  "priority": "p1",
+  "due": "2026-08-14",
+  "hours": 4,
+  "deliverable": "d_web",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ad4"
+  },
+  "code": "SUS-072",
+  "title": "Canonicals, OG / Twitter cards",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-06",
+  "hours": 6,
+  "deliverable": "d_web",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ad5"
+  },
+  "code": "SUS-073",
+  "title": "Core Web Vitals optimisation (LCP <2s, CLS <0.05, INP)",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a6f",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-08",
+  "hours": 12,
+  "deliverable": "d_web",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ad6"
+  },
+  "code": "SUS-074",
+  "title": "Mobile-first + crawlability audit",
+  "type": "seo",
+  "phase": "ph3",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a70",
+  "status": "assigned",
+  "priority": "p1",
+  "due": "2026-08-15",
+  "hours": 6,
+  "deliverable": "d_web",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ad7"
+  },
+  "code": "SUS-075",
+  "title": "Dynamic title tags + meta descriptions (all pages)",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a6a",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-29",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ad8"
+  },
+  "code": "SUS-076",
+  "title": "Heading hierarchy + semantic structure",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a6a",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-30",
+  "hours": 6,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ad9"
+  },
+  "code": "SUS-077",
+  "title": "Keyword-mapped content optimisation",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a6a",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-31",
+  "hours": 10,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ada"
+  },
+  "code": "SUS-078",
+  "title": "Image alt-text system via CMS",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a69",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-06",
+  "hours": 6,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1adb"
+  },
+  "code": "SUS-079",
+  "title": "Internal links wired (up / sideways / down)",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a69",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-07",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1adc"
+  },
+  "code": "SUS-080",
+  "title": "Breadcrumbs across all pages",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a69",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-08",
+  "hours": 6,
+  "deliverable": "d_web",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1add"
+  },
+  "code": "SUS-081",
+  "title": "Extractable AI-summary blocks per page",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a6a",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-01",
+  "hours": 10,
+  "deliverable": "d_schema",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ade"
+  },
+  "code": "SUS-082",
+  "title": "FAQPage schema on every applicable page",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-06",
+  "hours": 8,
+  "deliverable": "d_schema",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:35:52.805Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1adf"
+  },
+  "code": "SUS-083",
+  "title": "Question-based content for featured snippets",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a6a",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-02",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ae0"
+  },
+  "code": "SUS-084",
+  "title": "Voice-search-friendly Q&A phrasing",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a6a",
+  "status": "published",
+  "priority": "p1",
+  "due": "2026-08-03",
+  "hours": 6,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ae1"
+  },
+  "code": "SUS-085",
+  "title": "Comparison tables, definitions & key-takeaway blocks",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a6a",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-04",
+  "hours": 8,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ae2"
+  },
+  "code": "SUS-086",
+  "title": "Authoritative entity definitions (Susrutha + 3 directors)",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a65",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-30",
+  "hours": 8,
+  "deliverable": "d_schema",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ae3"
+  },
+  "code": "SUS-087",
+  "title": "Author entities — director bylines + Person schema + sameAs",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a6a",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-07",
+  "hours": 8,
+  "deliverable": "d_schema",
+  "note": "sameAs links awaiting confirmed director socials",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ae4"
+  },
+  "code": "SUS-088",
+  "title": "\"Medically reviewed by\" attribution across clinical pages",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a6a",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-02",
+  "hours": 6,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ae5"
+  },
+  "code": "SUS-089",
+  "title": "Entity relationship graph (Org <-> Physician <-> Treatment <-> Condition)",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-08",
+  "hours": 8,
+  "deliverable": "d_schema",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ae6"
+  },
+  "code": "SUS-090",
+  "title": "Citable, reference-grade content for LLM retrieval",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a6a",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-08-03",
+  "hours": 10,
+  "deliverable": "d_seo",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ae7"
+  },
+  "code": "SUS-091",
+  "title": "Original expert quotes from directors",
+  "type": "seo",
+  "phase": "ph3",
+  "assignee": "6a71d7d277582ea82c7a1a6a",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "assigned",
+  "priority": "p1",
+  "due": "2026-08-12",
+  "hours": 6,
+  "deliverable": "d_copy",
+  "note": "Collecting from client",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ae8"
+  },
+  "code": "SUS-092",
+  "title": "NAP consistency audit (both branches)",
+  "type": "seo",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a69",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-28",
+  "hours": 6,
+  "deliverable": "d_gbp",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1ae9"
+  },
+  "code": "SUS-093",
+  "title": "Google Business Profile optimisation — Kattakada + Kowdiar",
+  "type": "seo",
+  "phase": "ph3",
+  "assignee": "6a71d7d277582ea82c7a1a69",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p0",
+  "due": "2026-08-13",
+  "hours": 10,
+  "deliverable": "d_gbp",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aea"
+  },
+  "code": "SUS-094",
+  "title": "Local citation & directory listings (Justdial, Sulekha, Practo, etc.)",
+  "type": "seo",
+  "phase": "ph3",
+  "assignee": "6a71d7d277582ea82c7a1a69",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-14",
+  "hours": 12,
+  "deliverable": "d_gbp",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aeb"
+  },
+  "code": "SUS-095",
+  "title": "Social profile optimisation & signal alignment",
+  "type": "seo",
+  "phase": "ph3",
+  "assignee": "6a71d7d277582ea82c7a1a69",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "progress",
+  "priority": "p2",
+  "due": "2026-08-15",
+  "hours": 6,
+  "deliverable": "d_gbp",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aec"
+  },
+  "code": "SUS-096",
+  "title": "Backlink & digital-PR outreach plan",
+  "type": "seo",
+  "phase": "ph3",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a65",
+  "status": "assigned",
+  "priority": "p1",
+  "due": "2026-08-18",
+  "hours": 10,
+  "deliverable": "d_report",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aed"
+  },
+  "code": "SUS-097",
+  "title": "Review-generation workflow (post-launch)",
+  "type": "seo",
+  "phase": "ph4",
+  "assignee": "6a71d7d277582ea82c7a1a67",
+  "reviewer": "6a71d7d277582ea82c7a1a65",
+  "status": "assigned",
+  "priority": "p2",
+  "due": "2026-08-25",
+  "hours": 6,
+  "deliverable": "d_report",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aee"
+  },
+  "code": "SUS-098",
+  "title": "Brand token system — colour, type, spacing, iconography",
+  "type": "design",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a6b",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-18",
+  "hours": 8,
+  "deliverable": "d_design",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1aef"
+  },
+  "code": "SUS-099",
+  "title": "Design language & moodboard (premium, heritage, calm)",
+  "type": "design",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a6b",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-20",
+  "hours": 6,
+  "deliverable": "d_design",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1af0"
+  },
+  "code": "SUS-100",
+  "title": "Wireframes — key templates",
+  "type": "design",
+  "phase": "ph1",
+  "assignee": "6a71d7d277582ea82c7a1a6b",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-22",
+  "hours": 10,
+  "deliverable": "d_design",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1af1"
+  },
+  "code": "SUS-101",
+  "title": "Hi-fidelity mockups — home + core templates",
+  "type": "design",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6b",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-26",
+  "hours": 16,
+  "deliverable": "d_design",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1af2"
+  },
+  "code": "SUS-102",
+  "title": "Component design sheet + states",
+  "type": "design",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6b",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-28",
+  "hours": 8,
+  "deliverable": "d_design",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1af3"
+  },
+  "code": "SUS-103",
+  "title": "Director thought-leadership hero treatments",
+  "type": "design",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6b",
+  "reviewer": "6a71d7d277582ea82c7a1a67",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-29",
+  "hours": 8,
+  "deliverable": "d_design",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1af4"
+  },
+  "code": "SUS-104",
+  "title": "3D / animation art-direction spec",
+  "type": "design",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6c",
+  "reviewer": "6a71d7d277582ea82c7a1a6b",
+  "status": "published",
+  "priority": "p1",
+  "due": "2026-07-30",
+  "hours": 6,
+  "deliverable": "d_design",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1af5"
+  },
+  "code": "SUS-105",
+  "title": "Responsive design specs (mobile-first)",
+  "type": "design",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6c",
+  "reviewer": "6a71d7d277582ea82c7a1a6b",
+  "status": "published",
+  "priority": "p0",
+  "due": "2026-07-31",
+  "hours": 8,
+  "deliverable": "d_design",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1af6"
+  },
+  "code": "SUS-106",
+  "title": "Client presentation of UI",
+  "type": "client",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a72",
+  "reviewer": "6a71d7d277582ea82c7a1a65",
+  "status": "assigned",
+  "priority": "p0",
+  "due": "2026-08-01",
+  "hours": 4,
+  "deliverable": "d_design",
+  "note": "Presented & approved — client impressed",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T14:37:34.575Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a71d7d377582ea82c7a1af7"
+  },
+  "code": "SUS-107",
+  "title": "Design refinements from client feedback",
+  "type": "design",
+  "phase": "ph2",
+  "assignee": "6a71d7d277582ea82c7a1a6b",
+  "reviewer": "6a71d7d277582ea82c7a1a68",
+  "status": "progress",
+  "priority": "p1",
+  "due": "2026-08-05",
+  "hours": 6,
+  "deliverable": "d_design",
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T12:15:15.768Z"
+  }
+}]

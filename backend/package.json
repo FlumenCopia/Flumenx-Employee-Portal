@@ -10,6 +10,7 @@
     "dev": "tsx watch src/server.ts",
     "seed": "tsx src/scripts/seed.ts",
     "seed:pages-roles": "tsx src/scripts/seed_pages_and_roles.ts",
+    "seed:client-tasks": "tsx src/scripts/seed_client_tasks.ts",
     "delete-all-tasks": "tsx src/scripts/delete_all_tasks.ts"
   },
   "dependencies": {

@@ -436,11 +436,11 @@ export function CommandCenterView({
 
         return {
           id: String(a.id),
-          code: `EXP-${String(a.id).padStart(3, "0")}`,
+          code: a.code || `EXP-${String(a.id).padStart(3, "0")}`,
           title: a.title,
           desc: (a.description || "").replace(/\[PHASE:\s*[^\]]+\]/gi, "").replace(/\[EST_HOURS:\s*[^\]]+\]/gi, "").trim(),
           type: detectedType,
-          phase: "ph1",
+          phase: a.phase || "ph1",
           assignee: String(a.employee),
           assigneeId: a.employee,
           assigneeName: a.employee_name,

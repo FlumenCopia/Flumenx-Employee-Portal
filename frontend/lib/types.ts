@@ -378,6 +378,7 @@ export type WorkAssignment = {
   project?: number | string | null; project_name?: string;
   department_category?: DepartmentCategory;
   parent_task?: number | string | null; parent_task_title?: string; is_master_client_task?: boolean;
+  code?: string; phase?: string; deliverable_type?: string; note?: string;
   title: string; description: string; priority: WorkPriority; assigned_date: string; due_date: string;
   status: WorkStatus; progress: number; assigned_quantity: number; completed_quantity: number;
   remaining_quantity: number; unit: string; completed_at: string | null;

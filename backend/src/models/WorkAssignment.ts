@@ -101,6 +101,10 @@ export interface IWorkAssignment extends Document {
   project?: mongoose.Types.ObjectId | null;
   parentTask?: mongoose.Types.ObjectId | IWorkAssignment | null;
   isMasterClientTask?: boolean;
+  code?: string;
+  phase?: string;
+  deliverableType?: string;
+  note?: string;
   departmentCategory?: 'Development' | 'Digital Marketing' | 'Video Editing' | 'Design' | 'HR' | 'General';
   title: string;
   description?: string;
@@ -202,6 +206,10 @@ const workAssignmentSchema = new Schema<IWorkAssignment>(
     project: { type: Schema.Types.ObjectId, ref: 'Project', default: null, index: true },
     parentTask: { type: Schema.Types.ObjectId, ref: 'WorkAssignment', default: null },
     isMasterClientTask: { type: Boolean, default: false },
+    code: { type: String, trim: true, index: true },
+    phase: { type: String, trim: true },
+    deliverableType: { type: String, trim: true },
+    note: { type: String, default: '' },
     departmentCategory: {
       type: String,
       enum: ['Development', 'Digital Marketing', 'Video Editing', 'Design', 'HR', 'General'],

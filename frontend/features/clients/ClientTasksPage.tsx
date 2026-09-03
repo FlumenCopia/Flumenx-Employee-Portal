@@ -137,6 +137,7 @@ export function ClientTasksPage({ role }: Props) {
       const matchSearch =
         !searchQuery ||
         t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.code && t.code.toLowerCase().includes(searchQuery.toLowerCase())) ||
         t.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         t.employee_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         t.unit?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -699,9 +700,16 @@ export function ClientTasksPage({ role }: Props) {
                           }}
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "6px" }}>
-                            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-primary, #087A5B)", background: "var(--color-primary-subtle, #E7F3EE)", padding: "2px 6px", borderRadius: "4px", border: "1px solid var(--color-brand-border, #B2D8CB)" }}>
-                              {task.client_name || "Client"}
-                            </span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-primary, #087A5B)", background: "var(--color-primary-subtle, #E7F3EE)", padding: "2px 6px", borderRadius: "4px", border: "1px solid var(--color-brand-border, #B2D8CB)" }}>
+                                {task.client_name || "Client"}
+                              </span>
+                              {task.code && (
+                                <span style={{ fontSize: "10.5px", fontWeight: 700, fontFamily: "monospace", color: "var(--color-text-secondary, #4A5568)", background: "var(--panel2, #F1F5F3)", padding: "2px 6px", borderRadius: "4px", border: "1px solid var(--border, #DCE3E0)" }}>
+                                  {task.code}
+                                </span>
+                              )}
+                            </div>
                             <span style={{ fontSize: "10.5px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px", background: STATUS_COLORS[task.status]?.bg || "#F1F5F9", color: STATUS_COLORS[task.status]?.text || "#475569" }}>
                               {task.status}
                             </span>
@@ -1064,6 +1072,11 @@ export function ClientTasksPage({ role }: Props) {
                           {t.client_name || "General"}
                         </td>
                         <td style={{ padding: "12px 16px", fontWeight: 600, color: "var(--color-text, #18231F)" }}>
+                          {t.code && (
+                            <span style={{ fontSize: "11px", fontWeight: 700, fontFamily: "monospace", color: "var(--color-text-secondary, #4A5568)", background: "var(--panel2, #F1F5F3)", padding: "2px 6px", borderRadius: "4px", border: "1px solid var(--border, #DCE3E0)", marginRight: "8px" }}>
+                              {t.code}
+                            </span>
+                          )}
                           {t.title}
                         </td>
                         <td style={{ padding: "12px 16px" }}>

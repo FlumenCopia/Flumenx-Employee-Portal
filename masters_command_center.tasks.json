@@ -1,0 +1,1711 @@
+[{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5c9"
+  },
+  "code": "EXP-001",
+  "title": "Expo logo design + brand lockup",
+  "desc": "Primary expo logo, variants, and lockup with Masters identity. Submitted to client group.",
+  "type": "design",
+  "phase": "ph1",
+  "assignee": "u_sreejith",
+  "reviewer": "u_anoop",
+  "due": "2026-07-22",
+  "hours": 8,
+  "deliverable": null,
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T09:42:50.796Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5ca"
+  },
+  "code": "EXP-002",
+  "title": "Brand kit + social templates (FB/IG)",
+  "desc": "Master template set so all 45 creatives stay visually consistent. Locked in Canva Pro.",
+  "type": "design",
+  "phase": "ph1",
+  "assignee": "u_sreejith",
+  "reviewer": "u_anurag",
+  "due": "2026-07-26",
+  "hours": 10,
+  "deliverable": null,
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd55c",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T10:57:25.572Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5cb"
+  },
+  "code": "EXP-003",
+  "title": "Meta Business Suite setup + pixel verification",
+  "desc": "Ad account, pixel fire test, custom conversions, audience seeds. Nothing runs until this is green.",
+  "type": "ads",
+  "phase": "ph1",
+  "assignee": "u_dishun",
+  "reviewer": "u_anoop",
+  "due": "2026-07-23",
+  "hours": 4,
+  "deliverable": "d_web",
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd576",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-31T08:51:06.791Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5cc"
+  },
+  "code": "EXP-004",
+  "title": "Google Analytics 4 + conversion events",
+  "desc": "GA4 property, registration event, pre-reg click event, UTM convention doc.",
+  "type": "it",
+  "phase": "ph1",
+  "assignee": "u_akhil",
+  "reviewer": "u_dishun",
+  "due": "2026-07-24",
+  "hours": 5,
+  "deliverable": "d_web",
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd576",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T09:32:53.797Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5cd"
+  },
+  "code": "EXP-005",
+  "title": "Website update — dates, venue, CTAs above fold",
+  "desc": "expokerala.com currently shows old dates. Highest-priority credibility fix.",
+  "type": "it",
+  "phase": "ph1",
+  "assignee": "u_akhil",
+  "reviewer": "u_anurag",
+  "due": "2026-07-27",
+  "hours": 6,
+  "deliverable": "d_web",
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-05T17:30:29.379Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5ce"
+  },
+  "code": "EXP-006",
+  "title": "73-day content calendar — full plan",
+  "desc": "Week-by-week content and ad plan for the full campaign. Approved by Masters before Phase 2.",
+  "type": "ops",
+  "phase": "ph1",
+  "assignee": "u_dishun",
+  "reviewer": "u_anoop",
+  "due": "2026-07-25",
+  "hours": 9,
+  "deliverable": "d_cal",
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd55c",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T10:58:27.139Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5cf"
+  },
+  "code": "EXP-007",
+  "title": "Google Ads account + Search campaign build",
+  "desc": "Brand + intent keywords. Build documented in shared sheet for team continuity.",
+  "type": "ads",
+  "phase": "ph1",
+  "assignee": "u_shibin",
+  "reviewer": "u_dishun",
+  "due": "2026-07-28",
+  "hours": 6,
+  "deliverable": null,
+  "status": "published",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd571",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-19T07:27:35.953Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5d0"
+  },
+  "code": "EXP-008",
+  "title": "Pre-registration landing page build",
+  "desc": "One-screen page, name + phone, Add-to-Calendar button, data to Sheets. Akhil supervises.",
+  "type": "it",
+  "phase": "ph1",
+  "assignee": "u_nithin",
+  "reviewer": "u_akhil",
+  "due": "2026-07-30",
+  "hours": 10,
+  "deliverable": "d_prereg",
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c771ea8323174114a587b",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T17:37:49.118Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5d1"
+  },
+  "code": "EXP-009",
+  "title": "Calendar integration + reminder automation",
+  "desc": "AddEvent integration, Google/Apple calendar, 3-step reminder chain (7d / 2d / morning).",
+  "type": "it",
+  "phase": "ph1",
+  "assignee": "u_akhil",
+  "reviewer": "u_dishun",
+  "due": "2026-08-01",
+  "hours": 7,
+  "deliverable": "d_prereg",
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-05T17:30:17.373Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5d2"
+  },
+  "code": "EXP-010",
+  "title": "Save-the-Date creative set (6 pieces)",
+  "desc": "FB, IG feed + story sizes. Bilingual (Malayalam + English).",
+  "type": "design",
+  "phase": "ph1",
+  "assignee": "u_abi",
+  "reviewer": "u_sreejith",
+  "due": "2026-07-28",
+  "hours": 7,
+  "deliverable": "d_poster",
+  "status": "published",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd571",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-06T10:13:15.674Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5d3"
+  },
+  "code": "EXP-011",
+  "title": "Teaser reel #1 — venue walkthrough (30s)",
+  "desc": "Shoot at LuLu Mall. Establishes scale and location credibility.",
+  "type": "video",
+  "phase": "ph1",
+  "assignee": "u_editor",
+  "reviewer": "u_nikhil",
+  "due": "2026-07-30",
+  "hours": 8,
+  "deliverable": "d_vshoot",
+  "status": "approved",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd576",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-03T11:26:58.313Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5d4"
+  },
+  "code": "EXP-012",
+  "title": "Campaign copy bank — 30 captions (bilingual)",
+  "desc": "Pre-written caption bank so publishing never stalls waiting on copy.",
+  "type": "content",
+  "phase": "ph1",
+  "assignee": "u_nikhil",
+  "reviewer": "u_dishun",
+  "due": "2026-08-01",
+  "hours": 8,
+  "deliverable": null,
+  "status": "published",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd571",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-18T09:12:10.939Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5d5"
+  },
+  "code": "EXP-013",
+  "title": "WhatsApp broadcast #1 — stall booking open",
+  "desc": "To 700+ MNRE members. Highest-conversion channel — must go before paid spend scales.",
+  "type": "ops",
+  "phase": "ph1",
+  "assignee": "u_goutham",
+  "reviewer": "u_anurag",
+  "due": "2026-07-29",
+  "hours": 3,
+  "deliverable": "d_wa",
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c771ea8323174114a587b",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T17:37:49.527Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5d6"
+  },
+  "code": "EXP-014",
+  "title": "Facebook awareness campaign — Trivandrum geo",
+  "desc": "Families, homeowners, bill >Rs.1500/mo. Rs.20K Phase 1 allocation.",
+  "type": "ads",
+  "phase": "ph1",
+  "assignee": "u_dishun",
+  "reviewer": "u_anoop",
+  "due": "2026-07-31",
+  "hours": 5,
+  "deliverable": null,
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd576",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-14T10:14:14.514Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5d7"
+  },
+  "code": "EXP-015",
+  "title": "Client agreement + advance invoice",
+  "desc": "50% advance. Follow up daily until cleared — campaign spend is blocked on this.",
+  "type": "ops",
+  "phase": "ph1",
+  "assignee": "u_anandhu",
+  "reviewer": "u_anoop",
+  "due": "2026-07-24",
+  "hours": 3,
+  "deliverable": null,
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-03T12:24:24.350Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5d8"
+  },
+  "code": "EXP-016",
+  "title": "Admin access collection from Masters team",
+  "desc": "FB page, IG, LinkedIn, YouTube, GSC, website backend. Blocker for almost everything.",
+  "type": "client",
+  "phase": "ph1",
+  "assignee": "u_anurag",
+  "reviewer": "u_anoop",
+  "due": "2026-07-23",
+  "hours": 2,
+  "deliverable": null,
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd576",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-31T08:51:20.516Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5d9"
+  },
+  "code": "EXP-017",
+  "title": "Vendor/speaker content brief request to Masters",
+  "desc": "Floor plan, confirmed speakers + bios, Year 3 photos, stall pricing.",
+  "type": "client",
+  "phase": "ph1",
+  "assignee": "u_anurag",
+  "reviewer": "u_anoop",
+  "due": "2026-07-27",
+  "hours": 2,
+  "deliverable": null,
+  "status": "published",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd571",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-18T09:12:15.270Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5da"
+  },
+  "code": "EXP-018",
+  "title": "Meta Lead Ads — vendor stall campaign",
+  "desc": "Instant form, stall pricing visual, floor plan creative. Primary B2B lead engine.",
+  "type": "ads",
+  "phase": "ph2",
+  "assignee": "u_dishun",
+  "reviewer": "u_anoop",
+  "due": "2026-08-06",
+  "hours": 6,
+  "deliverable": null,
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd571",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-18T09:12:25.219Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5db"
+  },
+  "code": "EXP-019",
+  "title": "Pre-registration push campaign live",
+  "desc": "\"Secure your visit + get a reminder\" CTA across FB + IG.",
+  "type": "ads",
+  "phase": "ph2",
+  "assignee": "u_goutham",
+  "reviewer": "u_dishun",
+  "due": "2026-08-08",
+  "hours": 5,
+  "deliverable": null,
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-19T10:41:59.403Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5dc"
+  },
+  "code": "EXP-020",
+  "title": "Vendor spotlight creative series (8 posters)",
+  "desc": "Year 3 alumni testimonials — ROI they achieved. Social proof for stall sales.",
+  "type": "design",
+  "phase": "ph2",
+  "assignee": "u_abi",
+  "reviewer": "u_sreejith",
+  "due": "2026-08-12",
+  "hours": 9,
+  "deliverable": "d_poster",
+  "status": "backlog",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5dd"
+  },
+  "code": "EXP-021",
+  "title": "Sector creative series (10 posters)",
+  "desc": "Solar for homes / farms / hotels / factories. Cross-sector relevance.",
+  "type": "design",
+  "phase": "ph2",
+  "assignee": "u_abi",
+  "reviewer": "u_sreejith",
+  "due": "2026-08-20",
+  "hours": 11,
+  "deliverable": "d_poster",
+  "status": "published",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-19T10:44:37.290Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5de"
+  },
+  "code": "EXP-022",
+  "title": "Hero creative set — family bill angle (6 posters)",
+  "desc": "\"Cut your electricity bill\" — primary consumer hook. Needs strongest creative treatment.",
+  "type": "design",
+  "phase": "ph2",
+  "assignee": "u_sreejith",
+  "reviewer": "u_anoop",
+  "due": "2026-08-10",
+  "hours": 9,
+  "deliverable": "d_poster",
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-19T10:21:48.731Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5df"
+  },
+  "code": "EXP-023",
+  "title": "Reel: electricity bill vs solar (motion)",
+  "desc": "Animated cost comparison. Highest expected share rate of the campaign.",
+  "type": "video",
+  "phase": "ph2",
+  "assignee": "u_editor",
+  "reviewer": "u_nikhil",
+  "due": "2026-08-11",
+  "hours": 9,
+  "deliverable": "d_vmotion",
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-19T10:49:46.013Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5e0"
+  },
+  "code": "EXP-024",
+  "title": "Speaker announcement motion series (4 videos)",
+  "desc": "One per week drop. Template-driven so turnaround stays fast.",
+  "type": "video",
+  "phase": "ph2",
+  "assignee": "u_editor",
+  "reviewer": "u_dishun",
+  "due": "2026-08-26",
+  "hours": 12,
+  "deliverable": "d_vmotion",
+  "status": "backlog",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5e1"
+  },
+  "code": "EXP-025",
+  "title": "Venue + stall setup shoot (2 videos)",
+  "desc": "On-location at LuLu. Scale and readiness proof for vendors.",
+  "type": "video",
+  "phase": "ph2",
+  "assignee": "u_editor",
+  "reviewer": "u_anurag",
+  "due": "2026-08-22",
+  "hours": 9,
+  "deliverable": "d_vshoot",
+  "status": "backlog",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5e2"
+  },
+  "code": "EXP-026",
+  "title": "WhatsApp broadcast #2 — pre-reg + stall deadline",
+  "desc": "Pre-registration link + stall booking cut-off date.",
+  "type": "ops",
+  "phase": "ph2",
+  "assignee": "u_goutham",
+  "reviewer": "u_anurag",
+  "due": "2026-08-14",
+  "hours": 3,
+  "deliverable": "d_wa",
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.498Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5e3"
+  },
+  "code": "EXP-027",
+  "title": "Facebook Events campaign — Trivandrum district",
+  "desc": "FB Event object + paid promotion. Native RSVP feeds pre-reg count.",
+  "type": "ads",
+  "phase": "ph2",
+  "assignee": "u_shibin",
+  "reviewer": "u_dishun",
+  "due": "2026-08-09",
+  "hours": 4,
+  "deliverable": null,
+  "status": "published",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-19T10:42:36.872Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5e4"
+  },
+  "code": "EXP-028",
+  "title": "Google Display retargeting — all site visitors",
+  "desc": "Retarget Phase 1 traffic. Cheapest conversions in the campaign.",
+  "type": "ads",
+  "phase": "ph2",
+  "assignee": "u_shibin",
+  "reviewer": "u_dishun",
+  "due": "2026-08-13",
+  "hours": 4,
+  "deliverable": null,
+  "status": "published",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-19T10:44:09.034Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5e5"
+  },
+  "code": "EXP-029",
+  "title": "SEO blog #1 — Kerala solar buyer guide",
+  "desc": "Keyword-targeted, published on expokerala.com with internal links to pre-reg.",
+  "type": "content",
+  "phase": "ph2",
+  "assignee": "u_nikhil",
+  "reviewer": "u_dishun",
+  "due": "2026-08-18",
+  "hours": 6,
+  "deliverable": "d_seo",
+  "status": "published",
+  "priority": "p2",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-19T10:43:04.833Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5e6"
+  },
+  "code": "EXP-030",
+  "title": "Print asset pack — badges, standees, signage",
+  "desc": "Print-ready files handed to Masters for production. Long lead time — do not delay.",
+  "type": "design",
+  "phase": "ph2",
+  "assignee": "u_abi",
+  "reviewer": "u_anurag",
+  "due": "2026-08-28",
+  "hours": 10,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd55c",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T08:27:13.069Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5e7"
+  },
+  "code": "EXP-031",
+  "title": "Mid-campaign performance report #1",
+  "desc": "Spend vs budget, leads, reach, pre-reg count. Delivered to Masters leadership.",
+  "type": "ops",
+  "phase": "ph2",
+  "assignee": "u_goutham",
+  "reviewer": "u_anoop",
+  "due": "2026-08-20",
+  "hours": 5,
+  "deliverable": "d_report",
+  "status": "progress",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-19T10:43:07.571Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5e8"
+  },
+  "code": "EXP-032",
+  "title": "Campaign handover documentation pack",
+  "desc": "All ad account structures, audiences, and logins documented so any team member can pick up any campaign without ramp-up.",
+  "type": "ops",
+  "phase": "ph2",
+  "assignee": "u_shibin",
+  "reviewer": "u_anurag",
+  "due": "2026-08-16",
+  "hours": 6,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5e9"
+  },
+  "code": "EXP-033",
+  "title": "Creative refresh — swap fatigued ad creatives",
+  "desc": "Replace lowest-CTR creatives. Scheduled refresh prevents mid-campaign decay.",
+  "type": "design",
+  "phase": "ph2",
+  "assignee": "u_sreejith",
+  "reviewer": "u_dishun",
+  "due": "2026-08-24",
+  "hours": 6,
+  "deliverable": "d_poster",
+  "status": "published",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-19T10:44:48.447Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5ea"
+  },
+  "code": "EXP-034",
+  "title": "Peak spend reallocation — all platforms",
+  "desc": "Rs.1.1L concentrated in this phase. Shift budget to proven ad sets only.",
+  "type": "ads",
+  "phase": "ph3",
+  "assignee": "u_dishun",
+  "reviewer": "u_anoop",
+  "due": "2026-09-02",
+  "hours": 5,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5eb"
+  },
+  "code": "EXP-035",
+  "title": "Countdown creative series (12 posters)",
+  "desc": "25 / 20 / 15 / 10 / 7 / 5 / 3 / 2 / 1 day countdown + 3 spare. Batch-produced upfront.",
+  "type": "design",
+  "phase": "ph3",
+  "assignee": "u_abi",
+  "reviewer": "u_sreejith",
+  "due": "2026-09-08",
+  "hours": 12,
+  "deliverable": "d_poster",
+  "status": "published",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd571",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-20T07:08:16.812Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5ec"
+  },
+  "code": "EXP-036",
+  "title": "\"Stalls filling fast\" urgency campaign",
+  "desc": "Scarcity messaging for final vendor conversions.",
+  "type": "ads",
+  "phase": "ph3",
+  "assignee": "u_dishun",
+  "reviewer": "u_anurag",
+  "due": "2026-09-05",
+  "hours": 4,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5ed"
+  },
+  "code": "EXP-037",
+  "title": "BTS reel — venue setup (2 videos)",
+  "desc": "Build-up footage creates anticipation and proves scale.",
+  "type": "video",
+  "phase": "ph3",
+  "assignee": "u_editor",
+  "reviewer": "u_nikhil",
+  "due": "2026-09-14",
+  "hours": 9,
+  "deliverable": "d_vshoot",
+  "status": "backlog",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5ee"
+  },
+  "code": "EXP-038",
+  "title": "Motion graphics pack — seminar + speaker promos (4)",
+  "desc": "Program schedule, seminar highlights, talk show promos.",
+  "type": "video",
+  "phase": "ph3",
+  "assignee": "u_editor",
+  "reviewer": "u_dishun",
+  "due": "2026-09-16",
+  "hours": 12,
+  "deliverable": "d_vmotion",
+  "status": "backlog",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5ef"
+  },
+  "code": "EXP-039",
+  "title": "Public walk-in registration campaign — max push",
+  "desc": "Highest-budget consumer campaign. Free entry + pre-reg reminder hook.",
+  "type": "ads",
+  "phase": "ph3",
+  "assignee": "u_goutham",
+  "reviewer": "u_dishun",
+  "due": "2026-09-06",
+  "hours": 6,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5f0"
+  },
+  "code": "EXP-040",
+  "title": "WhatsApp broadcast #3 — final stall call",
+  "desc": "\"10 days to close stall bookings\" — last B2B conversion push.",
+  "type": "ops",
+  "phase": "ph3",
+  "assignee": "u_goutham",
+  "reviewer": "u_anurag",
+  "due": "2026-09-10",
+  "hours": 3,
+  "deliverable": "d_wa",
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5f1"
+  },
+  "code": "EXP-041",
+  "title": "SEO blog #2 — what to expect at the expo",
+  "desc": "Visitor-intent article driving pre-registration clicks.",
+  "type": "content",
+  "phase": "ph3",
+  "assignee": "u_nikhil",
+  "reviewer": "u_dishun",
+  "due": "2026-09-12",
+  "hours": 6,
+  "deliverable": "d_seo",
+  "status": "backlog",
+  "priority": "p2",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5f2"
+  },
+  "code": "EXP-042",
+  "title": "Pre-reg reminder wave — first automated trigger",
+  "desc": "7-day reminder fires to all pre-registered visitors. Verify delivery rate.",
+  "type": "it",
+  "phase": "ph3",
+  "assignee": "u_akhil",
+  "reviewer": "u_dishun",
+  "due": "2026-09-18",
+  "hours": 3,
+  "deliverable": "d_prereg",
+  "status": "progress",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-05T17:31:13.518Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5f3"
+  },
+  "code": "EXP-043",
+  "title": "Event-week content batch — pre-schedule everything",
+  "desc": "All event-week posts scheduled in advance so the team is free for live coverage.",
+  "type": "ops",
+  "phase": "ph3",
+  "assignee": "u_goutham",
+  "reviewer": "u_dishun",
+  "due": "2026-09-19",
+  "hours": 6,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5f4"
+  },
+  "code": "EXP-044",
+  "title": "Quality audit — full creative + campaign review",
+  "desc": "Verify every contracted deliverable is on track before the final sprint.",
+  "type": "ops",
+  "phase": "ph3",
+  "assignee": "u_abison",
+  "reviewer": "u_anoop",
+  "due": "2026-09-15",
+  "hours": 5,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5f5"
+  },
+  "code": "EXP-045",
+  "title": "Final 4-day countdown reels (3 videos)",
+  "desc": "\"3 days / Tomorrow / Today\" — fast motion edits, pre-built templates.",
+  "type": "video",
+  "phase": "ph4",
+  "assignee": "u_editor",
+  "reviewer": "u_nikhil",
+  "due": "2026-09-22",
+  "hours": 8,
+  "deliverable": "d_vmotion",
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5f6"
+  },
+  "code": "EXP-046",
+  "title": "WhatsApp broadcast #4 — event starts Friday",
+  "desc": "Final blast. Free entry, timings, venue directions.",
+  "type": "ops",
+  "phase": "ph4",
+  "assignee": "u_goutham",
+  "reviewer": "u_anurag",
+  "due": "2026-09-23",
+  "hours": 2,
+  "deliverable": "d_wa",
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5f7"
+  },
+  "code": "EXP-047",
+  "title": "Automated calendar reminders — final trigger",
+  "desc": "2-day and morning-of reminders fire to full pre-reg list.",
+  "type": "it",
+  "phase": "ph4",
+  "assignee": "u_akhil",
+  "reviewer": "u_dishun",
+  "due": "2026-09-24",
+  "hours": 2,
+  "deliverable": "d_prereg",
+  "status": "assigned",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-04T08:36:40.818Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5f8"
+  },
+  "code": "EXP-048",
+  "title": "Budget burn-down — spend every remaining rupee",
+  "desc": "No unspent ad budget at event start. Shift all to top-performing sets.",
+  "type": "ads",
+  "phase": "ph4",
+  "assignee": "u_dishun",
+  "reviewer": "u_anoop",
+  "due": "2026-09-24",
+  "hours": 4,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5f9"
+  },
+  "code": "EXP-049",
+  "title": "Event-day logistics + team roster confirm",
+  "desc": "Who is on floor which day, shift timings, equipment, client contact protocol.",
+  "type": "ops",
+  "phase": "ph4",
+  "assignee": "u_anurag",
+  "reviewer": "u_anoop",
+  "due": "2026-09-23",
+  "hours": 3,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5fa"
+  },
+  "code": "EXP-050",
+  "title": "Day 1 — live stories + same-day recap reel",
+  "desc": "Shoot through the day, edit and publish by evening.",
+  "type": "video",
+  "phase": "ph5",
+  "assignee": "u_editor",
+  "reviewer": "u_anurag",
+  "due": "2026-09-25",
+  "hours": 8,
+  "deliverable": "d_vshoot",
+  "status": "progress",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd569",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-08-10T05:48:19.370Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5fb"
+  },
+  "code": "EXP-051",
+  "title": "Day 2 — live stories + same-day recap reel",
+  "desc": "Peak footfall day. Capture crowd density for social proof.",
+  "type": "video",
+  "phase": "ph5",
+  "assignee": "u_editor",
+  "reviewer": "u_anurag",
+  "due": "2026-09-26",
+  "hours": 8,
+  "deliverable": "d_vshoot",
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5fc"
+  },
+  "code": "EXP-052",
+  "title": "Day 3 — live stories + closing recap reel",
+  "desc": "Final day, closing ceremony, winner announcements.",
+  "type": "video",
+  "phase": "ph5",
+  "assignee": "u_editor",
+  "reviewer": "u_anurag",
+  "due": "2026-09-27",
+  "hours": 8,
+  "deliverable": "d_vshoot",
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5fd"
+  },
+  "code": "EXP-053",
+  "title": "Live social coverage — all 3 days",
+  "desc": "Real-time stories, floor posts, engagement handling across FB + IG.",
+  "type": "ads",
+  "phase": "ph5",
+  "assignee": "u_goutham",
+  "reviewer": "u_dishun",
+  "due": "2026-09-27",
+  "hours": 12,
+  "deliverable": "d_social",
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.499Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5fe"
+  },
+  "code": "EXP-054",
+  "title": "Footfall + lead data capture (all 3 days)",
+  "desc": "Actual entry counts, vendor feedback, sponsor conversations. Feeds the final report.",
+  "type": "ops",
+  "phase": "ph5",
+  "assignee": "u_anurag",
+  "reviewer": "u_anoop",
+  "due": "2026-09-27",
+  "hours": 6,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": null,
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.500Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T05:32:44.500Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd5ff"
+  },
+  "code": "EXP-055",
+  "title": "Testimonial capture — vendors + visitors",
+  "desc": "Raw clips for Year 5 campaign assets. Capture on Day 2 when energy is highest.",
+  "type": "video",
+  "phase": "ph5",
+  "assignee": "u_editor",
+  "reviewer": "u_anurag",
+  "due": "2026-09-27",
+  "hours": 5,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd55c",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.500Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T06:03:00.874Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd600"
+  },
+  "code": "EXP-056",
+  "title": "Post-event success posts (4 creatives)",
+  "desc": "Footfall achieved, thank-you, highlights carousel. Published within 48 hours.",
+  "type": "design",
+  "phase": "ph5",
+  "assignee": "u_abi",
+  "reviewer": "u_sreejith",
+  "due": "2026-09-29",
+  "hours": 5,
+  "deliverable": "d_poster",
+  "status": "backlog",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd55c",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.500Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T06:02:57.892Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd601"
+  },
+  "code": "EXP-057",
+  "title": "Final campaign report + ROI summary",
+  "desc": "Full actual-vs-target. Spend, leads, reach, footfall, pre-reg conversion.",
+  "type": "ops",
+  "phase": "ph5",
+  "assignee": "u_goutham",
+  "reviewer": "u_anoop",
+  "due": "2026-09-29",
+  "hours": 7,
+  "deliverable": "d_report",
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd55c",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.500Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T08:26:31.860Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd602"
+  },
+  "code": "EXP-058",
+  "title": "Year 5 asset vault handover",
+  "desc": "Organised folder: all creatives, raw footage, testimonials, reports. Reusable next year.",
+  "type": "ops",
+  "phase": "ph5",
+  "assignee": "u_abison",
+  "reviewer": "u_anoop",
+  "due": "2026-09-29",
+  "hours": 4,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p1",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd55c",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.500Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T08:26:36.055Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6a6c337c199bd067570bd603"
+  },
+  "code": "EXP-059",
+  "title": "Final invoice + project closure",
+  "desc": "Balance 50% invoice raised on delivery of final report.",
+  "type": "ops",
+  "phase": "ph5",
+  "assignee": "u_anandhu",
+  "reviewer": "u_anoop",
+  "due": "2026-09-29",
+  "hours": 2,
+  "deliverable": null,
+  "status": "backlog",
+  "priority": "p0",
+  "isActive": true,
+  "isDeleted": false,
+  "createdBy": null,
+  "updatedBy": "6a6c337a199bd067570bd55c",
+  "deletedBy": null,
+  "__v": 0,
+  "createdAt": {
+    "$date": "2026-07-31T05:32:44.500Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-31T08:26:28.804Z"
+  }
+}]
