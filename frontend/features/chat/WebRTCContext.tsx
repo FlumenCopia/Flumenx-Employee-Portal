@@ -111,6 +111,15 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   const incomingOfferRef = useRef<any>(null);
   const activeCallRef = useRef<ActiveCall | null>(null);
   activeCallRef.current = activeCall;
+  const localStreamRef = useRef<MediaStream | null>(null);
+  localStreamRef.current = localStream;
+
+  // Request browser Notification permission on mount for calls & chats
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
 
   // Call Ringing Lifecycle (Sound Effects)
   useEffect(() => {
@@ -314,6 +323,22 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
         roomId: data.roomId,
         isGroup: data.isGroup || false,
       });
+
+      // Browser Native Notification (rings/alerts even if minimized or on other tabs)
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        try {
+          const notif = new Notification(`${data.callerName || "Colleague"} is calling...`, {
+            body: `Incoming ${data.isGroup ? "Group " : ""}${data.callType === "video" ? "Video" : "Voice"} Call. Click to answer.`,
+            icon: data.callerAvatar || "/icon.png",
+            requireInteraction: true,
+            tag: "flumenx-incoming-call",
+          });
+          notif.onclick = () => {
+            window.focus();
+            notif.close();
+          };
+        } catch {}
+      }
     };
 
     const handleCallAccepted = async (data: {
@@ -370,7 +395,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       avatar?: string;
       callType?: CallType;
     }) => {
-      let stream = localStream;
+      let stream = localStreamRef.current;
       if (!stream) {
         stream = await acquireMediaStream(activeCallRef.current?.callType || "video");
         if (stream) setLocalStream(stream);
@@ -413,7 +438,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       avatar?: string;
       roomId?: string;
     }) => {
-      let stream = localStream;
+      let stream = localStreamRef.current;
       if (!stream) {
         stream = await acquireMediaStream(activeCallRef.current?.callType || "video");
         if (stream) setLocalStream(stream);
@@ -557,6 +582,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   }) => {
     const socket = getGlobalSocket();
 
+    const roomId = params.conversationId ? `room_${params.conversationId}` : `call_${params.toUserId}_${Date.now()}`;
+
     // 1. Instantly display Outgoing Call UI Modal
     setActiveCall({
       mode: "outgoing",
@@ -565,6 +592,14 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       partnerName: params.partnerName,
       partnerAvatar: params.partnerAvatar,
       conversationId: params.conversationId,
+      roomId,
+    });
+
+    // Join room so caller is in room for multi-party mesh
+    socket?.emit("call:join-room", {
+      roomId,
+      name: "Me",
+      callType: params.callType,
     });
 
     // 2. Trigger REST API call initiation so HTTP request shows in Network tab and notifies server
@@ -631,6 +666,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
           callType: params.callType,
           sdpOffer: offer,
           conversationId: params.conversationId,
+          roomId,
         });
       }
     } catch (err: any) {
@@ -647,6 +683,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     memberIds?: string[];
   }) => {
     const socket = getGlobalSocket();
+    const roomId = `room_${params.conversationId}`;
 
     setActiveCall({
       mode: "outgoing",
@@ -654,6 +691,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       partnerId: params.conversationId,
       partnerName: `${params.conversationName}`,
       conversationId: params.conversationId,
+      roomId,
       isGroup: true,
       participants: [],
     });
@@ -667,40 +705,17 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       }
       setLocalStream(stream);
 
-      const pc = new RTCPeerConnection(ICE_SERVERS);
-      peerConnectionRef.current = pc;
-      pendingLocalCandidatesRef.current = [];
-      pendingRemoteCandidatesRef.current = [];
-
-      stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream);
+      // Caller joins room
+      socket?.emit("call:join-room", {
+        roomId,
+        name: "Me",
+        callType: params.callType,
       });
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate && activeCallRef.current?.partnerSocketId) {
-          socket?.emit("call:ice-candidate", {
-            toSocketId: activeCallRef.current.partnerSocketId,
-            candidate: event.candidate,
-          });
-        }
-      };
-
-      pc.ontrack = (event) => {
-        if (event.streams && event.streams[0]) {
-          setRemoteStream(event.streams[0]);
-        } else if (event.track) {
-          setRemoteStream(new MediaStream([event.track]));
-        }
-      };
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
 
       socket?.emit("call:group-start", {
         conversationId: params.conversationId,
         conversationName: params.conversationName,
         callType: params.callType,
-        sdpOffer: offer,
       });
     } catch (err: any) {
       console.error("Failed to start group call:", err);
@@ -715,7 +730,14 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     const targetId = String(params.userId || params.id || "");
     if (!targetId) return;
 
-    const roomId = activeCall.roomId || activeCall.conversationId || `call_${activeCall.partnerId}`;
+    const roomId = activeCall.roomId || (activeCall.conversationId ? `room_${activeCall.conversationId}` : `call_${activeCall.partnerId}`);
+
+    // Ensure the inviter is in the room
+    socket.emit("call:join-room", {
+      roomId,
+      name: "Me",
+      callType: activeCall.callType,
+    });
 
     socket.emit("call:invite-user", {
       toUserId: targetId,
@@ -745,7 +767,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   // Accept incoming call
   const acceptCall = async () => {
     const socket = getGlobalSocket();
-    if (!activeCall || !activeCall.partnerSocketId || !socket) return;
+    if (!activeCall || !socket) return;
 
     try {
       const stream = await acquireMediaStream(activeCall.callType);
@@ -756,39 +778,40 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       }
       setLocalStream(stream);
 
-      const pc = createPeerConnection(activeCall.partnerSocketId);
+      // 1. If 1:1 direct SDP offer is present, answer it
+      if (incomingOfferRef.current && activeCall.partnerSocketId) {
+        const pc = createPeerConnection(activeCall.partnerSocketId);
 
-      stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream);
-      });
+        stream.getTracks().forEach((track) => {
+          pc.addTrack(track, stream);
+        });
 
-      if (incomingOfferRef.current) {
         await pc.setRemoteDescription(new RTCSessionDescription(incomingOfferRef.current));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        socket.emit("call:accept", {
+          toSocketId: activeCall.partnerSocketId,
+          sdpAnswer: answer,
+          roomId: activeCall.roomId,
+        });
+
+        // Process any queued candidates received before setRemoteDescription
+        while (pendingRemoteCandidatesRef.current.length > 0) {
+          const cand = pendingRemoteCandidatesRef.current.shift();
+          if (cand) {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          }
+        }
       }
 
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-
-      socket.emit("call:accept", {
-        toSocketId: activeCall.partnerSocketId,
-        sdpAnswer: answer,
-        roomId: activeCall.roomId,
-      });
-
+      // 2. If this call has a roomId (group call or colleague added), join the mesh room
       if (activeCall.roomId) {
         socket.emit("call:join-room", {
           roomId: activeCall.roomId,
           name: activeCall.partnerName,
           callType: activeCall.callType,
         });
-      }
-
-      // Process any queued candidates received before setRemoteDescription
-      while (pendingRemoteCandidatesRef.current.length > 0) {
-        const cand = pendingRemoteCandidatesRef.current.shift();
-        if (cand) {
-          await pc.addIceCandidate(new RTCIceCandidate(cand));
-        }
       }
 
       setActiveCall((prev) => (prev ? { ...prev, mode: "connected" } : null));

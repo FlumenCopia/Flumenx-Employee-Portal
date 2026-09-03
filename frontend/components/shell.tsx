@@ -13,6 +13,7 @@ import { PwaInstallButton } from "./PwaInstallButton";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { getGlobalSocket } from "@/lib/socket";
+import { toast } from "@/components/ToastContext";
 
 const dynamicNavCache: Record<string, readonly (readonly [string, string, any])[]> = {};
 
@@ -427,6 +428,35 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
     const socket = getGlobalSocket();
     if (!socket) return;
     socket.emit("presence:get-online-users");
+
+    const handleNewMessage = (data: { conversationId: string; message: any }) => {
+      const msg = data?.message;
+      if (!msg) return;
+      const currentUserId = user.id || (user as any)._id;
+      const senderId = msg.sender?._id || msg.sender?.id || msg.sender;
+      if (senderId && String(senderId) !== String(currentUserId)) {
+        const isOnChat = typeof window !== "undefined" && window.location.pathname.includes("/chat");
+        if (!isOnChat) {
+          const senderName = msg.sender?.name || (msg.sender?.firstName ? `${msg.sender.firstName} ${msg.sender.lastName || ''}`.trim() : "Colleague");
+          toast.info(`💬 ${senderName}: ${msg.content || (msg.attachments?.length ? 'Sent an attachment' : 'New message')}`);
+
+          if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+            try {
+              new Notification(`New message from ${senderName}`, {
+                body: msg.content || "Sent an attachment",
+                icon: msg.sender?.avatar || "/icon.png",
+                tag: `msg-${data.conversationId}`,
+              });
+            } catch {}
+          }
+        }
+      }
+    };
+
+    socket.on("chat:new-message", handleNewMessage);
+    return () => {
+      socket.off("chat:new-message", handleNewMessage);
+    };
   }, [user]);
 
   useEffect(() => {

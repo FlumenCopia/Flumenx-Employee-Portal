@@ -53,6 +53,20 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
       socket.employee = emp;
 
       socket.join(`user:${uId}`);
+      if (emp?._id) {
+        socket.join(`employee:${emp._id.toString()}`);
+        socket.join(`user:${emp._id.toString()}`);
+      }
+
+      // Auto-join all conversation rooms for this user so they receive new messages & calls on ANY page
+      ChatConversation.find({ 'participants.user': uId })
+        .select('_id')
+        .then((userConvs) => {
+          userConvs.forEach((c) => {
+            socket.join(`conversation:${c._id.toString()}`);
+          });
+        })
+        .catch(() => {});
 
       const userName =
         emp?.name ||
@@ -221,8 +235,9 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
       callType: 'audio' | 'video';
       sdpOffer?: any;
       conversationId?: string;
+      roomId?: string;
     }) => {
-      const { toUserId, callType, sdpOffer, conversationId } = data;
+      const { toUserId, callType, sdpOffer, conversationId, roomId } = data;
       const uId = socket.userId;
       const u = socket.user;
       const emp = socket.employee;
@@ -276,7 +291,8 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
         });
       }
 
-      const roomId = data.conversationId || `call_${uId}_${Date.now()}`;
+      const activeRoomId = roomId || (conversationId ? `room_${conversationId}` : `call_${uId}_${Date.now()}`);
+      socket.join(`call-room:${activeRoomId}`);
 
       io.to(`user:${resolvedUserId}`).emit('call:incoming', {
         fromUserId: uId,
@@ -286,10 +302,10 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
         callType,
         sdpOffer,
         conversationId,
-        roomId,
+        roomId: activeRoomId,
       });
 
-      socket.emit('call:ringing', { toUserId, roomId });
+      socket.emit('call:ringing', { toUserId, roomId: activeRoomId });
     });
 
     socket.on('call:group-start', async (data: {
@@ -314,14 +330,39 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
       const roomId = `room_${conversationId}`;
       socket.join(`call-room:${roomId}`);
 
-      // Broadcast call:incoming to all conversation members except caller
+      // Broadcast call:incoming directly to all member user rooms so it rings ON ANY PAGE
+      ChatConversation.findById(conversationId)
+        .select('participants name')
+        .then((conv) => {
+          if (conv && conv.participants) {
+            for (const p of conv.participants) {
+              const pUserId = (p as any).user ? (p as any).user.toString() : (p as any).toString();
+              if (pUserId && pUserId !== uId) {
+                io.to(`user:${pUserId}`).emit('call:incoming', {
+                  fromUserId: uId,
+                  fromSocketId: socket.id,
+                  callerName: `${callerName} (${conversationName || conv.name || 'Group'})`,
+                  callerAvatar,
+                  callType,
+                  sdpOffer: null, // mesh room: peer joins room and exchanges offers with everyone
+                  conversationId,
+                  roomId,
+                  isGroup: true,
+                });
+              }
+            }
+          }
+        })
+        .catch(() => {});
+
+      // Also broadcast to conversation room as fallback
       socket.to(`conversation:${conversationId}`).emit('call:incoming', {
         fromUserId: uId,
         fromSocketId: socket.id,
         callerName: `${callerName} (${conversationName || 'Group'})`,
         callerAvatar,
         callType,
-        sdpOffer,
+        sdpOffer: null,
         conversationId,
         roomId,
         isGroup: true,
@@ -385,15 +426,16 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
         });
       }
 
-      const activeRoomId = roomId || conversationId || `call_${uId}`;
+      const activeRoomId = roomId || (conversationId ? `room_${conversationId}` : `call_${uId}`);
+      socket.join(`call-room:${activeRoomId}`);
 
       io.to(`user:${resolvedUserId}`).emit('call:incoming', {
         fromUserId: uId,
         fromSocketId: socket.id,
-        callerName,
+        callerName: `${callerName} (Added you to Call)`,
         callerAvatar,
         callType,
-        sdpOffer,
+        sdpOffer: null, // mesh invite: peer joins room and exchanges offers with all peers
         conversationId,
         roomId: activeRoomId,
         isGroup: true,
