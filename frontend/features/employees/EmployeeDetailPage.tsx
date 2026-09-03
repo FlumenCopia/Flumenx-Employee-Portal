@@ -126,19 +126,19 @@ export function EmployeeDetailPage({ id, role }: { id: string; role?: "admin" | 
       .then((data) => {
         setProfile(data);
         if (data.salary_structure) {
-          setStructGross(data.salary_structure.gross_salary || 50000);
-          setStructBasic(data.salary_structure.basic_salary || 25000);
-          setStructHra(data.salary_structure.hra || 12500);
-          setStructConveyance(data.salary_structure.conveyance || 3000);
-          setStructSpecial(data.salary_structure.special_allowance || 9500);
-          setStructOther(data.salary_structure.other_allowances || 0);
-          setStructPfApplicable(data.salary_structure.pf_applicable);
-          setStructVoluntaryPf(data.salary_structure.voluntary_pf);
-          setStructEsiApplicable(data.salary_structure.esi_applicable);
-          setStructProfTaxApplicable(data.salary_structure.professional_tax_applicable);
-          setStructProfTax(data.salary_structure.professional_tax || 200);
-          setStructTdsApplicable(data.salary_structure.tds_applicable);
-          setStructTds(data.salary_structure.tds || 0);
+          setStructGross(data.salary_structure.gross_salary ?? 0);
+          setStructBasic(data.salary_structure.basic_salary ?? 0);
+          setStructHra(data.salary_structure.hra ?? 0);
+          setStructConveyance(data.salary_structure.conveyance ?? 0);
+          setStructSpecial(data.salary_structure.special_allowance ?? 0);
+          setStructOther(data.salary_structure.other_allowances ?? 0);
+          setStructPfApplicable(data.salary_structure.pf_applicable ?? false);
+          setStructVoluntaryPf(data.salary_structure.voluntary_pf ?? false);
+          setStructEsiApplicable(data.salary_structure.esi_applicable ?? false);
+          setStructProfTaxApplicable(data.salary_structure.professional_tax_applicable ?? false);
+          setStructProfTax(data.salary_structure.professional_tax ?? 0);
+          setStructTdsApplicable(data.salary_structure.tds_applicable ?? false);
+          setStructTds(data.salary_structure.tds ?? 0);
         }
       })
       .catch((err) => {
