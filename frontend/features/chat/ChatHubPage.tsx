@@ -139,9 +139,15 @@ export function ChatHubPage({ role }: Props) {
   const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [standupModalOpen, setStandupModalOpen] = useState(false);
 
-  // Group Call Member Selector Modal
   const [callPickerOpen, setCallPickerOpen] = useState(false);
   const [callPickerType, setCallPickerType] = useState<"audio" | "video">("audio");
+
+  // Forward Message Modal State
+  const [forwardModalOpen, setForwardModalOpen] = useState(false);
+  const [messageToForward, setMessageToForward] = useState<ChatMessageItem | null>(null);
+  const [forwardTargetIds, setForwardTargetIds] = useState<string[]>([]);
+  const [forwardSearchQuery, setForwardSearchQuery] = useState("");
+  const [forwardingLoading, setForwardingLoading] = useState(false);
 
   // Real-Time WebRTC Calling & Online Presence
   const { startCall } = useWebRTC();
@@ -402,15 +408,54 @@ export function ChatHubPage({ role }: Props) {
       }
     };
 
+    const handleMessagesRead = (data: { conversationId: string; userId: string; readAt?: string }) => {
+      if (String(data?.conversationId) === String(activeConversationId)) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            // If message was sent by self, it has now been seen by the other participant(s) -> 2 blue ticks!
+            String(m.sender_id) !== String(data.userId)
+              ? { ...m, is_read: true, is_delivered: true }
+              : m
+          )
+        );
+      }
+    };
+
+    const handleMessageDeleted = (data: { conversationId: string; messageId: string }) => {
+      if (String(data?.conversationId) === String(activeConversationId)) {
+        setMessages((prev) => prev.filter((m) => String(m.id) !== String(data.messageId)));
+      }
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (String(c.id) === String(data.conversationId)) {
+            return {
+              ...c,
+              last_message_text: "Message deleted",
+            };
+          }
+          return c;
+        })
+      );
+    };
+
     socket.on("chat:new-message", handleNewMessage);
     socket.on("chat_message", handleNewMessage);
     socket.on("chat:conversation-updated", handleConversationUpdated);
+    socket.on("chat:messages-read", handleMessagesRead);
+    socket.on("chat:message-deleted", handleMessageDeleted);
     socket.on("presence_update", handlePresence);
+
+    if (activeConversationId) {
+      socket.emit("chat:join-conversation", { conversationId: activeConversationId });
+      socket.emit("chat:mark-read", { conversationId: activeConversationId });
+    }
 
     return () => {
       socket.off("chat:new-message", handleNewMessage);
       socket.off("chat_message", handleNewMessage);
       socket.off("chat:conversation-updated", handleConversationUpdated);
+      socket.off("chat:messages-read", handleMessagesRead);
+      socket.off("chat:message-deleted", handleMessageDeleted);
       socket.off("presence_update", handlePresence);
       if (activeConversationId) {
         socket.emit("chat:leave-conversation", { conversationId: activeConversationId });
@@ -609,6 +654,64 @@ export function ChatHubPage({ role }: Props) {
       toast.success(res.is_pinned ? "Message pinned to top" : "Message unpinned");
     } catch (err: any) {
       toast.error("Failed to toggle pin");
+    }
+  };
+
+  const handleOpenForwardModal = (msg: ChatMessageItem) => {
+    setMessageToForward(msg);
+    setForwardTargetIds([]);
+    setForwardSearchQuery("");
+    setForwardModalOpen(true);
+  };
+
+  const handleForwardMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!messageToForward || forwardTargetIds.length === 0) {
+      toast.error("Please select at least one recipient");
+      return;
+    }
+    setForwardingLoading(true);
+    try {
+      const res = await api<{ success: boolean; count: number; messages: ChatMessageItem[] }>(
+        `/chat/messages/${messageToForward.id}/forward/`,
+        {
+          method: "POST",
+          body: JSON.stringify({ target_conversation_ids: forwardTargetIds }),
+        }
+      );
+
+      toast.success(`Message forwarded to ${forwardTargetIds.length} conversation${forwardTargetIds.length > 1 ? "s" : ""}`);
+      setForwardModalOpen(false);
+      setMessageToForward(null);
+      setForwardTargetIds([]);
+
+      // If forwarded to the currently open conversation, append immediately
+      if (res?.messages) {
+        const matchingCurrent = res.messages.find(
+          (m) => String(m.conversation_id) === String(activeConversationId)
+        );
+        if (matchingCurrent) {
+          setMessages((prev) => [...prev, { ...matchingCurrent, is_self: true }]);
+          setTimeout(() => scrollToBottom("smooth"), 50);
+        }
+      }
+      loadConversations(true);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to forward message");
+    } finally {
+      setForwardingLoading(false);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string | number) => {
+    if (!confirm("Delete this message for everyone in this chat?")) return;
+    try {
+      await api(`/chat/messages/${messageId}/`, { method: "DELETE" });
+      setMessages((prev) => prev.filter((m) => String(m.id) !== String(messageId)));
+      toast.success("Message deleted");
+      loadConversations(true);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete message");
     }
   };
 
@@ -1374,6 +1477,13 @@ export function ChatHubPage({ role }: Props) {
                             </span>
                           )}
 
+                          {/* Forwarded label */}
+                          {msg.is_forwarded && (
+                            <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10.5px", fontStyle: "italic", opacity: isSelf ? 0.85 : 0.75, marginBottom: "4px", color: isSelf ? "#fff" : "var(--color-text-muted, #718096)" }}>
+                              <Share2 size={10} /> Forwarded
+                            </div>
+                          )}
+
                           {/* 1. TEXT MESSAGE */}
                           {msg.message_type === "TEXT" && (
                             <p style={{ margin: 0, fontSize: "13.5px", lineHeight: 1.5, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
@@ -1607,31 +1717,56 @@ export function ChatHubPage({ role }: Props) {
                             </div>
                           )}
 
-                          {/* Timestamp, Delivery / Seen Ticks & Pin Quick Action */}
+                          {/* Message Actions, Timestamp, Delivery / Seen Ticks */}
                           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "6px", marginTop: "4px" }}>
+                            {/* Forward Button */}
                             <button
+                              type="button"
+                              onClick={() => handleOpenForwardModal(msg)}
+                              style={{ background: "transparent", border: 0, color: isSelf ? "rgba(255,255,255,0.7)" : "var(--color-text-muted, #718096)", cursor: "pointer", padding: "2px", display: "inline-flex", alignItems: "center" }}
+                              title="Forward message"
+                            >
+                              <Share2 size={11} />
+                            </button>
+
+                            {/* Pin Button */}
+                            <button
+                              type="button"
                               onClick={() => handleTogglePin(msg.id)}
-                              style={{ background: "transparent", border: 0, color: isSelf ? "rgba(255,255,255,0.6)" : "var(--color-text-muted, #718096)", cursor: "pointer", padding: "2px" }}
+                              style={{ background: "transparent", border: 0, color: isSelf ? "rgba(255,255,255,0.7)" : "var(--color-text-muted, #718096)", cursor: "pointer", padding: "2px", display: "inline-flex", alignItems: "center" }}
                               title={msg.is_pinned ? "Unpin message" : "Pin message"}
                             >
                               <Pin size={11} />
                             </button>
+
+                            {/* Delete Button (Self or Admin) */}
+                            {(isSelf || activeConversation?.is_admin || role === "admin") && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteMessage(msg.id)}
+                                style={{ background: "transparent", border: 0, color: isSelf ? "rgba(255,255,255,0.7)" : "#EF4444", cursor: "pointer", padding: "2px", display: "inline-flex", alignItems: "center" }}
+                                title="Delete message for everyone"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            )}
+
                             <span style={{ fontSize: "10px", opacity: isSelf ? 0.8 : 0.65, color: isSelf ? "#fff" : "var(--color-text-muted, #718096)" }}>
                               {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
 
-                            {/* Message Status Ticks: 1 tick = sent, 2 gray ticks = delivered, 2 blue ticks = read/seen */}
+                            {/* Message Status Ticks: 1 tick = sent, 2 gray ticks = delivered, 2 bright blue ticks = read/seen */}
                             {isSelf && (
                               <span
                                 style={{ display: "inline-flex", alignItems: "center", marginLeft: "2px" }}
-                                title={(msg as any).is_read ? "Seen (Read)" : (msg as any).is_delivered ? "Delivered" : "Sent"}
+                                title={msg.is_read ? "Seen (Read)" : msg.is_delivered ? "Delivered" : "Sent"}
                               >
-                                {(msg as any).is_read ? (
-                                  <CheckCheck size={13} color="#60A5FA" />
-                                ) : (msg as any).is_delivered ? (
-                                  <CheckCheck size={13} color="rgba(255,255,255,0.85)" />
+                                {msg.is_read ? (
+                                  <CheckCheck size={14} color="#38BDF8" style={{ filter: "drop-shadow(0 0 2.5px rgba(56, 189, 248, 0.75))" }} />
+                                ) : msg.is_delivered ? (
+                                  <CheckCheck size={14} color="rgba(255,255,255,0.85)" />
                                 ) : (
-                                  <Check size={13} color="rgba(255,255,255,0.75)" />
+                                  <Check size={13} color="rgba(255,255,255,0.7)" />
                                 )}
                               </span>
                             )}
@@ -2532,6 +2667,120 @@ export function ChatHubPage({ role }: Props) {
               </button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 7: FORWARD MESSAGE MODAL */}
+      {/* ========================================================= */}
+      {forwardModalOpen && messageToForward && (
+        <Modal onClose={() => { setForwardModalOpen(false); setMessageToForward(null); }} title="Forward Message">
+          <form onSubmit={handleForwardMessage} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            {/* Message Preview Snippet */}
+            <div
+              style={{
+                padding: "10px 14px",
+                background: "var(--panel2, #F8FAF9)",
+                border: "1px solid var(--border, #DCE3E0)",
+                borderRadius: "8px",
+                fontSize: "12.5px",
+                color: "var(--color-text, #18231F)",
+                maxHeight: "80px",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--color-text-muted, #718096)", display: "block", marginBottom: "4px" }}>
+                Forwarding message from {messageToForward.sender_name}:
+              </span>
+              <div style={{ fontStyle: "italic", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {messageToForward.text || (messageToForward.message_type === "IMAGE" ? "📷 Image" : messageToForward.message_type === "VIDEO" ? "🎥 Video" : "📎 Attachment")}
+              </div>
+            </div>
+
+            {/* Search filter */}
+            <input
+              type="text"
+              placeholder="Search conversations or colleagues..."
+              value={forwardSearchQuery}
+              onChange={(e) => setForwardSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: "8px",
+                border: "1px solid var(--border2, #CBD5E1)",
+                background: "var(--panel2, #F8FAF9)",
+                color: "var(--color-text, #18231F)",
+                fontSize: "12.5px",
+              }}
+            />
+
+            {/* List of Conversations */}
+            <div style={{ maxHeight: "250px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
+              {conversations
+                .filter((c) => !forwardSearchQuery || c.name.toLowerCase().includes(forwardSearchQuery.toLowerCase()))
+                .map((c) => {
+                  const isSelected = forwardTargetIds.includes(String(c.id));
+                  return (
+                    <div
+                      key={c.id}
+                      onClick={() => {
+                        setForwardTargetIds((prev) =>
+                          isSelected ? prev.filter((id) => id !== String(c.id)) : [...prev, String(c.id)]
+                        );
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "9px 12px",
+                        borderRadius: "8px",
+                        background: isSelected ? "var(--color-primary-subtle, #E7F3EE)" : "var(--panel2, #F8FAF9)",
+                        border: isSelected ? "1.5px solid var(--color-brand-border, #B2D8CB)" : "1px solid var(--border, #DCE3E0)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <Avatar name={c.name} avatar={c.avatar} size={30} />
+                        <div>
+                          <b style={{ fontSize: "13px", color: "var(--color-text, #18231F)", display: "block" }}>{c.name}</b>
+                          <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
+                            {c.type === "DIRECT" ? "Direct Message" : `${c.participants?.length || 0} participants`}
+                          </span>
+                        </div>
+                      </div>
+                      {isSelected ? (
+                        <Check size={16} color="var(--color-primary, #087A5B)" />
+                      ) : (
+                        <div style={{ width: "16px", height: "16px", borderRadius: "4px", border: "1.5px solid var(--border2, #CBD5E1)" }} />
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "4px" }}>
+              <button
+                type="button"
+                onClick={() => { setForwardModalOpen(false); setMessageToForward(null); }}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border, #DCE3E0)",
+                  background: "var(--panel2, #F8FAF9)",
+                  color: "var(--color-text, #18231F)",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <PrimaryButton type="submit" disabled={forwardTargetIds.length === 0 || forwardingLoading}>
+                {forwardingLoading ? "Forwarding..." : `Forward (${forwardTargetIds.length})`}
+              </PrimaryButton>
+            </div>
+          </form>
         </Modal>
       )}
 

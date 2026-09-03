@@ -268,11 +268,37 @@ export async function getConversationMessages(req: Request, res: Response): Prom
     return;
   }
 
+  const now = new Date();
+
   // Update current user's lastReadAt
   await ChatConversation.updateOne(
     { _id: id, 'participants.user': currentUserId },
-    { $set: { 'participants.$.lastReadAt': new Date() } }
+    { $set: { 'participants.$.lastReadAt': now } }
   );
+
+  // Mark all unread messages from other senders in this conversation as read by current user
+  await ChatMessage.updateMany(
+    {
+      conversation: id,
+      sender: { $ne: currentUserId },
+      'readBy.user': { $ne: currentUserId },
+    },
+    {
+      $addToSet: {
+        readBy: { user: currentUserId, readAt: now },
+      },
+    }
+  );
+
+  // Broadcast read status via socket so sender immediately sees blue ticks
+  const io = getSocketServer();
+  if (io) {
+    io.to(`conversation:${id}`).emit('chat:messages-read', {
+      conversationId: String(id),
+      userId: currentUserId,
+      readAt: now.toISOString(),
+    });
+  }
 
   const limit = Math.min(Math.max(parseInt(req.query.limit as string, 10) || 30, 1), 100);
   const before = req.query.before as string;
@@ -310,33 +336,69 @@ export async function getConversationMessages(req: Request, res: Response): Prom
   // Reverse so the client receives them in chronological order (oldest to newest)
   const chronological = messages.reverse();
 
-  const formatted = chronological.map((m) => ({
-    id: m._id,
-    conversation_id: m.conversation,
-    sender_id: m.sender?._id || m.sender || null,
-    sender_name: m.senderName,
-    sender_role: m.senderRole,
-    sender_avatar: m.senderAvatar,
-    message_type: m.messageType,
-    text: m.text,
-    attachments: (m.attachments || []).map((a) => ({
-      name: a.name,
-      url: a.url,
-      file_type: a.fileType,
-      file_size: a.fileSize,
-    })),
-    task_embed: m.taskEmbed,
-    client_embed: m.clientEmbed,
-    standup_data: m.standupData,
-    meeting_code: m.meetingCode,
-    is_pinned: m.isPinned,
-    pinned_at: m.pinnedAt ? m.pinnedAt.toISOString() : null,
-    reactions: m.reactions || [],
-    reply_to: m.replyTo,
-    reply_to_snapshot: m.replyToSnapshot,
-    created_at: m.createdAt.toISOString(),
-    is_self: String(m.sender?._id || m.sender) === String(currentUserId),
-  }));
+  // Fetch updated conversation participants to calculate delivery and seen ticks
+  const refreshedConv = await ChatConversation.findById(id).select('type participants');
+  const otherParticipants = (refreshedConv?.participants || []).filter(
+    (p) => String((p.user as any)?._id || p.user) !== String(currentUserId)
+  );
+
+  const formatted = chronological.map((m) => {
+    const isSelf = String(m.sender?._id || m.sender) === String(currentUserId);
+    const mTime = new Date(m.createdAt).getTime();
+
+    let isRead = false;
+    // 1) Explicit readBy has other users
+    if (m.readBy && m.readBy.length > 0) {
+      isRead = m.readBy.some((r: any) => String(r.user?._id || r.user) !== String(m.sender?._id || m.sender));
+    }
+    // 2) Or other participant's lastReadAt >= message time
+    if (!isRead && otherParticipants.length > 0) {
+      if (refreshedConv?.type === 'DIRECT') {
+        const otherP = otherParticipants[0];
+        if (otherP?.lastReadAt && new Date(otherP.lastReadAt).getTime() >= mTime) {
+          isRead = true;
+        }
+      } else {
+        isRead = otherParticipants.some(
+          (p) => p.lastReadAt && new Date(p.lastReadAt).getTime() >= mTime
+        );
+      }
+    }
+
+    return {
+      id: m._id,
+      conversation_id: m.conversation,
+      sender_id: m.sender?._id || m.sender || null,
+      sender_name: m.senderName,
+      sender_role: m.senderRole,
+      sender_avatar: m.senderAvatar,
+      message_type: m.messageType,
+      text: m.text,
+      attachments: (m.attachments || []).map((a) => ({
+        name: a.name,
+        url: a.url,
+        file_type: a.fileType,
+        file_size: a.fileSize,
+      })),
+      task_embed: m.taskEmbed,
+      client_embed: m.clientEmbed,
+      standup_data: m.standupData,
+      meeting_code: m.meetingCode,
+      is_pinned: m.isPinned,
+      pinned_at: m.pinnedAt ? m.pinnedAt.toISOString() : null,
+      reactions: m.reactions || [],
+      reply_to: m.replyTo,
+      reply_to_snapshot: m.replyToSnapshot,
+      created_at: m.createdAt.toISOString(),
+      is_self: isSelf,
+      is_delivered: true,
+      is_read: isRead,
+      read_by: (m.readBy || []).map((r: any) => ({
+        user: String(r.user?._id || r.user),
+        read_at: r.readAt ? new Date(r.readAt).toISOString() : new Date().toISOString(),
+      })),
+    };
+  });
 
   res.json({
     messages: formatted,
@@ -479,6 +541,9 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
     reply_to: message.replyTo,
     reply_to_snapshot: message.replyToSnapshot,
     created_at: message.createdAt.toISOString(),
+    is_delivered: true,
+    is_read: false,
+    read_by: [{ user: currentUserId, read_at: new Date().toISOString() }],
   };
 
   const participantUserIds = (conversation.participants || []).map((p) => String(p.user));
@@ -724,5 +789,196 @@ export async function initiateCallApi(req: Request, res: Response): Promise<void
     });
   } catch (err: any) {
     res.status(500).json({ detail: err?.message || 'Failed to initiate call' });
+  }
+}
+
+// 13. Delete Message (Soft delete)
+export async function deleteMessage(req: Request, res: Response): Promise<void> {
+  try {
+    const currentUserId = req.user ? req.user._id.toString() : '';
+    const { messageId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      res.status(400).json({ detail: 'Invalid message ID.' });
+      return;
+    }
+
+    const message = await ChatMessage.findById(messageId);
+    if (!message || message.isDeleted) {
+      res.status(404).json({ detail: 'Message not found or already deleted.' });
+      return;
+    }
+
+    const conversation = await ChatConversation.findById(message.conversation);
+    if (!conversation) {
+      res.status(404).json({ detail: 'Conversation not found.' });
+      return;
+    }
+
+    // Security Check: Only the sender or an admin can delete the message
+    const isSender = String(message.sender?._id || message.sender) === String(currentUserId);
+    const isAdmin =
+      (req.user as any)?.portalRole === 'ADMIN' ||
+      req.user?.role === 'ADMIN' ||
+      (conversation.participants || []).some(
+        (p) => String((p.user as any)?._id || p.user) === String(currentUserId) && p.role === 'ADMIN'
+      );
+
+    if (!isSender && !isAdmin) {
+      res.status(403).json({ detail: 'You do not have permission to delete this message.' });
+      return;
+    }
+
+    message.isDeleted = true;
+    await message.save();
+
+    // If this was the last message, update conversation preview to the previous active message
+    if (String(conversation.lastMessage) === String(message._id)) {
+      const prevMsg = await ChatMessage.findOne({
+        conversation: conversation._id,
+        isDeleted: false,
+      }).sort({ createdAt: -1 });
+
+      if (prevMsg) {
+        conversation.lastMessage = prevMsg._id as any;
+        conversation.lastMessageText = prevMsg.text || 'Message';
+        conversation.lastMessageAt = prevMsg.createdAt;
+        conversation.lastMessageSenderName = prevMsg.senderName;
+      } else {
+        conversation.lastMessage = null as any;
+        conversation.lastMessageText = '';
+        conversation.lastMessageSenderName = '';
+      }
+      await conversation.save();
+    }
+
+    // Real-time broadcast to all conversation members
+    const io = getSocketServer();
+    if (io) {
+      io.to(`conversation:${message.conversation}`).emit('chat:message-deleted', {
+        conversationId: String(message.conversation),
+        messageId: String(message._id),
+      });
+    }
+
+    res.json({
+      success: true,
+      message_id: message._id,
+      conversation_id: message.conversation,
+    });
+  } catch (err: any) {
+    res.status(500).json({ detail: err?.message || 'Failed to delete message' });
+  }
+}
+
+// 14. Forward Message
+export async function forwardMessage(req: Request, res: Response): Promise<void> {
+  try {
+    const currentUserId = req.user ? req.user._id.toString() : '';
+    const { messageId } = req.params;
+    const { target_conversation_ids = [] } = req.body;
+
+    if (!Array.isArray(target_conversation_ids) || target_conversation_ids.length === 0) {
+      res.status(400).json({ detail: 'At least one target conversation must be selected.' });
+      return;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      res.status(400).json({ detail: 'Invalid message ID.' });
+      return;
+    }
+
+    const sourceMsg = await ChatMessage.findById(messageId);
+    if (!sourceMsg || sourceMsg.isDeleted) {
+      res.status(404).json({ detail: 'Source message not found or has been deleted.' });
+      return;
+    }
+
+    const currentUser = await User.findById(currentUserId);
+    const emp = await Employee.findOne({ user: currentUserId });
+    const senderName =
+      emp?.name ||
+      (currentUser?.firstName ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : currentUser?.username) ||
+      'User';
+    const senderRole = (currentUser as any)?.portalRole || currentUser?.role || 'EMPLOYEE';
+    const senderAvatar = currentUser?.avatar || emp?.avatar || '';
+
+    const forwardedList: any[] = [];
+
+    for (const targetConvId of target_conversation_ids) {
+      if (!mongoose.Types.ObjectId.isValid(targetConvId)) continue;
+
+      const conv = await ChatConversation.findById(targetConvId);
+      if (!conv) continue;
+
+      // Security: verify user is participant of target conversation
+      const isParticipant = (conv.participants || []).some(
+        (p) => String((p.user as any)?._id || p.user) === String(currentUserId)
+      );
+      if (!isParticipant) continue;
+
+      const newMsg = await ChatMessage.create({
+        conversation: targetConvId,
+        sender: currentUserId,
+        senderName,
+        senderRole,
+        senderAvatar,
+        messageType: sourceMsg.messageType,
+        text: sourceMsg.text,
+        attachments: sourceMsg.attachments,
+        taskEmbed: sourceMsg.taskEmbed,
+        clientEmbed: sourceMsg.clientEmbed,
+        standupData: sourceMsg.standupData,
+        meetingCode: sourceMsg.meetingCode,
+        readBy: [{ user: currentUserId, readAt: new Date() }],
+      });
+
+      let previewText = newMsg.text || 'Forwarded message';
+      if (newMsg.messageType === 'IMAGE') previewText = '📷 Photo';
+      if (newMsg.messageType === 'VIDEO') previewText = '🎥 Video';
+      if (newMsg.messageType === 'FILE') previewText = '📎 File attachment';
+      if (newMsg.messageType === 'STANDUP_UPDATE') previewText = '⚡ Daily Work Update';
+      if (newMsg.messageType === 'TASK_EMBED') previewText = `📌 Task: ${sourceMsg.taskEmbed?.title || ''}`;
+
+      conv.lastMessage = newMsg._id as any;
+      conv.lastMessageText = previewText;
+      conv.lastMessageAt = new Date();
+      conv.lastMessageSenderName = senderName;
+      await conv.save();
+
+      const formatted = {
+        id: newMsg._id,
+        conversation_id: targetConvId,
+        sender_id: currentUserId,
+        sender_name: senderName,
+        sender_role: senderRole,
+        sender_avatar: senderAvatar,
+        message_type: newMsg.messageType,
+        text: newMsg.text,
+        attachments: newMsg.attachments,
+        task_embed: newMsg.taskEmbed,
+        client_embed: newMsg.clientEmbed,
+        standup_data: newMsg.standupData,
+        meeting_code: newMsg.meetingCode,
+        is_pinned: false,
+        created_at: newMsg.createdAt.toISOString(),
+        is_delivered: true,
+        is_read: false,
+        is_forwarded: true,
+      };
+
+      const participantUserIds = (conv.participants || []).map((p) => String(p.user));
+      broadcastChatMessage(String(targetConvId), formatted, participantUserIds);
+
+      forwardedList.push(formatted);
+    }
+
+    res.json({
+      success: true,
+      count: forwardedList.length,
+      messages: forwardedList,
+    });
+  } catch (err: any) {
+    res.status(500).json({ detail: err?.message || 'Failed to forward message' });
   }
 }

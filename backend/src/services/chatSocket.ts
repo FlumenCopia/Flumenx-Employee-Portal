@@ -4,6 +4,7 @@ import { config } from '../config/env.js';
 import { User } from '../models/User.js';
 import { Employee } from '../models/Employee.js';
 import { ChatConversation } from '../models/ChatConversation.js';
+import { ChatMessage } from '../models/ChatMessage.js';
 
 let ioInstance: SocketIOServer | null = null;
 
@@ -178,6 +179,37 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
           conversationId: data.conversationId,
           userId: uId,
         });
+      }
+    });
+
+    socket.on('chat:mark-read', async (data: { conversationId: string }) => {
+      const uId = socket.userId;
+      if (!data?.conversationId || !uId) return;
+      try {
+        const now = new Date();
+        await ChatConversation.updateOne(
+          { _id: data.conversationId, 'participants.user': uId },
+          { $set: { 'participants.$.lastReadAt': now } }
+        );
+        await ChatMessage.updateMany(
+          {
+            conversation: data.conversationId,
+            sender: { $ne: uId },
+            'readBy.user': { $ne: uId },
+          },
+          {
+            $addToSet: {
+              readBy: { user: uId, readAt: now },
+            },
+          }
+        );
+        io.to(`conversation:${data.conversationId}`).emit('chat:messages-read', {
+          conversationId: data.conversationId,
+          userId: uId,
+          readAt: now.toISOString(),
+        });
+      } catch (err) {
+        console.error('Error handling chat:mark-read:', err);
       }
     });
 

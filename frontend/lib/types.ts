@@ -777,6 +777,10 @@ export type ChatMessageItem = {
   reply_to_snapshot?: { id: string; senderName: string; text: string };
   created_at: string;
   is_self?: boolean;
+  is_read?: boolean;
+  is_delivered?: boolean;
+  read_by?: { user: string; read_at: string }[];
+  is_forwarded?: boolean;
 };
 
 export type ChatUserOption = {
