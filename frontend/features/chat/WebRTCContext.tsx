@@ -520,22 +520,69 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const handleCallRejected = (data?: { reason?: string }) => {
+    const handleCallRejected = (data?: { reason?: string; fromUserId?: string }) => {
+      const currentCall = activeCallRef.current;
+      if (currentCall && (currentCall.mode === "connected" || currentCall.isGroup)) {
+        toast.info(data?.reason || "Invited colleague declined the call.");
+        if (data?.fromUserId) {
+          setActiveCall((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              participants: (prev.participants || []).filter((p) => p.id !== data.fromUserId),
+            };
+          });
+        }
+        return;
+      }
       toast.error(data?.reason || "Call was declined.");
       endCallCleanup();
     };
 
-    const handleCallEnded = () => {
+    const handleCallEnded = (data?: { fromSocketId?: string; fromUserId?: string }) => {
+      const currentCall = activeCallRef.current;
+      if (currentCall && (currentCall.isGroup || (currentCall.participants && currentCall.participants.length > 2))) {
+        if (data?.fromUserId) {
+          setActiveCall((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              participants: (prev.participants || []).filter((p) => p.id !== data.fromUserId),
+            };
+          });
+        }
+        return;
+      }
       toast.info("Call ended.");
       endCallCleanup();
     };
 
-    const handleCallUnavailable = (data: { message?: string }) => {
+    const handleCallUnavailable = (data: { message?: string; toUserId?: string }) => {
+      const currentCall = activeCallRef.current;
+      if (currentCall && (currentCall.mode === "connected" || currentCall.isGroup)) {
+        toast.warning(data?.message || "Invited colleague is currently offline.");
+        if (data?.toUserId) {
+          setActiveCall((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              participants: (prev.participants || []).filter((p) => p.id !== data.toUserId),
+            };
+          });
+        }
+        // DO NOT abort the active call with others!
+        return;
+      }
       toast.error(data?.message || "The recipient is currently offline.");
       endCallCleanup();
     };
 
     const handleCallError = (data: { message?: string }) => {
+      const currentCall = activeCallRef.current;
+      if (currentCall && (currentCall.mode === "connected" || currentCall.isGroup)) {
+        toast.warning(data?.message || "Colleague could not be connected.");
+        return;
+      }
       toast.error(data?.message || "Failed to establish call.");
       endCallCleanup();
     };
