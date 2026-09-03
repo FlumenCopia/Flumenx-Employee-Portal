@@ -150,7 +150,7 @@ export function ChatHubPage({ role }: Props) {
   const [forwardingLoading, setForwardingLoading] = useState(false);
 
   // Real-Time WebRTC Calling & Online Presence
-  const { startCall } = useWebRTC();
+  const { startCall, startGroupCall, inviteToCall } = useWebRTC();
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
   // Helper for 1-to-1 Direct Chat creation / navigation
@@ -623,23 +623,13 @@ export function ChatHubPage({ role }: Props) {
   const handleLaunchGroupCall = async (type: "audio" | "video" = "video") => {
     if (!activeConversation) return;
     try {
-      const res = await api<any>("/meetings/create-instant/", {
-        method: "POST",
-        body: JSON.stringify({
-          title: `${activeConversation.name} Group Call`,
-          conversation_id: activeConversation.id,
-        }),
+      await startGroupCall({
+        conversationId: activeConversation.id,
+        conversationName: activeConversation.name,
+        callType: type,
+        memberIds: activeConversation.participants?.map((p) => String(p.user_id)) || [],
       });
-
-      const meetingCode = res.meeting_code || res.code || "flumenx-hq";
-      await handleSendMessage({
-        text: `📞 Group ${type === "video" ? "Video" : "Voice"} Call started in ${activeConversation.name}. Click below to join:`,
-        type: "MEETING_LINK",
-        meeting_code: meetingCode,
-      });
-
-      window.open(`/meet/${meetingCode}`, "_blank");
-      toast.success("Group call started! Room invitation shared in chat.");
+      toast.success(`Group ${type} call started! Ringing group members...`);
     } catch (err: any) {
       toast.error(err?.message || "Could not start group call");
     }

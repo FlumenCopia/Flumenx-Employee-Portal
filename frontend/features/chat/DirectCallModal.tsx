@@ -31,6 +31,9 @@ type Props = {
   onEndCall: () => void;
   localStream?: MediaStream | null;
   remoteStream?: MediaStream | null;
+  isGroup?: boolean;
+  participants?: { id: string; name: string; avatar?: string; status: "calling" | "connected" }[];
+  onInvitePerson?: (user: { id: string; name: string; avatar?: string }) => void;
 };
 
 export function DirectCallModal({
@@ -43,6 +46,9 @@ export function DirectCallModal({
   onEndCall,
   localStream,
   remoteStream,
+  isGroup,
+  participants,
+  onInvitePerson,
 }: Props) {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -51,6 +57,22 @@ export function DirectCallModal({
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(callType === "audio");
   const [callDuration, setCallDuration] = useState(0);
+
+  // In-call Add Person modal state
+  const [showAddPerson, setShowAddPerson] = useState(false);
+  const [addPersonSearch, setAddPersonSearch] = useState("");
+  const [colleagues, setColleagues] = useState<any[]>([]);
+  const [loadingColleagues, setLoadingColleagues] = useState(false);
+
+  useEffect(() => {
+    if (showAddPerson && colleagues.length === 0) {
+      setLoadingColleagues(true);
+      api<any[]>("/chat/users/")
+        .then((data) => setColleagues(Array.isArray(data) ? data : []))
+        .catch(() => {})
+        .finally(() => setLoadingColleagues(false));
+    }
+  }, [showAddPerson, colleagues.length]);
 
   const [hasLocalVideoTrack, setHasLocalVideoTrack] = useState(false);
 
@@ -242,24 +264,6 @@ export function DirectCallModal({
     }
   };
 
-  const handleUpgradeToGroupCall = async () => {
-    try {
-      const res = await api<any>("/meetings/create-instant/", {
-        method: "POST",
-        body: JSON.stringify({
-          title: `Group Call with ${partnerName}`,
-        }),
-      });
-      const code = res?.meeting_code || res?.code || "flumenx-hq";
-      const meetUrl = `${window.location.origin}/meet/${code}`;
-      await navigator.clipboard.writeText(meetUrl).catch(() => {});
-      toast.success("Group meeting link created & copied! Opening room...");
-      window.open(`/meet/${code}`, "_blank");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to create group meeting");
-    }
-  };
-
   const handleAcceptClick = () => {
     if (remoteAudioRef.current) {
       remoteAudioRef.current.play().catch(() => {});
@@ -296,6 +300,7 @@ export function DirectCallModal({
           color: "#fff",
           display: "flex",
           flexDirection: "column",
+          position: "relative",
           transition: "all 0.3s ease",
         }}
       >
@@ -321,8 +326,8 @@ export function DirectCallModal({
 
             <p style={{ fontSize: "13px", color: "var(--muted, #94A3B8)", margin: "0 0 28px 0" }}>
               {mode === "incoming"
-                ? `Incoming ${callType === "video" ? "Video" : "Voice"} Call...`
-                : `Calling ${partnerName}...`}
+                ? `Incoming ${isGroup ? "Group " : ""}${callType === "video" ? "Video" : "Voice"} Call...`
+                : `Ringing ${partnerName}...`}
             </p>
 
             <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
@@ -341,10 +346,11 @@ export function DirectCallModal({
                       display: "grid",
                       placeItems: "center",
                       boxShadow: "0 4px 15px rgba(239, 68, 68, 0.4)",
+                      transition: "transform 0.15s ease",
                     }}
                     title="Decline Call"
                   >
-                    <PhoneOff size={22} />
+                    <PhoneOff size={24} />
                   </button>
 
                   <button
@@ -361,10 +367,11 @@ export function DirectCallModal({
                       placeItems: "center",
                       boxShadow: "0 4px 15px rgba(16, 185, 129, 0.4)",
                       animation: "pulse 1.5s infinite",
+                      transition: "transform 0.15s ease",
                     }}
                     title="Accept Call"
                   >
-                    <Phone size={22} />
+                    <Phone size={24} />
                   </button>
                 </>
               ) : (
@@ -381,10 +388,11 @@ export function DirectCallModal({
                     display: "grid",
                     placeItems: "center",
                     boxShadow: "0 4px 15px rgba(239, 68, 68, 0.4)",
+                    transition: "transform 0.15s ease",
                   }}
                   title="Cancel Call"
                 >
-                  <PhoneOff size={22} />
+                  <PhoneOff size={24} />
                 </button>
               )}
             </div>
@@ -402,6 +410,31 @@ export function DirectCallModal({
                 {formatDuration(callDuration)}
               </span>
             </div>
+
+            {/* In-Call Active/Calling Participants Bar */}
+            {participants && participants.length > 0 && (
+              <div style={{ padding: "8px 16px", background: "rgba(16, 185, 129, 0.08)", borderBottom: "1px solid rgba(16, 185, 129, 0.15)", display: "flex", alignItems: "center", gap: "8px", overflowX: "auto" }}>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: "#10b981", whiteSpace: "nowrap" }}>In Call:</span>
+                {participants.map((p) => (
+                  <span
+                    key={p.id}
+                    style={{
+                      fontSize: "11px",
+                      background: p.status === "calling" ? "rgba(245, 158, 11, 0.2)" : "rgba(255,255,255,0.1)",
+                      color: p.status === "calling" ? "#fbbf24" : "#fff",
+                      padding: "2px 8px",
+                      borderRadius: "10px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {p.name} {p.status === "calling" && "(Ringing...)"}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* Video Streams / Audio Avatar Canvas */}
             <div style={{ position: "relative", minHeight: callType === "video" ? "380px" : "240px", background: "#0c0c10", display: "grid", placeItems: "center" }}>
@@ -557,14 +590,15 @@ export function DirectCallModal({
                 </button>
               )}
 
-              {/* Add Person / Switch to Group Meeting Room */}
+              {/* Add Person to Call (Native In-App) */}
               <button
-                onClick={handleUpgradeToGroupCall}
+                type="button"
+                onClick={() => setShowAddPerson((prev) => !prev)}
                 style={{
                   width: "46px",
                   height: "46px",
                   borderRadius: "50%",
-                  background: "rgba(255,255,255,0.12)",
+                  background: showAddPerson ? "#10b981" : "rgba(255,255,255,0.12)",
                   color: "#fff",
                   border: 0,
                   cursor: "pointer",
@@ -572,7 +606,7 @@ export function DirectCallModal({
                   placeItems: "center",
                   transition: "all 0.15s ease",
                 }}
-                title="Add Persons / Convert to Group Meeting"
+                title="Add Colleague to Call"
               >
                 <UserPlus size={20} />
               </button>
@@ -596,6 +630,117 @@ export function DirectCallModal({
               >
                 <PhoneOff size={22} />
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* IN-CALL ADD PERSON MODAL OVERLAY */}
+        {showAddPerson && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(10, 15, 13, 0.96)",
+              backdropFilter: "blur(12px)",
+              zIndex: 200,
+              padding: "20px",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: "20px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <UserPlus size={18} color="#10b981" />
+                <h4 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#fff" }}>Add People to Call</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddPerson(false)}
+                style={{ background: "transparent", border: 0, color: "#94a3b8", cursor: "pointer", padding: "4px" }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Search colleague by name..."
+              value={addPersonSearch}
+              onChange={(e) => setAddPersonSearch(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: "8px",
+                border: "1px solid rgba(255,255,255,0.15)",
+                background: "rgba(255,255,255,0.06)",
+                color: "#fff",
+                fontSize: "13px",
+                marginBottom: "12px",
+                outline: "none",
+              }}
+            />
+
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px" }}>
+              {loadingColleagues ? (
+                <div style={{ textAlign: "center", padding: "24px", color: "#94a3b8", fontSize: "13px" }}>Loading colleagues...</div>
+              ) : colleagues.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "24px", color: "#94a3b8", fontSize: "13px" }}>No colleagues found.</div>
+              ) : (
+                colleagues
+                  .filter((c) => !addPersonSearch || c.name?.toLowerCase().includes(addPersonSearch.toLowerCase()))
+                  .map((c) => {
+                    const isAlreadyInCall = participants?.some((p) => String(p.id) === String(c.id || c.user_id));
+                    return (
+                      <div
+                        key={c.id || c.user_id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "10px 12px",
+                          borderRadius: "10px",
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <Avatar name={c.name} avatar={c.avatar} size={34} />
+                          <div>
+                            <b style={{ fontSize: "13px", color: "#fff", display: "block" }}>{c.name}</b>
+                            <span style={{ fontSize: "11px", color: "#94a3b8" }}>{c.department || c.role || "Colleague"}</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={isAlreadyInCall}
+                          onClick={() => {
+                            if (onInvitePerson) {
+                              onInvitePerson({ id: String(c.user_id || c.id), name: c.name, avatar: c.avatar });
+                            }
+                            setShowAddPerson(false);
+                          }}
+                          style={{
+                            padding: "6px 14px",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            borderRadius: "7px",
+                            border: 0,
+                            background: isAlreadyInCall ? "rgba(255,255,255,0.1)" : "#10b981",
+                            color: isAlreadyInCall ? "#94a3b8" : "#ffffff",
+                            cursor: isAlreadyInCall ? "default" : "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                          }}
+                        >
+                          {isAlreadyInCall ? "Calling..." : <><Phone size={12} /> Call</>}
+                        </button>
+                      </div>
+                    );
+                  })
+              )}
             </div>
           </div>
         )}

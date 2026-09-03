@@ -289,6 +289,108 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
       socket.emit('call:ringing', { toUserId });
     });
 
+    socket.on('call:group-start', async (data: {
+      conversationId: string;
+      conversationName?: string;
+      callType: 'audio' | 'video';
+      sdpOffer?: any;
+    }) => {
+      const { conversationId, conversationName, callType, sdpOffer } = data;
+      const uId = socket.userId;
+      const u = socket.user;
+      const emp = socket.employee;
+      if (!conversationId || !uId) return;
+
+      const callerName =
+        emp?.name ||
+        (u?.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : null) ||
+        u?.username ||
+        'Colleague';
+      const callerAvatar = u?.avatar || emp?.avatar || '';
+
+      // Broadcast call:incoming to all conversation members except caller
+      socket.to(`conversation:${conversationId}`).emit('call:incoming', {
+        fromUserId: uId,
+        fromSocketId: socket.id,
+        callerName: `${callerName} (${conversationName || 'Group'})`,
+        callerAvatar,
+        callType,
+        sdpOffer,
+        conversationId,
+        isGroup: true,
+      });
+
+      socket.emit('call:ringing', { conversationId });
+    });
+
+    socket.on('call:invite-user', async (data: {
+      toUserId: string;
+      callType: 'audio' | 'video';
+      conversationId?: string;
+      sdpOffer?: any;
+    }) => {
+      const { toUserId, callType, sdpOffer, conversationId } = data;
+      const uId = socket.userId;
+      const u = socket.user;
+      const emp = socket.employee;
+      if (!toUserId || !uId) return;
+
+      const callerName =
+        emp?.name ||
+        (u?.firstName ? `${u.firstName} ${u.lastName || ''}`.trim() : null) ||
+        u?.username ||
+        'Colleague';
+      const callerAvatar = u?.avatar || emp?.avatar || '';
+
+      let targetSockets = onlineUsersMap.get(String(toUserId));
+      let resolvedUserId = String(toUserId);
+
+      if (!targetSockets || targetSockets.size === 0) {
+        for (const [uIdKey, userMap] of onlineUsersMap.entries()) {
+          for (const meta of userMap.values()) {
+            if (meta.employeeId && String(meta.employeeId) === String(toUserId)) {
+              targetSockets = userMap;
+              resolvedUserId = uIdKey;
+              break;
+            }
+          }
+          if (targetSockets && targetSockets.size > 0) break;
+        }
+      }
+
+      if (!targetSockets || targetSockets.size === 0) {
+        try {
+          const empObj = await Employee.findById(toUserId).select('user');
+          if (empObj && empObj.user) {
+            resolvedUserId = empObj.user.toString();
+            targetSockets = onlineUsersMap.get(resolvedUserId);
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
+      if (!targetSockets || targetSockets.size === 0) {
+        return socket.emit('call:unavailable', {
+          toUserId,
+          message: 'Colleague is currently offline.',
+        });
+      }
+
+      io.to(`user:${resolvedUserId}`).emit('call:incoming', {
+        fromUserId: uId,
+        fromSocketId: socket.id,
+        callerName,
+        callerAvatar,
+        callType,
+        sdpOffer,
+        conversationId,
+        isGroup: true,
+      });
+
+      socket.emit('call:invited', { toUserId, status: 'calling' });
+    });
+
     socket.on('call:accept', (data: {
       toSocketId: string;
       sdpAnswer?: any;

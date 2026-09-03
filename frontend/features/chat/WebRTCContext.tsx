@@ -6,8 +6,17 @@ import { DirectCallModal } from "./DirectCallModal";
 import { toast } from "@/components/ToastContext";
 import { api } from "@/lib/api";
 
+import { soundService } from "@/lib/soundService";
+
 export type CallType = "audio" | "video";
 export type CallStateMode = "incoming" | "outgoing" | "connected";
+
+export interface CallParticipant {
+  id: string;
+  name: string;
+  avatar?: string;
+  status: "calling" | "connected";
+}
 
 export interface ActiveCall {
   mode: CallStateMode;
@@ -17,6 +26,8 @@ export interface ActiveCall {
   partnerName: string;
   partnerAvatar?: string;
   conversationId?: string;
+  isGroup?: boolean;
+  participants?: CallParticipant[];
 }
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -59,6 +70,18 @@ interface WebRTCContextValue {
     callType: CallType;
     conversationId?: string;
   }) => Promise<void>;
+  startGroupCall: (params: {
+    conversationId: string;
+    conversationName: string;
+    callType: CallType;
+    memberIds?: string[];
+  }) => Promise<void>;
+  inviteToCall: (params: {
+    id?: string;
+    userId?: string;
+    name: string;
+    avatar?: string;
+  }) => void;
   acceptCall: () => Promise<void>;
   endCall: () => void;
 }
@@ -77,7 +100,26 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   const activeCallRef = useRef<ActiveCall | null>(null);
   activeCallRef.current = activeCall;
 
+  // Call Ringing Lifecycle (Sound Effects)
+  useEffect(() => {
+    if (!activeCall) {
+      soundService.stopAll();
+      return;
+    }
+    if (activeCall.mode === "outgoing") {
+      soundService.startOutgoingRing();
+    } else if (activeCall.mode === "incoming") {
+      soundService.startIncomingRingtone();
+    } else if (activeCall.mode === "connected") {
+      soundService.stopAll();
+    }
+    return () => {
+      soundService.stopAll();
+    };
+  }, [activeCall?.mode]);
+
   const endCallCleanup = useCallback(() => {
+    soundService.stopAll();
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
@@ -372,6 +414,105 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Start native group call
+  const startGroupCall = async (params: {
+    conversationId: string;
+    conversationName: string;
+    callType: CallType;
+    memberIds?: string[];
+  }) => {
+    const socket = getGlobalSocket();
+
+    setActiveCall({
+      mode: "outgoing",
+      callType: params.callType,
+      partnerId: params.conversationId,
+      partnerName: `${params.conversationName}`,
+      conversationId: params.conversationId,
+      isGroup: true,
+      participants: [],
+    });
+
+    try {
+      const stream = await acquireMediaStream(params.callType);
+      if (!stream) {
+        toast.error("Could not access camera or microphone. Please check permissions.");
+        endCallCleanup();
+        return;
+      }
+      setLocalStream(stream);
+
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+      peerConnectionRef.current = pc;
+      pendingLocalCandidatesRef.current = [];
+      pendingRemoteCandidatesRef.current = [];
+
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate && activeCallRef.current?.partnerSocketId) {
+          socket?.emit("call:ice-candidate", {
+            toSocketId: activeCallRef.current.partnerSocketId,
+            candidate: event.candidate,
+          });
+        }
+      };
+
+      pc.ontrack = (event) => {
+        if (event.streams && event.streams[0]) {
+          setRemoteStream(event.streams[0]);
+        } else if (event.track) {
+          setRemoteStream(new MediaStream([event.track]));
+        }
+      };
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      socket?.emit("call:group-start", {
+        conversationId: params.conversationId,
+        conversationName: params.conversationName,
+        callType: params.callType,
+        sdpOffer: offer,
+      });
+    } catch (err: any) {
+      console.error("Failed to start group call:", err);
+      endCallCleanup();
+    }
+  };
+
+  // Add/Invite colleague to ongoing call
+  const inviteToCall = (params: { id?: string; userId?: string; name: string; avatar?: string }) => {
+    const socket = getGlobalSocket();
+    if (!socket || !activeCall) return;
+    const targetId = String(params.userId || params.id || "");
+    if (!targetId) return;
+
+    socket.emit("call:invite-user", {
+      toUserId: targetId,
+      callType: activeCall.callType,
+      conversationId: activeCall.conversationId,
+    });
+
+    setActiveCall((prev) => {
+      if (!prev) return null;
+      const existing = prev.participants || [];
+      if (existing.some((p) => p.id === targetId)) return prev;
+      return {
+        ...prev,
+        isGroup: true,
+        participants: [
+          ...existing,
+          { id: targetId, name: params.name, avatar: params.avatar, status: "calling" },
+        ],
+      };
+    });
+
+    toast.info(`Calling ${params.name}...`);
+  };
+
   // Accept incoming call
   const acceptCall = async () => {
     const socket = getGlobalSocket();
@@ -439,6 +580,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
         localStream,
         remoteStream,
         startCall,
+        startGroupCall,
+        inviteToCall,
         acceptCall,
         endCall,
       }}
@@ -457,6 +600,9 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
           onEndCall={endCall}
           localStream={localStream}
           remoteStream={remoteStream}
+          isGroup={activeCall.isGroup}
+          participants={activeCall.participants}
+          onInvitePerson={inviteToCall}
         />
       )}
     </WebRTCContext.Provider>
@@ -475,6 +621,8 @@ export function useWebRTC() {
         console.error("[WebRTC] startCall called outside WebRTCProvider");
         toast.error("Call service unavailable, please refresh page.");
       },
+      startGroupCall: async () => {},
+      inviteToCall: () => {},
       acceptCall: async () => {},
       endCall: () => {},
     };
