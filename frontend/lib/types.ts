@@ -80,7 +80,28 @@ export type SuperAdminUser = {
 };
 
 export type Role = WorkspaceRole;
-export type Department = "Web Development" | "Video Editing" | "Design" | "Digital Marketing" | "Accountant" | "HR" | "Operations";
+export type Department =
+  | "Web Development"
+  | "Video Editing"
+  | "Design"
+  | "Digital Marketing"
+  | "Operations"
+  | "Accounts"
+  | "Accountant"
+  | "HR"
+  | "Human Resources"
+  | "Business Development";
+
+export const ALL_COMPANY_DEPARTMENTS: readonly string[] = [
+  "Operations",
+  "Web Development",
+  "Video Editing",
+  "Design",
+  "Digital Marketing",
+  "Accounts",
+  "HR",
+  "Business Development",
+];
 
 export type CanonicalDepartmentKey =
   | "web_development"
@@ -89,7 +110,8 @@ export type CanonicalDepartmentKey =
   | "digital_marketing"
   | "accountant"
   | "operations"
-  | "hr";
+  | "hr"
+  | "business_development";
 
 export interface CanonicalDepartmentInfo {
   key: CanonicalDepartmentKey;
@@ -99,36 +121,39 @@ export interface CanonicalDepartmentInfo {
 }
 
 export const CANONICAL_DEPARTMENTS: Record<CanonicalDepartmentKey, CanonicalDepartmentInfo> = {
+  operations: { key: "operations", label: "Operations", badge: "Operations", color: "#3B82F6" },
   web_development: { key: "web_development", label: "Web Development", badge: "Web Development", color: "#cba86e" },
   video_editing: { key: "video_editing", label: "Video Editing", badge: "Video Editing", color: "#F472B6" },
   design: { key: "design", label: "Design", badge: "Design", color: "#F59E0B" },
   digital_marketing: { key: "digital_marketing", label: "Digital Marketing", badge: "Digital Marketing", color: "#22D3EE" },
-  accountant: { key: "accountant", label: "Accountant", badge: "Accountant", color: "#A78BFA" },
-  operations: { key: "operations", label: "Operations", badge: "Operations", color: "#3B82F6" },
+  accountant: { key: "accountant", label: "Accounts", badge: "Accounts", color: "#A78BFA" },
   hr: { key: "hr", label: "HR", badge: "HR", color: "#EC4899" },
+  business_development: { key: "business_development", label: "Business Development", badge: "Business Development", color: "#10B981" },
 };
 
 export function normalizeDepartment(val?: string | null): CanonicalDepartmentKey {
-  if (!val) return "design";
+  if (!val) return "operations";
   const s = val.trim().toLowerCase();
 
-  if (s === "web_development" || s === "web development" || s === "web dev" || s === "web" || s === "web_developer" || s === "software" || s === "it" || s === "it / web" || s === "it / web development") return "web_development";
+  if (s === "operations" || s === "ops" || s === "operations_head" || s === "operations head") return "operations";
+  if (s === "web_development" || s === "web development" || s === "web dev" || s === "web" || s === "web_developer" || s === "software" || s === "it" || s === "it / web" || s === "it / web development" || s === "development") return "web_development";
   if (s === "video_editing" || s === "video editing" || s === "video" || s === "editing" || s === "animation" || s === "reel") return "video_editing";
   if (s === "design" || s === "graphic design" || s === "graphic" || s === "ui/ux" || s === "ui" || s === "ux" || s === "poster") return "design";
-  if (s === "digital_marketing" || s === "digital marketing" || s === "marketing" || s === "ads" || s === "ad" || s === "bde" || s === "social media" || s === "content" || s === "copy") return "digital_marketing";
+  if (s === "digital_marketing" || s === "digital marketing" || s === "marketing" || s === "ads" || s === "ad" || s === "social media" || s === "content" || s === "copy") return "digital_marketing";
   if (s === "accountant" || s === "accounting" || s === "accounts" || s === "finance") return "accountant";
-  if (s === "operations" || s === "ops" || s === "operations_head" || s === "operations head") return "operations";
   if (s === "hr" || s === "human resources") return "hr";
+  if (s === "business_development" || s === "business development" || s === "bde" || s === "bdm" || s === "sales" || s === "bdo") return "business_development";
 
+  if (s.includes("ops") || s.includes("operation")) return "operations";
   if (s.includes("web") || s.includes("software") || s.includes("development")) return "web_development";
   if (s.includes("video") || s.includes("anim") || s.includes("editing")) return "video_editing";
   if (s.includes("design") || s.includes("graphic")) return "design";
-  if (s.includes("marketing") || s.includes("bde")) return "digital_marketing";
-  if (s.includes("account")) return "accountant";
-  if (s.includes("ops") || s.includes("operation")) return "operations";
-  if (s.includes("hr")) return "hr";
+  if (s.includes("marketing")) return "digital_marketing";
+  if (s.includes("account") || s.includes("finance")) return "accountant";
+  if (s.includes("hr") || s.includes("human")) return "hr";
+  if (s.includes("business") || s.includes("sales") || s.includes("bde") || s.includes("bdm") || s.includes("bdo")) return "business_development";
 
-  return "design";
+  return "operations";
 }
 export type EmployeeStatus = "Active" | "On Leave" | "Inactive";
 export type EmploymentStatus = "Probation" | "Permanent" | "Contract" | "Intern";
@@ -313,7 +338,17 @@ export type TimeEntry = {
   entryDate: string;
 };
 
-export type DepartmentCategory = "Development" | "Digital Marketing" | "Video Editing" | "Design" | "HR" | "General";
+export type DepartmentCategory =
+  | "Development"
+  | "Web Development"
+  | "Digital Marketing"
+  | "Video Editing"
+  | "Design"
+  | "Operations"
+  | "Accounts"
+  | "HR"
+  | "Business Development"
+  | "General";
 export type DepartmentData = {
   videoCount?: number;
   videoDurationSeconds?: number;

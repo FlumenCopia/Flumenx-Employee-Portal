@@ -39,13 +39,14 @@ import { Avatar } from "@/components/icons";
 import type { Department, KPIDashboardData, KPIEmployeeData, KPIGrade } from "@/lib/types";
 
 const DEPARTMENTS: Department[] = [
+  "Operations",
   "Web Development",
   "Video Editing",
   "Design",
   "Digital Marketing",
-  "Accountant",
+  "Accounts",
   "HR",
-  "Operations",
+  "Business Development",
 ];
 
 const GRADES: KPIGrade[] = [

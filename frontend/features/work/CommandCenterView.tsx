@@ -169,19 +169,23 @@ export const ALL_WORK_STATUSES: Array<{ id: WorkStatus; name: string; isReviewer
 ];
 
 export const TASK_TYPES: Record<string, { id: string; name: string; color: string }> = {
+  operations: { id: "operations", name: "Operations", color: "#3B82F6" },
   web_development: { id: "web_development", name: "Web Development", color: "#cba86e" },
   video_editing: { id: "video_editing", name: "Video Editing", color: "#F472B6" },
   design: { id: "design", name: "Design", color: "#F59E0B" },
   digital_marketing: { id: "digital_marketing", name: "Digital Marketing", color: "#22D3EE" },
-  accountant: { id: "accountant", name: "Accountant", color: "#A78BFA" },
-  operations: { id: "operations", name: "Operations", color: "#3B82F6" },
+  accountant: { id: "accountant", name: "Accounts", color: "#A78BFA" },
   hr: { id: "hr", name: "HR", color: "#EC4899" },
+  business_development: { id: "business_development", name: "Business Development", color: "#10B981" },
   // Fallbacks for legacy keys
   it: { id: "web_development", name: "Web Development", color: "#cba86e" },
   video: { id: "video_editing", name: "Video Editing", color: "#F472B6" },
   ads: { id: "digital_marketing", name: "Digital Marketing", color: "#22D3EE" },
   content: { id: "digital_marketing", name: "Digital Marketing", color: "#22D3EE" },
   ops: { id: "operations", name: "Operations", color: "#3B82F6" },
+  sales: { id: "business_development", name: "Business Development", color: "#10B981" },
+  bde: { id: "business_development", name: "Business Development", color: "#10B981" },
+  bdo: { id: "business_development", name: "Business Development", color: "#10B981" },
 };
 
 const DEFAULT_MEMBERS: MemberItem[] = [];
@@ -382,13 +386,14 @@ export function CommandCenterView({
 
   const dynamicDeptPills = useMemo(() => {
     return [
+      { id: "operations", name: "Operations" },
       { id: "web_development", name: "Web Development" },
       { id: "video_editing", name: "Video Editing" },
       { id: "design", name: "Design" },
       { id: "digital_marketing", name: "Digital Marketing" },
-      { id: "accountant", name: "Accountant" },
-      { id: "operations", name: "Operations" },
+      { id: "accountant", name: "Accounts" },
       { id: "hr", name: "HR" },
+      { id: "business_development", name: "Business Development" },
     ];
   }, []);
 

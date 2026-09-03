@@ -36,6 +36,7 @@ import { Modal } from "@/features/common/Modal";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
 import type { Client, WorkAssignment, WorkPriority, WorkStatus, WorkspaceRole } from "@/lib/types";
+import { normalizeDepartment } from "@/lib/types";
 
 type ViewMode = "matrix" | "calendar" | "grouped" | "table";
 
@@ -149,7 +150,10 @@ export function ClientTasksPage({ role }: Props) {
 
       const matchPriority = selectedPriority === "all" || t.priority === selectedPriority;
       const matchStatus = selectedStatus === "all" || t.status === selectedStatus;
-      const matchDept = selectedDepartment === "all" || t.department_category === selectedDepartment;
+      const matchDept =
+        selectedDepartment === "all" ||
+        t.department_category === selectedDepartment ||
+        normalizeDepartment(t.department_category) === normalizeDepartment(selectedDepartment);
 
       return matchSearch && matchClient && matchPriority && matchStatus && matchDept;
     });
@@ -561,10 +565,14 @@ export function ClientTasksPage({ role }: Props) {
               }}
             >
               <option value="all">All Departments</option>
-              <option value="Design">Design</option>
+              <option value="Operations">Operations</option>
+              <option value="Web Development">Web Development</option>
               <option value="Video Editing">Video Editing</option>
+              <option value="Design">Design</option>
               <option value="Digital Marketing">Digital Marketing</option>
-              <option value="Development">Development</option>
+              <option value="Accounts">Accounts</option>
+              <option value="HR">HR</option>
+              <option value="Business Development">Business Development</option>
               <option value="General">General</option>
             </select>
           </div>
@@ -1206,10 +1214,14 @@ export function ClientTasksPage({ role }: Props) {
                     value={newTaskForm.department_category}
                     onChange={(e) => setNewTaskForm({ ...newTaskForm, department_category: e.target.value })}
                   >
+                    <option value="Operations">Operations</option>
+                    <option value="Web Development">Web Development</option>
                     <option value="Video Editing">Video Editing</option>
                     <option value="Design">Design</option>
                     <option value="Digital Marketing">Digital Marketing</option>
-                    <option value="Development">Development</option>
+                    <option value="Accounts">Accounts</option>
+                    <option value="HR">HR</option>
+                    <option value="Business Development">Business Development</option>
                     <option value="General">General</option>
                   </select>
                 </label>

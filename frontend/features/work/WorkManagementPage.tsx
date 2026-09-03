@@ -252,13 +252,14 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
 
   const dynamicWorkTypeOptions = useMemo(() => {
     return [
+      { value: "operations", label: "Operations" },
       { value: "web_development", label: "Web Development" },
       { value: "video_editing", label: "Video Editing" },
       { value: "design", label: "Design" },
       { value: "digital_marketing", label: "Digital Marketing" },
-      { value: "accountant", label: "Accountant" },
-      { value: "operations", label: "Operations" },
+      { value: "accountant", label: "Accounts" },
       { value: "hr", label: "HR" },
+      { value: "business_development", label: "Business Development" },
     ];
   }, []);
 

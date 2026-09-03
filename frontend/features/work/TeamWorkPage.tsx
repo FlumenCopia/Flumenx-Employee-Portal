@@ -17,7 +17,8 @@ import { Avatar } from "@/components/icons";
 import { EmptyState } from "@/components/ui";
 import { useShellUser } from "@/components/shell";
 import { api } from "@/lib/api";
-import type { WorkAssignment, Paginated, Client, WorkEmployeeOption } from "@/lib/types";
+import type { WorkAssignment, Paginated, Client, WorkEmployeeOption, DepartmentItem } from "@/lib/types";
+import { ALL_COMPANY_DEPARTMENTS, normalizeDepartment } from "@/lib/types";
 
 function getStatusBadgeStyle(status: string) {
   const s = (status || "").toLowerCase().trim();
@@ -146,6 +147,7 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
   const [assignments, setAssignments] = useState<WorkAssignment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [teamMembers, setTeamMembers] = useState<WorkEmployeeOption[]>([]);
+  const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -161,10 +163,11 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
     setLoading(true);
     setError("");
     try {
-      const [workList, clientsRes, empRes] = await Promise.all([
+      const [workList, clientsRes, empRes, deptsRes] = await Promise.all([
         fetchAllWorkAssignments(),
         api<Paginated<Client> | Client[]>("/clients/").catch(() => []),
         api<WorkEmployeeOption[]>("/work-employee-options/").catch(() => []),
+        api<DepartmentItem[] | { results: DepartmentItem[] }>("/portal/departments/").catch(() => []),
       ]);
 
       setAssignments(workList);
@@ -178,6 +181,13 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
 
       const empList = Array.isArray(empRes) ? empRes : [];
       setTeamMembers(empList);
+
+      const deptList = Array.isArray(deptsRes)
+        ? deptsRes
+        : (deptsRes && Array.isArray((deptsRes as any).results)
+            ? (deptsRes as any).results
+            : []);
+      setDepartments(deptList);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load team work data.");
     } finally {
@@ -190,7 +200,10 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
   }, [loadData]);
 
   const departmentOptions = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>(ALL_COMPANY_DEPARTMENTS);
+    departments.forEach((d) => {
+      if (d.name) set.add(d.name);
+    });
     teamMembers.forEach((m) => {
       if (m.department) set.add(m.department);
     });
@@ -198,7 +211,7 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
       if (a.employee_department) set.add(a.employee_department);
     });
     return Array.from(set).sort();
-  }, [teamMembers, assignments]);
+  }, [departments, teamMembers, assignments]);
 
   const filteredAssignments = useMemo(() => {
     return assignments.filter((a) => {
@@ -210,7 +223,9 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
         if (!matchTitle && !matchEmp && !matchClient) return false;
       }
       if (selectedDepartment !== "all") {
-        if ((a.employee_department || "").toLowerCase() !== selectedDepartment.toLowerCase()) return false;
+        const targetNorm = normalizeDepartment(selectedDepartment);
+        const empNorm = normalizeDepartment(a.employee_department);
+        if (empNorm !== targetNorm) return false;
       }
       if (selectedEmployee !== "all") {
         if (String(a.employee) !== selectedEmployee) return false;
@@ -248,8 +263,10 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
 
     teamMembers.forEach((m) => {
       const idStr = String(m.id);
-      if (selectedDepartment !== "all" && (m.department || "").toLowerCase() !== selectedDepartment.toLowerCase()) {
-        return;
+      if (selectedDepartment !== "all") {
+        const targetNorm = normalizeDepartment(selectedDepartment);
+        const empNorm = normalizeDepartment(m.department);
+        if (empNorm !== targetNorm) return;
       }
       if (selectedEmployee !== "all" && idStr !== selectedEmployee) {
         return;
@@ -276,7 +293,11 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
       const empIdStr = String(a.employee);
       if (!map[empIdStr]) {
         if (selectedEmployee !== "all" && empIdStr !== selectedEmployee) return;
-        if (selectedDepartment !== "all" && (a.employee_department || "").toLowerCase() !== selectedDepartment.toLowerCase()) return;
+        if (selectedDepartment !== "all") {
+          const targetNorm = normalizeDepartment(selectedDepartment);
+          const empNorm = normalizeDepartment(a.employee_department);
+          if (empNorm !== targetNorm) return;
+        }
 
         map[empIdStr] = {
           employeeId: empIdStr,

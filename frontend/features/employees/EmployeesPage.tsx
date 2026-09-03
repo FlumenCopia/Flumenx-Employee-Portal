@@ -16,13 +16,14 @@ import { EmployeeDocumentsModal } from "./EmployeeDocumentsModal";
 export type EmployeeWorkspaceRole = "admin" | "hr" | "employee" | "team-lead" | "bdo" | "accountant";
 
 const DEPARTMENT_OPTIONS: Department[] = [
+  "Operations",
   "Web Development",
   "Video Editing",
   "Design",
   "Digital Marketing",
-  "Accountant",
+  "Accounts",
   "HR",
-  "Operations",
+  "Business Development",
 ];
 
 const DEFAULT_ROLE_ITEMS: { value: PortalRole; label: string }[] = [
