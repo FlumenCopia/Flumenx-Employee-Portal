@@ -210,7 +210,7 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: styleObj as any,
-      center: [77.5946, 12.9716],
+      center: [76.9366, 8.5241],
       zoom: 12,
     });
 

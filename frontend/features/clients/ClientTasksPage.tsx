@@ -103,6 +103,9 @@ export function ClientTasksPage({ role }: Props) {
 
   const [calendarDate, setCalendarDate] = useState<Date>(new Date());
   const [calendarSubView, setCalendarSubView] = useState<"grid" | "agenda">("grid");
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [selectedDayTask, setSelectedDayTask] = useState<WorkAssignment | null>(null);
+  const [isDayInspectorModalOpen, setIsDayInspectorModalOpen] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -833,28 +836,41 @@ export function ClientTasksPage({ role }: Props) {
                     {calendarDays.map((item, idx) => {
                       const dayTasks = tasksByDate[item.dateStr] || [];
                       const isToday = item.dateStr === new Date().toISOString().slice(0, 10);
+                      const isSelectedDate = selectedCalendarDate === item.dateStr;
 
                       return (
                         <div
                           key={idx}
+                          onClick={() => {
+                            setSelectedCalendarDate(item.dateStr);
+                            if (dayTasks.length > 0) {
+                              setSelectedDayTask(dayTasks[0]);
+                            } else {
+                              setSelectedDayTask(null);
+                            }
+                            setIsDayInspectorModalOpen(true);
+                          }}
                           style={{
-                            minHeight: "100px",
-                            background: item.isCurrentMonth ? "var(--panel, #ffffff)" : "var(--panel2, #F8FAF9)",
-                            border: isToday ? "2px solid var(--color-primary, #087A5B)" : "1px solid var(--border, #DCE3E0)",
+                            minHeight: "105px",
+                            background: isSelectedDate ? "var(--color-primary-subtle, #E7F3EE)" : item.isCurrentMonth ? "var(--panel, #ffffff)" : "var(--panel2, #F8FAF9)",
+                            border: isSelectedDate ? "2px solid var(--color-primary, #087A5B)" : isToday ? "2px solid var(--color-brand-border, #B2D8CB)" : "1px solid var(--border, #DCE3E0)",
                             borderRadius: "10px",
                             padding: "8px",
                             display: "flex",
                             flexDirection: "column",
                             gap: "4px",
-                            opacity: item.isCurrentMonth ? 1 : 0.6,
+                            opacity: item.isCurrentMonth ? 1 : 0.65,
+                            cursor: "pointer",
+                            boxShadow: isSelectedDate ? "0 3px 10px rgba(8,122,91,0.18)" : "none",
+                            transition: "all 0.15s ease",
                           }}
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontSize: "12px", fontWeight: isToday ? 800 : 600, color: isToday ? "var(--color-primary, #087A5B)" : "var(--color-text, #18231F)" }}>
+                            <span style={{ fontSize: "12px", fontWeight: isToday || isSelectedDate ? 800 : 600, color: isSelectedDate || isToday ? "var(--color-primary, #087A5B)" : "var(--color-text, #18231F)" }}>
                               {item.date.getDate()}
                             </span>
                             {dayTasks.length > 0 && (
-                              <span style={{ fontSize: "10px", fontWeight: 700, color: "var(--color-primary, #087A5B)" }}>
+                              <span style={{ fontSize: "10px", fontWeight: 800, color: "var(--color-primary, #087A5B)", background: isSelectedDate ? "#ffffff" : "var(--color-primary-subtle, #E7F3EE)", padding: "1px 6px", borderRadius: "99px" }}>
                                 {dayTasks.length} {dayTasks.length === 1 ? "task" : "tasks"}
                               </span>
                             )}
@@ -864,10 +880,16 @@ export function ClientTasksPage({ role }: Props) {
                             {dayTasks.map((t) => (
                               <div
                                 key={t.id}
-                                onClick={() => setDetailTask(t)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedCalendarDate(item.dateStr);
+                                  setSelectedDayTask(t);
+                                  setIsDayInspectorModalOpen(true);
+                                }}
                                 style={{
-                                  background: PRIORITY_COLORS[t.priority || "Normal"].bg,
-                                  border: `1px solid ${PRIORITY_COLORS[t.priority || "Normal"].border}`,
+                                  background: selectedDayTask?.id === t.id ? "var(--color-primary, #087A5B)" : PRIORITY_COLORS[t.priority || "Normal"].bg,
+                                  color: selectedDayTask?.id === t.id ? "#ffffff" : "var(--color-text, #18231F)",
+                                  border: `1px solid ${selectedDayTask?.id === t.id ? "var(--color-primary, #087A5B)" : PRIORITY_COLORS[t.priority || "Normal"].border}`,
                                   borderRadius: "6px",
                                   padding: "4px 6px",
                                   fontSize: "11px",
@@ -875,15 +897,16 @@ export function ClientTasksPage({ role }: Props) {
                                   display: "flex",
                                   flexDirection: "column",
                                   gap: "2px",
+                                  boxShadow: selectedDayTask?.id === t.id ? "0 2px 6px rgba(8,122,91,0.25)" : "none",
                                 }}
                                 title={`${t.client_name}: ${t.title} (${t.status})`}
                               >
-                                <div style={{ fontWeight: 700, color: "var(--color-text, #18231F)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                <div style={{ fontWeight: 700, color: selectedDayTask?.id === t.id ? "#ffffff" : "var(--color-text, #18231F)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                   {t.client_name}: {t.title}
                                 </div>
-                                <div style={{ fontSize: "10px", color: "var(--color-text-muted, #718096)", display: "flex", justifyContent: "space-between" }}>
+                                <div style={{ fontSize: "10px", color: selectedDayTask?.id === t.id ? "#E7F3EE" : "var(--color-text-muted, #718096)", display: "flex", justifyContent: "space-between" }}>
                                   <span>{t.completed_quantity || 0}/{t.assigned_quantity || 1} {t.unit}</span>
-                                  <span style={{ fontWeight: 600, color: STATUS_COLORS[t.status]?.text || "var(--color-text, #18231F)" }}>{t.status}</span>
+                                  <span style={{ fontWeight: 700, color: selectedDayTask?.id === t.id ? "#ffffff" : (STATUS_COLORS[t.status]?.text || "var(--color-text, #18231F)") }}>{t.status}</span>
                                 </div>
                               </div>
                             ))}
@@ -895,7 +918,7 @@ export function ClientTasksPage({ role }: Props) {
                 </div>
               </div>
             ) : (
-              /* AGENDA DAY VIEW (Optimized for Mobile/Touch) */
+              /* AGENDA DAY VIEW */
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 {Object.keys(tasksByDate).length === 0 ? (
                   <div style={{ textAlign: "center", padding: "40px 16px", color: "var(--color-text-muted, #718096)", fontSize: "13px" }}>
@@ -906,7 +929,15 @@ export function ClientTasksPage({ role }: Props) {
                     .sort(([a], [b]) => a.localeCompare(b))
                     .map(([dateStr, dateTasks]) => (
                       <div key={dateStr} style={{ background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border, #DCE3E0)", borderRadius: "10px", padding: "12px 16px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", fontWeight: 800, fontSize: "13.5px", color: "var(--color-primary, #087A5B)" }}>
+                        <div
+                          onClick={() => {
+                            setSelectedCalendarDate(dateStr);
+                            if (dateTasks.length > 0) setSelectedDayTask(dateTasks[0]);
+                            else setSelectedDayTask(null);
+                            setIsDayInspectorModalOpen(true);
+                          }}
+                          style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", fontWeight: 800, fontSize: "13.5px", color: "var(--color-primary, #087A5B)", cursor: "pointer" }}
+                        >
                           <CalendarDays size={16} />
                           <span>{new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</span>
                           <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "99px", background: "var(--panel, #ffffff)", border: "1px solid var(--border, #DCE3E0)", color: "var(--color-text-muted, #718096)" }}>
@@ -918,7 +949,11 @@ export function ClientTasksPage({ role }: Props) {
                           {dateTasks.map((t) => (
                             <div
                               key={t.id}
-                              onClick={() => setDetailTask(t)}
+                              onClick={() => {
+                                setSelectedCalendarDate(dateStr);
+                                setSelectedDayTask(t);
+                                setIsDayInspectorModalOpen(true);
+                              }}
                               style={{
                                 background: "var(--panel, #ffffff)",
                                 border: `1px solid var(--border, #DCE3E0)`,
@@ -1404,6 +1439,196 @@ export function ClientTasksPage({ role }: Props) {
                         </a>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* DAY TASK INSPECTOR MODAL */}
+        {isDayInspectorModalOpen && selectedCalendarDate && (
+          <Modal
+            size="xl"
+            eyebrow="CALENDAR COMMAND CENTER"
+            title={`Scheduled Deliverables: ${new Date(selectedCalendarDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}`}
+            onClose={() => setIsDayInspectorModalOpen(false)}
+          >
+            <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: "16px", alignItems: "start", marginTop: "8px" }}>
+              
+              {/* LEFT COLUMN: All Client Tasks on Selected Date */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "65vh", overflowY: "auto", paddingRight: "4px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--color-text-muted, #718096)", textTransform: "uppercase" }}>
+                    Tasks On Date ({(tasksByDate[selectedCalendarDate] || []).length})
+                  </span>
+                </div>
+
+                {!(tasksByDate[selectedCalendarDate] && tasksByDate[selectedCalendarDate].length > 0) ? (
+                  <div style={{ background: "var(--panel2, #F8FAF9)", border: "1px dashed var(--border, #DCE3E0)", borderRadius: "10px", padding: "24px 16px", textAlign: "center", color: "var(--color-text-muted, #718096)", fontSize: "13px" }}>
+                    No client master tasks scheduled on {selectedCalendarDate}.
+                  </div>
+                ) : (
+                  tasksByDate[selectedCalendarDate].map((t) => {
+                    const isSelected = selectedDayTask?.id === t.id;
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => setSelectedDayTask(t)}
+                        style={{
+                          background: isSelected ? "var(--color-primary-subtle, #E7F3EE)" : "var(--panel, #ffffff)",
+                          border: `2px solid ${isSelected ? "var(--color-primary, #087A5B)" : "var(--border, #DCE3E0)"}`,
+                          borderRadius: "10px",
+                          padding: "12px 14px",
+                          cursor: "pointer",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "6px",
+                          transition: "all 0.15s ease",
+                          boxShadow: isSelected ? "0 2px 8px rgba(8,122,91,0.15)" : "none",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--color-primary, #087A5B)" }}>
+                            {t.client_name}
+                          </span>
+                          {t.code && (
+                            <span style={{ fontSize: "10.5px", fontWeight: 800, fontFamily: "monospace", background: "var(--panel2, #F1F5F3)", padding: "1px 6px", borderRadius: "4px" }}>
+                              {t.code}
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--color-text, #18231F)", lineHeight: "1.3" }}>
+                          {t.title}
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "var(--color-text-muted, #718096)", marginTop: "2px" }}>
+                          <span>{t.completed_quantity || 0}/{t.assigned_quantity || 1} {t.unit}</span>
+                          <span style={{ fontSize: "10.5px", fontWeight: 800, padding: "2px 8px", borderRadius: "20px", background: STATUS_COLORS[t.status]?.bg || "#F1F5F9", color: STATUS_COLORS[t.status]?.text || "#475569" }}>
+                            {t.status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* RIGHT COLUMN: Selected Task Details Inspector Panel */}
+              <div style={{ maxHeight: "65vh", overflowY: "auto", paddingRight: "4px" }}>
+                {!selectedDayTask ? (
+                  <div style={{ background: "var(--panel2, #F8FAF9)", border: "1px dashed var(--border, #DCE3E0)", borderRadius: "12px", padding: "40px 20px", textAlign: "center", color: "var(--color-text-muted, #718096)", fontSize: "13.5px" }}>
+                    Select any task from the left list to view details and manage deliverables.
+                  </div>
+                ) : (
+                  <div style={{ background: "var(--panel, #ffffff)", border: "1px solid var(--border, #DCE3E0)", borderRadius: "12px", padding: "18px", display: "flex", flexDirection: "column", gap: "14px" }}>
+                    
+                    {/* Task Title & Code Badges Header */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px", borderBottom: "1px solid var(--border, #DCE3E0)", paddingBottom: "12px" }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "6px" }}>
+                          {selectedDayTask.code && (
+                            <span style={{ fontSize: "11px", fontWeight: 900, background: "#18231F", color: "#ffffff", padding: "2px 8px", borderRadius: "4px", fontFamily: "monospace" }}>
+                              {selectedDayTask.code}
+                            </span>
+                          )}
+                          <span style={{ fontSize: "11px", fontWeight: 800, background: "var(--color-primary-subtle, #E7F3EE)", color: "var(--color-primary, #087A5B)", padding: "2px 8px", borderRadius: "4px" }}>
+                            {selectedDayTask.client_name}
+                          </span>
+                          <span style={{ fontSize: "11px", fontWeight: 800, background: PRIORITY_COLORS[selectedDayTask.priority || "Normal"].bg, color: PRIORITY_COLORS[selectedDayTask.priority || "Normal"].text, border: `1px solid ${PRIORITY_COLORS[selectedDayTask.priority || "Normal"].border}`, padding: "2px 8px", borderRadius: "4px" }}>
+                            {selectedDayTask.priority} Priority
+                          </span>
+                          <span style={{ fontSize: "11px", fontWeight: 800, background: STATUS_COLORS[selectedDayTask.status]?.bg || "#F1F5F9", color: STATUS_COLORS[selectedDayTask.status]?.text || "#475569", padding: "2px 10px", borderRadius: "20px" }}>
+                            {selectedDayTask.status}
+                          </span>
+                        </div>
+
+                        <h3 style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--color-text, #18231F)", margin: "4px 0" }}>{selectedDayTask.title}</h3>
+                        {selectedDayTask.description && (
+                          <p style={{ fontSize: "13px", color: "var(--color-text-secondary, #4A5568)", margin: "6px 0 0", lineHeight: "1.5" }}>{selectedDayTask.description}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Quick Status & Progress Control Bar */}
+                    <div style={{ background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border, #DCE3E0)", borderRadius: "10px", padding: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--color-text-muted, #718096)" }}>Status:</span>
+                        <select
+                          value={selectedDayTask.status}
+                          onChange={(e) => {
+                            handleQuickStatusChange(selectedDayTask.id, e.target.value as any);
+                            setSelectedDayTask((prev) => (prev ? { ...prev, status: e.target.value as any } : null));
+                          }}
+                          style={{ padding: "5px 8px", borderRadius: "6px", border: "1px solid var(--border2, #CBD5E1)", fontSize: "12px", fontWeight: 700, background: "#ffffff", outline: "none" }}
+                        >
+                          <option value="Assigned">Assigned</option>
+                          <option value="In Progress">In Progress</option>
+                          <option value="In Review">In Review</option>
+                          <option value="Approved">Approved</option>
+                          <option value="Published">Published</option>
+                        </select>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--color-text-muted, #718096)" }}>Delivered:</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <button
+                            onClick={async () => {
+                              await handleIncrement(selectedDayTask.id, -1);
+                              setSelectedDayTask((prev) => (prev ? { ...prev, completed_quantity: Math.max(0, (prev.completed_quantity || 0) - 1) } : null));
+                            }}
+                            style={{ width: "26px", height: "26px", borderRadius: "6px", border: "1px solid var(--border, #DCE3E0)", background: "#ffffff", fontWeight: 800, cursor: "pointer" }}
+                          >
+                            -
+                          </button>
+                          <span style={{ fontSize: "12.5px", fontWeight: 800, minWidth: "55px", textAlign: "center" }}>
+                            {selectedDayTask.completed_quantity || 0} / {selectedDayTask.assigned_quantity || 1} {selectedDayTask.unit}
+                          </span>
+                          <button
+                            onClick={async () => {
+                              await handleIncrement(selectedDayTask.id, 1);
+                              setSelectedDayTask((prev) => (prev ? { ...prev, completed_quantity: Math.min(prev.assigned_quantity || 1, (prev.completed_quantity || 0) + 1) } : null));
+                            }}
+                            style={{ width: "26px", height: "26px", borderRadius: "6px", border: "1px solid var(--color-primary, #087A5B)", background: "var(--color-primary, #087A5B)", color: "#ffffff", fontWeight: 800, cursor: "pointer" }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Deliverables / Milestones Breakdown Checklist */}
+                    {selectedDayTask.deliverables && selectedDayTask.deliverables.length > 0 && (
+                      <div>
+                        <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--color-text-muted, #718096)", textTransform: "uppercase", letterSpacing: "0.5px", display: "block", marginBottom: "6px" }}>
+                          Milestones & Deliverables ({selectedDayTask.deliverables.length})
+                        </span>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "6px" }}>
+                          {selectedDayTask.deliverables.map((del, dIdx) => {
+                            const isDone = (del.delivered || 0) > 0 || del.status === "Completed" || del.status === "Published";
+                            return (
+                              <div key={dIdx} style={{ background: isDone ? "var(--color-primary-subtle, #E7F3EE)" : "var(--panel2, #F8FAF9)", border: `1px solid ${isDone ? "var(--color-brand-border, #B2D8CB)" : "var(--border, #DCE3E0)"}`, padding: "6px 10px", borderRadius: "6px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11.5px" }}>
+                                <span style={{ fontWeight: 700, color: isDone ? "var(--color-primary, #087A5B)" : "var(--color-text, #18231F)" }}>
+                                  {isDone ? "✓ " : "• "}{del.name || del.title}
+                                </span>
+                                <span style={{ fontSize: "10px", fontWeight: 800, color: isDone ? "var(--color-primary, #087A5B)" : "var(--color-text-muted, #718096)" }}>
+                                  {isDone ? "Done" : "Pending"}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Scope Details Footer */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "8px", borderTop: "1px solid var(--border, #DCE3E0)", paddingTop: "10px", fontSize: "11.5px", color: "var(--color-text-muted, #718096)" }}>
+                      <div>Category: <strong style={{ color: "var(--color-text, #18231F)" }}>{selectedDayTask.department_category || "General"}</strong></div>
+                      <div>Est. Hours: <strong style={{ color: "var(--color-text, #18231F)" }}>{selectedDayTask.estimated_hours || 0} hrs</strong></div>
+                      <div>Due Date: <strong style={{ color: "var(--color-text, #18231F)" }}>{selectedDayTask.due_date ? selectedDayTask.due_date.slice(0, 10) : "N/A"}</strong></div>
+                    </div>
                   </div>
                 )}
               </div>

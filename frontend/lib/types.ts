@@ -618,27 +618,46 @@ export type PublicWorkDeliverable = {
 };
 
 export type PublicWorkAssignment = {
+  id?: string | number;
+  code?: string;
+  phase?: string;
+  deliverable_type?: string;
+  department_category?: string;
   title: string;
+  description?: string;
+  note?: string;
   status: string;
   priority: string;
   progress: number;
   assigned_quantity: number;
   completed_quantity: number;
-  remaining_quantity: number;
+  remaining_quantity?: number;
   unit: string;
+  estimated_hours?: number;
+  actual_hours?: number;
+  review_status?: string;
+  employee_name?: string;
+  is_master_client_task?: boolean;
   assigned_date?: string;
   due_date?: string;
   completed_at?: string | null;
   deliverables: PublicWorkDeliverable[];
+  attachments?: TaskAttachment[];
 };
 
 export type PublicWorkProgress = {
   client_name: string;
+  industry?: string;
   public_update: string;
   scope: "assignment" | "client";
   overall_progress: number;
   expires_at: string | null;
   last_updated: string;
+  kpi_health?: ClientKPIHealth;
+  contact_person?: ClientContactPerson;
+  services_provided?: string[];
+  documents?: ClientDocument[];
+  brand_assets?: ClientBrandAsset[];
   assignments: PublicWorkAssignment[];
 };
 

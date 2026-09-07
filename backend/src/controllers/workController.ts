@@ -1855,8 +1855,13 @@ export async function getPublicWorkProgress(req: Request, res: Response): Promis
     const emp = a.employee as any;
     return {
       id: a._id,
+      code: a.code || '',
+      phase: a.phase || 'ph1',
+      deliverable_type: a.deliverableType || '',
+      department_category: a.departmentCategory || 'General',
       title: a.title,
-      description: a.description,
+      description: a.description || '',
+      note: a.note || '',
       status: a.status,
       priority: a.priority,
       assigned_date: a.assignedDate ? new Date(a.assignedDate).toISOString().split('T')[0] : '',
@@ -1865,6 +1870,9 @@ export async function getPublicWorkProgress(req: Request, res: Response): Promis
       completed_quantity: a.completedQuantity || 0,
       progress: Math.min(100, Math.max(0, a.progress || progressPct)),
       unit: a.unit || 'tasks',
+      estimated_hours: a.estimatedHours || 0,
+      actual_hours: a.actualHours || 0,
+      review_status: a.reviewStatus || '',
       is_master_client_task: Boolean(a.isMasterClientTask),
       employee_name: emp ? emp.name : 'FLUMENX Production Team',
       deliverables: (a.deliverables || []).map((d: any) => ({
@@ -1904,12 +1912,17 @@ export async function getPublicWorkProgress(req: Request, res: Response): Promis
     overallProgress = totalAssigned > 0 ? Math.min(100, Math.round((totalCompleted / totalAssigned) * 100)) : 0;
   }
 
+  const kpiHealth = await calculateClientKPIHealth(String(clientId));
+
   res.json({
     client_name: clientObj ? clientObj.name : (link.client as any)?.name || 'Client',
     industry: clientObj?.industry || 'General',
     public_update: link.publicUpdate,
     scope: link.assignment ? 'assignment' : 'client',
     overall_progress: overallProgress,
+    kpi_health: kpiHealth,
+    contact_person: clientObj?.contactPerson || { name: '', email: '', phone: '', designation: '' },
+    services_provided: clientObj?.servicesProvided || [],
     assignments: finalClientDeliverables,
     client_deliverables: finalClientDeliverables,
     internal_tasks: internalEmployeeTasks,
