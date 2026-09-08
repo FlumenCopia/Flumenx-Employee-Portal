@@ -115,6 +115,7 @@ const employeeNav = [
   ["My Performance", "/employee/profile", TrendingUp],
   ["My Salary Slips", "/employee/salary-slips", FileSpreadsheet],
   ["Employees Directory", "/employees", Users],
+  ["Reports Center", "/employee/reports", FileSpreadsheet],
   ["Meetings", "/employee/meetings", Users],
   ["Announcements", "/employee/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
@@ -158,6 +159,7 @@ const bdoNav = [
   ["Location Tracking", "/tracking", MapPin],
   ["My Leave", "/bdo/leaves", CalendarDays],
   ["Salary & Payslips", "/bdo/salary-slips", FileSpreadsheet],
+  ["Reports Center", "/bdo/reports", FileSpreadsheet],
   ["Meetings", "/bdo/meetings", Users],
   ["Announcements", "/bdo/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
