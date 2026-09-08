@@ -30,7 +30,20 @@ type WorkFilters = {
 
 const EMPTY_SUMMARY: WorkSummary = { total: 0, pending: 0, in_progress: 0, blocked: 0, completed: 0, overdue: 0, review_pending: 0, review_ok: 0, review_correction: 0 };
 const PRIORITIES: WorkPriority[] = ["Low", "Normal", "High", "Urgent"];
-const STATUSES: WorkStatus[] = ["Backlog", "Assigned", "In Progress", "In Review", "Approved", "Published"];
+const STATUSES: WorkStatus[] = [
+  "Backlog",
+  "Assigned",
+  "Pending",
+  "In Progress",
+  "Ongoing",
+  "Blocked",
+  "In Review",
+  "Changes Requested",
+  "Approved",
+  "Completed",
+  "Published",
+  "Rejected",
+];
 const EMPTY_FILTERS: WorkFilters = { employee: "", client: "", status: "", priority: "", due_date: "", assigned_date: "", is_overdue: "", review_status: "", department: "", search: "" };
 
 function today() {
@@ -1265,10 +1278,10 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
       >
         {[
           { key: "Assigned", label: "Assigned / Pending", statuses: ["Assigned", "Pending"], color: "#3B82F6" },
-          { key: "In Progress", label: "In Progress", statuses: ["In Progress", "Ongoing"], color: "#F59E0B" },
-          { key: "In Review", label: "In Review", statuses: ["In Review"], color: "#8B5CF6" },
-          { key: "Approved", label: "Approved / Completed", statuses: ["Approved", "Completed", "Published"], color: "#10B981" },
-          { key: "Backlog", label: "Backlog", statuses: ["Backlog"], color: "#64748B" },
+          { key: "In Progress", label: "In Progress", statuses: ["In Progress", "Ongoing", "Blocked"], color: "#F59E0B" },
+          { key: "In Review", label: "In Review", statuses: ["In Review", "Changes Requested"], color: "#8B5CF6" },
+          { key: "Approved", label: "Approved / Completed / Published", statuses: ["Approved", "Completed", "Published"], color: "#10B981" },
+          { key: "Backlog", label: "Backlog", statuses: ["Backlog", "Rejected"], color: "#64748B" },
         ].map((col) => {
           const colTasks = items.filter((t) => {
             const raw = t.status || "Assigned";
