@@ -290,6 +290,7 @@ export function normalizeWorkspaceRoute(routePath: string, workspaceRole: Worksp
     return `/employees${query}`;
   }
 
+  // Fallback for custom dynamic roles or raw route paths
   return routePath;
 }
 
