@@ -43,8 +43,10 @@ export async function migrateProductionWorkAssignments(isDryRun: boolean = false
       targetStatus = 'In Progress';
     } else if (rawStatus === 'Changes Requested' || rawStatus === 'Rejected') {
       targetStatus = 'In Review';
-    } else if (rawStatus === 'Completed' || rawStatus === 'Published') {
+    } else if (rawStatus === 'Published') {
       targetStatus = 'Approved';
+    } else if (rawStatus === 'Completed') {
+      targetStatus = doc.reviewStatus === 'OK' ? 'Approved' : 'In Review';
     } else if (!canonicalStatuses.has(rawStatus as any)) {
       targetStatus = 'Assigned';
     }

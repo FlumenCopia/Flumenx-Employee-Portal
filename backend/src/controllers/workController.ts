@@ -1380,16 +1380,22 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
   const hasAssignedReviewer = Boolean(assignment.reviewer);
 
   if (fields.status) {
-    const isTargetingFinalState = ['Completed', 'Approved', 'Published'].includes(fields.status);
+    const rawStatus = String(fields.status).trim();
+    const isReviewMode = ['In Review', 'review', 'PENDING_REVIEW', 'Pending Review'].includes(rawStatus);
+    const isTargetingFinalState = ['Completed', 'Approved', 'Published'].includes(rawStatus);
 
-    if (isTargetingFinalState) {
-      // Guard: If task has a designated reviewer, ONLY the designated reviewer or Super Admin can give final status confirmation!
+    if (isReviewMode) {
+      assignment.status = 'In Review';
+      assignment.reviewStatus = 'PENDING_REVIEW';
+      if (fields.review_note) assignment.reviewNote = fields.review_note;
+    } else if (isTargetingFinalState) {
+      // Guard: If task has a designated reviewer, non-reviewers submitting completion move task to In Review!
       if (hasAssignedReviewer && !isReviewer && !isSuper) {
-        assignment.status = 'PENDING_REVIEW';
+        assignment.status = 'In Review';
         assignment.reviewStatus = 'PENDING_REVIEW';
         if (fields.review_note) assignment.reviewNote = fields.review_note;
       } else {
-        assignment.status = fields.status;
+        assignment.status = 'Approved';
         assignment.reviewStatus = 'OK';
         if (assignment.assignedQuantity && assignment.assignedQuantity > 0) {
           assignment.completedQuantity = assignment.assignedQuantity;
@@ -1399,6 +1405,8 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
           assignment.completedAt = new Date();
         }
       }
+    } else if (['Backlog', 'Assigned', 'In Progress'].includes(rawStatus)) {
+      assignment.status = rawStatus as any;
     } else {
       assignment.status = fields.status;
     }
@@ -1426,9 +1434,6 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     const hasManualQuantity = fields.completed_quantity !== undefined || (assignment.completedQuantity > 0 && !['Completed', 'Published', 'Approved'].includes(fields.status || ''));
     if (hasManualQuantity && assignment.assignedQuantity && assignment.assignedQuantity > 0) {
       assignment.progress = Math.min(100, Math.round((assignment.completedQuantity / assignment.assignedQuantity) * 100));
-      if (assignment.completedQuantity >= assignment.assignedQuantity && assignment.status !== 'Completed') {
-        assignment.status = 'Completed';
-      }
     } else {
       syncQuantityState(assignment);
     }

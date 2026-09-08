@@ -72,29 +72,14 @@ export function syncFromDeliverables(assignment: IWorkAssignment): void {
   const rowStatuses = new Set(rows.map((r) => r.status));
 
   if (assigned > 0 && effectiveCompleted >= assigned) {
-    if (!completedStatuses.includes(assignment.status)) {
-      assignment.status = 'Approved';
-    }
-    if (!assignment.completedAt) {
+    if (!assignment.completedAt && assignment.status === 'Approved') {
       assignment.completedAt = new Date();
     }
   } else {
-    if (completedStatuses.includes(assignment.status) && effectiveCompleted < assigned) {
+    if (assignment.status === 'Approved' && effectiveCompleted < assigned) {
       if (assignment.completedAt) {
         assignment.completedAt = null;
       }
-    }
-
-    if (['In Progress', 'In Review', 'Approved', 'Published'].includes(assignment.status)) {
-      // Keep state
-    } else if (rowStatuses.has('Blocked')) {
-      assignment.status = 'Blocked';
-    } else if (
-      Array.from(rowStatuses).some((s) => ['In Progress', 'Ongoing', 'Completed', 'Approved', 'Published'].includes(s))
-    ) {
-      assignment.status = 'In Progress';
-    } else {
-      assignment.status = 'Assigned';
     }
   }
 }
