@@ -44,15 +44,22 @@ type TaskRowState = {
   assigned_quantity: string;
   unit: string;
   due_date: string;
+  priority: WorkPriority;
 };
 
-const defaultTaskRow = (defaultClient?: string, dueDate?: string, defaultUnit?: string): TaskRowState => ({
+const defaultTaskRow = (
+  defaultClient?: string,
+  dueDate?: string,
+  defaultUnit?: string,
+  defaultPriority: WorkPriority = "Normal"
+): TaskRowState => ({
   id: String(Math.random()),
   client: defaultClient || "",
   title: "",
   assigned_quantity: "1",
   unit: defaultUnit || "tasks",
   due_date: dueDate || today(),
+  priority: defaultPriority,
 });
 
 const DEPARTMENT_TEMPLATES: Record<string, Array<{ title: string; qty: string; unit: string }>> = {
@@ -347,7 +354,8 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
     const defaultClient = lastRow?.client || (clients.length > 0 ? String(clients[0].id) : "");
     const lastDate = lastRow?.due_date || form.due_date;
     const lastUnit = lastRow?.unit || "tasks";
-    setTasksToAssign(current => [...current, defaultTaskRow(defaultClient, lastDate, lastUnit)]);
+    const lastPriority = lastRow?.priority || form.priority || "Normal";
+    setTasksToAssign(current => [...current, defaultTaskRow(defaultClient, lastDate, lastUnit, lastPriority)]);
   };
 
   const removeTaskRow = (id: string) => {
@@ -374,6 +382,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
     const lastRow = tasksToAssign[tasksToAssign.length - 1];
     const defaultClient = lastRow?.client || (clients.length > 0 ? String(clients[0].id) : "");
     const dueDate = lastRow?.due_date || form.due_date;
+    const defaultPrio = lastRow?.priority || form.priority || "Normal";
     setTasksToAssign(current => [
       ...current,
       {
@@ -383,11 +392,16 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
         assigned_quantity: tpl.qty,
         unit: tpl.unit,
         due_date: dueDate,
+        priority: defaultPrio,
       },
     ]);
   };
 
-  const updateTaskRow = (id: string, field: "client" | "title" | "assigned_quantity" | "unit" | "due_date", value: string) => {
+  const updateTaskRow = (
+    id: string,
+    field: "client" | "title" | "assigned_quantity" | "unit" | "due_date" | "priority",
+    value: string
+  ) => {
     setTasksToAssign(current =>
       current.map(t => {
         if (t.id !== id) return t;
@@ -778,6 +792,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
             assigned_quantity: Number(t.assigned_quantity || 1),
             unit: t.unit || "tasks",
             due_date: t.due_date,
+            priority: t.priority || form.priority || "Normal",
           };
         }),
       };
@@ -1540,10 +1555,10 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                   onChange={event => setForm(current => ({ ...current, priority: event.target.value as WorkPriority }))}
                   className="fs"
                 >
-                  <option value="Urgent">P0 Critical</option>
+                  <option value="Normal">P2 Normal (Default)</option>
                   <option value="High">P1 High</option>
-                  <option value="Normal">P2 Normal</option>
-                  <option value="Low">P2 Low</option>
+                  <option value="Urgent">P0 Critical</option>
+                  <option value="Low">P3 Low</option>
                 </select>
               </label>
             </div>
@@ -1723,13 +1738,17 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                     PRIORITY
                     <select
                       value={form.priority}
-                      onChange={event => setForm(current => ({ ...current, priority: event.target.value as WorkPriority }))}
+                      onChange={event => {
+                        const p = event.target.value as WorkPriority;
+                        setForm(current => ({ ...current, priority: p }));
+                        setTasksToAssign(current => current.map(t => ({ ...t, priority: p })));
+                      }}
                       className="fs"
                     >
-                      <option value="Urgent">P0 Critical</option>
+                      <option value="Normal">P2 Normal (Default)</option>
                       <option value="High">P1 High</option>
-                      <option value="Normal">P2 Normal</option>
-                      <option value="Low">P2 Low</option>
+                      <option value="Urgent">P0 Critical</option>
+                      <option value="Low">P3 Low</option>
                     </select>
                   </label>
                 </div>
@@ -1881,6 +1900,20 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                         <option value="Reels">Reels</option>
                         <option value="Posts">Posts</option>
                         <option value="Documents">Documents</option>
+                      </select>
+
+                      {/* Priority per row */}
+                      <select
+                        value={taskRow.priority || form.priority || "Normal"}
+                        onChange={e => updateTaskRow(taskRow.id, "priority", e.target.value as WorkPriority)}
+                        className="fs"
+                        style={{ fontWeight: 600, fontSize: "11.5px" }}
+                        title="Task Priority"
+                      >
+                        <option value="Normal">P2 Normal</option>
+                        <option value="High">P1 High</option>
+                        <option value="Urgent">P0 Critical</option>
+                        <option value="Low">P3 Low</option>
                       </select>
 
                       {/* Due Date */}
