@@ -73,7 +73,7 @@ export function syncFromDeliverables(assignment: IWorkAssignment): void {
 
   if (assigned > 0 && effectiveCompleted >= assigned) {
     if (!completedStatuses.includes(assignment.status)) {
-      assignment.status = 'Completed';
+      assignment.status = 'Approved';
     }
     if (!assignment.completedAt) {
       assignment.completedAt = new Date();

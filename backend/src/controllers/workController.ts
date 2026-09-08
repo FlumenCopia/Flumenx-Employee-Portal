@@ -1386,7 +1386,7 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
   if (fields.review_status) {
     assignment.reviewStatus = fields.review_status;
     if (fields.review_status === 'OK' && (isReviewer || isSuper)) {
-      assignment.status = 'Completed';
+      assignment.status = 'Approved';
       assignment.progress = 100;
       if (!assignment.completedAt) assignment.completedAt = new Date();
     } else if (fields.review_status === 'CORRECTION_NEEDED') {
