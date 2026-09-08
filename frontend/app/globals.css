@@ -1852,11 +1852,11 @@ body{font-size:13px;line-height:1.45}.sidebar nav a{font-size:13px;padding:12px 
 
 .task-assign-row {
   display: grid;
-  grid-template-columns: auto minmax(130px, 1.2fr) minmax(160px, 2fr) 65px 95px 125px auto;
-  gap: 8px;
+  grid-template-columns: auto minmax(110px, 1.1fr) minmax(130px, 1.6fr) 55px 85px 100px 115px auto;
+  gap: 6px;
   align-items: center;
   background: var(--card2);
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-radius: var(--r-sm);
   border: 1px solid var(--border);
 }

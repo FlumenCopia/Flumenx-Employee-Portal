@@ -1815,7 +1815,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                 </div>
 
                 {/* Tasks List */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", overflowX: "auto", paddingBottom: "4px" }}>
                   {tasksToAssign.map((taskRow, idx) => (
                     <div key={taskRow.id} className="task-assign-row">
                       <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--muted)", minWidth: "18px" }}>
