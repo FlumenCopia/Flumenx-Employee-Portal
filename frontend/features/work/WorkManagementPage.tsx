@@ -1448,107 +1448,223 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                       </div>
                     )}
 
-                    {/* Preset Feedback Tags */}
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                      {["Needs UI Polish", "Missing Deliverables", "Fix Responsiveness", "Check Quality"].map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => setQuickNoteInputs((prev) => ({ ...prev, [item.id]: prev[item.id] ? `${prev[item.id]} · [${tag}]` : `[${tag}]` }))}
-                          style={{
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            background: "var(--panel2)",
-                            border: "1px solid var(--border)",
-                            color: "var(--foreground)",
-                            fontSize: "10.5px",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                          }}
-                        >
-                          + {tag}
-                        </button>
-                      ))}
-                    </div>
+                    {/* Preset Feedback Tags - ONLY for Pending Review */}
+                    {approvalsSubTab === "pending" && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                        {["Needs UI Polish", "Missing Deliverables", "Fix Responsiveness", "Check Quality"].map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => setQuickNoteInputs((prev) => ({ ...prev, [item.id]: prev[item.id] ? `${prev[item.id]} · [${tag}]` : `[${tag}]` }))}
+                            style={{
+                              padding: "2px 6px",
+                              borderRadius: "4px",
+                              background: "var(--panel2)",
+                              border: "1px solid var(--border)",
+                              color: "var(--foreground)",
+                              fontSize: "10.5px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            + {tag}
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
-                    {/* Quick Feedback Note Input */}
-                    <input
-                      type="text"
-                      placeholder="Type feedback or select tags above..."
-                      value={quickNote}
-                      onChange={(e) => setQuickNoteInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                      className="fi"
-                      style={{ padding: "6px 10px", fontSize: "11.5px" }}
-                    />
+                    {/* Quick Feedback Note Input - ONLY for Pending Review */}
+                    {approvalsSubTab === "pending" && (
+                      <input
+                        type="text"
+                        placeholder="Type feedback or select tags above..."
+                        value={quickNote}
+                        onChange={(e) => setQuickNoteInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                        className="fi"
+                        style={{ padding: "6px 10px", fontSize: "11.5px" }}
+                      />
+                    )}
 
                     {/* Action Buttons */}
-                    <div style={{ display: "flex", gap: "8px", marginTop: "auto", paddingTop: "10px", borderTop: "1px solid var(--border)" }}>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await handleReviewCheck(item.id, "OK", quickNote || "Approved");
-                          toast.success(`Task "${item.title}" approved!`);
-                        }}
-                        style={{
-                          flex: 1,
-                          padding: "7px 12px",
-                          borderRadius: "6px",
-                          background: "#087A5B",
-                          color: "#FFFFFF",
-                          border: "none",
-                          fontWeight: 800,
-                          fontSize: "12px",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        <CheckCircle2 size={14} /> 1-Click Approve
-                      </button>
+                    <div style={{ display: "flex", gap: "8px", marginTop: "auto", paddingTop: "10px", borderTop: "1px solid var(--border)", alignItems: "center" }}>
+                      {approvalsSubTab === "approved" ? (
+                        <>
+                          <div
+                            style={{
+                              flex: 1,
+                              padding: "6px 12px",
+                              borderRadius: "6px",
+                              background: "rgba(16, 185, 129, 0.12)",
+                              color: "#10B981",
+                              border: "1px solid rgba(16, 185, 129, 0.3)",
+                              fontWeight: 800,
+                              fontSize: "12px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
+                            }}
+                          >
+                            <CheckCircle2 size={15} /> Approved & Finalized
+                          </div>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const reason = prompt("Enter reason for sending back to In Progress:") || "Re-opened for update";
+                              await handleReviewCheck(item.id, "CORRECTION_NEEDED", reason);
+                              toast.info(`Re-opened task "${item.title}" for changes.`);
+                            }}
+                            style={{
+                              padding: "7px 10px",
+                              borderRadius: "6px",
+                              background: "var(--panel2)",
+                              color: "var(--foreground)",
+                              border: "1px solid var(--border)",
+                              fontSize: "11.5px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                            title="Re-open task for updates"
+                          >
+                            ↩ Re-open
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(item)}
+                            style={{
+                              padding: "7px 10px",
+                              borderRadius: "6px",
+                              background: "var(--panel2)",
+                              color: "var(--foreground)",
+                              border: "1px solid var(--border)",
+                              fontSize: "11.5px",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                            title="Edit Task / Final Correction"
+                          >
+                            <Pencil size={14} /> Edit
+                          </button>
+                        </>
+                      ) : approvalsSubTab === "corrections" ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await handleReviewCheck(item.id, "OK", "Approved after revision");
+                              toast.success(`Task "${item.title}" approved!`);
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: "7px 12px",
+                              borderRadius: "6px",
+                              background: "#087A5B",
+                              color: "#FFFFFF",
+                              border: "none",
+                              fontWeight: 800,
+                              fontSize: "12px",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            <CheckCircle2 size={14} /> Approve Now
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(item)}
+                            style={{
+                              padding: "7px 10px",
+                              borderRadius: "6px",
+                              background: "var(--panel2)",
+                              color: "var(--foreground)",
+                              border: "1px solid var(--border)",
+                              fontSize: "11.5px",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                            title="Edit Task / Final Correction"
+                          >
+                            <Pencil size={14} /> Edit
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await handleReviewCheck(item.id, "OK", quickNote || "Approved");
+                              toast.success(`Task "${item.title}" approved!`);
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: "7px 12px",
+                              borderRadius: "6px",
+                              background: "#087A5B",
+                              color: "#FFFFFF",
+                              border: "none",
+                              fontWeight: 800,
+                              fontSize: "12px",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            <CheckCircle2 size={14} /> 1-Click Approve
+                          </button>
 
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const noteToSave = quickNote.trim() || "Correction requested.";
-                          await handleReviewCheck(item.id, "CORRECTION_NEEDED", noteToSave);
-                          toast.info(`Changes requested for "${item.title}"`);
-                        }}
-                        style={{
-                          padding: "7px 12px",
-                          borderRadius: "6px",
-                          background: "rgba(239, 68, 68, 0.1)",
-                          color: "#dc2626",
-                          border: "1px solid rgba(239, 68, 68, 0.3)",
-                          fontWeight: 700,
-                          fontSize: "12px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        ↩ Request Changes
-                      </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const noteToSave = quickNote.trim() || "Correction requested.";
+                              await handleReviewCheck(item.id, "CORRECTION_NEEDED", noteToSave);
+                              toast.info(`Changes requested for "${item.title}"`);
+                            }}
+                            style={{
+                              padding: "7px 12px",
+                              borderRadius: "6px",
+                              background: "rgba(239, 68, 68, 0.1)",
+                              color: "#dc2626",
+                              border: "1px solid rgba(239, 68, 68, 0.3)",
+                              fontWeight: 700,
+                              fontSize: "12px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            ↩ Request Changes
+                          </button>
 
-                      <button
-                        type="button"
-                        onClick={() => openEdit(item)}
-                        style={{
-                          padding: "7px 10px",
-                          borderRadius: "6px",
-                          background: "var(--panel2)",
-                          color: "var(--foreground)",
-                          border: "1px solid var(--border)",
-                          fontSize: "11.5px",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                        title="Edit Task / Final Correction"
-                      >
-                        <Pencil size={14} /> Edit
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(item)}
+                            style={{
+                              padding: "7px 10px",
+                              borderRadius: "6px",
+                              background: "var(--panel2)",
+                              color: "var(--foreground)",
+                              border: "1px solid var(--border)",
+                              fontSize: "11.5px",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                            title="Edit Task / Final Correction"
+                          >
+                            <Pencil size={14} /> Edit
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
