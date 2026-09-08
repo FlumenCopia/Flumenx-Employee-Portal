@@ -6,14 +6,18 @@ import { Employee } from '../models/Employee.js';
 import { Department } from '../models/Department.js';
 import { User } from '../models/User.js';
 import { EmployeeDocument } from '../models/EmployeeDocument.js';
+import { resolveUserPermissions } from '../services/permissionResolver.js';
 
 
 export async function getEmployees(req: Request, res: Response): Promise<void> {
   const { department, status, search } = req.query;
 
   const filter: any = {};
-  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'ACCOUNTANT', 'BDE'].includes(req.user?.role || '');
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || Boolean(req.user?.isSuperuser);
+  const permissions = req.user ? await resolveUserPermissions(req.user) : {};
+  const empPerm = permissions.EMPLOYEES;
+  const canViewDirectory = empPerm ? Boolean(empPerm.canView) : false;
+  const isManagement = isSuper || canViewDirectory || ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'ACCOUNTANT', 'BDE', 'BDO'].includes(req.user?.role || '');
   const isTeamLead = req.user?.role === 'TEAM_LEAD';
 
   if (!isSuper && !isManagement) {

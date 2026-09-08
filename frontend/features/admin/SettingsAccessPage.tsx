@@ -30,7 +30,13 @@ export function SettingsAccessPage() {
   const [permissionDenied, setPermissionDenied] = useState(false);
 
   const isSuperAdmin = Boolean(
-    user && (user.portal_role === "SUPER_ADMIN" || user.role === "SUPER_ADMIN")
+    user && (
+      user.portal_role === "SUPER_ADMIN" ||
+      user.role === "SUPER_ADMIN" ||
+      user.is_superuser ||
+      (user as any)?.isSuperuser ||
+      Boolean(user.permissions?.SETTINGS_ACCESS?.canView || user.permissions?.ROLES?.canView)
+    )
   );
 
   const loadRoles = () => {

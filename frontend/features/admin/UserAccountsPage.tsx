@@ -35,7 +35,12 @@ export function UserAccountsPage() {
   // Route Guard: Super Admin Only
   useEffect(() => {
     if (!user) return;
-    const isSuperAdmin = user.portal_role === "SUPER_ADMIN" || user.role === "SUPER_ADMIN";
+    const isSuperAdmin =
+      user.portal_role === "SUPER_ADMIN" ||
+      user.role === "SUPER_ADMIN" ||
+      user.is_superuser ||
+      Boolean((user as any)?.isSuperuser) ||
+      Boolean(user.permissions?.SUPER_ADMIN_USERS?.canView);
     if (!isSuperAdmin) {
       router.replace("/admin/dashboard");
     }

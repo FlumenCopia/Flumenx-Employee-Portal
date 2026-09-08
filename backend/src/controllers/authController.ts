@@ -6,6 +6,7 @@ import { User } from '../models/User.js';
 import { Employee } from '../models/Employee.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { config } from '../config/env.js';
+import { resolveUserPermissions } from '../services/permissionResolver.js';
 
 export async function login(req: Request, res: Response): Promise<void> {
   const usernameOrEmail = req.body.username || req.body.email;
@@ -82,6 +83,8 @@ export async function login(req: Request, res: Response): Promise<void> {
     $or: [{ user: user._id }, { email: user.email }],
   });
 
+  const permissions = await resolveUserPermissions(user);
+
   res.json({
     access: accessToken,
     refresh: refreshToken,
@@ -94,7 +97,9 @@ export async function login(req: Request, res: Response): Promise<void> {
       is_staff: user.isStaff,
       is_superuser: user.isSuperuser,
       dynamic_role: user.dynamicRole,
+      permissions,
     },
+    permissions,
     role: user.role,
     employee_id: employee ? employee._id : null,
     employee_code: employee ? employee.employeeCode : null,
@@ -226,6 +231,8 @@ export async function getMe(req: Request, res: Response): Promise<void> {
   const employee = await Employee.findOne({ user: req.user._id });
   const avatarUrl = req.user.avatar || (employee ? employee.avatar : null) || '';
 
+  const permissions = await resolveUserPermissions(req.user);
+
   res.json({
     id: req.user._id,
     username: req.user.username,
@@ -236,6 +243,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
     portal_role: req.user.role,
     is_staff: req.user.isStaff,
     is_superuser: req.user.isSuperuser,
+    permissions,
     employee_id: employee ? employee._id : null,
     employee_code: employee ? employee.employeeCode : null,
     department: employee ? employee.department : null,

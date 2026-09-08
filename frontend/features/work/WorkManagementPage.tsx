@@ -233,11 +233,16 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
   const effectiveRole = role || (currentShellUser ? (["SUPER_ADMIN", "ADMIN", "OPERATIONS", "OPERATIONS_HEAD"].includes((currentShellUser.portal_role || "").toUpperCase()) ? "admin" : (currentShellUser.portal_role || "").toLowerCase() as WorkspaceRole) : "admin");
   const isEmployeeWorkspace = effectiveRole === "employee";
   const userRoleStr = (currentShellUser?.portal_role || "").toUpperCase();
-  const isTeamLeadOrCreator = ["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD"].includes(userRoleStr) || userRoleStr.endsWith("_TEAM_LEAD") || userRoleStr.endsWith("TEAM_LEAD") || userRoleStr.includes("LEAD");
-  const workPerms = (currentShellUser as any)?.permissions?.WORK_BOARD || (currentShellUser as any)?.permissions?.["*"];
-  const hasDynamicCreate = workPerms ? Boolean(workPerms.can_create) : false;
-  const canManageAll = isTeamLeadOrCreator || hasDynamicCreate || Boolean((currentShellUser as any)?.is_superuser);
-  const canAddClient = (["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD"].includes(userRoleStr) || ["admin", "hr"].includes(effectiveRole)) && !isEmployeeWorkspace;
+  const isSuperUser = Boolean((currentShellUser as any)?.is_superuser || currentShellUser?.is_superuser || userRoleStr === "SUPER_ADMIN" || userRoleStr === "ADMIN");
+  const tasksPerms = currentShellUser?.permissions?.TASKS || currentShellUser?.permissions?.WORK_BOARD || currentShellUser?.permissions?.["*"];
+  const clientsPerms = currentShellUser?.permissions?.CLIENTS || currentShellUser?.permissions?.["*"];
+
+  const hasTaskCreatePerm = tasksPerms ? Boolean(tasksPerms.canCreate ?? tasksPerms.can_create) : false;
+  const isCreatorRoleFallback = userRoleStr.includes("LEAD") || ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS", "OPERATIONS_HEAD", "BDE", "BDO", "ACCOUNTANT"].includes(userRoleStr);
+  const canManageAll = isSuperUser || hasTaskCreatePerm || isCreatorRoleFallback;
+
+  const hasClientCreatePerm = clientsPerms ? Boolean(clientsPerms.canCreate ?? clientsPerms.can_create) : false;
+  const canAddClient = (isSuperUser || hasClientCreatePerm || ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "BDE", "BDO"].includes(userRoleStr)) && !isEmployeeWorkspace;
   const [summary, setSummary] = useState<WorkSummary>(EMPTY_SUMMARY);
   const [items, setItems] = useState<WorkAssignment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);

@@ -4,6 +4,7 @@ import { TrackingService } from '../services/trackingService.js';
 import { Employee } from '../models/Employee.js';
 import { TrackingSession } from '../models/TrackingSession.js';
 import { LocationHistory } from '../models/LocationHistory.js';
+import { resolveUserPermissions } from '../services/permissionResolver.js';
 
 // Helper to determine if user can access target employee's location
 async function canAccessEmployee(
@@ -16,10 +17,12 @@ async function canAccessEmployee(
   }
 
   const role = (reqUser.role || '').toUpperCase();
-  const isSuper = role === 'SUPER_ADMIN' || reqUser.isSuperuser;
-  const isCompanyManager = role === 'ADMIN' || role === 'HR' || role === 'OPERATIONS' || role === 'OPERATIONS_HEAD';
+  const isSuper = role === 'SUPER_ADMIN' || Boolean(reqUser.isSuperuser);
+  const permissions = await resolveUserPermissions(reqUser);
+  const trackPerm = permissions.EMPLOYEE_TRACKING || permissions.TRACKING;
+  const canViewTracking = trackPerm ? Boolean(trackPerm.canView) : false;
 
-  if (isSuper || isCompanyManager) {
+  if (isSuper || canViewTracking || ['ADMIN', 'HR', 'OPERATIONS', 'OPERATIONS_HEAD', 'BDE', 'BDO'].includes(role)) {
     return { allowed: true, employee: targetEmployee };
   }
 
@@ -34,7 +37,7 @@ async function canAccessEmployee(
   }
 
   // Team Lead access
-  if (role === 'TEAM_LEAD' && targetEmployee.teamLead?.toString() === ownEmployee._id.toString()) {
+  if (targetEmployee.teamLead?.toString() === ownEmployee._id.toString()) {
     return { allowed: true, employee: targetEmployee };
   }
 

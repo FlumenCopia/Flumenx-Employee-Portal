@@ -5,6 +5,7 @@ import { PortalPage } from '../models/PortalPage.js';
 import { DynamicRole } from '../models/DynamicRole.js';
 import { User } from '../models/User.js';
 import { Employee } from '../models/Employee.js';
+import { resolveUserPermissions } from '../services/permissionResolver.js';
 
 // --- Departments ---
 export async function getDepartments(req: Request, res: Response): Promise<void> {
@@ -67,8 +68,43 @@ export async function deleteDepartment(req: Request, res: Response): Promise<voi
   res.status(204).send();
 }
 
+const CANONICAL_PAGE_DEFS = [
+  { moduleCode: 'COMMAND_CENTER', title: 'Command Center', routePath: '/work?view=command-center', icon: 'Sparkles', sidebarOrder: 1 },
+  { moduleCode: 'CHAT', title: 'Team Chat Hub', routePath: '/chat', icon: 'MessageSquare', sidebarOrder: 2 },
+  { moduleCode: 'TASKS', title: 'Task Board', routePath: '/work?view=kanban', icon: 'Kanban', sidebarOrder: 3 },
+  { moduleCode: 'TIMER', title: 'Time Tracker', routePath: '/timer', icon: 'Clock3', sidebarOrder: 4 },
+  { moduleCode: 'TEAM_WORK', title: 'Team Work', routePath: '/team-work', icon: 'Users', sidebarOrder: 5 },
+  { moduleCode: 'CLIENTS', title: 'Clients Master', routePath: '/clients', icon: 'BriefcaseBusiness', sidebarOrder: 6 },
+  { moduleCode: 'CLIENT_TASKS', title: 'Client Tasks & Calendar', routePath: '/clients/tasks', icon: 'Calendar', sidebarOrder: 7 },
+  { moduleCode: 'TIMELINE', title: 'Timeline & Phases', routePath: '/work?view=timeline', icon: 'Layers', sidebarOrder: 8 },
+  { moduleCode: 'KPI', title: 'KPI Performance', routePath: '/kpi', icon: 'TrendingUp', sidebarOrder: 9 },
+  { moduleCode: 'EMPLOYEES', title: 'Employees Directory', routePath: '/employees', icon: 'Users', sidebarOrder: 10 },
+  { moduleCode: 'ATTENDANCE', title: 'Attendance', routePath: '/attendance', icon: 'CalendarCheck', sidebarOrder: 11 },
+  { moduleCode: 'EMPLOYEE_TRACKING', title: 'Employee Location Tracking', routePath: '/tracking', icon: 'MapPin', sidebarOrder: 12 },
+  { moduleCode: 'LEAVES', title: 'Leave Requests', routePath: '/leaves', icon: 'CalendarDays', sidebarOrder: 13 },
+  { moduleCode: 'MEETINGS', title: 'Meetings', routePath: '/meetings', icon: 'UserRound', sidebarOrder: 14 },
+  { moduleCode: 'REPORTS', title: 'Reports Center', routePath: '/reports', icon: 'FileSpreadsheet', sidebarOrder: 15 },
+  { moduleCode: 'ROLES', title: 'Dynamic Roles', routePath: '/admin/roles', icon: 'ShieldAlert', sidebarOrder: 16 },
+  { moduleCode: 'SUPER_ADMIN_USERS', title: 'User Management', routePath: '/admin/users', icon: 'UserCheck', sidebarOrder: 17 },
+  { moduleCode: 'PAGE_MANAGEMENT', title: 'Page Management', routePath: '/pages', icon: 'FileCode', sidebarOrder: 18 },
+  { moduleCode: 'SALARY_SLIPS', title: 'Salary & Payroll', routePath: '/admin/salary-slips', icon: 'Receipt', sidebarOrder: 19 },
+  { moduleCode: 'ANNOUNCEMENTS', title: 'Announcements', routePath: '/admin/announcements', icon: 'Megaphone', sidebarOrder: 20 },
+  { moduleCode: 'AUDIT_LOGS', title: 'Audit Logs', routePath: '/admin/audit-logs', icon: 'History', sidebarOrder: 21 },
+  { moduleCode: 'SETTINGS_ACCESS', title: 'Settings & Access', routePath: '/settings', icon: 'Settings', sidebarOrder: 22 },
+];
+
+export async function ensureCanonicalPagesExist(): Promise<void> {
+  for (const pageDef of CANONICAL_PAGE_DEFS) {
+    const pageDoc = await PortalPage.findOne({ moduleCode: pageDef.moduleCode });
+    if (!pageDoc) {
+      await PortalPage.create({ ...pageDef, isActive: true });
+    }
+  }
+}
+
 // --- Portal Pages ---
 export async function getPortalPages(req: Request, res: Response): Promise<void> {
+  await ensureCanonicalPagesExist();
   const pages = await PortalPage.find().sort({ sidebarOrder: 1, title: 1 });
   const formatted = pages.map((p) => ({
     id: p._id,
@@ -240,6 +276,7 @@ export async function getRolePermissionMatrix(req: Request, res: Response): Prom
     return;
   }
 
+  await ensureCanonicalPagesExist();
   const allPages = await PortalPage.find({ isActive: true }).sort({ sidebarOrder: 1 });
 
   const matrix = allPages.map((page) => {
@@ -317,82 +354,15 @@ export async function getDynamicNavigationMe(req: Request, res: Response): Promi
   }
 
   const allPages = await PortalPage.find({ isActive: true }).sort({ sidebarOrder: 1 });
+  const permissions = await resolveUserPermissions(req.user);
 
-  if (req.user.role === 'SUPER_ADMIN' || req.user.role === 'ADMIN' || req.user.isSuperuser) {
-    res.json(
-      allPages.map((p) => ({
-        id: p._id,
-        title: p.title,
-        route_path: p.routePath,
-        module_code: p.moduleCode,
-        icon: p.icon,
-        sidebar_order: p.sidebarOrder,
-      }))
-    );
-    return;
-  }
-
-  if (req.user.dynamicRole) {
-    const dynamicRole = await DynamicRole.findById(req.user.dynamicRole).populate('permissions.page');
-    if (dynamicRole) {
-      if (dynamicRole.isSuperadminWildcard) {
-        res.json(
-          allPages.map((p) => ({
-            id: p._id,
-            title: p.title,
-            route_path: p.routePath,
-            module_code: p.moduleCode,
-            icon: p.icon,
-            sidebar_order: p.sidebarOrder,
-          }))
-        );
-        return;
-      }
-
-      const visiblePages = allPages.filter((page) => {
-        const perm = dynamicRole.permissions.find((p) => {
-          if (!p.page) return false;
-          const pageId = (p.page as any)._id ? (p.page as any)._id.toString() : p.page.toString();
-          return pageId === page._id.toString();
-        });
-        return perm && Boolean(perm.canView);
-      });
-
-      res.json(
-        visiblePages.map((p) => ({
-          id: p._id,
-          title: p.title,
-          route_path: p.routePath,
-          module_code: p.moduleCode,
-          icon: p.icon,
-          sidebar_order: p.sidebarOrder,
-        }))
-      );
-      return;
-    }
-  }
-
-  // Fallback Role-Based Module Permissions for users without custom dynamicRole
-  const ROLE_ALLOWED_MODULES: Record<string, string[]> = {
-    EMPLOYEE: ['TASKS', 'TIMER', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'SALARY_SLIPS'],
-    TEAM_LEAD: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS', 'SALARY_SLIPS'],
-    BDE: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'CLIENTS', 'TIMELINE', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'SALARY_SLIPS'],
-    BDO: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'CLIENTS', 'TIMELINE', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'ANNOUNCEMENTS', 'SALARY_SLIPS'],
-    ACCOUNTANT: ['TASKS', 'TIMER', 'CLIENTS', 'ATTENDANCE', 'LEAVES', 'SALARY_SLIPS', 'MEETINGS', 'ANNOUNCEMENTS', 'REPORTS'],
-    HR: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS'],
-    OPERATIONS: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS'],
-    OPERATIONS_HEAD: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS'],
-    ADMIN: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS', 'ROLES', 'SUPER_ADMIN_USERS', 'PAGE_MANAGEMENT', 'AUDIT_LOGS', 'SETTINGS_ACCESS'],
-    SUPER_ADMIN: ['COMMAND_CENTER', 'TASKS', 'TIMER', 'TEAM_WORK', 'CLIENTS', 'TIMELINE', 'KPI', 'EMPLOYEES', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS', 'ANNOUNCEMENTS', 'REPORTS', 'ROLES', 'SUPER_ADMIN_USERS', 'PAGE_MANAGEMENT', 'AUDIT_LOGS', 'SETTINGS_ACCESS'],
-  };
-
-  const userRole = (req.user.role || 'EMPLOYEE').toUpperCase();
-  const allowedModules = ROLE_ALLOWED_MODULES[userRole] || ['TASKS', 'TIMER', 'ATTENDANCE', 'LEAVES', 'MEETINGS', 'SALARY_SLIPS'];
-
-  const filteredPages = allPages.filter((p) => allowedModules.includes(p.moduleCode));
+  const visiblePages = allPages.filter((page) => {
+    const pagePerm = permissions[page.moduleCode];
+    return pagePerm && Boolean(pagePerm.canView);
+  });
 
   res.json(
-    filteredPages.map((p) => ({
+    visiblePages.map((p) => ({
       id: p._id,
       title: p.title,
       route_path: p.routePath,
@@ -402,6 +372,7 @@ export async function getDynamicNavigationMe(req: Request, res: Response): Promi
     }))
   );
 }
+
 
 // --- SuperAdmin User Management ---
 export async function getSuperAdminUsers(req: Request, res: Response): Promise<void> {

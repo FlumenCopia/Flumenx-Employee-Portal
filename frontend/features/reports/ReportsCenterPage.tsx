@@ -35,11 +35,10 @@ interface ReportData {
 
 export function ReportsCenterPage() {
   const user = useShellUser();
-  const role = (user?.role || "").toUpperCase();
+  const role = (user?.role || user?.portal_role || "").toUpperCase();
   const isSuperadmin = Boolean((user as any)?.isSuperuser || (user as any)?.is_superuser || role === "SUPER_ADMIN" || role === "ADMIN");
-  const isHR = role === "HR";
-  const isAccountant = role === "ACCOUNTANT";
-  const isTeamLead = role === "TEAM_LEAD";
+  const userPerms = user?.permissions || {};
+  const canViewReports = isSuperadmin || Boolean(userPerms.REPORTS?.canView ?? userPerms.REPORTS?.can_view) || role !== "EMPLOYEE";
 
   const [activeType, setActiveType] = useState<string>("attendance");
   const [startDate, setStartDate] = useState<string>(() => {
@@ -65,18 +64,18 @@ export function ReportsCenterPage() {
       .catch(() => {});
   }, []);
 
-  // Available report types based on user role
+  // Available report types based on dynamic user permissions
   const availableTabs = [
-    { id: "attendance", label: "Attendance & Timesheets", icon: Clock, allowed: true },
-    { id: "work", label: "Work & Deliverables", icon: Briefcase, allowed: true },
-    { id: "time_entries", label: "Time Tracked Audit", icon: Clock, allowed: true },
-    { id: "client_summary", label: "Client & Project Utilization", icon: FileText, allowed: isSuperadmin || isAccountant || isTeamLead },
-    { id: "kpi", label: "KPI & Ratings", icon: TrendingUp, allowed: true },
-    { id: "leaves", label: "Leaves & Absenteeism", icon: Calendar, allowed: true },
-    { id: "employees", label: "Employee Directory", icon: Users, allowed: isSuperadmin || isHR || isTeamLead },
-    { id: "clients", label: "Clients & Projects", icon: FileText, allowed: isSuperadmin || isAccountant || isTeamLead },
-    { id: "payroll", label: "Payroll & Salary Slips", icon: DollarSign, allowed: isSuperadmin || isHR || isAccountant },
-    { id: "audit", label: "Security & Audit Logs", icon: Shield, allowed: isSuperadmin },
+    { id: "attendance", label: "Attendance & Timesheets", icon: Clock, allowed: isSuperadmin || Boolean(userPerms.ATTENDANCE?.canView ?? userPerms.ATTENDANCE?.can_view ?? true) },
+    { id: "work", label: "Work & Deliverables", icon: Briefcase, allowed: isSuperadmin || Boolean(userPerms.TASKS?.canView ?? userPerms.TASKS?.can_view ?? true) },
+    { id: "time_entries", label: "Time Tracked Audit", icon: Clock, allowed: isSuperadmin || Boolean(userPerms.TIMER?.canView ?? userPerms.TIMER?.can_view ?? true) },
+    { id: "client_summary", label: "Client & Project Utilization", icon: FileText, allowed: isSuperadmin || Boolean(userPerms.CLIENTS?.canView ?? userPerms.CLIENTS?.can_view) || canViewReports },
+    { id: "kpi", label: "KPI & Ratings", icon: TrendingUp, allowed: isSuperadmin || Boolean(userPerms.KPI?.canView ?? userPerms.KPI?.can_view ?? true) },
+    { id: "leaves", label: "Leaves & Absenteeism", icon: Calendar, allowed: isSuperadmin || Boolean(userPerms.LEAVES?.canView ?? userPerms.LEAVES?.can_view ?? true) },
+    { id: "employees", label: "Employee Directory", icon: Users, allowed: isSuperadmin || Boolean(userPerms.EMPLOYEES?.canView ?? userPerms.EMPLOYEES?.can_view) || canViewReports },
+    { id: "clients", label: "Clients & Projects", icon: FileText, allowed: isSuperadmin || Boolean(userPerms.CLIENTS?.canView ?? userPerms.CLIENTS?.can_view) || canViewReports },
+    { id: "payroll", label: "Payroll & Salary Slips", icon: DollarSign, allowed: isSuperadmin || Boolean(userPerms.SALARY_SLIPS?.canView ?? userPerms.SALARY_SLIPS?.can_view) || role === "HR" || role === "ACCOUNTANT" },
+    { id: "audit", label: "Security & Audit Logs", icon: Shield, allowed: isSuperadmin || Boolean(userPerms.AUDIT_LOGS?.canView ?? userPerms.AUDIT_LOGS?.can_view) },
   ].filter((t) => t.allowed);
 
   const fetchReport = useCallback(async () => {

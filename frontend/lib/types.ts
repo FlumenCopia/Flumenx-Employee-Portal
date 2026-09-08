@@ -168,10 +168,23 @@ export type EmployeeProfile = {
   location?: string;
   avatar?: string;
 };
+export type ActionPerms = {
+  canView?: boolean;
+  canCreate?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  can_view?: boolean;
+  can_create?: boolean;
+  can_edit?: boolean;
+  can_delete?: boolean;
+};
+
 export type AuthUser = {
   id: number; username: string; email: string; first_name?: string;
   role: string; portal_role: PortalRole; employee?: EmployeeProfile | null;
   avatar?: string;
+  is_superuser?: boolean;
+  permissions?: Record<string, ActionPerms>;
 };
 export type Paginated<T> = {
   count: number; next: string | null; previous: string | null; results: T[];

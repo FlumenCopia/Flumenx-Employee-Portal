@@ -91,15 +91,15 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
 
 
   const currentUser = getCachedAuthUser();
+  const empPerms = currentUser?.permissions?.EMPLOYEES || currentUser?.permissions?.["*"];
+  const hasEmpManagePerm = empPerms ? Boolean(empPerms.canCreate ?? empPerms.can_create ?? empPerms.canEdit ?? empPerms.can_edit) : false;
+  const userRoleStr = (currentUser?.portal_role || currentUser?.role || "").toUpperCase();
   const canManageEmployees =
     role === "admin" ||
     role === "hr" ||
-    currentUser?.role === "SUPER_ADMIN" ||
-    currentUser?.role === "ADMIN" ||
-    currentUser?.role === "HR" ||
-    currentUser?.role === "OPERATIONS" ||
-    currentUser?.role === "OPERATIONS_HEAD" ||
-    Boolean((currentUser as any)?.isSuperuser);
+    hasEmpManagePerm ||
+    ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS", "OPERATIONS_HEAD"].includes(userRoleStr) ||
+    Boolean(currentUser?.is_superuser || (currentUser as any)?.isSuperuser);
 
   const isSelf = Boolean(
     selectedEmployee &&

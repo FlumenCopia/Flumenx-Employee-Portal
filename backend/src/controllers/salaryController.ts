@@ -4,6 +4,7 @@ import path from 'path';
 import { SalarySlip } from '../models/SalarySlip.js';
 import { Employee } from '../models/Employee.js';
 import { generatePdfSalarySlip } from '../services/pdfGenerator.js';
+import { resolveUserPermissions } from '../services/permissionResolver.js';
 
 export async function getSalarySlips(req: Request, res: Response): Promise<void> {
   const { employee_id, year, month } = req.query;
@@ -13,8 +14,14 @@ export async function getSalarySlips(req: Request, res: Response): Promise<void>
   if (year) filter.year = parseInt(year as string, 10);
   if (month) filter.month = parseInt(month as string, 10);
 
-  // If user is a regular EMPLOYEE (not SuperAdmin/Admin/HR/Accountant), restrict filter to their own Employee record
-  if (req.user && ['EMPLOYEE', 'TEAM_LEAD', 'BDE', 'OPERATIONS'].includes(req.user.role) && !req.user.isSuperuser) {
+  const permissions = req.user ? await resolveUserPermissions(req.user) : {};
+  const salaryPerm = permissions.SALARY_SLIPS;
+  const canManageAllSalaries = salaryPerm ? Boolean(salaryPerm.canEdit || salaryPerm.canCreate) : false;
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || Boolean(req.user?.isSuperuser);
+  const isPayrollRole = ['ADMIN', 'HR', 'ACCOUNTANT'].includes((req.user?.role || '').toUpperCase());
+
+  // Restrict filter to user's own Employee record if not superuser/payroll role or lacking manage permissions
+  if (req.user && !isSuper && !isPayrollRole && !canManageAllSalaries) {
     const ownEmployee = await Employee.findOne({ user: req.user._id });
     if (!ownEmployee) {
       res.json({ count: 0, next: null, previous: null, results: [] });

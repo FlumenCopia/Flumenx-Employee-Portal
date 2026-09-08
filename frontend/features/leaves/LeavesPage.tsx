@@ -12,14 +12,16 @@ import { useShellUser } from "@/components/shell";
 export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   const user = useShellUser();
   const userRole = (user?.portal_role || user?.role || "EMPLOYEE").toUpperCase();
-  const userPerms = (user as any)?.permissions?.LEAVES;
-  const isManagementRole = ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT"].includes(userRole);
-  const canDecide = isManagementRole || Boolean(userPerms?.can_edit);
-  const isEmployee = propEmployee !== undefined ? propEmployee : (!isManagementRole || userRole === "EMPLOYEE" || userRole.includes("MEMBER") || userRole.includes("TEAM_MEMBER"));
+  const userPerms = user?.permissions?.LEAVES || (user as any)?.permissions?.["*"];
+  const isSuperUser = Boolean(user?.is_superuser || (user as any)?.isSuperuser || userRole === "SUPER_ADMIN" || userRole === "ADMIN");
+  const hasLeaveEditPerm = userPerms ? Boolean(userPerms.canEdit ?? userPerms.can_edit) : false;
+  const isManagementRole = isSuperUser || hasLeaveEditPerm || ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT"].includes(userRole);
+  const canDecide = isSuperUser || hasLeaveEditPerm || ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT"].includes(userRole);
+  const isEmployee = propEmployee !== undefined ? propEmployee : (!canDecide && (userRole === "EMPLOYEE" || userRole.includes("MEMBER")));
 
-  const canCreate = userPerms?.can_create ?? true;
+  const canCreate = isSuperUser || (userPerms?.canCreate ?? userPerms?.can_create ?? true);
   const canEdit = canDecide;
-  const canDelete = canDecide && (userPerms?.can_delete ?? true);
+  const canDelete = canDecide && (userPerms?.canDelete ?? userPerms?.can_delete ?? true);
 
   const [items, setItems] = useState<Leave[]>([]);
   const [page, setPage] = useState(1);
