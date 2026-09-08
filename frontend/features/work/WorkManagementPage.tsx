@@ -1697,7 +1697,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                   )}
                 </div>
 
-                <div className="form-row-3">
+                <div className="form-row-2">
                   <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
                     ASSIGN TO EMPLOYEE *
                     <select
@@ -1731,24 +1731,6 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                       {reviewers.map(r => (
                         <option key={r.id} value={r.id}>{r.display_name} ({r.username})</option>
                       ))}
-                    </select>
-                  </label>
-
-                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px", color: "var(--muted)" }}>
-                    PRIORITY
-                    <select
-                      value={form.priority}
-                      onChange={event => {
-                        const p = event.target.value as WorkPriority;
-                        setForm(current => ({ ...current, priority: p }));
-                        setTasksToAssign(current => current.map(t => ({ ...t, priority: p })));
-                      }}
-                      className="fs"
-                    >
-                      <option value="Normal">P2 Normal (Default)</option>
-                      <option value="High">P1 High</option>
-                      <option value="Urgent">P0 Critical</option>
-                      <option value="Low">P3 Low</option>
                     </select>
                   </label>
                 </div>
