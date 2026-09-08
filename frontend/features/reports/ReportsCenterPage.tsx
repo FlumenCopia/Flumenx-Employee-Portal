@@ -35,46 +35,42 @@ interface ReportData {
 
 export function ReportsCenterPage() {
   const user = useShellUser();
-  const role = (user?.role || user?.portal_role || "").toUpperCase();
-  const isSuperadmin = Boolean((user as any)?.isSuperuser || (user as any)?.is_superuser || role === "SUPER_ADMIN" || role === "ADMIN");
+  const role = user?.role || "EMPLOYEE";
   const userPerms = user?.permissions || {};
-  const canViewReports = isSuperadmin || Boolean(userPerms.REPORTS?.canView ?? userPerms.REPORTS?.can_view) || role !== "EMPLOYEE";
+  const isSuperadmin = role === "SUPER_ADMIN" || Boolean(userPerms.SUPER_ADMIN?.canView);
+  const isFinanceOrHR = isSuperadmin || role === "HR" || role === "ACCOUNTANT";
+  const isManagementOrLead = isSuperadmin || role === "HR" || role === "ACCOUNTANT" || role === "TEAM_LEAD" || role === "OPERATIONS" || role === "OPERATIONS_HEAD";
 
   const [activeType, setActiveType] = useState<string>("attendance");
-  const [startDate, setStartDate] = useState<string>(() => {
-    const d = new Date();
-    d.setDate(1);
-    return d.toISOString().split("T")[0];
-  });
-  const [endDate, setEndDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<string>("2026");
   const [selectedClient, setSelectedClient] = useState<string>("");
-  const [clientsList, setClientsList] = useState<{ id: string; name: string }[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [report, setReport] = useState<ReportData | null>(null);
+  const [clientsList, setClientsList] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
-    api<any>("/clients/")
+    api<{ success: boolean; data?: { id: string; name: string }[]; clients?: { id: string; name: string }[] }>("/clients/")
       .then((res) => {
-        const raw = Array.isArray(res) ? res : res?.results || [];
-        setClientsList(raw.map((c: any) => ({ id: c._id || c.id, name: c.name || c.companyName || "Unnamed Client" })));
+        const list = res.data || res.clients || [];
+        setClientsList(list);
       })
       .catch(() => {});
   }, []);
 
-  // Available report types based on dynamic user permissions
   const availableTabs = [
     { id: "attendance", label: "Attendance & Timesheets", icon: Clock, allowed: isSuperadmin || Boolean(userPerms.ATTENDANCE?.canView ?? userPerms.ATTENDANCE?.can_view ?? true) },
     { id: "work", label: "Work & Deliverables", icon: Briefcase, allowed: isSuperadmin || Boolean(userPerms.TASKS?.canView ?? userPerms.TASKS?.can_view ?? true) },
     { id: "time_entries", label: "Time Tracked Audit", icon: Clock, allowed: isSuperadmin || Boolean(userPerms.TIMER?.canView ?? userPerms.TIMER?.can_view ?? true) },
-    { id: "client_summary", label: "Client & Project Utilization", icon: FileText, allowed: isSuperadmin || Boolean(userPerms.CLIENTS?.canView ?? userPerms.CLIENTS?.can_view) || canViewReports },
+    { id: "client_summary", label: "Client & Project Utilization", icon: FileText, allowed: isSuperadmin || isManagementOrLead || ["BDE", "BDO"].includes(role) || Boolean(userPerms.CLIENTS?.canView ?? userPerms.CLIENTS?.can_view) },
     { id: "kpi", label: "KPI & Ratings", icon: TrendingUp, allowed: isSuperadmin || Boolean(userPerms.KPI?.canView ?? userPerms.KPI?.can_view ?? true) },
     { id: "leaves", label: "Leaves & Absenteeism", icon: Calendar, allowed: isSuperadmin || Boolean(userPerms.LEAVES?.canView ?? userPerms.LEAVES?.can_view ?? true) },
-    { id: "employees", label: "Employee Directory", icon: Users, allowed: isSuperadmin || Boolean(userPerms.EMPLOYEES?.canView ?? userPerms.EMPLOYEES?.can_view) || canViewReports },
-    { id: "clients", label: "Clients & Projects", icon: FileText, allowed: isSuperadmin || Boolean(userPerms.CLIENTS?.canView ?? userPerms.CLIENTS?.can_view) || canViewReports },
-    { id: "payroll", label: "Payroll & Salary Slips", icon: DollarSign, allowed: isSuperadmin || Boolean(userPerms.SALARY_SLIPS?.canView ?? userPerms.SALARY_SLIPS?.can_view) || role === "HR" || role === "ACCOUNTANT" },
+    { id: "employees", label: "Employee Directory", icon: Users, allowed: isSuperadmin || isManagementOrLead || Boolean(userPerms.EMPLOYEES?.canView ?? userPerms.EMPLOYEES?.can_view) },
+    { id: "clients", label: "Clients & Projects", icon: FileText, allowed: isSuperadmin || isManagementOrLead || ["BDE", "BDO"].includes(role) || Boolean(userPerms.CLIENTS?.canView ?? userPerms.CLIENTS?.can_view) },
+    { id: "payroll", label: "Payroll & Salary Slips", icon: DollarSign, allowed: isFinanceOrHR || Boolean(userPerms.SALARY_SLIPS?.canView ?? userPerms.SALARY_SLIPS?.can_view) },
     { id: "audit", label: "Security & Audit Logs", icon: Shield, allowed: isSuperadmin || Boolean(userPerms.AUDIT_LOGS?.canView ?? userPerms.AUDIT_LOGS?.can_view) },
   ].filter((t) => t.allowed);
 

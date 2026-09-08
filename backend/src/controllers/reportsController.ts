@@ -7,6 +7,7 @@ import { SalarySlip } from '../models/SalarySlip.js';
 import { LeaveRequest } from '../models/LeaveRequest.js';
 import { Client } from '../models/Client.js';
 import { AuditLog } from '../models/AuditLog.js';
+import { resolveUserPermissions } from '../services/permissionResolver.js';
 
 export async function getReportsData(req: Request, res: Response): Promise<void> {
   const user = (req as any).user;
@@ -15,16 +16,39 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
     return;
   }
 
+  const permissions = await resolveUserPermissions(user);
   const role = (user.role || '').toUpperCase();
   const isSuperadmin = user.isSuperuser || role === 'SUPER_ADMIN' || role === 'ADMIN';
   const isHR = role === 'HR';
   const isAccountant = role === 'ACCOUNTANT';
   const isTeamLead = role === 'TEAM_LEAD';
+  const isOperations = role === 'OPERATIONS' || role === 'OPERATIONS_HEAD';
+  const isCompanyManager = isSuperadmin || isHR || isAccountant || isOperations;
+
+  const { type = 'attendance', startDate, endDate, month, year, department, clientId, format } = req.query as Record<string, string>;
+
+  // Strict Report Type Access Enforcement
+  if (type === 'payroll' && !isSuperadmin && !isHR && !isAccountant && !permissions.SALARY_SLIPS?.canView) {
+    res.status(403).json({ detail: 'Access denied. Only Payroll & Finance can access Salary reports.' });
+    return;
+  }
+  if (type === 'audit' && !isSuperadmin && !permissions.AUDIT_LOGS?.canView) {
+    res.status(403).json({ detail: 'Access denied. Only Administrators can access Security & Audit logs.' });
+    return;
+  }
+  if (type === 'employees' && !isCompanyManager && !isTeamLead && !permissions.EMPLOYEES?.canView) {
+    res.status(403).json({ detail: 'Access denied. Employee directory reports are restricted to management.' });
+    return;
+  }
+  if (type === 'client_summary' && !isCompanyManager && !isTeamLead && !['BDE', 'BDO'].includes(role) && !permissions.CLIENTS?.canView) {
+    res.status(403).json({ detail: 'Access denied to Client Utilization reports.' });
+    return;
+  }
 
   const ownEmployee = await Employee.findOne({ user: user._id });
   let targetEmpFilter: any = null;
 
-  if (!isSuperadmin && !isHR && !isAccountant) {
+  if (!isCompanyManager) {
     if (isTeamLead && ownEmployee?.department) {
       const deptRegex = new RegExp(`^${ownEmployee.department.trim()}$`, 'i');
       const teamEmployees = await Employee.find({ department: deptRegex }).select('_id');
@@ -40,14 +64,12 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
     } else if (ownEmployee) {
       targetEmpFilter = ownEmployee._id;
     } else {
-      res.status(403).json({ detail: 'No linked employee profile found.' });
+      res.status(403).json({ detail: 'No linked employee profile found for self report view.' });
       return;
     }
   } else if (req.query.employeeId) {
     targetEmpFilter = req.query.employeeId;
   }
-
-  const { type = 'attendance', startDate, endDate, month, year, department, clientId, format } = req.query as Record<string, string>;
 
   let startD: Date | null = startDate ? new Date(startDate) : null;
   let endD: Date | null = endDate ? new Date(endDate) : null;
