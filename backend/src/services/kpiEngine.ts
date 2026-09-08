@@ -122,7 +122,7 @@ export class KPIService {
     // -------------------------------------------------------------
     const dueAssignments = assignments.filter((wa) => wa.dueDate);
     const evaluableOnTimeTasks = dueAssignments.filter(
-      (wa) => ['Published', 'Completed'].includes(wa.status) || new Date(wa.dueDate) <= today
+      (wa) => ['Approved', 'Published', 'Completed'].includes(wa.status) || new Date(wa.dueDate) <= today
     );
 
     let onTimeCount = 0;
@@ -130,7 +130,7 @@ export class KPIService {
 
     if (evaluableOnTimeTasks.length > 0) {
       for (const wa of evaluableOnTimeTasks) {
-        if (['Published', 'Completed'].includes(wa.status)) {
+        if (['Approved', 'Published', 'Completed'].includes(wa.status)) {
           if (!wa.completedAt || new Date(wa.completedAt) <= new Date(wa.dueDate)) {
             onTimeCount++;
           }
@@ -147,7 +147,7 @@ export class KPIService {
     // Factor 3: Review Quality (Max 3.0 pts)
     // -------------------------------------------------------------
     const completedAssignments = assignments.filter((wa) =>
-      ['Completed', 'Published'].includes(wa.status)
+      ['Approved', 'Completed', 'Published'].includes(wa.status)
     );
     let reviewApprovedCount = 0;
     let reviewQualityRatio = 1.0;

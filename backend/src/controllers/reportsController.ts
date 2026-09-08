@@ -167,7 +167,7 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
         const client = a.client || {};
         const project = a.project || {};
         const emp = a.employee || {};
-        const isDone = (a.status || '').toLowerCase() === 'completed' || (a.status || '').toLowerCase() === 'published';
+        const isDone = ['approved', 'completed', 'published'].includes((a.status || '').toLowerCase().trim());
         if (isDone) completedTasks++;
         else pendingTasks++;
 

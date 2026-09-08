@@ -75,7 +75,7 @@ function checkIsCorrection(status: string): boolean {
 function checkIsOverdue(task: WorkAssignment): boolean {
   if ((task as any).is_overdue) return true;
   const s = (task.status || "").toLowerCase().trim();
-  if (s === "published" || s === "completed") return false;
+  if (s === "published" || s === "completed" || s === "approved") return false;
   if (task.due_date) {
     const due = new Date(task.due_date);
     const today = new Date();
@@ -90,8 +90,7 @@ function getStatusProgressPct(status: string, assignedQty: number, completedQty:
     return Math.min(100, Math.max(0, Math.round((completedQty / assignedQty) * 100)));
   }
   const s = (status || "").toLowerCase();
-  if (s === "published" || s === "completed") return 100;
-  if (s === "approved") return 75;
+  if (s === "published" || s === "completed" || s === "approved") return 100;
   if (s === "in review") return 50;
   if (s === "in progress" || s === "ongoing") return 25;
   return 0;
@@ -321,19 +320,19 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
       g.tasks.push(a);
 
       const s = (a.status || "").toLowerCase().trim();
-      const isDone = s === "published" || s === "completed";
+      const isDone = s === "published" || s === "completed" || s === "approved";
       const isCorr = checkIsCorrection(s);
       const isOver = checkIsOverdue(a);
 
       if (isDone) {
         g.completedCount++;
+        g.approvedCount++;
       } else {
         g.activeCount++;
-        g.pendingCount++;
-        if (isCorr) g.correctionCount++;
         if (s === "in progress" || s === "ongoing") g.inProgressCount++;
         else if (s === "in review") g.inReviewCount++;
-        else if (s === "approved") g.approvedCount++;
+        else g.pendingCount++;
+        if (isCorr) g.correctionCount++;
         if (isOver) g.overdueCount++;
       }
     });

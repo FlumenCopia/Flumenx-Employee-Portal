@@ -23,7 +23,7 @@ export async function getDashboardStats(req: Request, res: Response): Promise<vo
   });
 
   const completedTasks = await WorkAssignment.countDocuments({
-    status: { $in: ['Completed', 'Published'] },
+    status: { $in: ['Approved', 'Completed', 'Published'] },
   });
 
   res.json({
