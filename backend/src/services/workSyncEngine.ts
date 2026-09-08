@@ -1,4 +1,5 @@
 import { IWorkAssignment, WorkStatusType } from '../models/WorkAssignment.js';
+import { getISTDateString } from '../utils/tzUtils.js';
 
 const STATUS_WEIGHT_MAP: Record<string, number> = {
   Backlog: 0.0,
@@ -166,7 +167,7 @@ export async function calculateClientKPIHealth(clientId: string): Promise<{
   let completedCount = 0;
   let onTimeCount = 0;
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = getISTDateString(new Date());
 
   for (const a of assignments) {
     totalAssignedQuantity += a.assignedQuantity || 1;
@@ -175,8 +176,8 @@ export async function calculateClientKPIHealth(clientId: string): Promise<{
     const isCompleted = ['Completed', 'Approved', 'Published'].includes(a.status);
     if (isCompleted) {
       completedCount++;
-      const completedStr = a.completedAt ? a.completedAt.toISOString().slice(0, 10) : todayStr;
-      const dueStr = a.dueDate ? a.dueDate.toISOString().slice(0, 10) : todayStr;
+      const completedStr = a.completedAt ? getISTDateString(new Date(a.completedAt)) : todayStr;
+      const dueStr = a.dueDate ? getISTDateString(new Date(a.dueDate)) : todayStr;
       if (completedStr <= dueStr) {
         onTimeCount++;
       }

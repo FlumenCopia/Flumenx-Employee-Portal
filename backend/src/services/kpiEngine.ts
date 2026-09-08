@@ -2,6 +2,7 @@ import { IEmployee } from '../models/Employee.js';
 import { WorkAssignment, IWorkAssignment } from '../models/WorkAssignment.js';
 import { AttendanceRecord, IAttendanceRecord } from '../models/AttendanceRecord.js';
 import { EmployeeKPIRating } from '../models/EmployeeKPIRating.js';
+import { getISTDateString } from '../utils/tzUtils.js';
 
 export function getKPIGrade(score: number): string {
   if (score >= 9.5) return 'Outstanding';
@@ -120,10 +121,10 @@ export class KPIService {
     // -------------------------------------------------------------
     // Factor 2: On-Time Delivery (Max 3.0 pts)
     // -------------------------------------------------------------
-    const todayStr = today.toISOString().slice(0, 10);
+    const todayStr = getISTDateString(today);
     const dueAssignments = assignments.filter((wa) => wa.dueDate);
     const evaluableOnTimeTasks = dueAssignments.filter((wa) => {
-      const dueStr = new Date(wa.dueDate).toISOString().slice(0, 10);
+      const dueStr = getISTDateString(new Date(wa.dueDate));
       const isDone = ['Approved', 'Published', 'Completed'].includes(wa.status);
       return isDone || dueStr < todayStr;
     });
@@ -135,9 +136,9 @@ export class KPIService {
       for (const wa of evaluableOnTimeTasks) {
         if (['Approved', 'Published', 'Completed'].includes(wa.status)) {
           const completedStr = wa.completedAt
-            ? new Date(wa.completedAt).toISOString().slice(0, 10)
+            ? getISTDateString(new Date(wa.completedAt))
             : todayStr;
-          const dueStr = new Date(wa.dueDate).toISOString().slice(0, 10);
+          const dueStr = getISTDateString(new Date(wa.dueDate));
           if (completedStr <= dueStr) {
             onTimeCount++;
           }
