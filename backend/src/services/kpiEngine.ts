@@ -120,10 +120,13 @@ export class KPIService {
     // -------------------------------------------------------------
     // Factor 2: On-Time Delivery (Max 3.0 pts)
     // -------------------------------------------------------------
+    const todayStr = today.toISOString().slice(0, 10);
     const dueAssignments = assignments.filter((wa) => wa.dueDate);
-    const evaluableOnTimeTasks = dueAssignments.filter(
-      (wa) => ['Approved', 'Published', 'Completed'].includes(wa.status) || new Date(wa.dueDate) <= today
-    );
+    const evaluableOnTimeTasks = dueAssignments.filter((wa) => {
+      const dueStr = new Date(wa.dueDate).toISOString().slice(0, 10);
+      const isDone = ['Approved', 'Published', 'Completed'].includes(wa.status);
+      return isDone || dueStr < todayStr;
+    });
 
     let onTimeCount = 0;
     let onTimeRatio = 1.0;
@@ -131,7 +134,11 @@ export class KPIService {
     if (evaluableOnTimeTasks.length > 0) {
       for (const wa of evaluableOnTimeTasks) {
         if (['Approved', 'Published', 'Completed'].includes(wa.status)) {
-          if (!wa.completedAt || new Date(wa.completedAt) <= new Date(wa.dueDate)) {
+          const completedStr = wa.completedAt
+            ? new Date(wa.completedAt).toISOString().slice(0, 10)
+            : todayStr;
+          const dueStr = new Date(wa.dueDate).toISOString().slice(0, 10);
+          if (completedStr <= dueStr) {
             onTimeCount++;
           }
         }
