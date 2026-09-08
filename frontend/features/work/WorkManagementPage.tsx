@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BriefcaseBusiness, CheckCircle2, Clock, Copy, Globe, Kanban, List, Pencil, Plus, RotateCw, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import { BriefcaseBusiness, CheckCircle2, CheckSquare, Clock, Copy, Globe, Kanban, List, Pencil, Plus, RotateCw, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import type { Client, DepartmentItem, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary, WorkspaceRole } from "@/lib/types";
 import { SHOW_ADVANCED_WORKBOARD, normalizeDepartment } from "@/lib/types";
@@ -439,7 +439,9 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
   const selectedClient = useMemo(() => clients.find(client => String(client.id) === filters.client), [clients, filters.client]);
   const isDeliverableWorkflow = selectedEmployee?.department === "Design" || selectedEmployee?.department === "Video Editing" || form.deliverables.length > 0;
 
-  const [activeViewMode, setActiveViewMode] = useState<"KANBAN" | "LIST">("KANBAN");
+  const [activeViewMode, setActiveViewMode] = useState<"KANBAN" | "LIST" | "APPROVALS">("KANBAN");
+  const [approvalsSubTab, setApprovalsSubTab] = useState<"pending" | "corrections" | "approved">("pending");
+  const [quickNoteInputs, setQuickNoteInputs] = useState<Record<string, string>>({});
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -934,6 +936,12 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                   ? "budget"
                   : "overview");
 
+  useEffect(() => {
+    if (viewParam === "approvals" || defaultTab === "approvals" || initialTab === "approvals") {
+      setActiveViewMode("APPROVALS");
+    }
+  }, [viewParam, defaultTab, initialTab]);
+
 
 
   const handleStatusChange = async (id: number | string, status: WorkStatus) => {
@@ -1246,10 +1254,45 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
         >
           <List size={15} /> Table List
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveViewMode("APPROVALS")}
+          style={{
+            padding: "6px 14px",
+            borderRadius: "6px",
+            border: "none",
+            background: activeViewMode === "APPROVALS" ? "#087A5B" : "transparent",
+            color: activeViewMode === "APPROVALS" ? "#FFFFFF" : "var(--muted)",
+            fontWeight: 700,
+            fontSize: "12px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            transition: "background 0.15s ease",
+          }}
+        >
+          <CheckSquare size={15} /> Approvals Queue
+          {items.filter(t => t.status === "In Review" || (t as any).reviewStatus === "PENDING_REVIEW").length > 0 && (
+            <span
+              style={{
+                background: activeViewMode === "APPROVALS" ? "#FFFFFF" : "#087A5B",
+                color: activeViewMode === "APPROVALS" ? "#087A5B" : "#FFFFFF",
+                fontSize: "10.5px",
+                fontWeight: 800,
+                borderRadius: "10px",
+                padding: "1px 6px",
+                marginLeft: "2px",
+              }}
+            >
+              {items.filter(t => t.status === "In Review" || (t as any).reviewStatus === "PENDING_REVIEW").length}
+            </span>
+          )}
+        </button>
       </div>
     </div>
 
-    {/* Content Area: Kanban Board or Table List */}
+    {/* Content Area: Kanban Board, Table List, or Approvals Queue */}
     {loading && items.length === 0 ? (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", padding: "16px 0" }}>
         {[1, 2, 3, 4].map((n) => (
@@ -1260,6 +1303,259 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
       <EmptyState title="Could not load work" text={error} />
     ) : items.length === 0 ? (
       <EmptyState title="No tasks found" text="Try changing your filters or create a new task." />
+    ) : activeViewMode === "APPROVALS" ? (
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        {/* Approvals Queue Sub-Navigation Bar */}
+        <div
+          className="card"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "12px",
+            padding: "12px 16px",
+            background: "var(--panel)",
+            borderRadius: "10px",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            {[
+              {
+                id: "pending",
+                label: `Pending Review (${items.filter((t) => t.status === "In Review" || (t as any).reviewStatus === "PENDING_REVIEW").length})`,
+              },
+              {
+                id: "corrections",
+                label: `Changes Requested (${items.filter((t) => (t as any).reviewStatus === "CORRECTION_NEEDED" || t.status === "Changes Requested").length})`,
+              },
+              {
+                id: "approved",
+                label: `Approved (${items.filter((t) => t.status === "Approved" || (t as any).reviewStatus === "OK" || t.status === "Completed").length})`,
+              },
+            ].map((sub) => {
+              const active = approvalsSubTab === sub.id;
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => setApprovalsSubTab(sub.id as any)}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: "6px",
+                    fontSize: "12.5px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    background: active ? "#087A5B" : "var(--panel2)",
+                    color: active ? "#FFFFFF" : "var(--foreground)",
+                    border: active ? "1px solid #065F46" : "1px solid var(--border)",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {sub.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+            Showing {items.filter((t) => {
+              if (approvalsSubTab === "pending") return t.status === "In Review" || (t as any).reviewStatus === "PENDING_REVIEW";
+              if (approvalsSubTab === "corrections") return (t as any).reviewStatus === "CORRECTION_NEEDED" || t.status === "Changes Requested";
+              return t.status === "Approved" || (t as any).reviewStatus === "OK" || t.status === "Completed";
+            }).length} tasks
+          </div>
+        </div>
+
+        {/* Task Cards Grid */}
+        {items.filter((t) => {
+          if (approvalsSubTab === "pending") return t.status === "In Review" || (t as any).reviewStatus === "PENDING_REVIEW";
+          if (approvalsSubTab === "corrections") return (t as any).reviewStatus === "CORRECTION_NEEDED" || t.status === "Changes Requested";
+          return t.status === "Approved" || (t as any).reviewStatus === "OK" || t.status === "Completed";
+        }).length === 0 ? (
+          <EmptyState
+            title={
+              approvalsSubTab === "pending"
+                ? "No tasks pending review"
+                : approvalsSubTab === "corrections"
+                  ? "No tasks with requested changes"
+                  : "No approved tasks"
+            }
+            text="All tasks matching this review queue status will appear here."
+          />
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "14px" }}>
+            {items
+              .filter((t) => {
+                if (approvalsSubTab === "pending") return t.status === "In Review" || (t as any).reviewStatus === "PENDING_REVIEW";
+                if (approvalsSubTab === "corrections") return (t as any).reviewStatus === "CORRECTION_NEEDED" || t.status === "Changes Requested";
+                return t.status === "Approved" || (t as any).reviewStatus === "OK" || t.status === "Completed";
+              })
+              .map((item) => {
+                const quickNote = quickNoteInputs[item.id] || "";
+                const totalSec = (item as any).totalTimeSpentSeconds || 0;
+                const hSpent = Math.floor(totalSec / 3600);
+                const mSpent = Math.floor((totalSec % 3600) / 60);
+                const spentLabel = hSpent === 0 ? `${mSpent}m logged` : `${hSpent}h ${mSpent}m logged`;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="card"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
+                      padding: "16px",
+                      border: "1px solid var(--border)",
+                      borderRadius: "10px",
+                      background: "var(--panel)",
+                    }}
+                  >
+                    {/* Task Header */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: 800, color: "#087A5B", fontFamily: "monospace" }}>
+                          {(item as any).code || `#${item.id}`} · {item.client_name || "General"}
+                        </div>
+                        <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--foreground)", marginTop: "2px" }}>
+                          {item.title}
+                        </div>
+                      </div>
+                      <Badge tone={item.priority}>{item.priority}</Badge>
+                    </div>
+
+                    {/* Task Description */}
+                    {item.description && (
+                      <div style={{ fontSize: "12px", color: "var(--muted)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        {item.description}
+                      </div>
+                    )}
+
+                    {/* Metadata Summary */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", fontSize: "11.5px", color: "var(--muted)" }}>
+                      <span>👤 Assignee: <b>{item.employee_name || "Unassigned"}</b></span>
+                      <span>🔍 Reviewer: <b>{(item as any).reviewer_name || (item as any).reviewerName || "Unassigned"}</b></span>
+                      <span>📅 Due: <b>{item.due_date ? formatDate(item.due_date) : "—"}</b></span>
+                      <span>⏱️ <b>{spentLabel}</b></span>
+                    </div>
+
+                    {/* Attached Review Note */}
+                    {(item as any).review_note && (
+                      <div style={{ fontSize: "11.5px", padding: "6px 10px", borderRadius: "6px", background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.2)", color: "var(--foreground)" }}>
+                        💬 <b>Feedback Note:</b> {(item as any).review_note}
+                      </div>
+                    )}
+
+                    {/* Preset Feedback Tags */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                      {["Needs UI Polish", "Missing Deliverables", "Fix Responsiveness", "Check Quality"].map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => setQuickNoteInputs((prev) => ({ ...prev, [item.id]: prev[item.id] ? `${prev[item.id]} · [${tag}]` : `[${tag}]` }))}
+                          style={{
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            background: "var(--panel2)",
+                            border: "1px solid var(--border)",
+                            color: "var(--foreground)",
+                            fontSize: "10.5px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          + {tag}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Quick Feedback Note Input */}
+                    <input
+                      type="text"
+                      placeholder="Type feedback or select tags above..."
+                      value={quickNote}
+                      onChange={(e) => setQuickNoteInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                      className="fi"
+                      style={{ padding: "6px 10px", fontSize: "11.5px" }}
+                    />
+
+                    {/* Action Buttons */}
+                    <div style={{ display: "flex", gap: "8px", marginTop: "auto", paddingTop: "10px", borderTop: "1px solid var(--border)" }}>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await handleReviewCheck(item.id, "OK", quickNote || "Approved");
+                          toast.success(`Task "${item.title}" approved!`);
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: "7px 12px",
+                          borderRadius: "6px",
+                          background: "#087A5B",
+                          color: "#FFFFFF",
+                          border: "none",
+                          fontWeight: 800,
+                          fontSize: "12px",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <CheckCircle2 size={14} /> 1-Click Approve
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const noteToSave = quickNote.trim() || "Correction requested.";
+                          await handleReviewCheck(item.id, "CORRECTION_NEEDED", noteToSave);
+                          toast.info(`Changes requested for "${item.title}"`);
+                        }}
+                        style={{
+                          padding: "7px 12px",
+                          borderRadius: "6px",
+                          background: "rgba(239, 68, 68, 0.1)",
+                          color: "#dc2626",
+                          border: "1px solid rgba(239, 68, 68, 0.3)",
+                          fontWeight: 700,
+                          fontSize: "12px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        ↩ Request Changes
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openEdit(item)}
+                        style={{
+                          padding: "7px 10px",
+                          borderRadius: "6px",
+                          background: "var(--panel2)",
+                          color: "var(--foreground)",
+                          border: "1px solid var(--border)",
+                          fontSize: "11.5px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                        title="Edit Task / Final Correction"
+                      >
+                        <Pencil size={14} /> Edit
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
     ) : activeViewMode === "KANBAN" ? (
       <div
         style={{

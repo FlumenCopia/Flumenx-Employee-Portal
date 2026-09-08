@@ -107,6 +107,7 @@ const adminNav = [
 const employeeNav = [
   ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/employee/work?view=kanban", Kanban],
+  ["Approvals Queue", "/employee/work?view=approvals", CheckSquare],
   ["Time Tracker", "/timer", Clock3],
   ["Timeline", "/employee/work?view=timeline", Layers],
   ["My Attendance", "/employee/attendance", CalendarCheck],
@@ -123,6 +124,7 @@ const employeeNav = [
 const hrNav = [
   ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/hr/work?view=kanban", Kanban],
+  ["Approvals Queue", "/hr/work?view=approvals", CheckSquare],
   ["Client Tasks & Calendar", "/clients/tasks", Calendar],
   ["Time Tracker", "/timer", Clock3],
   ["Clients Master", "/clients", BriefcaseBusiness],
@@ -152,6 +154,7 @@ const accountantNav = [
 const bdoNav = [
   ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/bdo/work?view=kanban", Kanban],
+  ["Approvals Queue", "/bdo/work?view=approvals", CheckSquare],
   ["Client Tasks & Calendar", "/clients/tasks", Calendar],
   ["Time Tracker", "/timer", Clock3],
   ["Clients Master", "/clients", BriefcaseBusiness],
