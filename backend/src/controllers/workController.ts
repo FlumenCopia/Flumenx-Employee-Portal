@@ -525,7 +525,9 @@ export async function resolveTeamLeadForEmployee(empId: mongoose.Types.ObjectId 
 
 // --- WorkAssignment Endpoints ---
 export async function getWorkAssignments(req: Request, res: Response): Promise<void> {
-  const { employee_id, client_id, status, priority, assigned_to_me, review_queue } = req.query;
+  const rawEmpQuery = (req.query.employee || req.query.employee_id || req.query.employeeId || req.query.assigned_to) as string;
+  const employee_id = rawEmpQuery;
+  const { client_id, status, priority, assigned_to_me, review_queue } = req.query;
 
   const filter: any = {};
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
@@ -586,12 +588,16 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
 
         if (assigned_to_me === 'true' || employee_id === 'me') {
           filter.$or = [{ employee: ownEmployee._id }, { employee: req.user?._id }];
-        } else if (employee_id) {
+        } else if (employee_id && employee_id !== 'all') {
           const targetEmpId = await resolveEmployeeDoc(employee_id);
-          if (targetEmpId && teamEmpIds.some((id) => id.toString() === targetEmpId.toString())) {
-            filter.$or = [{ employee: targetEmpId }];
+          if (targetEmpId) {
+            const targetEmp = await Employee.findById(targetEmpId);
+            const targetUserId = targetEmp?.user;
+            filter.$or = [
+              { employee: targetEmpId },
+              ...(targetUserId ? [{ employee: targetUserId }] : []),
+            ];
           } else {
-            // Cross-department access blocked
             res.json({ count: 0, next: null, previous: null, results: [] });
             return;
           }
@@ -618,9 +624,16 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
       if (ownEmp) {
         filter.$or = [{ employee: ownEmp._id }, { employee: req.user?._id }];
       }
-    } else if (employee_id) {
+    } else if (employee_id && employee_id !== 'all') {
       const targetEmpId = await resolveEmployeeDoc(employee_id);
-      if (targetEmpId) filter.employee = targetEmpId;
+      if (targetEmpId) {
+        const targetEmp = await Employee.findById(targetEmpId);
+        const targetUserId = targetEmp?.user;
+        filter.$or = [
+          { employee: targetEmpId },
+          ...(targetUserId ? [{ employee: targetUserId }] : []),
+        ];
+      }
     }
   }
 
@@ -853,7 +866,18 @@ export async function getWorkAssignmentsSummary(req: Request, res: Response): Pr
   const { employee, client, priority, status, is_master_client_task, department, department_category, work_type, due_date, assigned_date } = req.query;
 
   const filter: any = {};
-  if (employee) filter.employee = employee;
+  const rawEmpQuery = (employee || req.query.employee_id || req.query.employeeId) as string;
+  if (rawEmpQuery && rawEmpQuery !== 'me' && rawEmpQuery !== 'all') {
+    const targetEmpId = await resolveEmployeeDoc(rawEmpQuery);
+    if (targetEmpId) {
+      const targetEmp = await Employee.findById(targetEmpId);
+      const targetUserId = targetEmp?.user;
+      filter.$or = [
+        { employee: targetEmpId },
+        ...(targetUserId ? [{ employee: targetUserId }] : []),
+      ];
+    }
+  }
   if (client) filter.client = client;
   if (priority && priority !== 'all') filter.priority = priority;
   if (status && status !== 'all') filter.status = status;
