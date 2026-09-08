@@ -165,7 +165,6 @@ export const ALL_WORK_STATUSES: Array<{ id: WorkStatus; name: string; isReviewer
   { id: "In Progress", name: "In Progress", isReviewerOnly: false },
   { id: "In Review", name: "In Review", isReviewerOnly: false },
   { id: "Approved", name: "Approved", isReviewerOnly: true },
-  { id: "Published", name: "Published", isReviewerOnly: true },
 ];
 
 export const TASK_TYPES: Record<string, { id: string; name: string; color: string }> = {
