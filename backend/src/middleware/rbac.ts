@@ -21,6 +21,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
   SUPER_ADMIN: {}, // Wildcard handled directly
   ADMIN: {
     COMMAND_CENTER: FULL_ACCESS,
+    TOOLS: FULL_ACCESS,
     CHAT: FULL_ACCESS,
     TASKS: FULL_ACCESS,
     TIMER: FULL_ACCESS,
@@ -46,6 +47,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
   },
   OPERATIONS: {
     COMMAND_CENTER: FULL_ACCESS,
+    TOOLS: FULL_ACCESS,
     CHAT: FULL_ACCESS,
     TASKS: FULL_ACCESS,
     TIMER: FULL_ACCESS,
@@ -66,6 +68,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
   },
   OPERATIONS_HEAD: {
     COMMAND_CENTER: FULL_ACCESS,
+    TOOLS: FULL_ACCESS,
     CHAT: FULL_ACCESS,
     TASKS: FULL_ACCESS,
     TIMER: FULL_ACCESS,
@@ -86,6 +89,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
   },
   HR: {
     COMMAND_CENTER: FULL_ACCESS,
+    TOOLS: FULL_ACCESS,
     CHAT: FULL_ACCESS,
     TASKS: FULL_ACCESS,
     TIMER: FULL_ACCESS,
@@ -106,6 +110,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
   },
   ACCOUNTANT: {
     COMMAND_CENTER: FULL_ACCESS,
+    TOOLS: FULL_ACCESS,
     CHAT: FULL_ACCESS,
     TASKS: SELF_OPERATIONS,
     TIMER: FULL_ACCESS,
@@ -126,6 +131,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
   },
   TEAM_LEAD: {
     COMMAND_CENTER: FULL_ACCESS,
+    TOOLS: FULL_ACCESS,
     CHAT: FULL_ACCESS,
     TASKS: FULL_ACCESS,
     TIMER: FULL_ACCESS,
@@ -146,6 +152,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
   },
   BDE: {
     COMMAND_CENTER: FULL_ACCESS,
+    TOOLS: FULL_ACCESS,
     CHAT: FULL_ACCESS,
     TASKS: SELF_OPERATIONS,
     TIMER: FULL_ACCESS,
@@ -166,6 +173,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
   },
   BDO: {
     COMMAND_CENTER: FULL_ACCESS,
+    TOOLS: FULL_ACCESS,
     CHAT: FULL_ACCESS,
     TASKS: SELF_OPERATIONS,
     TIMER: FULL_ACCESS,
@@ -186,6 +194,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
   },
   EMPLOYEE: {
     COMMAND_CENTER: FULL_ACCESS,
+    TOOLS: FULL_ACCESS,
     CHAT: FULL_ACCESS,
     TASKS: { canView: true, canCreate: false, canEdit: true, canDelete: false },
     TIMER: FULL_ACCESS,

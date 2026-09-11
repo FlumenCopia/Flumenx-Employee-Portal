@@ -80,6 +80,7 @@ export type DynamicApiNavItem = {
 
 const adminNav = [
   ["Command Center", "/admin/work?view=command-center", Sparkles],
+  ["Utility Toolbox", "/tools", Wrench],
   ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/admin/work?view=kanban", Kanban],
   ["Approvals Queue", "/admin/work?view=approvals", CheckSquare],
@@ -105,6 +106,7 @@ const adminNav = [
 ] as const satisfies readonly NavigationItem[];
 
 const employeeNav = [
+  ["Utility Toolbox", "/tools", Wrench],
   ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/employee/work?view=kanban", Kanban],
   ["Approvals Queue", "/employee/work?view=approvals", CheckSquare],
@@ -122,6 +124,7 @@ const employeeNav = [
 ] as const satisfies readonly NavigationItem[];
 
 const hrNav = [
+  ["Utility Toolbox", "/tools", Wrench],
   ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/hr/work?view=kanban", Kanban],
   ["Approvals Queue", "/hr/work?view=approvals", CheckSquare],
@@ -140,6 +143,7 @@ const hrNav = [
 ] as const satisfies readonly NavigationItem[];
 
 const accountantNav = [
+  ["Utility Toolbox", "/tools", Wrench],
   ["Team Chat Hub", "/chat", MessageSquare],
   ["Salary Slips Hub", "/accountant/salary-slips", FileSpreadsheet],
   ["Employees Directory", "/employees", Users],
@@ -152,6 +156,7 @@ const accountantNav = [
 ] as const satisfies readonly NavigationItem[];
 
 const bdoNav = [
+  ["Utility Toolbox", "/tools", Wrench],
   ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/bdo/work?view=kanban", Kanban],
   ["Approvals Queue", "/bdo/work?view=approvals", CheckSquare],
@@ -168,6 +173,7 @@ const bdoNav = [
 ] as const satisfies readonly NavigationItem[];
 
 const teamLeadNav = [
+  ["Utility Toolbox", "/tools", Wrench],
   ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/team-lead/work?view=kanban", Kanban],
   ["Approvals Queue", "/team-lead/work?view=approvals", CheckSquare],
@@ -282,6 +288,9 @@ export function normalizeWorkspaceRoute(routePath: string, workspaceRole: Worksp
   }
   if (pathname === "/chat" || pathname === "/admin/chat" || pathname.endsWith("/chat")) {
     return "/chat";
+  }
+  if (pathname === "/tools" || pathname === "/admin/tools" || pathname.endsWith("/tools")) {
+    return "/tools";
   }
   if (pathname === "/clients/tasks" || pathname === "/admin/clients/tasks" || pathname.endsWith("/clients/tasks")) {
     return "/clients/tasks";
