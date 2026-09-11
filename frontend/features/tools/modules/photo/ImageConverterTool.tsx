@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { Upload, Download, ArrowRight, Image as ImageIcon } from "lucide-react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Upload, Download, ArrowRight, Image as ImageIcon, Trash2 } from "lucide-react";
 import { toast } from "@/components/ToastContext";
 
 export function ImageConverterTool() {
@@ -13,11 +13,37 @@ export function ImageConverterTool() {
   const [convertedSize, setConvertedSize] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handleClear = useCallback(() => {
+    if (fileSrc) URL.revokeObjectURL(fileSrc);
+    if (convertedSrc) URL.revokeObjectURL(convertedSrc);
+    setFile(null);
+    setFileSrc("");
+    setConvertedSrc("");
+    setConvertedSize(0);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [fileSrc, convertedSrc]);
+
+  // Clean up object URLs on component unmount or global wipe event
+  useEffect(() => {
+    const onWipe = () => handleClear();
+    window.addEventListener("flumenx:wipe_tool_data", onWipe);
+    return () => {
+      window.removeEventListener("flumenx:wipe_tool_data", onWipe);
+      if (fileSrc) URL.revokeObjectURL(fileSrc);
+      if (convertedSrc) URL.revokeObjectURL(convertedSrc);
+    };
+  }, [fileSrc, convertedSrc, handleClear]);
+
   const handleFile = (f: File) => {
+    if (fileSrc) URL.revokeObjectURL(fileSrc);
+    if (convertedSrc) URL.revokeObjectURL(convertedSrc);
     setFile(f);
     const url = URL.createObjectURL(f);
     setFileSrc(url);
     setConvertedSrc("");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("flumenx:touch_tool_data"));
+    }
   };
 
   const convert = () => {
@@ -41,6 +67,7 @@ export function ImageConverterTool() {
       canvas.toBlob(
         (blob) => {
           if (blob) {
+            if (convertedSrc) URL.revokeObjectURL(convertedSrc);
             setConvertedSize(blob.size);
             setConvertedSrc(URL.createObjectURL(blob));
             toast.success("Image format converted successfully!");
@@ -123,9 +150,21 @@ export function ImageConverterTool() {
               </div>
             )}
 
-            <button type="button" onClick={convert} className="tool-btn-primary" style={{ width: "100%", marginTop: "10px" }}>
-              Convert Image
-            </button>
+            <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+              <button type="button" onClick={convert} className="tool-btn-primary" style={{ flex: 1 }}>
+                Convert Image
+              </button>
+              <button
+                type="button"
+                onClick={handleClear}
+                className="tool-btn-secondary"
+                style={{ color: "#DC2626", borderColor: "#FCA5A5" }}
+                title="Wipe image from browser memory"
+              >
+                <Trash2 size={14} />
+                <span>Wipe</span>
+              </button>
+            </div>
           </div>
         )}
       </div>

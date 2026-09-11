@@ -1,15 +1,31 @@
 "use client";
 
-import React, { useState } from "react";
-import { AlignLeft, Copy, Trash2, ArrowUpDown } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { AlignLeft, Copy, Trash2, ArrowUpDown, FileText } from "lucide-react";
 import { toast } from "@/components/ToastContext";
 
+const SAMPLE_TEXT = `  Apple  \n\nBanana\n  Orange \nBanana\n\nGrape  `;
+
 export function TextCleanupTool() {
-  const [text, setText] = useState<string>(
-    `  Apple  \n\nBanana\n  Orange \nBanana\n\nGrape  `
-  );
+  const [text, setText] = useState<string>("");
+
+  const handleClear = useCallback(() => {
+    setText("");
+  }, []);
+
+  useEffect(() => {
+    const onWipe = () => handleClear();
+    window.addEventListener("flumenx:wipe_tool_data", onWipe);
+    return () => {
+      window.removeEventListener("flumenx:wipe_tool_data", onWipe);
+    };
+  }, [handleClear]);
 
   const applyAction = (action: string) => {
+    if (!text) {
+      toast.info("Please enter or paste text first.");
+      return;
+    }
     let lines = text.split("\n");
 
     switch (action) {
@@ -74,10 +90,14 @@ export function TextCleanupTool() {
     }
 
     setText(lines.join("\n"));
-    toast.success(`Action applied: ${action}`);
+    toast.success("Text formatted!");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("flumenx:touch_tool_data"));
+    }
   };
 
   const copyText = () => {
+    if (!text) return;
     navigator.clipboard.writeText(text);
     toast.success("Cleaned text copied!");
   };
@@ -86,16 +106,46 @@ export function TextCleanupTool() {
     <div className="tool-two-col">
       <div className="tool-controls-panel">
         <div className="tool-field-group">
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
             <label className="tool-label" style={{ marginBottom: 0 }}>Input / Working Text</label>
-            <span style={{ fontSize: "0.8rem", color: "var(--tools-text-muted)" }}>
-              {text.split("\n").length} lines · {text.length} chars
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "0.8rem", color: "var(--tools-text-muted)" }}>
+                {text ? `${text.split("\n").length} lines · ${text.length} chars` : "Empty"}
+              </span>
+              {!text ? (
+                <button
+                  type="button"
+                  onClick={() => setText(SAMPLE_TEXT)}
+                  className="tool-btn-secondary"
+                  style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+                >
+                  <FileText size={12} />
+                  <span>Sample</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="tool-btn-secondary"
+                  style={{ color: "#DC2626", borderColor: "#FCA5A5", fontSize: "0.75rem", padding: "3px 8px" }}
+                  title="Wipe text from memory"
+                >
+                  <Trash2 size={12} />
+                  <span>Wipe</span>
+                </button>
+              )}
+            </div>
           </div>
           <textarea
             rows={14}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("flumenx:touch_tool_data"));
+              }
+            }}
+            placeholder="Type or paste text here to clean, format, trim, or sort..."
             className="tool-textarea tool-textarea-mono"
             style={{ fontSize: "0.88rem" }}
           />
@@ -105,10 +155,12 @@ export function TextCleanupTool() {
       <div className="tool-output-panel">
         <div className="tool-output-header">
           <span className="tool-output-title">Cleanup & Formatting Operations</span>
-          <button type="button" onClick={copyText} className="tool-btn-primary" style={{ padding: "6px 14px", fontSize: "0.82rem" }}>
-            <Copy size={13} />
-            <span>Copy Text</span>
-          </button>
+          {text && (
+            <button type="button" onClick={copyText} className="tool-btn-primary" style={{ padding: "6px 14px", fontSize: "0.82rem" }}>
+              <Copy size={13} />
+              <span>Copy Text</span>
+            </button>
+          )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>

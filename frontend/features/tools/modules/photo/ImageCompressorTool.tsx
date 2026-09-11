@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { Upload, Download, RefreshCw, Image as ImageIcon, Check } from "lucide-react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Upload, Download, RefreshCw, Image as ImageIcon, Check, Trash2 } from "lucide-react";
 import { toast } from "@/components/ToastContext";
 
 export function ImageCompressorTool() {
@@ -22,15 +22,43 @@ export function ImageCompressorTool() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const handleClear = useCallback(() => {
+    if (originalSrc) URL.revokeObjectURL(originalSrc);
+    if (compressedSrc) URL.revokeObjectURL(compressedSrc);
+    setOriginalFile(null);
+    setOriginalSrc("");
+    setCompressedSrc("");
+    setOriginalSize(0);
+    setCompressedSize(0);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [originalSrc, compressedSrc]);
+
+  // Clean up object URLs on component unmount or global wipe event
+  useEffect(() => {
+    const onWipe = () => handleClear();
+    window.addEventListener("flumenx:wipe_tool_data", onWipe);
+    return () => {
+      window.removeEventListener("flumenx:wipe_tool_data", onWipe);
+      if (originalSrc) URL.revokeObjectURL(originalSrc);
+      if (compressedSrc) URL.revokeObjectURL(compressedSrc);
+    };
+  }, [originalSrc, compressedSrc, handleClear]);
+
   const handleFileSelect = (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Please upload an image file (JPG, PNG, WebP).");
       return;
     }
+    if (originalSrc) URL.revokeObjectURL(originalSrc);
+    if (compressedSrc) URL.revokeObjectURL(compressedSrc);
+
     setOriginalFile(file);
     setOriginalSize(file.size);
     const url = URL.createObjectURL(file);
     setOriginalSrc(url);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("flumenx:touch_tool_data"));
+    }
   };
 
   const compressImage = () => {
@@ -56,6 +84,7 @@ export function ImageCompressorTool() {
       canvas.toBlob(
         (blob) => {
           if (blob) {
+            if (compressedSrc) URL.revokeObjectURL(compressedSrc);
             setCompressedSize(blob.size);
             const compUrl = URL.createObjectURL(blob);
             setCompressedSrc(compUrl);
@@ -112,24 +141,31 @@ export function ImageCompressorTool() {
           }}
         >
           <Upload size={32} className="tool-dropzone-icon" />
-          <div className="tool-dropzone-title">Click to upload or drag & drop image</div>
-          <div className="tool-dropzone-sub">Supports JPEG, PNG, WebP (Max 50MB)</div>
+          <div className="tool-dropzone-title">Upload Image to Compress</div>
+          <div className="tool-dropzone-sub">
+            {originalFile ? `${originalFile.name} (${formatBytes(originalSize)})` : "JPG, PNG, or WebP up to 50MB"}
+          </div>
         </div>
 
         {originalFile && (
-          <div style={{ marginTop: "24px" }}>
+          <div style={{ marginTop: "20px" }}>
             <div className="tool-field-group">
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                <label className="tool-label" style={{ marginBottom: 0 }}>Compression Quality: {quality}%</label>
-                <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--tools-primary)" }}>{quality}%</span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <label className="tool-label" style={{ margin: 0 }}>Compression Quality</label>
+                <span style={{ fontWeight: 800, color: "var(--tools-primary)", fontSize: "0.9rem" }}>{quality}%</span>
               </div>
               <input
                 type="range"
                 min="10"
-                max="100"
+                max="95"
                 step="5"
                 value={quality}
-                onChange={(e) => setQuality(Number(e.target.value))}
+                onChange={(e) => {
+                  setQuality(Number(e.target.value));
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("flumenx:touch_tool_data"));
+                  }
+                }}
                 style={{ width: "100%", accentColor: "var(--tools-primary)" }}
               />
               <span className="tool-help-text">70-80% provides the optimal balance of sharp clarity and tiny file size.</span>
@@ -143,6 +179,16 @@ export function ImageCompressorTool() {
                 style={{ flex: 1 }}
               >
                 Choose Different Image
+              </button>
+              <button
+                type="button"
+                onClick={handleClear}
+                className="tool-btn-secondary"
+                style={{ color: "#DC2626", borderColor: "#FCA5A5" }}
+                title="Wipe image from browser memory"
+              >
+                <Trash2 size={14} />
+                <span>Wipe</span>
               </button>
             </div>
           </div>

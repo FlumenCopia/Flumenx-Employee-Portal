@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { Upload, Download, Lock, Unlock, Image as ImageIcon } from "lucide-react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Upload, Download, Lock, Unlock, Image as ImageIcon, Trash2 } from "lucide-react";
 import { toast } from "@/components/ToastContext";
 
 export function ImageResizerTool() {
@@ -16,14 +16,38 @@ export function ImageResizerTool() {
   const [resizedSrc, setResizedSrc] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handleClear = useCallback(() => {
+    if (originalSrc) URL.revokeObjectURL(originalSrc);
+    setOriginalFile(null);
+    setOriginalSrc("");
+    setOrigW(0);
+    setOrigH(0);
+    setTargetW(0);
+    setTargetH(0);
+    setResizedSrc("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [originalSrc]);
+
+  useEffect(() => {
+    const onWipe = () => handleClear();
+    window.addEventListener("flumenx:wipe_tool_data", onWipe);
+    return () => {
+      window.removeEventListener("flumenx:wipe_tool_data", onWipe);
+      if (originalSrc) URL.revokeObjectURL(originalSrc);
+    };
+  }, [originalSrc, handleClear]);
+
   const handleFileSelect = (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Please upload an image file.");
       return;
     }
+    if (originalSrc) URL.revokeObjectURL(originalSrc);
+
     setOriginalFile(file);
     const url = URL.createObjectURL(file);
     setOriginalSrc(url);
+    setResizedSrc("");
 
     const img = new Image();
     img.src = url;
@@ -33,6 +57,10 @@ export function ImageResizerTool() {
       setTargetW(img.naturalWidth);
       setTargetH(img.naturalHeight);
     };
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("flumenx:touch_tool_data"));
+    }
   };
 
   const handleWidthChange = (w: number) => {
@@ -197,9 +225,21 @@ export function ImageResizerTool() {
               </div>
             </div>
 
-            <button type="button" onClick={executeResize} className="tool-btn-primary" style={{ width: "100%" }}>
-              Apply Resize
-            </button>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button type="button" onClick={executeResize} className="tool-btn-primary" style={{ flex: 1 }}>
+                Apply Resize
+              </button>
+              <button
+                type="button"
+                onClick={handleClear}
+                className="tool-btn-secondary"
+                style={{ color: "#DC2626", borderColor: "#FCA5A5" }}
+                title="Wipe image from browser memory"
+              >
+                <Trash2 size={14} />
+                <span>Wipe</span>
+              </button>
+            </div>
           </div>
         )}
       </div>

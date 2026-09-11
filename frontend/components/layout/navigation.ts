@@ -79,115 +79,153 @@ export type DynamicApiNavItem = {
 };
 
 const adminNav = [
+  // Workspace
   ["Command Center", "/admin/work?view=command-center", Sparkles],
-  ["Utility Toolbox", "/tools", Wrench],
-  ["Team Chat Hub", "/chat", MessageSquare],
   ["Task Board", "/admin/work?view=kanban", Kanban],
   ["Approvals Queue", "/admin/work?view=approvals", CheckSquare],
-  ["Client Tasks & Calendar", "/clients/tasks", Calendar],
-  ["Time Tracker", "/timer", Clock3],
-  ["Team Work", "/team-work", Users],
-  ["Clients Master", "/clients", BriefcaseBusiness],
   ["Timeline & Phases", "/admin/work?view=timeline", Layers],
-  ["KPI Performance", "/admin/kpi", TrendingUp],
+  ["Time Tracker", "/timer", Clock3],
+
+  // Tools & Apps
+  ["Utility Toolbox", "/tools", Wrench],
+  ["Team Chat Hub", "/chat", MessageSquare],
+
+  // Clients & Projects
+  ["Clients Master", "/clients", BriefcaseBusiness],
+  ["Client Tasks & Calendar", "/clients/tasks", Calendar],
+  ["Team Work", "/team-work", Users],
+
+  // People & HR
   ["Employees Directory", "/employees", Users],
   ["Attendance", "/admin/attendance", CalendarCheck],
   ["Employee Tracking", "/tracking", MapPin],
   ["Leave Requests", "/admin/leaves", CalendarDays],
   ["Meetings", "/admin/meetings", UserRound],
+  ["KPI Performance", "/admin/kpi", TrendingUp],
+  ["Salary & Payroll", "/admin/salary-slips", FileSpreadsheet],
   ["Reports Center", "/admin/reports", FileSpreadsheet],
+  ["Announcements", "/admin/announcements", Megaphone],
+
+  // Administration
   ["Dynamic Roles", "/admin/roles", Shield],
   ["User Management", "/admin/users", UserCheck],
   ["Page Management", "/pages", FileCode],
-  ["Salary & Payroll", "/admin/salary-slips", FileSpreadsheet],
-  ["Announcements", "/admin/announcements", Megaphone],
   ["Audit Logs", "/admin/audit-logs", BarChart3],
   ["Settings & Access", "/settings", Settings],
 ] as const satisfies readonly NavigationItem[];
 
 const employeeNav = [
-  ["Utility Toolbox", "/tools", Wrench],
-  ["Team Chat Hub", "/chat", MessageSquare],
+  // Workspace
   ["Task Board", "/employee/work?view=kanban", Kanban],
   ["Approvals Queue", "/employee/work?view=approvals", CheckSquare],
-  ["Time Tracker", "/timer", Clock3],
   ["Timeline", "/employee/work?view=timeline", Layers],
+  ["Time Tracker", "/timer", Clock3],
+
+  // Tools & Apps
+  ["Utility Toolbox", "/tools", Wrench],
+  ["Team Chat Hub", "/chat", MessageSquare],
+
+  // People & HR
+  ["Employees Directory", "/employees", Users],
   ["My Attendance", "/employee/attendance", CalendarCheck],
   ["Location Tracking", "/tracking", MapPin],
   ["My Leave", "/employee/leaves", CalendarDays],
+  ["Meetings", "/employee/meetings", Users],
   ["My Performance", "/employee/profile", TrendingUp],
   ["My Salary Slips", "/employee/salary-slips", FileSpreadsheet],
-  ["Employees Directory", "/employees", Users],
   ["Reports Center", "/employee/reports", FileSpreadsheet],
-  ["Meetings", "/employee/meetings", Users],
   ["Announcements", "/employee/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 const hrNav = [
-  ["Utility Toolbox", "/tools", Wrench],
-  ["Team Chat Hub", "/chat", MessageSquare],
+  // Workspace
   ["Task Board", "/hr/work?view=kanban", Kanban],
   ["Approvals Queue", "/hr/work?view=approvals", CheckSquare],
-  ["Client Tasks & Calendar", "/clients/tasks", Calendar],
   ["Time Tracker", "/timer", Clock3],
+
+  // Tools & Apps
+  ["Utility Toolbox", "/tools", Wrench],
+  ["Team Chat Hub", "/chat", MessageSquare],
+
+  // Clients & Projects
   ["Clients Master", "/clients", BriefcaseBusiness],
+  ["Client Tasks & Calendar", "/clients/tasks", Calendar],
+
+  // People & HR
+  ["Employees Directory", "/employees", Users],
   ["Attendance", "/hr/attendance", CalendarCheck],
   ["Employee Tracking", "/tracking", MapPin],
   ["Leave Requests", "/hr/leaves", CalendarDays],
+  ["Meetings", "/hr/meetings", Users],
   ["KPI Performance", "/hr/kpi", TrendingUp],
-  ["Employees Directory", "/employees", Users],
   ["Salary & Payroll", "/hr/salary-slips", FileSpreadsheet],
   ["Reports Center", "/hr/reports", FileSpreadsheet],
-  ["Meetings", "/hr/meetings", Users],
   ["Announcements", "/hr/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 const accountantNav = [
+  // Tools & Apps
   ["Utility Toolbox", "/tools", Wrench],
   ["Team Chat Hub", "/chat", MessageSquare],
-  ["Salary Slips Hub", "/accountant/salary-slips", FileSpreadsheet],
+
+  // People & HR
   ["Employees Directory", "/employees", Users],
   ["Attendance", "/accountant/attendance", CalendarCheck],
   ["Employee Tracking", "/tracking", MapPin],
   ["Leave Requests", "/accountant/leaves", CalendarDays],
-  ["Reports Center", "/accountant/reports", FileSpreadsheet],
   ["Meetings", "/accountant/meetings", Users],
+  ["Salary Slips Hub", "/accountant/salary-slips", FileSpreadsheet],
+  ["Reports Center", "/accountant/reports", FileSpreadsheet],
   ["Announcements", "/accountant/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 const bdoNav = [
-  ["Utility Toolbox", "/tools", Wrench],
-  ["Team Chat Hub", "/chat", MessageSquare],
+  // Workspace
   ["Task Board", "/bdo/work?view=kanban", Kanban],
   ["Approvals Queue", "/bdo/work?view=approvals", CheckSquare],
-  ["Client Tasks & Calendar", "/clients/tasks", Calendar],
   ["Time Tracker", "/timer", Clock3],
+
+  // Tools & Apps
+  ["Utility Toolbox", "/tools", Wrench],
+  ["Team Chat Hub", "/chat", MessageSquare],
+
+  // Clients & Projects
   ["Clients Master", "/clients", BriefcaseBusiness],
+  ["Client Tasks & Calendar", "/clients/tasks", Calendar],
+
+  // People & HR
   ["My Attendance", "/bdo/attendance", CalendarCheck],
   ["Location Tracking", "/tracking", MapPin],
   ["My Leave", "/bdo/leaves", CalendarDays],
+  ["Meetings", "/bdo/meetings", Users],
   ["Salary & Payslips", "/bdo/salary-slips", FileSpreadsheet],
   ["Reports Center", "/bdo/reports", FileSpreadsheet],
-  ["Meetings", "/bdo/meetings", Users],
   ["Announcements", "/bdo/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 const teamLeadNav = [
-  ["Utility Toolbox", "/tools", Wrench],
-  ["Team Chat Hub", "/chat", MessageSquare],
+  // Workspace
   ["Task Board", "/team-lead/work?view=kanban", Kanban],
   ["Approvals Queue", "/team-lead/work?view=approvals", CheckSquare],
-  ["Client Tasks & Calendar", "/clients/tasks", Calendar],
   ["Time Tracker", "/timer", Clock3],
+
+  // Tools & Apps
+  ["Utility Toolbox", "/tools", Wrench],
+  ["Team Chat Hub", "/chat", MessageSquare],
+
+  // Clients & Projects
+  ["Client Tasks & Calendar", "/clients/tasks", Calendar],
   ["Team Work", "/team-lead/team-work", Users],
+
+  // People & HR
+  ["Employees Directory", "/employees", Users],
   ["Attendance", "/team-lead/attendance", CalendarCheck],
   ["Employee Tracking", "/tracking", MapPin],
   ["Leave Requests", "/team-lead/leaves", CalendarDays],
+  ["Meetings", "/team-lead/meetings", Users],
   ["KPI Performance", "/team-lead/kpi", TrendingUp],
-  ["Employees Directory", "/employees", Users],
   ["Salary & Payslips", "/team-lead/salary-slips", FileSpreadsheet],
   ["Reports Center", "/team-lead/reports", FileSpreadsheet],
-  ["Meetings", "/team-lead/meetings", Users],
   ["Announcements", "/team-lead/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
@@ -203,6 +241,183 @@ export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[
 export const getFilteredNavigation = (role: WorkspaceRole): readonly NavigationItem[] => {
   return workspaceNavigation[role] || workspaceNavigation.admin;
 };
+
+export type NavCategoryKey = "WORKSPACE" | "TOOLS" | "CLIENTS" | "PEOPLE" | "ADMIN";
+
+export interface NavCategory {
+  id: NavCategoryKey;
+  label: string;
+}
+
+export const NAV_CATEGORIES: readonly NavCategory[] = [
+  { id: "WORKSPACE", label: "Workspace" },
+  { id: "TOOLS", label: "Tools & Apps" },
+  { id: "CLIENTS", label: "Clients & Projects" },
+  { id: "PEOPLE", label: "People & HR" },
+  { id: "ADMIN", label: "Administration" },
+] as const;
+
+export const ITEM_ORDER_WEIGHTS: Record<string, number> = {
+  // WORKSPACE
+  "command center": 10,
+  "task board": 20,
+  "approvals queue": 30,
+  "timeline & phases": 40,
+  "timeline": 40,
+  "time tracker": 50,
+
+  // TOOLS & APPS
+  "utility toolbox": 10,
+  "team chat hub": 20,
+
+  // CLIENTS & PROJECTS
+  "clients master": 10,
+  "client tasks & calendar": 20,
+  "team work": 30,
+
+  // PEOPLE & HR
+  "employees directory": 10,
+  "attendance": 20,
+  "my attendance": 20,
+  "employee tracking": 30,
+  "location tracking": 30,
+  "employee location tracking": 30,
+  "leave requests": 40,
+  "my leave": 40,
+  "meetings": 50,
+  "kpi performance": 60,
+  "my performance": 60,
+  "salary & payroll": 70,
+  "salary slips hub": 70,
+  "my salary slips": 70,
+  "salary & payslips": 70,
+  "reports center": 80,
+  "announcements": 90,
+
+  // ADMINISTRATION
+  "dynamic roles": 10,
+  "user management": 20,
+  "page management": 30,
+  "audit logs": 40,
+  "settings & access": 50,
+  "settings": 50,
+};
+
+export function getNavCategory(item: readonly [string, string, any]): NavCategoryKey {
+  const [label, href] = item;
+  const path = (href || "").toLowerCase();
+  const title = (label || "").toLowerCase();
+
+  // 1. Administration
+  if (
+    path.includes("/admin/roles") ||
+    path.includes("/admin/users") ||
+    path.includes("/admin/audit-logs") ||
+    path.includes("/pages") ||
+    path.includes("/settings") ||
+    title.includes("role") ||
+    title.includes("user management") ||
+    title.includes("page management") ||
+    title.includes("audit log") ||
+    title.includes("settings & access") ||
+    title === "settings"
+  ) {
+    return "ADMIN";
+  }
+
+  // 2. Tools & Apps
+  if (
+    path.startsWith("/tools") ||
+    path.includes("/tools") ||
+    path.startsWith("/chat") ||
+    path.includes("/chat") ||
+    title.includes("toolbox") ||
+    title.includes("utility toolbox") ||
+    title.includes("chat")
+  ) {
+    return "TOOLS";
+  }
+
+  // 3. Clients & Projects
+  if (
+    path.includes("/clients") ||
+    path.includes("/team-work") ||
+    title.includes("client") ||
+    title.includes("team work")
+  ) {
+    return "CLIENTS";
+  }
+
+  // 4. People & HR
+  if (
+    path.includes("/employees") ||
+    path.includes("/attendance") ||
+    path.includes("/tracking") ||
+    path.includes("/leaves") ||
+    path.includes("/meetings") ||
+    path.includes("/kpi") ||
+    path.includes("/profile") ||
+    path.includes("/salary") ||
+    path.includes("/reports") ||
+    path.includes("/announcements") ||
+    title.includes("employee") ||
+    title.includes("attendance") ||
+    title.includes("tracking") ||
+    title.includes("leave") ||
+    title.includes("meeting") ||
+    title.includes("kpi") ||
+    title.includes("performance") ||
+    title.includes("salary") ||
+    title.includes("payroll") ||
+    title.includes("payslip") ||
+    title.includes("report") ||
+    title.includes("announcement")
+  ) {
+    return "PEOPLE";
+  }
+
+  // 5. Workspace (Default for tasks, timer, board, approvals, etc.)
+  return "WORKSPACE";
+}
+
+export interface CategorizedNavGroup {
+  category: NavCategory;
+  items: (readonly [string, string, any])[];
+}
+
+export function groupNavigationByCategory(
+  items: readonly (readonly [string, string, any])[]
+): CategorizedNavGroup[] {
+  const groups: Record<NavCategoryKey, (readonly [string, string, any])[]> = {
+    WORKSPACE: [],
+    TOOLS: [],
+    CLIENTS: [],
+    PEOPLE: [],
+    ADMIN: [],
+  };
+
+  for (const item of items) {
+    const cat = getNavCategory(item);
+    groups[cat].push(item);
+  }
+
+  // Sort items inside each category by predefined weight
+  for (const catKey of Object.keys(groups) as NavCategoryKey[]) {
+    groups[catKey].sort((a, b) => {
+      const weightA = ITEM_ORDER_WEIGHTS[a[0].toLowerCase().trim()] ?? 100;
+      const weightB = ITEM_ORDER_WEIGHTS[b[0].toLowerCase().trim()] ?? 100;
+      return weightA - weightB;
+    });
+  }
+
+  // Return only categories that have at least one item
+  return NAV_CATEGORIES
+    .map(category => ({
+      category,
+      items: groups[category.id],
+    }))
+    .filter(group => group.items.length > 0);
+}
 
 export function getWorkspaceRole(portalRole?: string): WorkspaceRole {
   if (!portalRole) return "employee";

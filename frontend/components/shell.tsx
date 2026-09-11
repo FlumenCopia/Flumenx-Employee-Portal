@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Bell, CalendarCheck, CalendarDays, CheckCheck, ChevronDown, FileCheck2, KeyRound, Lock, LogOut, Megaphone, Menu, RotateCw, UserRound, X } from "lucide-react";
 import { FlumenxMark, Avatar } from "./icons";
 import { api, logout } from "@/lib/api";
 import { clearCachedAuthUser, getCachedAuthUser, loadAuthUser } from "@/lib/auth-cache";
 import type { AuthUser, Paginated, PortalNotification, WorkspaceRole } from "@/lib/types";
-import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, getWorkspaceDestination, getWorkspaceRole, isRoleAllowedInWorkspace, normalizeWorkspaceRoute, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation } from "./layout/navigation";
+import { expectedPortalRoles, getFilteredNavigation, getLucideIcon, getWorkspaceDestination, getWorkspaceRole, isRoleAllowedInWorkspace, normalizeWorkspaceRoute, portalRoleRoutes, workspaceFallbackNames, workspaceLabels, workspaceNavigation, groupNavigationByCategory } from "./layout/navigation";
 import { PwaInstallButton } from "./PwaInstallButton";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { ChangePasswordModal } from "./ChangePasswordModal";
@@ -326,6 +326,14 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
     return dynamicNavCache[key] || null;
   });
   const [navLoading, setNavLoading] = useState(false);
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+
+  const toggleCategory = (categoryId: string) => {
+    setCollapsedCategories((prev) => ({
+      ...prev,
+      [categoryId]: !prev[categoryId],
+    }));
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -608,6 +616,10 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
 
   const nav = [...filteredNav, ...fixedItems];
 
+  const categorizedNav = useMemo(() => {
+    return groupNavigationByCategory(nav);
+  }, [nav]);
+
   const name = user?.first_name || workspaceFallbackNames[workspaceRole];
   const roleLabel = workspaceLabels[workspaceRole];
   if (!mounted || (!ready && !user)) return <div className="route-loader"><span>F</span><p>Verifying workspace session</p></div>;
@@ -647,7 +659,58 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
                 FLUMENX BOS
               </div>
             </div>
-        <nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} onClick={() => setOpen(false)} className={path === href || (href !== `/${workspaceRole}/dashboard` && path.startsWith(href)) ? "active" : ""}><Icon size={18} /><span>{label}</span>{label.toLowerCase().includes("leave") && pendingLeaveCount > 0 && <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>}</Link>)}</nav>
+        <nav className="sidebar-nav-container">
+          {categorizedNav.map((group) => {
+            const hasActiveItem = group.items.some(
+              ([, href]) =>
+                path === href ||
+                (href !== `/${workspaceRole}/dashboard` && path.startsWith(href))
+            );
+            const isCollapsed =
+              Boolean(collapsedCategories[group.category.id]) && !hasActiveItem;
+
+            return (
+              <div key={group.category.id} className="sidebar-category-group">
+                <button
+                  type="button"
+                  className="sidebar-category-header"
+                  onClick={() => toggleCategory(group.category.id)}
+                  aria-expanded={!isCollapsed}
+                  title={`Click to ${isCollapsed ? "expand" : "collapse"} ${group.category.label}`}
+                >
+                  <span className="sidebar-category-title">{group.category.label}</span>
+                  <ChevronDown
+                    size={13}
+                    className={`sidebar-category-chevron ${isCollapsed ? "collapsed" : ""}`}
+                  />
+                </button>
+                {!isCollapsed && (
+                  <div className="sidebar-category-items">
+                    {group.items.map(([label, href, Icon]) => {
+                      const isActive =
+                        path === href ||
+                        (href !== `/${workspaceRole}/dashboard` && path.startsWith(href));
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={() => setOpen(false)}
+                          className={isActive ? "active" : ""}
+                        >
+                          <Icon size={18} />
+                          <span>{label}</span>
+                          {label.toLowerCase().includes("leave") && pendingLeaveCount > 0 && (
+                            <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
         <div className="sidebar-foot">
           <PwaInstallButton variant="sidebar" />
           <div

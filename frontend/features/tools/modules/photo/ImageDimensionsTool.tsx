@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { Upload, Maximize2, Image as ImageIcon } from "lucide-react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Upload, Maximize2, Image as ImageIcon, Trash2 } from "lucide-react";
 
 export function ImageDimensionsTool() {
   const [file, setFile] = useState<File | null>(null);
@@ -12,7 +12,26 @@ export function ImageDimensionsTool() {
 
   const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
 
+  const handleClear = useCallback(() => {
+    if (previewSrc) URL.revokeObjectURL(previewSrc);
+    setFile(null);
+    setPreviewSrc("");
+    setWidth(0);
+    setHeight(0);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [previewSrc]);
+
+  useEffect(() => {
+    const onWipe = () => handleClear();
+    window.addEventListener("flumenx:wipe_tool_data", onWipe);
+    return () => {
+      window.removeEventListener("flumenx:wipe_tool_data", onWipe);
+      if (previewSrc) URL.revokeObjectURL(previewSrc);
+    };
+  }, [previewSrc, handleClear]);
+
   const handleFile = (f: File) => {
+    if (previewSrc) URL.revokeObjectURL(previewSrc);
     setFile(f);
     const url = URL.createObjectURL(f);
     setPreviewSrc(url);
@@ -23,6 +42,9 @@ export function ImageDimensionsTool() {
       setWidth(img.naturalWidth);
       setHeight(img.naturalHeight);
     };
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("flumenx:touch_tool_data"));
+    }
   };
 
   const aspect = (() => {
@@ -64,39 +86,64 @@ export function ImageDimensionsTool() {
         >
           <Upload size={32} className="tool-dropzone-icon" />
           <div className="tool-dropzone-title">Upload Image to Inspect Dimensions</div>
-          <div className="tool-dropzone-sub">Click to browse or drop an image here</div>
+          <div className="tool-dropzone-sub">
+            {file ? `${file.name} (${(file.size / 1024).toFixed(1)} KB)` : "Click to browse or drop an image here"}
+          </div>
         </div>
 
         {file && width > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "20px" }}>
-            <div style={{ padding: "14px", backgroundColor: "var(--tools-surface-subtle)", borderRadius: "8px", border: "1px solid var(--tools-border)" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--tools-text-muted)" }}>Width</div>
-              <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--tools-primary)" }}>{width} px</div>
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "20px" }}>
+              <div style={{ padding: "14px", backgroundColor: "var(--tools-surface-subtle)", borderRadius: "8px", border: "1px solid var(--tools-border)" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--tools-text-muted)" }}>Width</div>
+                <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--tools-primary)" }}>{width} px</div>
+              </div>
+
+              <div style={{ padding: "14px", backgroundColor: "var(--tools-surface-subtle)", borderRadius: "8px", border: "1px solid var(--tools-border)" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--tools-text-muted)" }}>Height</div>
+                <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--tools-primary)" }}>{height} px</div>
+              </div>
+
+              <div style={{ padding: "14px", backgroundColor: "var(--tools-surface-subtle)", borderRadius: "8px", border: "1px solid var(--tools-border)" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--tools-text-muted)" }}>Aspect Ratio</div>
+                <div style={{ fontSize: "1.2rem", fontWeight: 700 }}>{aspect}</div>
+              </div>
+
+              <div style={{ padding: "14px", backgroundColor: "var(--tools-surface-subtle)", borderRadius: "8px", border: "1px solid var(--tools-border)" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--tools-text-muted)" }}>Megapixels</div>
+                <div style={{ fontSize: "1.2rem", fontWeight: 700 }}>{megapixels} MP</div>
+              </div>
+
+              <div style={{ padding: "14px", backgroundColor: "var(--tools-surface-subtle)", borderRadius: "8px", border: "1px solid var(--tools-border)" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--tools-text-muted)" }}>Orientation</div>
+                <div style={{ fontSize: "1rem", fontWeight: 600 }}>{orientation}</div>
+              </div>
+
+              <div style={{ padding: "14px", backgroundColor: "var(--tools-surface-subtle)", borderRadius: "8px", border: "1px solid var(--tools-border)" }}>
+                <div style={{ fontSize: "0.75rem", color: "var(--tools-text-muted)" }}>File Size</div>
+                <div style={{ fontSize: "1rem", fontWeight: 600 }}>{(file.size / 1024).toFixed(1)} KB</div>
+              </div>
             </div>
 
-            <div style={{ padding: "14px", backgroundColor: "var(--tools-surface-subtle)", borderRadius: "8px", border: "1px solid var(--tools-border)" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--tools-text-muted)" }}>Height</div>
-              <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--tools-primary)" }}>{height} px</div>
-            </div>
-
-            <div style={{ padding: "14px", backgroundColor: "var(--tools-surface-subtle)", borderRadius: "8px", border: "1px solid var(--tools-border)" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--tools-text-muted)" }}>Aspect Ratio</div>
-              <div style={{ fontSize: "1.2rem", fontWeight: 700 }}>{aspect}</div>
-            </div>
-
-            <div style={{ padding: "14px", backgroundColor: "var(--tools-surface-subtle)", borderRadius: "8px", border: "1px solid var(--tools-border)" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--tools-text-muted)" }}>Megapixels</div>
-              <div style={{ fontSize: "1.2rem", fontWeight: 700 }}>{megapixels} MP</div>
-            </div>
-
-            <div style={{ padding: "14px", backgroundColor: "var(--tools-surface-subtle)", borderRadius: "8px", border: "1px solid var(--tools-border)" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--tools-text-muted)" }}>Orientation</div>
-              <div style={{ fontSize: "1rem", fontWeight: 600 }}>{orientation}</div>
-            </div>
-
-            <div style={{ padding: "14px", backgroundColor: "var(--tools-surface-subtle)", borderRadius: "8px", border: "1px solid var(--tools-border)" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--tools-text-muted)" }}>File Size</div>
-              <div style={{ fontSize: "1rem", fontWeight: 600 }}>{(file.size / 1024).toFixed(1)} KB</div>
+            <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="tool-btn-secondary"
+                style={{ flex: 1 }}
+              >
+                Inspect Another Image
+              </button>
+              <button
+                type="button"
+                onClick={handleClear}
+                className="tool-btn-secondary"
+                style={{ color: "#DC2626", borderColor: "#FCA5A5" }}
+                title="Wipe image from browser memory"
+              >
+                <Trash2 size={14} />
+                <span>Wipe</span>
+              </button>
             </div>
           </div>
         )}

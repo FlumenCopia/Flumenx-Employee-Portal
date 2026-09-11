@@ -18,6 +18,7 @@ import { setupMeetingSockets } from './services/meetingSocket.js';
 import { setupTrackingSockets } from './services/trackingSocket.js';
 import { setupChatAndCallSockets } from './services/chatSocket.js';
 import { syncDefaultPortalPages } from './services/portalSync.js';
+import { startEphemeralCleanupScheduler } from './services/ephemeralCleanupService.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -170,6 +171,7 @@ const PORT = config.port;
 async function startServer() {
   await connectDB();
   await syncDefaultPortalPages();
+  startEphemeralCleanupScheduler();
   server.listen(PORT, () => {
     console.log(`[Express Backend] Server running on http://127.0.0.1:${PORT}`);
     console.log(`[Express Backend] API Base URL: http://127.0.0.1:${PORT}/api`);
