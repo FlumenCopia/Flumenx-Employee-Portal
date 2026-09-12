@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   Check,
   Users,
-  Sparkles
+  Sparkles,
+  Landmark,
 } from "lucide-react";
 
 type Props = {
@@ -31,6 +32,7 @@ function getPageIcon(title: string, route: string) {
   const t = (title || "").toLowerCase();
   const r = (route || "").toLowerCase();
   if (t.includes("command") || r.includes("command")) return <Sparkles size={15} style={{ color: "#8b5cf6" }} />;
+  if (t.includes("accounting") || t.includes("finance") || r.includes("accounting")) return <Landmark size={15} style={{ color: "#087a5b" }} />;
   if (t.includes("task") || r.includes("kanban")) return <Kanban size={15} style={{ color: "#d97706" }} />;
   if (t.includes("kpi") || r.includes("kpi")) return <TrendingUp size={15} style={{ color: "#059669" }} />;
   if (t.includes("attendance") || r.includes("attendance")) return <CalendarCheck size={15} style={{ color: "#2563eb" }} />;

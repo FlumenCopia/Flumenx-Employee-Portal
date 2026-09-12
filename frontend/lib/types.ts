@@ -972,4 +972,529 @@ export type LocationHistoryPoint = {
   isMoving?: boolean;
 };
 
+// ==========================================
+// 🏛️ FLUMENX DOUBLE-ENTRY ACCOUNTING TYPES
+// ==========================================
+
+export type AccountType = "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
+
+export type AccountSubtype =
+  | "CASH"
+  | "BANK"
+  | "ACCOUNTS_RECEIVABLE"
+  | "CURRENT_ASSET"
+  | "PREPAID_EXPENSE"
+  | "FIXED_ASSET"
+  | "ACCUMULATED_DEPRECIATION"
+  | "NON_CURRENT_ASSET"
+  | "ACCOUNTS_PAYABLE"
+  | "CURRENT_LIABILITY"
+  | "PAYROLL_PAYABLE"
+  | "TAX_PAYABLE"
+  | "NON_CURRENT_LIABILITY"
+  | "LOAN"
+  | "EQUITY"
+  | "RETAINED_EARNINGS"
+  | "CAPITAL"
+  | "DIRECT_REVENUE"
+  | "INDIRECT_REVENUE"
+  | "SERVICE_REVENUE"
+  | "OTHER_INCOME"
+  | "DIRECT_EXPENSE"
+  | "OPERATING_EXPENSE"
+  | "EMPLOYEE_EXPENSE"
+  | "OFFICE_EXPENSE"
+  | "TECH_EXPENSE"
+  | "SALES_EXPENSE"
+  | "DEPRECIATION_EXPENSE"
+  | "FINANCE_EXPENSE";
+
+export type BalanceNature = "DEBIT" | "CREDIT";
+
+export type ChartOfAccount = {
+  _id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  subtype: AccountSubtype;
+  parentAccount?: { _id: string; code: string; name: string } | null;
+  nature: BalanceNature;
+  openingBalance: number;
+  openingBalanceDate?: string | null;
+  currentBalance: number;
+  totalDebit: number;
+  totalCredit: number;
+  isActive: boolean;
+  isSystemAccount: boolean;
+  description?: string;
+  currency: string;
+};
+
+export type VoucherType =
+  | "SALES"
+  | "PURCHASE"
+  | "RECEIPT"
+  | "PAYMENT"
+  | "CONTRA"
+  | "JOURNAL"
+  | "CREDIT_NOTE"
+  | "DEBIT_NOTE"
+  | "PAYROLL"
+  | "DEPRECIATION"
+  | "ADJUSTMENT"
+  | "OPENING_BALANCE";
+
+export type JournalStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "POSTED" | "REVERSED" | "CANCELLED";
+
+export type JournalEntryLine = {
+  _id?: string;
+  account: string | { _id: string; code: string; name: string; type: string };
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  description?: string;
+  partyType?: "CLIENT" | "VENDOR" | "EMPLOYEE" | "OTHER";
+  partyName?: string;
+  partyReference?: string;
+  client?: { _id: string; name: string } | null;
+  project?: { _id: string; name: string } | null;
+  employee?: { _id: string; name: string } | null;
+  costCenter?: { _id: string; code: string; name: string } | null;
+};
+
+export type JournalEntry = {
+  _id: string;
+  journalNumber: string;
+  date: string;
+  voucherType: VoucherType;
+  referenceNumber?: string;
+  sourceType: string;
+  sourceId?: string | null;
+  description: string;
+  status: JournalStatus;
+  totalDebit: number;
+  totalCredit: number;
+  client?: { _id: string; name: string } | null;
+  clientName?: string;
+  clientReference?: string;
+  lines: JournalEntryLine[];
+  isReversed: boolean;
+  reversalReason?: string;
+  createdBy?: { _id: string; username: string } | null;
+  approvedBy?: { _id: string; username: string } | null;
+  postedAt?: string | null;
+  createdAt: string;
+};
+
+export type InvoiceStatus = "DRAFT" | "SENT" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "CANCELLED";
+
+export type InvoiceLine = {
+  _id?: string;
+  description: string;
+  account: string | { _id: string; code: string; name: string };
+  quantity: number;
+  unitRate: number;
+  discount: number;
+  taxRate?: string | null;
+  taxAmount: number;
+  totalAmount: number;
+};
+
+export type AccountingInvoice = {
+  _id: string;
+  invoiceNumber: string;
+  client?: { _id: string; name: string; industry?: string } | null;
+  clientName?: string;
+  clientReference?: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  clientAddress?: string;
+  clientGstin?: string;
+  isManualClient?: boolean;
+  project?: { _id: string; name: string } | null;
+  invoiceDate: string;
+  dueDate: string;
+  currency: string;
+  subtotal: number;
+  discountTotal: number;
+  taxTotal: number;
+  totalAmount: number;
+  amountPaid: number;
+  balanceDue: number;
+  status: InvoiceStatus;
+  paymentTerms?: string;
+  notes?: string;
+  lines: InvoiceLine[];
+  journalEntry?: { _id: string; journalNumber: string } | null;
+  createdAt: string;
+};
+
+export type CustomerReceipt = {
+  _id: string;
+  receiptNumber: string;
+  client?: { _id: string; name: string } | null;
+  clientName?: string;
+  clientReference?: string;
+  isManualClient?: boolean;
+  date: string;
+  depositAccount: { _id: string; code: string; name: string };
+  paymentMethod: string;
+  referenceNumber?: string;
+  totalAmount: number;
+  allocations: { invoice: { _id: string; invoiceNumber: string; totalAmount: number }; allocatedAmount: number }[];
+  unallocatedAmount: number;
+  notes?: string;
+  status: string;
+  journalEntry?: { _id: string; journalNumber: string } | null;
+  createdAt: string;
+};
+
+export type Vendor = {
+  _id: string;
+  name: string;
+  code: string;
+  taxId?: string;
+  email?: string;
+  phone?: string;
+  contactPerson?: string;
+  address?: string;
+  paymentTerms: string;
+  isActive: boolean;
+};
+
+export type AccountingBill = {
+  _id: string;
+  billNumber: string;
+  vendorInvoiceNumber?: string;
+  vendor?: { _id: string; name: string; code: string; taxId?: string } | null;
+  vendorName?: string;
+  vendorReference?: string;
+  vendorGstin?: string;
+  isManualVendor?: boolean;
+  billDate: string;
+  dueDate: string;
+  currency: string;
+  subtotal: number;
+  taxTotal: number;
+  totalAmount: number;
+  amountPaid: number;
+  balanceDue: number;
+  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "CANCELLED";
+  attachment?: string;
+  notes?: string;
+  lines: any[];
+  journalEntry?: { _id: string; journalNumber: string } | null;
+  createdAt: string;
+};
+
+export type VendorPayment = {
+  _id: string;
+  paymentNumber: string;
+  vendor?: { _id: string; name: string; code: string } | null;
+  vendorName?: string;
+  vendorReference?: string;
+  isManualVendor?: boolean;
+  date: string;
+  paidFromAccount: { _id: string; code: string; name: string };
+  paymentMethod: string;
+  referenceNumber?: string;
+  totalAmount: number;
+  allocations: { bill: { _id: string; billNumber: string; totalAmount: number }; allocatedAmount: number }[];
+  unallocatedAmount: number;
+  notes?: string;
+  status: string;
+  journalEntry?: { _id: string; journalNumber: string } | null;
+  createdAt: string;
+};
+
+export type ExpenseTransaction = {
+  _id: string;
+  expenseNumber: string;
+  date: string;
+  title: string;
+  category: string;
+  expenseAccount: { _id: string; code: string; name: string };
+  paidFromAccount: { _id: string; code: string; name: string };
+  vendor?: { _id: string; name: string } | null;
+  employee?: { _id: string; name: string } | null;
+  project?: { _id: string; name: string } | null;
+  subtotal: number;
+  taxAmount: number;
+  totalAmount: number;
+  paymentMethod: string;
+  referenceNumber?: string;
+  receiptUrl?: string;
+  description?: string;
+  approvalStatus: "DRAFT" | "SUBMITTED" | "APPROVED" | "POSTED" | "REJECTED";
+  journalEntry?: { _id: string; journalNumber: string } | null;
+};
+
+export type BankAccount = {
+  _id: string;
+  accountName: string;
+  bankName: string;
+  accountNumber: string;
+  ifscSwift?: string;
+  branchName?: string;
+  accountType: string;
+  currency: string;
+  glAccount: { _id: string; code: string; name: string; currentBalance?: number };
+  openingBalance: number;
+  currentBalance: number;
+  isActive: boolean;
+};
+
+export type BankTransaction = {
+  _id: string;
+  bankAccount: string;
+  date: string;
+  description: string;
+  referenceNumber?: string;
+  withdrawalAmount: number;
+  depositAmount: number;
+  balanceAfter: number;
+  reconciliationStatus: "UNRECONCILED" | "MATCHED" | "RECONCILED";
+};
+
+export type TaxRate = {
+  _id: string;
+  name: string;
+  code: string;
+  ratePercentage: number;
+  taxType: string;
+  glAccount: { _id: string; code: string; name: string };
+  isActive: boolean;
+};
+
+export type FixedAsset = {
+  _id: string;
+  assetCode: string;
+  name: string;
+  category: string;
+  purchaseDate: string;
+  purchaseCost: number;
+  residualValue: number;
+  usefulLifeMonths: number;
+  depreciationMethod: "STRAIGHT_LINE" | "WRITTEN_DOWN_VALUE";
+  assetAccount: { _id: string; code: string; name: string };
+  accumulatedDepreciationAccount: { _id: string; code: string; name: string };
+  depreciationExpenseAccount: { _id: string; code: string; name: string };
+  currentBookValue: number;
+  accumulatedDepreciation: number;
+  status: "ACTIVE" | "DISPOSED" | "SOLD";
+  assignedEmployee?: { _id: string; name: string } | null;
+  location?: string;
+};
+
+export type CostCenter = {
+  _id: string;
+  code: string;
+  name: string;
+  category: string;
+  description?: string;
+  isActive: boolean;
+};
+
+export type AccountingPeriod = {
+  _id: string;
+  fiscalYear: { _id: string; name: string };
+  month: number;
+  year: number;
+  status: "OPEN" | "LOCKED" | "CLOSED";
+  closingChecklist: {
+    bankReconciled: boolean;
+    payablesReviewed: boolean;
+    receivablesReviewed: boolean;
+    payrollPosted: boolean;
+    depreciationRun: boolean;
+    trialBalanceVerified: boolean;
+  };
+  lockedAt?: string | null;
+};
+
+export type TrialBalanceRow = {
+  accountId: string;
+  code: string;
+  name: string;
+  type: string;
+  subtype: string;
+  nature: string;
+  openingDebit: number;
+  openingCredit: number;
+  periodDebit: number;
+  periodCredit: number;
+  closingDebit: number;
+  closingCredit: number;
+};
+
+export type GeneralLedgerTransaction = {
+  journalId: string;
+  journalNumber: string;
+  voucherType: string;
+  date: string;
+  referenceNumber?: string;
+  description: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  clientName?: string;
+  projectName?: string;
+  entryNumber?: string;
+  entryType?: string;
+};
+
+export type GeneralLedgerReport = {
+  account: {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+    subtype: string;
+    nature: string;
+  };
+  startDate: string;
+  endDate: string;
+  openingBalance: number;
+  periodDebit: number;
+  periodCredit: number;
+  closingBalance: number;
+  transactions: GeneralLedgerTransaction[];
+  entries?: GeneralLedgerTransaction[];
+};
+
+export type TrialBalanceResponse = {
+  asOfDate: string;
+  accounts: TrialBalanceRow[];
+  totalDebit: number;
+  totalCredit: number;
+  isBalanced: boolean;
+  difference: number;
+};
+
+export type ReportLineItem = {
+  accountCode: string;
+  accountName: string;
+  amount: number;
+  accountId?: string;
+};
+
+export type ProfitAndLossResponse = {
+  startDate: string;
+  endDate: string;
+  revenue: {
+    items: ReportLineItem[];
+    totalRevenue: number;
+  };
+  costOfSales: {
+    items: ReportLineItem[];
+    totalCostOfSales: number;
+  };
+  grossProfit: number;
+  grossMarginPct: number;
+  operatingExpenses: {
+    categories: {
+      categoryName: string;
+      items: ReportLineItem[];
+      total: number;
+    }[];
+    totalOperatingExpenses: number;
+  };
+  operatingProfit: number;
+  operatingMarginPct: number;
+  otherIncome: {
+    items: ReportLineItem[];
+    totalOtherIncome: number;
+  };
+  netProfit: number;
+  netMarginPct: number;
+};
+
+export type BalanceSheetSection = {
+  title: string;
+  items: ReportLineItem[];
+  subtotal: number;
+};
+
+export type BalanceSheetResponse = {
+  asOfDate: string;
+  assets: {
+    currentAssets: BalanceSheetSection;
+    nonCurrentAssets: BalanceSheetSection;
+    totalAssets: number;
+  };
+  liabilities: {
+    currentLiabilities: BalanceSheetSection;
+    nonCurrentLiabilities: BalanceSheetSection;
+    totalLiabilities: number;
+  };
+  equity: {
+    capitalItems: ReportLineItem[];
+    currentYearNetProfit: number;
+    totalEquity: number;
+  };
+  totalLiabilitiesAndEquity: number;
+  isBalanced: boolean;
+  difference: number;
+};
+
+export type AgingBucketItem = {
+  id: string;
+  number: string;
+  name: string;
+  date: string;
+  dueDate: string;
+  totalAmount: number;
+  balanceDue: number;
+  daysOverdue: number;
+};
+
+export type AgingReportResponse = {
+  asOfDate: string;
+  totalOutstanding: number;
+  buckets: {
+    current: number;
+    days1_30: number;
+    days31_60: number;
+    days61_90: number;
+    days90Plus: number;
+  };
+  items: AgingBucketItem[];
+};
+
+export type ExecutiveFinancialSummary = {
+  kpis: {
+    totalRevenue: number;
+    totalExpenses: number;
+    grossProfit: number;
+    grossMarginPct: number;
+    netProfit: number;
+    netMarginPct: number;
+    cashBalance: number;
+    bankBalance: number;
+    accountsReceivable: number;
+    accountsPayable: number;
+    workingCapital: number;
+    totalAssets: number;
+    totalLiabilities: number;
+    totalEquity: number;
+  };
+  arAging: {
+    current: number;
+    days1_30: number;
+    days31_60: number;
+    days61_90: number;
+    days90Plus: number;
+  };
+  apAging: {
+    current: number;
+    days1_30: number;
+    days31_60: number;
+    days61_90: number;
+    days90Plus: number;
+  };
+  monthlyTrends: { month: string; revenue: number; expense: number }[];
+};
+
+
 

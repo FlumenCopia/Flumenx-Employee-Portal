@@ -12,6 +12,7 @@ import projectRoutes from './projectRoutes.js';
 import timerRoutes from './timerRoutes.js';
 import chatRoutes from './chatRoutes.js';
 import trackingRoutes from './trackingRoutes.js';
+import accountingRoutes from './accountingRoutes.js';
 
 const router = Router();
 
@@ -22,6 +23,7 @@ router.use('/timer', timerRoutes);
 router.use('/time-entries', timerRoutes);
 router.use('/chat', chatRoutes);
 router.use('/tracking', trackingRoutes);
+router.use('/accounting', accountingRoutes);
 router.use('/', workRoutes);
 router.use('/', attendanceRoutes);
 router.use('/', kpiRoutes);

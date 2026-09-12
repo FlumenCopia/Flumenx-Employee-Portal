@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { AppInitialLoader } from "@/components/AppInitialLoader";
 import { ToastProvider } from "@/components/ToastContext";
@@ -17,15 +17,18 @@ const plusJakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  themeColor: "#087A5B",
+};
+
 export const metadata: Metadata = {
   title: "FLUMENX BOS · Enterprise Business Operating System",
   description: "FLUMENX BOS — Unified enterprise business operating system and operations management.",
   manifest: "/manifest.json",
-  themeColor: "#087A5B",
   appleWebApp: {
-  capable: true,
-  statusBarStyle: "black-translucent",
-  title: "FLUMENX BOS",
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "FLUMENX BOS",
   },
   icons: {
     icon: "/flumenx-mark-only.png",

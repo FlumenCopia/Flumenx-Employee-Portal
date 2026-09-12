@@ -13,6 +13,7 @@ import {
   FolderGit2,
   Grid,
   Kanban,
+  Landmark,
   Layers,
   LayoutDashboard,
   MapPin,
@@ -61,6 +62,7 @@ export const iconMap: Record<string, LucideIcon> = {
   Settings,
   Grid,
   MapPin,
+  Landmark,
 };
 
 export function getLucideIcon(iconName?: string): LucideIcon {
@@ -105,6 +107,9 @@ const adminNav = [
   ["Salary & Payroll", "/admin/salary-slips", FileSpreadsheet],
   ["Reports Center", "/admin/reports", FileSpreadsheet],
   ["Announcements", "/admin/announcements", Megaphone],
+
+  // Finance & Accounts
+  ["Accounting & Finance", "/accounting", Landmark],
 
   // Administration
   ["Dynamic Roles", "/admin/roles", Shield],
@@ -177,6 +182,9 @@ const accountantNav = [
   ["Salary Slips Hub", "/accountant/salary-slips", FileSpreadsheet],
   ["Reports Center", "/accountant/reports", FileSpreadsheet],
   ["Announcements", "/accountant/announcements", Megaphone],
+
+  // Finance & Accounts
+  ["Accounting & Finance", "/accounting", Landmark],
 ] as const satisfies readonly NavigationItem[];
 
 const bdoNav = [
@@ -242,7 +250,7 @@ export const getFilteredNavigation = (role: WorkspaceRole): readonly NavigationI
   return workspaceNavigation[role] || workspaceNavigation.admin;
 };
 
-export type NavCategoryKey = "WORKSPACE" | "TOOLS" | "CLIENTS" | "PEOPLE" | "ADMIN";
+export type NavCategoryKey = "WORKSPACE" | "TOOLS" | "CLIENTS" | "PEOPLE" | "FINANCE" | "ADMIN";
 
 export interface NavCategory {
   id: NavCategoryKey;
@@ -254,6 +262,7 @@ export const NAV_CATEGORIES: readonly NavCategory[] = [
   { id: "TOOLS", label: "Tools & Apps" },
   { id: "CLIENTS", label: "Clients & Projects" },
   { id: "PEOPLE", label: "People & HR" },
+  { id: "FINANCE", label: "Finance & Accounts" },
   { id: "ADMIN", label: "Administration" },
 ] as const;
 
@@ -294,6 +303,10 @@ export const ITEM_ORDER_WEIGHTS: Record<string, number> = {
   "reports center": 80,
   "announcements": 90,
 
+  // FINANCE & ACCOUNTS
+  "accounting & finance": 10,
+  "accounting": 10,
+
   // ADMINISTRATION
   "dynamic roles": 10,
   "user management": 20,
@@ -308,7 +321,17 @@ export function getNavCategory(item: readonly [string, string, any]): NavCategor
   const path = (href || "").toLowerCase();
   const title = (label || "").toLowerCase();
 
-  // 1. Administration
+  // 1. Finance & Accounts
+  if (
+    path.startsWith("/accounting") ||
+    path.includes("/accounting") ||
+    title.includes("accounting") ||
+    title.includes("finance")
+  ) {
+    return "FINANCE";
+  }
+
+  // 2. Administration
   if (
     path.includes("/admin/roles") ||
     path.includes("/admin/users") ||
@@ -325,7 +348,7 @@ export function getNavCategory(item: readonly [string, string, any]): NavCategor
     return "ADMIN";
   }
 
-  // 2. Tools & Apps
+  // 3. Tools & Apps
   if (
     path.startsWith("/tools") ||
     path.includes("/tools") ||
@@ -338,7 +361,7 @@ export function getNavCategory(item: readonly [string, string, any]): NavCategor
     return "TOOLS";
   }
 
-  // 3. Clients & Projects
+  // 4. Clients & Projects
   if (
     path.includes("/clients") ||
     path.includes("/team-work") ||
@@ -348,7 +371,7 @@ export function getNavCategory(item: readonly [string, string, any]): NavCategor
     return "CLIENTS";
   }
 
-  // 4. People & HR
+  // 5. People & HR
   if (
     path.includes("/employees") ||
     path.includes("/attendance") ||
@@ -376,7 +399,7 @@ export function getNavCategory(item: readonly [string, string, any]): NavCategor
     return "PEOPLE";
   }
 
-  // 5. Workspace (Default for tasks, timer, board, approvals, etc.)
+  // 6. Workspace (Default for tasks, timer, board, approvals, etc.)
   return "WORKSPACE";
 }
 
@@ -393,6 +416,7 @@ export function groupNavigationByCategory(
     TOOLS: [],
     CLIENTS: [],
     PEOPLE: [],
+    FINANCE: [],
     ADMIN: [],
   };
 
@@ -447,6 +471,9 @@ export function normalizeWorkspaceRoute(routePath: string, workspaceRole: Worksp
   const [pathname, search] = routePath.split("?");
   const query = search ? `?${search}` : "";
 
+  if (pathname === "/accounting" || pathname.startsWith("/accounting")) {
+    return `${pathname}${query}`;
+  }
   if (pathname === "/settings" || pathname === "/admin/settings") {
     return "/settings";
   }

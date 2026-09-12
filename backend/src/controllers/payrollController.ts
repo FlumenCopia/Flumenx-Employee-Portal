@@ -7,6 +7,7 @@ import { LeaveLedger } from '../models/LeaveLedger.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { getAttendanceCycleForMonth, getAttendanceCycleForDate, getISTParts } from '../utils/tzUtils.js';
 import { calculateAttendanceForCycle, computePayroll } from '../services/payrollEngine.js';
+import { postPayrollAccrualJournal, postPayrollDisbursementJournal } from '../services/accounting/payrollAccountingService.js';
 
 export async function getPayrollRecords(req: Request, res: Response): Promise<void> {
   const { month, year, department, employee_id, status } = req.query;
@@ -251,6 +252,12 @@ export async function approvePayrollRecord(req: Request, res: Response): Promise
   await record.save();
 
   try {
+    await postPayrollAccrualJournal(record, req.user?._id);
+  } catch (accErr: any) {
+    console.error('[Payroll Accounting] Failed to post accrual journal:', accErr);
+  }
+
+  try {
     await AuditLog.create({
       user: req.user?._id,
       action: 'APPROVE_PAYROLL',
@@ -336,7 +343,14 @@ export async function markPaidPayrollRecord(req: Request, res: Response): Promis
   }
 
   record.status = 'Paid';
+  record.paidAt = new Date();
   await record.save();
+
+  try {
+    await postPayrollDisbursementJournal(record, req.body?.bank_account_id, req.user?._id);
+  } catch (accErr: any) {
+    console.error('[Payroll Accounting] Failed to post disbursement journal:', accErr);
+  }
 
   try {
     await AuditLog.create({
