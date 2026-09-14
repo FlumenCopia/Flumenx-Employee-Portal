@@ -57,6 +57,9 @@ export async function resolveUserPermissions(user: any): Promise<UserPermissions
       return normalizeAliases(result);
     }
 
+    const effectiveRoleCode = (dynamicRoleDoc.code || userRole).toUpperCase();
+    const systemRolePerms = defaultRoleActionMatrix[effectiveRoleCode] || defaultRoleActionMatrix[userRole] || {};
+
     for (const page of pages) {
       const pageIdStr = page._id.toString();
       const permEntry = dynamicRoleDoc.permissions?.find((p: any) => {
@@ -72,6 +75,8 @@ export async function resolveUserPermissions(user: any): Promise<UserPermissions
           canEdit: Boolean(permEntry.canEdit),
           canDelete: Boolean(permEntry.canDelete),
         };
+      } else if (systemRolePerms[page.moduleCode]) {
+        result[page.moduleCode] = systemRolePerms[page.moduleCode];
       } else {
         result[page.moduleCode] = NO_ACCESS;
       }

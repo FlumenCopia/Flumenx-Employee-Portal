@@ -1,2 +1,5 @@
-import { RoleDashboard } from "@/components/role-dashboard";
-export default function Page(){return <RoleDashboard role="Accountant"/>}
+import { AccountingMainPage } from "@/features/accounting/AccountingMainPage";
+
+export default function Page() {
+  return <AccountingMainPage role="accountant" withoutShell />;
+}

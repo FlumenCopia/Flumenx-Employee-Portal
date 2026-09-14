@@ -186,6 +186,8 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
 
       const roleIdPayload = !isNaN(Number(dynamicRoleId)) ? Number(dynamicRoleId) : dynamicRoleId;
       const deptIdPayload = departmentId !== "" ? (!isNaN(Number(departmentId)) ? Number(departmentId) : departmentId) : null;
+      const selectedRole = roles.find((r) => String(r.id) === String(dynamicRoleId));
+      const roleCode = selectedRole ? selectedRole.code : undefined;
 
       if (isEdit && user) {
         const updatePayload: Record<string, any> = {
@@ -200,6 +202,9 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
         if (dynamicRoleId !== "") {
           updatePayload.dynamic_role_id = roleIdPayload;
         }
+        if (roleCode) {
+          updatePayload.role = roleCode;
+        }
         await api<SuperAdminUser>(`/portal/super-admin/users/${user.user_id}/`, {
           method: "PATCH",
           body: JSON.stringify(updatePayload),
@@ -213,6 +218,9 @@ export function UserFormModal({ user, open, onClose, onSuccess }: Props) {
           department: targetDeptStr,
           dynamic_role_id: roleIdPayload,
         };
+        if (roleCode) {
+          createPayload.role = roleCode;
+        }
         if (deptIdPayload !== null) {
           createPayload.department_id = deptIdPayload;
         }

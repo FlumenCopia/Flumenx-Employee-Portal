@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Bell, CalendarCheck, CalendarDays, CheckCheck, ChevronDown, FileCheck2, KeyRound, Lock, LogOut, Megaphone, Menu, RotateCw, UserRound, X } from "lucide-react";
+import { Bell, CalendarCheck, CalendarDays, CheckCheck, ChevronDown, FileCheck2, KeyRound, Landmark, Lock, LogOut, Megaphone, Menu, RotateCw, UserRound, X } from "lucide-react";
 import { FlumenxMark, Avatar } from "./icons";
 import { api, logout } from "@/lib/api";
 import { clearCachedAuthUser, getCachedAuthUser, loadAuthUser } from "@/lib/auth-cache";
@@ -612,6 +612,16 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   }
   if (!hasLeaves) {
     fixedItems.push(["Leave Requests", "/leaves", CalendarDays]);
+  }
+  if (workspaceRole === "accountant") {
+    const hasAccounting = filteredNav.some(
+      ([label, href]) =>
+        label.toLowerCase().includes("accounting") ||
+        (typeof href === "string" && href.startsWith("/accounting"))
+    );
+    if (!hasAccounting) {
+      fixedItems.push(["Accounting & Finance", "/accounting", Landmark]);
+    }
   }
 
   const nav = [...filteredNav, ...fixedItems];

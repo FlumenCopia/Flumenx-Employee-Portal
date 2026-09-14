@@ -496,19 +496,69 @@ export async function updateSuperAdminUser(req: Request, res: Response): Promise
     return;
   }
 
-  const { role, dynamic_role_id, is_active } = req.body;
-  if (role) user.role = role;
-  if (dynamic_role_id !== undefined && mongoose.Types.ObjectId.isValid(dynamic_role_id)) {
-    user.dynamicRole = dynamic_role_id as any;
+  const { role, dynamic_role_id, is_active, full_name, designation, department, department_id } = req.body;
+
+  const validSystemRoles = [
+    'SUPER_ADMIN',
+    'HR',
+    'ADMIN',
+    'ACCOUNTANT',
+    'BDE',
+    'TEAM_LEAD',
+    'EMPLOYEE',
+    'OPERATIONS',
+    'OPERATIONS_HEAD',
+  ];
+
+  if (role && validSystemRoles.includes(role.toUpperCase())) {
+    user.role = role.toUpperCase() as any;
   }
+
+  if (dynamic_role_id !== undefined) {
+    if (mongoose.Types.ObjectId.isValid(dynamic_role_id)) {
+      user.dynamicRole = dynamic_role_id as any;
+      const dynRole = await DynamicRole.findById(dynamic_role_id);
+      if (dynRole && dynRole.code) {
+        const dynCode = dynRole.code.trim().toUpperCase();
+        if (validSystemRoles.includes(dynCode)) {
+          user.role = dynCode as any;
+        }
+      }
+    } else if (dynamic_role_id === null || dynamic_role_id === '') {
+      user.dynamicRole = null;
+    }
+  }
+
   if (is_active !== undefined) user.isActive = is_active;
 
+  if (full_name) {
+    const parts = full_name.trim().split(' ');
+    user.firstName = parts[0] || '';
+    user.lastName = parts.slice(1).join(' ') || '';
+  }
+
   await user.save();
+
+  // Also sync Employee document if present
+  const employee = await Employee.findOne({ $or: [{ user: user._id }, { email: user.email }] });
+  if (employee) {
+    if (full_name) employee.name = full_name.trim();
+    if (designation) employee.designation = designation.trim();
+    if (department) employee.department = department.trim();
+    if (department_id && mongoose.Types.ObjectId.isValid(department_id)) {
+      employee.departmentRef = department_id as any;
+    }
+    if (is_active !== undefined) {
+      employee.status = is_active ? 'Active' : 'Inactive';
+    }
+    await employee.save();
+  }
+
   res.json(user);
 }
 
 export async function createSuperAdminUser(req: Request, res: Response): Promise<void> {
-  const { full_name, email, work_email, initial_password, password, designation, department, dynamic_role_id } = req.body;
+  const { full_name, email, work_email, initial_password, password, designation, department, dynamic_role_id, role } = req.body;
   const userEmail = (work_email || email || '').trim().toLowerCase();
   if (!userEmail) {
     res.status(400).json({ detail: 'Work email is required.' });
@@ -525,12 +575,34 @@ export async function createSuperAdminUser(req: Request, res: Response): Promise
   const firstName = nameParts[0] || 'User';
   const lastName = nameParts.slice(1).join(' ') || '';
 
+  const validSystemRoles = [
+    'SUPER_ADMIN',
+    'HR',
+    'ADMIN',
+    'ACCOUNTANT',
+    'BDE',
+    'TEAM_LEAD',
+    'EMPLOYEE',
+    'OPERATIONS',
+    'OPERATIONS_HEAD',
+  ];
+
+  let initialRole: any = 'EMPLOYEE';
+  if (role && validSystemRoles.includes(role.toUpperCase())) {
+    initialRole = role.toUpperCase();
+  } else if (dynamic_role_id && mongoose.Types.ObjectId.isValid(dynamic_role_id)) {
+    const dynRole = await DynamicRole.findById(dynamic_role_id);
+    if (dynRole && dynRole.code && validSystemRoles.includes(dynRole.code.trim().toUpperCase())) {
+      initialRole = dynRole.code.trim().toUpperCase();
+    }
+  }
+
   const newUser = new User({
     username: userEmail,
     email: userEmail,
     firstName,
     lastName,
-    role: 'EMPLOYEE',
+    role: initialRole,
     dynamicRole: dynamic_role_id && mongoose.Types.ObjectId.isValid(dynamic_role_id) ? dynamic_role_id : null,
     isActive: true,
     isStaff: false,

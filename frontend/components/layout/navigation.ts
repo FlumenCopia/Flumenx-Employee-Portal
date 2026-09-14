@@ -169,9 +169,22 @@ const hrNav = [
 ] as const satisfies readonly NavigationItem[];
 
 const accountantNav = [
+  // Workspace
+  ["Financial Overview", "/accountant/dashboard", Landmark],
+  ["Task Board", "/accountant/work?view=kanban", Kanban],
+  ["Time Tracker", "/timer", Clock3],
+
   // Tools & Apps
   ["Utility Toolbox", "/tools", Wrench],
   ["Team Chat Hub", "/chat", MessageSquare],
+
+  // Clients & Projects
+  ["Clients Master", "/clients", BriefcaseBusiness],
+  ["Client Tasks & Calendar", "/clients/tasks", Calendar],
+  ["Team Work", "/team-work", Users],
+
+  // Finance & Accounts
+  ["Accounting & Finance", "/accounting", Landmark],
 
   // People & HR
   ["Employees Directory", "/employees", Users],
@@ -182,9 +195,6 @@ const accountantNav = [
   ["Salary Slips Hub", "/accountant/salary-slips", FileSpreadsheet],
   ["Reports Center", "/accountant/reports", FileSpreadsheet],
   ["Announcements", "/accountant/announcements", Megaphone],
-
-  // Finance & Accounts
-  ["Accounting & Finance", "/accounting", Landmark],
 ] as const satisfies readonly NavigationItem[];
 
 const bdoNav = [
@@ -304,6 +314,8 @@ export const ITEM_ORDER_WEIGHTS: Record<string, number> = {
   "announcements": 90,
 
   // FINANCE & ACCOUNTS
+  "financial overview": 5,
+  "accounting dashboard": 5,
   "accounting & finance": 10,
   "accounting": 10,
 

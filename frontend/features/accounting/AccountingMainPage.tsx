@@ -29,6 +29,7 @@ import { FinancialReportsView } from "./FinancialReportsView";
 
 interface Props {
   role?: WorkspaceRole;
+  withoutShell?: boolean;
 }
 
 type TabKey =
@@ -42,7 +43,7 @@ type TabKey =
   | "banking"
   | "reports";
 
-export function AccountingMainPage({ role = "admin" }: Props) {
+export function AccountingMainPage({ role = "admin", withoutShell = false }: Props) {
   const router = useRouter();
   const user = useShellUser();
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
@@ -68,28 +69,29 @@ export function AccountingMainPage({ role = "admin" }: Props) {
   );
 
   if (user && !hasAccess) {
-    return (
-      <Shell role={role}>
-        <div style={{ padding: "80px 20px", textAlign: "center", maxWidth: "480px", margin: "0 auto" }}>
-          <div style={{ width: "56px", height: "56px", borderRadius: "50%", background: "#fee2e2", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-            <Landmark size={28} />
-          </div>
-          <h2 style={{ fontSize: "20px", fontWeight: 700, color: "var(--text-primary, #0f172a)", marginBottom: "8px" }}>
-            Access Restricted
-          </h2>
-          <p style={{ fontSize: "13px", color: "var(--text-secondary, #64748b)", lineHeight: "1.6", marginBottom: "20px" }}>
-            You do not have permission to view or manage Accounting & Finance. Please contact your system administrator or CFO to request access.
-          </p>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => router.push("/")}
-          >
-            Return to Workspace
-          </button>
+    const restrictedContent = (
+      <div style={{ padding: "80px 20px", textAlign: "center", maxWidth: "480px", margin: "0 auto" }}>
+        <div style={{ width: "56px", height: "56px", borderRadius: "50%", background: "#fee2e2", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+          <Landmark size={28} />
         </div>
-      </Shell>
+        <h2 style={{ fontSize: "20px", fontWeight: 700, color: "var(--text-primary, #0f172a)", marginBottom: "8px" }}>
+          Access Restricted
+        </h2>
+        <p style={{ fontSize: "13px", color: "var(--text-secondary, #64748b)", lineHeight: "1.6", marginBottom: "20px" }}>
+          You do not have permission to view or manage Accounting & Finance. Please contact your system administrator or CFO to request access.
+        </p>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => router.push("/")}
+        >
+          Return to Workspace
+        </button>
+      </div>
     );
+
+    if (withoutShell) return restrictedContent;
+    return <Shell role={role}>{restrictedContent}</Shell>;
   }
 
   const handleSelectAccountForLedger = (code: string) => {
@@ -109,9 +111,8 @@ export function AccountingMainPage({ role = "admin" }: Props) {
     { id: "reports", label: "Financial Reports", icon: Scale },
   ];
 
-  return (
-    <Shell role={role}>
-      <div style={{ maxWidth: "1600px", margin: "0 auto", paddingBottom: "48px" }}>
+  const mainContent = (
+    <div style={{ maxWidth: "1600px", margin: "0 auto", paddingBottom: "48px" }}>
         <PageHeader
           eyebrow="FLUMENX OS FINANCE & TREASURY"
           title="Accounting & Financial Management"
@@ -241,6 +242,8 @@ export function AccountingMainPage({ role = "admin" }: Props) {
 
         {activeTab === "reports" && <FinancialReportsView />}
       </div>
-    </Shell>
   );
+
+  if (withoutShell) return mainContent;
+  return <Shell role={role}>{mainContent}</Shell>;
 }
