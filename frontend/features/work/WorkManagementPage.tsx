@@ -28,14 +28,16 @@ type WorkFilters = {
   employee: string; client: string; status: string; priority: string; due_date: string; assigned_date: string; is_overdue: string; review_status: string; department: string; search: string;
 };
 
-const EMPTY_SUMMARY: WorkSummary = { total: 0, pending: 0, in_progress: 0, blocked: 0, completed: 0, overdue: 0, review_pending: 0, review_ok: 0, review_correction: 0 };
+const EMPTY_SUMMARY: WorkSummary = { total: 0, backlog: 0, pending: 0, in_progress: 0, blocked: 0, completed: 0, overdue: 0, review_pending: 0, review_ok: 0, review_correction: 0 };
 const PRIORITIES: WorkPriority[] = ["Low", "Normal", "High", "Urgent"];
 const STATUSES: WorkStatus[] = [
   "Backlog",
-  "Assigned",
+  "Pending",
   "In Progress",
+  "Blocked",
   "In Review",
   "Approved",
+  "Completed",
 ];
 const EMPTY_FILTERS: WorkFilters = { employee: "", client: "", status: "", priority: "", due_date: "", assigned_date: "", is_overdue: "", review_status: "", department: "", search: "" };
 
@@ -256,6 +258,32 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
 
   const hasClientCreatePerm = clientsPerms ? Boolean(clientsPerms.canCreate ?? clientsPerms.can_create) : false;
   const canAddClient = (isSuperUser || hasClientCreatePerm || ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "BDE", "BDO"].includes(userRoleStr)) && !isEmployeeWorkspace;
+  const searchParams = useSearchParams();
+  const rawViewParam = (searchParams.get("view") || defaultTab || "").toLowerCase();
+  const initialViewMode: "KANBAN" | "LIST" | "APPROVALS" =
+    rawViewParam === "table" || rawViewParam === "list"
+      ? "LIST"
+      : rawViewParam === "approvals"
+        ? "APPROVALS"
+        : "KANBAN";
+
+  const [activeViewMode, setActiveViewMode] = useState<"KANBAN" | "LIST" | "APPROVALS">(initialViewMode);
+
+  const initialFilters = useMemo<WorkFilters>(() => {
+    return {
+      employee: searchParams.get("employee") || "",
+      client: searchParams.get("client") || "",
+      status: searchParams.get("status") || "",
+      priority: searchParams.get("priority") || "",
+      due_date: searchParams.get("due_date") || "",
+      assigned_date: searchParams.get("assigned_date") || "",
+      is_overdue: searchParams.get("is_overdue") || "",
+      review_status: searchParams.get("review_status") || "",
+      department: searchParams.get("department") || "",
+      search: searchParams.get("search") || searchParams.get("q") || "",
+    };
+  }, [searchParams]);
+
   const [summary, setSummary] = useState<WorkSummary>(EMPTY_SUMMARY);
   const [items, setItems] = useState<WorkAssignment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -263,7 +291,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
   const [reviewers, setReviewers] = useState<WorkReviewerOption[]>([]);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [masterClientTasks, setMasterClientTasks] = useState<WorkAssignment[]>([]);
-  const [filters, setFilters] = useState<WorkFilters>(EMPTY_FILTERS);
+  const [filters, setFilters] = useState<WorkFilters>(initialFilters);
   const [page, setPage] = useState(1);
   const [tasksToAssign, setTasksToAssign] = useState<TaskRowState[]>([defaultTaskRow()]);
 
@@ -439,11 +467,48 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
   const selectedClient = useMemo(() => clients.find(client => String(client.id) === filters.client), [clients, filters.client]);
   const isDeliverableWorkflow = selectedEmployee?.department === "Design" || selectedEmployee?.department === "Video Editing" || form.deliverables.length > 0;
 
-  const [activeViewMode, setActiveViewMode] = useState<"KANBAN" | "LIST" | "APPROVALS">("KANBAN");
   const [approvalsSubTab, setApprovalsSubTab] = useState<"pending" | "corrections" | "approved">("pending");
   const [quickNoteInputs, setQuickNoteInputs] = useState<Record<string, string>>({});
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const syncUrl = useCallback((mode: "KANBAN" | "LIST" | "APPROVALS", currentFilters: WorkFilters) => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const viewValue = mode === "LIST" ? "table" : mode === "APPROVALS" ? "approvals" : "kanban";
+    url.searchParams.set("view", viewValue);
+
+    if (currentFilters.status) url.searchParams.set("status", currentFilters.status);
+    else url.searchParams.delete("status");
+
+    if (currentFilters.is_overdue === "true") url.searchParams.set("is_overdue", "true");
+    else url.searchParams.delete("is_overdue");
+
+    if (currentFilters.department) url.searchParams.set("department", currentFilters.department);
+    else url.searchParams.delete("department");
+
+    if (currentFilters.client) url.searchParams.set("client", currentFilters.client);
+    else url.searchParams.delete("client");
+
+    if (currentFilters.employee) url.searchParams.set("employee", currentFilters.employee);
+    else url.searchParams.delete("employee");
+
+    if (currentFilters.priority) url.searchParams.set("priority", currentFilters.priority);
+    else url.searchParams.delete("priority");
+
+    if (currentFilters.search) url.searchParams.set("search", currentFilters.search);
+    else url.searchParams.delete("search");
+
+    if (currentFilters.due_date) url.searchParams.set("due_date", currentFilters.due_date);
+    else url.searchParams.delete("due_date");
+
+    window.history.replaceState({}, "", url.toString());
+  }, []);
+
+  const switchViewMode = (mode: "KANBAN" | "LIST" | "APPROVALS") => {
+    setActiveViewMode(mode);
+    syncUrl(mode, filters);
+  };
 
   const loadWork = useCallback(async (nextFilters = filters, nextPage = 1, append = false) => {
     workAbortRef.current?.abort();
@@ -466,12 +531,13 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
         limit: "25",
       };
       const listQuery = queryFromFilters(listParams as any);
+      // NOTE: Status and is_overdue are excluded from summaryQuery so that summary
+      // cards maintain full counts for the selected employee/department/client scope.
       const summaryQuery = queryFromFilters({
         client: nextFilters.client,
         department: nextFilters.department,
         employee: nextFilters.employee,
         priority: nextFilters.priority,
-        status: nextFilters.status,
       } as any);
 
       const [list, nextSummary] = await Promise.all([
@@ -516,12 +582,56 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
     const updated = { ...filters, [key]: value };
     setFilters(updated);
     setPage(1);
+    syncUrl(activeViewMode, updated);
     loadWork(updated, 1, false);
   };
 
   const updateFilters = (nextFilters: WorkFilters) => {
     setFilters(nextFilters);
     setPage(1);
+    syncUrl(activeViewMode, nextFilters);
+    loadWork(nextFilters, 1, false);
+  };
+
+  const handleStatCardClick = (target: "TOTAL" | "BACKLOG" | "PENDING" | "IN_PROGRESS" | "BLOCKED" | "COMPLETED" | "OVERDUE") => {
+    let nextStatus = "";
+    let nextOverdue = "";
+
+    const currentStatusLower = (filters.status || "").toLowerCase();
+
+    if (target === "TOTAL") {
+      nextStatus = "";
+      nextOverdue = "";
+    } else if (target === "BACKLOG") {
+      nextStatus = currentStatusLower === "backlog" && !filters.is_overdue ? "" : "Backlog";
+      nextOverdue = "";
+    } else if (target === "PENDING") {
+      nextStatus = currentStatusLower === "pending" && !filters.is_overdue ? "" : "Pending";
+      nextOverdue = "";
+    } else if (target === "IN_PROGRESS") {
+      nextStatus = (currentStatusLower === "in progress" || currentStatusLower === "in_progress") && !filters.is_overdue ? "" : "In Progress";
+      nextOverdue = "";
+    } else if (target === "BLOCKED") {
+      nextStatus = currentStatusLower === "blocked" && !filters.is_overdue ? "" : "Blocked";
+      nextOverdue = "";
+    } else if (target === "COMPLETED") {
+      nextStatus = currentStatusLower === "completed" && !filters.is_overdue ? "" : "Completed";
+      nextOverdue = "";
+    } else if (target === "OVERDUE") {
+      nextOverdue = filters.is_overdue === "true" ? "" : "true";
+      nextStatus = "";
+    }
+
+    const nextFilters: WorkFilters = {
+      ...filters,
+      status: nextStatus,
+      is_overdue: nextOverdue,
+    };
+
+    setActiveViewMode("LIST");
+    setFilters(nextFilters);
+    setPage(1);
+    syncUrl("LIST", nextFilters);
     loadWork(nextFilters, 1, false);
   };
 
@@ -916,31 +1026,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
     }
   }
 
-  const searchParams = useSearchParams();
-  const viewParam = searchParams.get("view");
-  const initialTab =
-    defaultTab ||
-    (viewParam === "kanban"
-      ? "kanban"
-      : viewParam === "timeline"
-        ? "timeline"
-        : viewParam === "deliverables"
-          ? "deliverables"
-          : viewParam === "approvals"
-            ? "approvals"
-            : viewParam === "team"
-              ? "team"
-              : viewParam === "kpis"
-                ? "kpis"
-                : viewParam === "budget"
-                  ? "budget"
-                  : "overview");
 
-  useEffect(() => {
-    if (viewParam === "approvals" || defaultTab === "approvals" || initialTab === "approvals") {
-      setActiveViewMode("APPROVALS");
-    }
-  }, [viewParam, defaultTab, initialTab]);
 
 
 
@@ -1075,13 +1161,71 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
     {optionsError && <div className="toast error">{optionsError}</div>}
 
     {/* Dynamic Work Board & Execution Hub */}
-    <div className="stats-grid" style={{ marginBottom: "16px" }}>
-      <StatCard label="Total" value={loading ? "--" : summary.total} note="assignments" icon={<BriefcaseBusiness />} />
-      <StatCard label="Pending" value={loading ? "--" : summary.pending} note="to begin" icon={<BriefcaseBusiness />} />
-      <StatCard label="In Progress" value={loading ? "--" : summary.in_progress} note="actively moving" icon={<BriefcaseBusiness />} accent />
-      <StatCard label="Blocked" value={loading ? "--" : summary.blocked} note="needs attention" icon={<BriefcaseBusiness />} />
-      <StatCard label="Completed" value={loading ? "--" : summary.completed} note="finished work" icon={<BriefcaseBusiness />} />
-      <StatCard label="Overdue" value={loading ? "--" : summary.overdue} note="past due date" icon={<BriefcaseBusiness />} />
+    <div className="stats-grid" style={{ marginBottom: "16px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))", gap: "10px" }}>
+      <StatCard
+        label="Total"
+        value={loading && items.length === 0 ? "--" : summary.total}
+        note="all assignments"
+        icon={<BriefcaseBusiness size={18} />}
+        onClick={() => handleStatCardClick("TOTAL")}
+        active={activeViewMode === "LIST" && !filters.status && !filters.is_overdue}
+        title="Click to view all tasks in table list view"
+      />
+      <StatCard
+        label="Backlog"
+        value={loading && items.length === 0 ? "--" : (summary.backlog ?? 0)}
+        note="in queue"
+        icon={<Clock size={18} />}
+        onClick={() => handleStatCardClick("BACKLOG")}
+        active={activeViewMode === "LIST" && filters.status.toLowerCase() === "backlog"}
+        title="Click to view Backlog tasks in table list view"
+      />
+      <StatCard
+        label="Pending"
+        value={loading && items.length === 0 ? "--" : summary.pending}
+        note="to begin"
+        icon={<BriefcaseBusiness size={18} />}
+        onClick={() => handleStatCardClick("PENDING")}
+        active={activeViewMode === "LIST" && filters.status.toLowerCase() === "pending"}
+        title="Click to view Pending tasks in table list view"
+      />
+      <StatCard
+        label="In Progress"
+        value={loading && items.length === 0 ? "--" : summary.in_progress}
+        note="actively moving"
+        icon={<BriefcaseBusiness size={18} />}
+        accent
+        onClick={() => handleStatCardClick("IN_PROGRESS")}
+        active={activeViewMode === "LIST" && (filters.status.toLowerCase() === "in progress" || filters.status.toLowerCase() === "in_progress")}
+        title="Click to view In-Progress tasks in table list view"
+      />
+      <StatCard
+        label="Blocked"
+        value={loading && items.length === 0 ? "--" : summary.blocked}
+        note="needs attention"
+        icon={<BriefcaseBusiness size={18} />}
+        onClick={() => handleStatCardClick("BLOCKED")}
+        active={activeViewMode === "LIST" && filters.status.toLowerCase() === "blocked"}
+        title="Click to view Blocked tasks in table list view"
+      />
+      <StatCard
+        label="Completed"
+        value={loading && items.length === 0 ? "--" : summary.completed}
+        note="finished work"
+        icon={<CheckCircle2 size={18} />}
+        onClick={() => handleStatCardClick("COMPLETED")}
+        active={activeViewMode === "LIST" && filters.status.toLowerCase() === "completed"}
+        title="Click to view Completed tasks in table list view"
+      />
+      <StatCard
+        label="Overdue"
+        value={loading && items.length === 0 ? "--" : summary.overdue}
+        note="past due date"
+        icon={<Clock size={18} />}
+        onClick={() => handleStatCardClick("OVERDUE")}
+        active={activeViewMode === "LIST" && filters.is_overdue === "true"}
+        title="Click to view Overdue tasks in table list view"
+      />
     </div>
 
     {/* Department Quick-Filter Tabs */}
@@ -1196,6 +1340,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
           className="secondary-button"
           onClick={() => {
             setFilters(EMPTY_FILTERS);
+            syncUrl(activeViewMode, EMPTY_FILTERS);
             loadWork(EMPTY_FILTERS, 1, false);
           }}
         >
@@ -1216,7 +1361,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
       <div style={{ display: "flex", gap: "4px", background: "var(--panel)", padding: "3px", borderRadius: "8px", border: "1px solid var(--border)" }}>
         <button
           type="button"
-          onClick={() => setActiveViewMode("KANBAN")}
+          onClick={() => switchViewMode("KANBAN")}
           style={{
             padding: "6px 14px",
             borderRadius: "6px",
@@ -1236,7 +1381,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
         </button>
         <button
           type="button"
-          onClick={() => setActiveViewMode("LIST")}
+          onClick={() => switchViewMode("LIST")}
           style={{
             padding: "6px 14px",
             borderRadius: "6px",
@@ -1256,7 +1401,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
         </button>
         <button
           type="button"
-          onClick={() => setActiveViewMode("APPROVALS")}
+          onClick={() => switchViewMode("APPROVALS")}
           style={{
             padding: "6px 14px",
             borderRadius: "6px",
@@ -1908,7 +2053,13 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
             <span>Progress</span><span>Assigned</span><span>Due</span><span>Owner</span><span />
           </div>
           {items.map((item) => (
-            <div className={`table-row ${item.is_overdue ? "overdue-row" : ""}`} key={item.id}>
+            <div
+              className={`table-row ${item.is_overdue ? "overdue-row" : ""}`}
+              key={item.id}
+              onClick={() => openEdit(item)}
+              style={{ cursor: "pointer" }}
+              title="Click to view full task details"
+            >
               <span>{item.employee_name}</span>
               <span>{item.client_name}</span>
               <div className="work-title">
@@ -1926,12 +2077,31 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
               <span>{item.assigned_date ? formatDate(item.assigned_date) : "-"}</span>
               <span>{item.due_date ? formatDate(item.due_date) : "-"} {item.is_overdue && <em>Overdue</em>}</span>
               <span>{item.assigned_by_name || "Portal"}</span>
-              {canManageAll && (
-                <div className="row-actions">
-                  <button type="button" onClick={() => openEdit(item)} aria-label={`Edit ${item.title}`}><Pencil size={16} /></button>
+              <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={() => openEdit(item)}
+                  aria-label={canManageAll ? `Edit ${item.title}` : `View ${item.title}`}
+                  title={canManageAll ? "Edit Task" : "View Details"}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    background: "var(--panel2)",
+                    border: "1px solid var(--border)",
+                    fontSize: "11.5px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {canManageAll ? <><Pencil size={13} /> Edit</> : "View"}
+                </button>
+                {canManageAll && (
                   <button type="button" disabled={deletingId !== null} onClick={() => deleteAssignment(item)} aria-label={`Delete ${item.title}`}><Trash2 size={16} /></button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -1947,9 +2117,110 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
       )}
     </div>
 
-    {modalOpen && <Modal title={editing ? "Edit Task" : "New Task"} eyebrow={editing ? "FLUMENX / EDIT" : "FLUMENX / CREATE"} size="lg" onClose={() => !submitting && setModalOpen(false)}>
-      <form className="modal-form" onSubmit={saveAssignment} style={{ display: "flex", flexDirection: "column", gap: "14px", maxHeight: "80vh", overflowY: "auto", paddingRight: "4px" }}>
-        {editing ? (
+    {modalOpen && <Modal title={editing ? (canManageAll ? "Edit Task" : "Task Details") : "New Task"} eyebrow={editing ? (canManageAll ? "FLUMENX / EDIT" : "FLUMENX / TASK DETAILS") : "FLUMENX / CREATE"} size="lg" onClose={() => !submitting && setModalOpen(false)}>
+      <form className="modal-form" onSubmit={canManageAll || !editing ? saveAssignment : (e) => { e.preventDefault(); setModalOpen(false); }} style={{ display: "flex", flexDirection: "column", gap: "14px", maxHeight: "80vh", overflowY: "auto", paddingRight: "4px" }}>
+        {editing && !canManageAll ? (
+          /* READ-ONLY TASK DETAILS VIEW FOR STANDARD USERS / EMPLOYEES */
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <div style={{ background: "var(--panel2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontSize: "11px", fontWeight: 800, color: "#087A5B", letterSpacing: "0.5px" }}>
+                    {editing.code ? `#${editing.code} · ` : ""}CLIENT: {editing.client_name || "General"}
+                  </div>
+                  <h3 style={{ fontSize: "18px", fontWeight: 800, margin: "4px 0", color: "var(--foreground)" }}>
+                    {editing.title}
+                  </h3>
+                  <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+                    Department: {editing.department_category || editing.employee_department || "General"}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+                  <Badge tone={editing.priority}>{editing.priority}</Badge>
+                  <Badge tone={editing.status}>{editing.status}</Badge>
+                </div>
+              </div>
+
+              {editing.description && (
+                <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)", fontSize: "13px", lineHeight: "1.5", color: "var(--foreground)", whiteSpace: "pre-wrap" }}>
+                  {editing.description}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px" }}>
+              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px", padding: "10px 12px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Assigned To</div>
+                <div style={{ fontSize: "13px", fontWeight: 700, marginTop: "2px" }}>{editing.employee_name || "Unassigned"}</div>
+              </div>
+              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px", padding: "10px 12px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Due Date</div>
+                <div style={{ fontSize: "13px", fontWeight: 700, marginTop: "2px", color: editing.is_overdue ? "#EF4444" : "inherit" }}>
+                  {editing.due_date ? formatDate(editing.due_date) : "No date"} {editing.is_overdue && "(Overdue)"}
+                </div>
+              </div>
+              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px", padding: "10px 12px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Assigned Date</div>
+                <div style={{ fontSize: "13px", fontWeight: 700, marginTop: "2px" }}>
+                  {editing.assigned_date ? formatDate(editing.assigned_date) : "-"}
+                </div>
+              </div>
+              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px", padding: "10px 12px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Reviewer</div>
+                <div style={{ fontSize: "13px", fontWeight: 700, marginTop: "2px" }}>{editing.reviewer_name || "Department Team Lead"}</div>
+              </div>
+              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px", padding: "10px 12px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Quantity & Progress</div>
+                <div style={{ fontSize: "13px", fontWeight: 700, marginTop: "2px" }}>
+                  {quantityLabel(editing)} ({editing.progress}%)
+                </div>
+              </div>
+              {((editing as any).total_time_spent_seconds || 0) > 0 && (
+                <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px", padding: "10px 12px" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Time Logged</div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, marginTop: "2px", color: "#087A5B" }}>
+                    {Math.floor(((editing as any).total_time_spent_seconds || 0) / 3600)}h {Math.floor((((editing as any).total_time_spent_seconds || 0) % 3600) / 60)}m
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {editing.deliverables && editing.deliverables.length > 0 && (
+              <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "8px", padding: "12px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 800, marginBottom: "8px", color: "var(--foreground)" }}>
+                  DELIVERABLES ({editing.deliverables.length})
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {editing.deliverables.map((d: any, idx: number) => (
+                    <div key={d.id || idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--panel2)", borderRadius: "6px", fontSize: "12.5px" }}>
+                      <div>
+                        <b>{d.name || d.title}</b>
+                        {d.brief && <div style={{ fontSize: "11px", color: "var(--muted)" }}>{d.brief}</div>}
+                      </div>
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <span style={{ fontSize: "11px", color: "var(--muted)" }}>{d.delivered || 0}/{d.contracted || 1}</span>
+                        <Badge tone={d.status}>{d.status}</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {editing.review_status && (
+              <div style={{ background: editing.review_status === "CORRECTION_NEEDED" ? "rgba(239, 68, 68, 0.08)" : "rgba(8, 122, 91, 0.08)", border: `1px solid ${editing.review_status === "CORRECTION_NEEDED" ? "#EF4444" : "#087A5B"}`, borderRadius: "8px", padding: "10px 12px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: editing.review_status === "CORRECTION_NEEDED" ? "#EF4444" : "#087A5B" }}>
+                  Review Status: {editing.review_status}
+                </div>
+                {editing.review_note && (
+                  <div style={{ fontSize: "12px", marginTop: "4px" }}>
+                    Note: {editing.review_note}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : editing ? (
           <>
             {/* SINGLE TASK EDIT FORM */}
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "12px" }}>
@@ -2441,11 +2712,13 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
             onClick={() => setModalOpen(false)}
             disabled={submitting}
           >
-            Cancel
+            {editing && !canManageAll ? "Close" : "Cancel"}
           </button>
-          <PrimaryButton type="submit" disabled={submitting}>
-            {submitting ? "Saving..." : editing ? "Save Changes" : tasksToAssign.length > 1 ? `Create ${tasksToAssign.length} Tasks` : "Create Task"}
-          </PrimaryButton>
+          {(!editing || canManageAll) && (
+            <PrimaryButton type="submit" disabled={submitting}>
+              {submitting ? "Saving..." : editing ? "Save Changes" : tasksToAssign.length > 1 ? `Create ${tasksToAssign.length} Tasks` : "Create Task"}
+            </PrimaryButton>
+          )}
         </div>
       </form>
     </Modal>}

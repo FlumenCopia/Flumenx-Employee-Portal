@@ -17,36 +17,68 @@ export function PageHeader({ eyebrow, title, subtitle, action }: { eyebrow?: str
   );
 }
 
-export function StatCard({ label, value, note, icon, accent }: { label: string; value: string | number; note: string; icon: ReactNode; accent?: boolean }) {
+export function StatCard({
+  label,
+  value,
+  note,
+  icon,
+  accent,
+  onClick,
+  active,
+  clickable,
+  style,
+  title,
+}: {
+  label: string;
+  value: string | number;
+  note: string;
+  icon: ReactNode;
+  accent?: boolean;
+  onClick?: () => void;
+  active?: boolean;
+  clickable?: boolean;
+  style?: React.CSSProperties;
+  title?: string;
+}) {
+  const isClickable = Boolean(onClick || clickable);
   return (
-    <div className={`stat-card ${accent ? "accent" : ""}`} style={{
-      backgroundColor: TOKENS.colors.surfacePanel,
-      border: `1px solid ${TOKENS.colors.borderLight}`,
-      borderTop: accent ? `3px solid ${TOKENS.colors.brandPrimary}` : `1px solid ${TOKENS.colors.borderLight}`,
-      borderRadius: TOKENS.radius.lg,
-      padding: "20px",
-      boxShadow: TOKENS.shadows.sm,
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "space-between",
-      minHeight: "120px",
-    }}>
+    <div
+      className={`stat-card ${accent ? "accent" : ""} ${active ? "active" : ""}`}
+      onClick={onClick}
+      title={title}
+      style={{
+        backgroundColor: active ? "rgba(8, 122, 91, 0.05)" : TOKENS.colors.surfacePanel,
+        border: active ? "1.5px solid #087A5B" : `1px solid ${TOKENS.colors.borderLight}`,
+        borderTop: active ? "3px solid #087A5B" : accent ? `3px solid ${TOKENS.colors.brandPrimary}` : `1px solid ${TOKENS.colors.borderLight}`,
+        borderRadius: TOKENS.radius.lg,
+        padding: "20px",
+        boxShadow: active ? "0 0 0 2px rgba(8, 122, 91, 0.2), 0 4px 12px rgba(8, 122, 91, 0.15)" : TOKENS.shadows.sm,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        minHeight: "120px",
+        cursor: isClickable ? "pointer" : "default",
+        userSelect: isClickable ? "none" : "auto",
+        transition: "all 0.18s cubic-bezier(0.4, 0, 0.2, 1)",
+        ...style,
+      }}
+    >
       <div className="stat-top" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-        <span style={{ fontSize: "11px", fontWeight: 600, color: TOKENS.colors.textSecondary, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
+        <span style={{ fontSize: "11px", fontWeight: active ? 700 : 600, color: active ? "#087A5B" : TOKENS.colors.textSecondary, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
         <div className="stat-icon" style={{
           width: "32px",
           height: "32px",
           borderRadius: TOKENS.radius.sm,
-          backgroundColor: accent ? TOKENS.colors.brandSubtle : TOKENS.colors.surfaceSubtle,
-          color: accent ? TOKENS.colors.brandPrimary : TOKENS.colors.textSecondary,
+          backgroundColor: active ? "rgba(8, 122, 91, 0.15)" : accent ? TOKENS.colors.brandSubtle : TOKENS.colors.surfaceSubtle,
+          color: active ? "#087A5B" : accent ? TOKENS.colors.brandPrimary : TOKENS.colors.textSecondary,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          border: `1px solid ${accent ? TOKENS.colors.brandBorder : TOKENS.colors.borderLight}`,
+          border: `1px solid ${active ? "#087A5B" : accent ? TOKENS.colors.brandBorder : TOKENS.colors.borderLight}`,
         }}>{icon}</div>
       </div>
-      <strong style={{ fontSize: "26px", fontWeight: 700, color: TOKENS.colors.textPrimary, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{value}</strong>
-      <small style={{ fontSize: "12px", color: TOKENS.colors.textMuted, marginTop: "4px" }}>{note}</small>
+      <strong style={{ fontSize: "26px", fontWeight: 700, color: active ? "#087A5B" : TOKENS.colors.textPrimary, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{value}</strong>
+      <small style={{ fontSize: "12px", color: active ? "#087A5B" : TOKENS.colors.textMuted, marginTop: "4px", fontWeight: active ? 600 : 400 }}>{note}</small>
     </div>
   );
 }

@@ -641,7 +641,48 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
   if (rawClient && mongoose.Types.ObjectId.isValid(rawClient)) {
     filter.client = rawClient;
   }
-  if (status && status !== 'all') filter.status = status;
+  if (status && status !== 'all' && status !== 'All statuses') {
+    const s = String(status).toLowerCase().trim();
+    if (s === 'completed') {
+      filter.status = { $in: ['Completed', 'Approved', 'Published'] };
+    } else if (s === 'pending') {
+      filter.status = { $in: ['Pending', 'Assigned'] };
+    } else if (s === 'in progress' || s === 'in_progress') {
+      filter.status = { $in: ['In Progress', 'Ongoing'] };
+    } else if (s === 'blocked') {
+      filter.status = { $regex: /^blocked$/i };
+    } else if (s === 'backlog') {
+      filter.status = { $regex: /^backlog$/i };
+    } else if (s === 'in review' || s === 'in_review') {
+      filter.status = { $in: ['In Review', 'Changes Requested'] };
+    } else if (s === 'approved') {
+      filter.status = { $in: ['Approved', 'Completed', 'Published'] };
+    } else {
+      filter.status = { $regex: new RegExp(`^${status}$`, 'i') };
+    }
+  }
+
+  const { is_overdue, isOverdue } = req.query;
+  if (is_overdue === 'true' || isOverdue === 'true' || is_overdue === '1') {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    filter.dueDate = { $lt: startOfToday };
+    filter.status = { $nin: ['Completed', 'Approved', 'Published'] };
+  }
+
+  const searchQuery = (req.query.search || req.query.q) as string;
+  if (searchQuery && searchQuery.trim()) {
+    const sRegex = new RegExp(searchQuery.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    filter.$and = filter.$and || [];
+    filter.$and.push({
+      $or: [
+        { title: sRegex },
+        { description: sRegex },
+        { code: sRegex },
+        { reviewerName: sRegex },
+      ],
+    });
+  }
   if (priority && priority !== 'all') filter.priority = priority;
 
   const { is_master_client_task, project_id, project, department_category, due_date, assigned_date } = req.query;
@@ -863,9 +904,36 @@ export async function stopTaskTimer(req: Request, res: Response): Promise<void> 
 }
 
 export async function getWorkAssignmentsSummary(req: Request, res: Response): Promise<void> {
-  const { employee, client, priority, status, is_master_client_task, department, department_category, work_type, due_date, assigned_date } = req.query;
+  const { employee, client, priority, is_master_client_task, department, department_category, work_type, due_date, assigned_date } = req.query;
 
   const filter: any = {};
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
+  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+
+  if (!isSuper && !isManagement) {
+    const ownEmployee = req.user ? (await Employee.findOne({ user: req.user._id }) || await Employee.findById(req.user._id)) : null;
+    if (ownEmployee) {
+      if (isTeamLead && ownEmployee.department) {
+        const deptRegex = new RegExp(`^${ownEmployee.department.trim()}$`, 'i');
+        const teamEmployees = await Employee.find({ department: deptRegex }).select('_id user');
+        const teamEmpIds = [ownEmployee._id, ...teamEmployees.map((e) => e._id)];
+        const teamUserIds = teamEmployees.map((e) => e.user).filter(Boolean);
+        filter.$or = [
+          { employee: { $in: [...teamEmpIds, ...teamUserIds] } },
+          { assignedBy: req.user?._id },
+          { reviewer: ownEmployee._id },
+          { reviewer: req.user?._id },
+        ];
+      } else {
+        filter.$or = [
+          { employee: ownEmployee._id },
+          ...(req.user?._id ? [{ employee: req.user._id }] : []),
+        ];
+      }
+    }
+  }
+
   const rawEmpQuery = (employee || req.query.employee_id || req.query.employeeId) as string;
   if (rawEmpQuery && rawEmpQuery !== 'me' && rawEmpQuery !== 'all') {
     const targetEmpId = await resolveEmployeeDoc(rawEmpQuery);
@@ -880,7 +948,6 @@ export async function getWorkAssignmentsSummary(req: Request, res: Response): Pr
   }
   if (client) filter.client = client;
   if (priority && priority !== 'all') filter.priority = priority;
-  if (status && status !== 'all') filter.status = status;
 
   if (due_date) {
     const dStr = String(due_date);
@@ -944,6 +1011,7 @@ export async function getWorkAssignmentsSummary(req: Request, res: Response): Pr
   const assignments = await WorkAssignment.find(filter);
 
   let total = assignments.length;
+  let backlog = 0;
   let pending = 0;
   let in_progress = 0;
   let blocked = 0;
@@ -956,7 +1024,8 @@ export async function getWorkAssignmentsSummary(req: Request, res: Response): Pr
   const todayStr = new Date().toISOString().slice(0, 10);
 
   for (const a of assignments) {
-    if (a.status === 'Pending' || a.status === 'Assigned' || a.status === 'Backlog') pending++;
+    if (a.status === 'Backlog') backlog++;
+    else if (a.status === 'Pending' || a.status === 'Assigned') pending++;
     else if (a.status === 'In Progress' || a.status === 'Ongoing') in_progress++;
     else if (a.status === 'Blocked') blocked++;
     else if (a.status === 'Completed' || a.status === 'Approved' || a.status === 'Published') completed++;
@@ -973,6 +1042,7 @@ export async function getWorkAssignmentsSummary(req: Request, res: Response): Pr
 
   res.json({
     total,
+    backlog,
     pending,
     in_progress,
     blocked,

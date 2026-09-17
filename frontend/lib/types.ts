@@ -468,6 +468,7 @@ export type DeptCategoryProgress = {
 
 export type WorkSummary = {
   total: number;
+  backlog?: number;
   pending: number;
   in_progress: number;
   blocked: number;
