@@ -662,6 +662,38 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
     }
   }
 
+  const rawReviewStatus = (req.query.review_status || req.query.reviewStatus) as string;
+  if (rawReviewStatus && rawReviewStatus !== 'all') {
+    const rs = String(rawReviewStatus).toUpperCase();
+    let reviewCondition: any;
+    if (rs === 'PENDING_REVIEW') {
+      reviewCondition = {
+        $or: [
+          { reviewStatus: 'PENDING_REVIEW' },
+          { status: 'In Review' },
+        ],
+      };
+    } else if (rs === 'CORRECTION_NEEDED') {
+      reviewCondition = {
+        $or: [
+          { reviewStatus: 'CORRECTION_NEEDED' },
+          { status: 'Changes Requested' },
+        ],
+      };
+    } else if (rs === 'OK' || rs === 'APPROVED') {
+      reviewCondition = {
+        $or: [
+          { reviewStatus: 'OK' },
+          { status: { $in: ['Approved', 'Completed'] } },
+        ],
+      };
+    } else {
+      reviewCondition = { reviewStatus: rawReviewStatus };
+    }
+    filter.$and = filter.$and || [];
+    filter.$and.push(reviewCondition);
+  }
+
   const { is_overdue, isOverdue } = req.query;
   if (is_overdue === 'true' || isOverdue === 'true' || is_overdue === '1') {
     const startOfToday = new Date();

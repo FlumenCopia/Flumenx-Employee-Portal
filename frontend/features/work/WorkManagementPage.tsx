@@ -469,8 +469,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
 
   const [approvalsSubTab, setApprovalsSubTab] = useState<"pending" | "corrections" | "approved">("pending");
   const [quickNoteInputs, setQuickNoteInputs] = useState<Record<string, string>>({});
-  const [loadingMore, setLoadingMore] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   const syncUrl = useCallback((mode: "KANBAN" | "LIST" | "APPROVALS", currentFilters: WorkFilters) => {
     if (typeof window === "undefined") return;
@@ -507,37 +506,60 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
 
   const switchViewMode = (mode: "KANBAN" | "LIST" | "APPROVALS") => {
     setActiveViewMode(mode);
+    setPage(1);
     syncUrl(mode, filters);
   };
 
-  const loadWork = useCallback(async (nextFilters = filters, nextPage = 1, append = false) => {
+  const handleApprovalsSubTabChange = (subTab: "pending" | "corrections" | "approved") => {
+    setApprovalsSubTab(subTab);
+    setPage(1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+  };
+
+  const loadWork = useCallback(async (overrideFilters?: WorkFilters, overridePage?: number, _append?: boolean) => {
     workAbortRef.current?.abort();
     const controller = new AbortController();
     workAbortRef.current = controller;
     const requestId = requestRef.current + 1;
     requestRef.current = requestId;
 
-    if (!append) {
-      setLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
+    setLoading(true);
     setError("");
 
     try {
+      const activeFilters = overrideFilters || filters;
+      const targetPage = overridePage ?? page;
+      const isApprovals = activeViewMode === "APPROVALS";
+      let reviewStatusParam = activeFilters.review_status;
+      if (isApprovals) {
+        if (approvalsSubTab === "pending") reviewStatusParam = "PENDING_REVIEW";
+        else if (approvalsSubTab === "corrections") reviewStatusParam = "CORRECTION_NEEDED";
+        else if (approvalsSubTab === "approved") reviewStatusParam = "OK";
+      }
+
       const listParams = {
-        ...nextFilters,
-        page: String(nextPage),
-        limit: "25",
+        ...activeFilters,
+        ...(isApprovals && reviewStatusParam ? { review_status: reviewStatusParam } : {}),
+        page: String(targetPage),
+        limit: String(pageSize),
       };
       const listQuery = queryFromFilters(listParams as any);
       // NOTE: Status and is_overdue are excluded from summaryQuery so that summary
       // cards maintain full counts for the selected employee/department/client scope.
       const summaryQuery = queryFromFilters({
-        client: nextFilters.client,
-        department: nextFilters.department,
-        employee: nextFilters.employee,
-        priority: nextFilters.priority,
+        client: activeFilters.client,
+        department: activeFilters.department,
+        employee: activeFilters.employee,
+        priority: activeFilters.priority,
       } as any);
 
       const [list, nextSummary] = await Promise.all([
@@ -549,23 +571,16 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
       const results = Array.isArray(list) ? list : (list?.results || []);
       const totalCount = Array.isArray(list) ? list.length : (list?.count ?? results.length);
 
-      if (append) {
-        setItems((prev) => [...prev, ...results]);
-      } else {
-        setItems(results);
-      }
+      setItems(results);
       setCount(totalCount);
-      setPage(nextPage);
       setHasNext(Array.isArray(list) ? false : Boolean(list?.next));
-      setHasPrevious(nextPage > 1);
+      setHasPrevious(targetPage > 1);
       setSummary(nextSummary);
     } catch (err) {
       if (!controller.signal.aborted) {
-        if (!append) {
-          setItems([]);
-          setCount(0);
-          setSummary(EMPTY_SUMMARY);
-        }
+        setItems([]);
+        setCount(0);
+        setSummary(EMPTY_SUMMARY);
         setHasNext(false);
         setHasPrevious(false);
         setError(apiError(err, "Could not load work assignments."));
@@ -573,24 +588,21 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
     } finally {
       if (requestRef.current === requestId && !controller.signal.aborted) {
         setLoading(false);
-        setLoadingMore(false);
       }
     }
-  }, [filters]);
+  }, [filters, page, pageSize, activeViewMode, approvalsSubTab]);
 
   const updateFilter = <K extends keyof WorkFilters>(key: K, value: WorkFilters[K]) => {
     const updated = { ...filters, [key]: value };
     setFilters(updated);
     setPage(1);
     syncUrl(activeViewMode, updated);
-    loadWork(updated, 1, false);
   };
 
   const updateFilters = (nextFilters: WorkFilters) => {
     setFilters(nextFilters);
     setPage(1);
     syncUrl(activeViewMode, nextFilters);
-    loadWork(nextFilters, 1, false);
   };
 
   const handleStatCardClick = (target: "TOTAL" | "BACKLOG" | "PENDING" | "IN_PROGRESS" | "BLOCKED" | "COMPLETED" | "OVERDUE") => {
@@ -632,23 +644,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
     setFilters(nextFilters);
     setPage(1);
     syncUrl("LIST", nextFilters);
-    loadWork(nextFilters, 1, false);
   };
-
-  useEffect(() => {
-    if (!sentinelRef.current) return;
-    const el = sentinelRef.current;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasNext && !loading && !loadingMore) {
-          loadWork(filters, page + 1, true);
-        }
-      },
-      { rootMargin: "300px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [hasNext, loading, loadingMore, filters, page, loadWork]);
 
   const loadOptions = useCallback(async () => {
     optionsAbortRef.current?.abort();
@@ -689,8 +685,8 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
   }, [loadOptions]);
 
   useEffect(() => {
-    loadWork(filters);
-  }, [filters, loadWork]);
+    loadWork();
+  }, [loadWork]);
 
   function openCreate() {
     loadOptions();
@@ -1418,7 +1414,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
           }}
         >
           <CheckSquare size={15} /> Approvals Queue
-          {items.filter(t => t.status === "In Review" || (t as any).reviewStatus === "PENDING_REVIEW").length > 0 && (
+          {(summary.review_pending || 0) > 0 && (
             <span
               style={{
                 background: activeViewMode === "APPROVALS" ? "#FFFFFF" : "#087A5B",
@@ -1430,7 +1426,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                 marginLeft: "2px",
               }}
             >
-              {items.filter(t => t.status === "In Review" || (t as any).reviewStatus === "PENDING_REVIEW").length}
+              {summary.review_pending}
             </span>
           )}
         </button>
@@ -1446,8 +1442,6 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
       </div>
     ) : error ? (
       <EmptyState title="Could not load work" text={error} />
-    ) : items.length === 0 ? (
-      <EmptyState title="No tasks found" text="Try changing your filters or create a new task." />
     ) : activeViewMode === "APPROVALS" ? (
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         {/* Approvals Queue Sub-Navigation Bar */}
@@ -1469,15 +1463,15 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
             {[
               {
                 id: "pending",
-                label: `Pending Review (${items.filter((t) => t.status === "In Review" || (t as any).reviewStatus === "PENDING_REVIEW").length})`,
+                label: `Pending Review (${summary.review_pending ?? 0})`,
               },
               {
                 id: "corrections",
-                label: `Changes Requested (${items.filter((t) => (t as any).reviewStatus === "CORRECTION_NEEDED" || t.status === "Changes Requested").length})`,
+                label: `Changes Requested (${summary.review_correction ?? 0})`,
               },
               {
                 id: "approved",
-                label: `Approved (${items.filter((t) => t.status === "Approved" || (t as any).reviewStatus === "OK" || t.status === "Completed").length})`,
+                label: `Approved (${summary.review_ok ?? 0})`,
               },
             ].map((sub) => {
               const active = approvalsSubTab === sub.id;
@@ -1485,7 +1479,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                 <button
                   key={sub.id}
                   type="button"
-                  onClick={() => setApprovalsSubTab(sub.id as any)}
+                  onClick={() => handleApprovalsSubTabChange(sub.id as any)}
                   style={{
                     padding: "6px 14px",
                     borderRadius: "6px",
@@ -1505,20 +1499,12 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
           </div>
 
           <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
-            Showing {items.filter((t) => {
-              if (approvalsSubTab === "pending") return t.status === "In Review" || (t as any).reviewStatus === "PENDING_REVIEW";
-              if (approvalsSubTab === "corrections") return (t as any).reviewStatus === "CORRECTION_NEEDED" || t.status === "Changes Requested";
-              return t.status === "Approved" || (t as any).reviewStatus === "OK" || t.status === "Completed";
-            }).length} tasks
+            Showing {count > 0 ? `${Math.min((page - 1) * pageSize + 1, count)}–${Math.min(page * pageSize, count)} of ${count}` : "0"} tasks
           </div>
         </div>
 
         {/* Task Cards Grid */}
-        {items.filter((t) => {
-          if (approvalsSubTab === "pending") return t.status === "In Review" || (t as any).reviewStatus === "PENDING_REVIEW";
-          if (approvalsSubTab === "corrections") return (t as any).reviewStatus === "CORRECTION_NEEDED" || t.status === "Changes Requested";
-          return t.status === "Approved" || (t as any).reviewStatus === "OK" || t.status === "Completed";
-        }).length === 0 ? (
+        {items.length === 0 ? (
           <EmptyState
             title={
               approvalsSubTab === "pending"
@@ -1532,11 +1518,6 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "14px" }}>
             {items
-              .filter((t) => {
-                if (approvalsSubTab === "pending") return t.status === "In Review" || (t as any).reviewStatus === "PENDING_REVIEW";
-                if (approvalsSubTab === "corrections") return (t as any).reviewStatus === "CORRECTION_NEEDED" || t.status === "Changes Requested";
-                return t.status === "Approved" || (t as any).reviewStatus === "OK" || t.status === "Completed";
-              })
               .map((item) => {
                 const quickNote = quickNoteInputs[item.id] || "";
                 const totalSec = (item as any).totalTimeSpentSeconds || 0;
@@ -2108,14 +2089,102 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
       </div>
     )}
 
-    {/* Infinite Scroll Sentinel */}
-    <div ref={sentinelRef} style={{ height: "40px", display: "flex", justifyContent: "center", alignItems: "center", margin: "16px 0" }}>
-      {loadingMore && (
-        <span style={{ fontSize: "12px", color: "var(--muted)", display: "flex", alignItems: "center", gap: "6px" }}>
-          <RotateCw size={14} className="spin" /> Loading more tasks...
-        </span>
-      )}
-    </div>
+    {/* Page-by-Page Pagination Bar */}
+    {!loading && !error && count > 0 && (
+      <div
+        className="card"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "12px",
+          padding: "12px 18px",
+          margin: "20px 0 10px 0",
+          borderRadius: "10px",
+          background: "var(--panel)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "12.5px", color: "var(--muted)", fontWeight: 600 }}>
+            Showing <b>{Math.min((page - 1) * pageSize + 1, count)}</b>–<b>{Math.min(page * pageSize, count)}</b> of <b>{count}</b> tasks
+          </span>
+          <span style={{ fontSize: "12px", color: "var(--border)" }}>|</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12.5px", color: "var(--muted)" }}>
+            <span>Limit:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              style={{
+                fontSize: "12px",
+                fontWeight: 700,
+                padding: "4px 8px",
+                borderRadius: "6px",
+                border: "1px solid var(--border)",
+                background: "var(--panel2)",
+                color: "var(--foreground)",
+                cursor: "pointer",
+              }}
+            >
+              {[10, 25, 50, 100].map((size) => (
+                <option key={size} value={size}>
+                  {size} / page
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={page <= 1 || loading}
+            onClick={() => handlePageChange(Math.max(1, page - 1))}
+            style={{
+              padding: "6px 14px",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: page <= 1 || loading ? "not-allowed" : "pointer",
+              opacity: page <= 1 ? 0.5 : 1,
+            }}
+          >
+            ← Previous
+          </button>
+
+          <span
+            style={{
+              padding: "4px 12px",
+              fontSize: "12px",
+              fontWeight: 800,
+              color: "#087A5B",
+              background: "rgba(8, 122, 91, 0.1)",
+              borderRadius: "6px",
+              border: "1px solid rgba(8, 122, 91, 0.2)",
+            }}
+          >
+            Page {page} of {Math.ceil(count / pageSize) || 1}
+          </span>
+
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={!hasNext || page >= Math.ceil(count / pageSize) || loading}
+            onClick={() => handlePageChange(page + 1)}
+            style={{
+              padding: "6px 14px",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: !hasNext || page >= Math.ceil(count / pageSize) || loading ? "not-allowed" : "pointer",
+              opacity: !hasNext || page >= Math.ceil(count / pageSize) ? 0.5 : 1,
+            }}
+          >
+            Next →
+          </button>
+        </div>
+      </div>
+    )}
 
     {modalOpen && <Modal title={editing ? (canManageAll ? "Edit Task" : "Task Details") : "New Task"} eyebrow={editing ? (canManageAll ? "FLUMENX / EDIT" : "FLUMENX / TASK DETAILS") : "FLUMENX / CREATE"} size="lg" onClose={() => !submitting && setModalOpen(false)}>
       <form className="modal-form" onSubmit={canManageAll || !editing ? saveAssignment : (e) => { e.preventDefault(); setModalOpen(false); }} style={{ display: "flex", flexDirection: "column", gap: "14px", maxHeight: "80vh", overflowY: "auto", paddingRight: "4px" }}>

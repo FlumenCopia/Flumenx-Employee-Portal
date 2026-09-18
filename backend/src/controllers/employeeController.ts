@@ -250,77 +250,136 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
 }
 
 export async function updateEmployee(req: Request, res: Response): Promise<void> {
-  const employee = await Employee.findById(req.params.id);
-  if (!employee) {
-    res.status(404).json({ detail: 'Employee not found.' });
-    return;
-  }
-
-  const {
-    name,
-    email,
-    phone,
-    department,
-    designation,
-    joining_date,
-    status,
-    employment_status,
-    probation_start_date,
-    probation_end_date,
-    confirmation_date,
-    avatar,
-    location,
-    team_lead,
-  } = req.body;
-
-  if (name) employee.name = name.trim();
-  if (email) employee.email = email.trim().toLowerCase();
-  if (phone) employee.phone = phone.trim();
-  if (department) {
-    employee.department = department;
-    const deptObj = await Department.findOne({ name: department });
-    if (deptObj) employee.departmentRef = deptObj._id as any;
-  }
-  if (designation) employee.designation = designation.trim();
-  if (joining_date) employee.joiningDate = new Date(joining_date);
-  if (status) employee.status = status;
-
-  if (employment_status) {
-    employee.employmentStatus = employment_status;
-    if (employment_status === 'Permanent' && !employee.confirmationDate) {
-      employee.confirmationDate = confirmation_date ? new Date(confirmation_date) : new Date();
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      res.status(404).json({ detail: 'Employee not found.' });
+      return;
     }
-  }
-  if (probation_start_date !== undefined) {
-    employee.probationStartDate = probation_start_date ? new Date(probation_start_date) : null;
-  }
-  if (probation_end_date !== undefined) {
-    employee.probationEndDate = probation_end_date ? new Date(probation_end_date) : null;
-  }
-  if (confirmation_date !== undefined) {
-    employee.confirmationDate = confirmation_date ? new Date(confirmation_date) : null;
-  }
 
-  if (avatar !== undefined) employee.avatar = avatar;
-  if (location !== undefined) employee.location = location;
-  if (team_lead !== undefined) employee.teamLead = team_lead || null;
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) {
+      res.status(404).json({ detail: 'Employee not found.' });
+      return;
+    }
 
-  await employee.save();
-  res.json({
-    id: employee._id,
-    employee_code: employee.employeeCode,
-    name: employee.name,
-    email: employee.email,
-    phone: employee.phone,
-    department: employee.department,
-    designation: employee.designation,
-    joining_date: employee.joiningDate ? employee.joiningDate.toISOString().split('T')[0] : '',
-    status: employee.status,
-    employment_status: employee.employmentStatus,
-    probation_start_date: employee.probationStartDate ? employee.probationStartDate.toISOString().split('T')[0] : null,
-    probation_end_date: employee.probationEndDate ? employee.probationEndDate.toISOString().split('T')[0] : null,
-    confirmation_date: employee.confirmationDate ? employee.confirmationDate.toISOString().split('T')[0] : null,
-  });
+    const {
+      employee_code,
+      employeeCode,
+      portal_role,
+      name,
+      email,
+      phone,
+      department,
+      designation,
+      joining_date,
+      status,
+      employment_status,
+      probation_start_date,
+      probation_end_date,
+      confirmation_date,
+      avatar,
+      location,
+      team_lead,
+    } = req.body || {};
+
+    const rawCode = employee_code !== undefined ? employee_code : employeeCode;
+    if (rawCode !== undefined && rawCode !== null) {
+      const code = String(rawCode).trim();
+      if (!code) {
+        res.status(400).json({ detail: 'Employee code cannot be empty.', employee_code: 'Employee code cannot be empty.' });
+        return;
+      }
+      if (code !== employee.employeeCode) {
+        const existingCode = await Employee.findOne({ employeeCode: code, _id: { $ne: employee._id } });
+        if (existingCode) {
+          res.status(400).json({ detail: 'Employee code already exists.', employee_code: 'Employee code already exists.' });
+          return;
+        }
+        employee.employeeCode = code;
+      }
+    }
+
+    if (name) employee.name = name.trim();
+    if (email) {
+      const newEmail = email.trim().toLowerCase();
+      if (newEmail !== employee.email) {
+        const existingEmail = await Employee.findOne({ email: newEmail, _id: { $ne: employee._id } });
+        if (existingEmail) {
+          res.status(400).json({ detail: 'Email already exists.', email: 'Email already exists.' });
+          return;
+        }
+        employee.email = newEmail;
+        if (employee.user) {
+          await User.findByIdAndUpdate(employee.user, { email: newEmail });
+        }
+      }
+    }
+    if (phone) employee.phone = phone.trim();
+    if (department) {
+      employee.department = department;
+      const deptObj = await Department.findOne({ name: department });
+      if (deptObj) employee.departmentRef = deptObj._id as any;
+    }
+    if (designation) employee.designation = designation.trim();
+    if (joining_date) employee.joiningDate = new Date(joining_date);
+    if (status) employee.status = status;
+
+    if (portal_role) {
+      if (employee.user) {
+        await User.findByIdAndUpdate(employee.user, { role: portal_role });
+      } else if (employee.email) {
+        const u = await User.findOneAndUpdate({ email: employee.email }, { role: portal_role });
+        if (u) employee.user = u._id;
+      }
+    }
+
+    if (employment_status) {
+      employee.employmentStatus = employment_status;
+      if (employment_status === 'Permanent' && !employee.confirmationDate) {
+        employee.confirmationDate = confirmation_date ? new Date(confirmation_date) : new Date();
+      }
+    }
+    if (probation_start_date !== undefined) {
+      employee.probationStartDate = probation_start_date ? new Date(probation_start_date) : null;
+    }
+    if (probation_end_date !== undefined) {
+      employee.probationEndDate = probation_end_date ? new Date(probation_end_date) : null;
+    }
+    if (confirmation_date !== undefined) {
+      employee.confirmationDate = confirmation_date ? new Date(confirmation_date) : null;
+    }
+
+    if (avatar !== undefined) employee.avatar = avatar;
+    if (location !== undefined) employee.location = location;
+    if (team_lead !== undefined) employee.teamLead = team_lead || null;
+
+    await employee.save();
+    res.json({
+      id: employee._id,
+      employee_code: employee.employeeCode,
+      name: employee.name,
+      email: employee.email,
+      phone: employee.phone,
+      department: employee.department,
+      designation: employee.designation,
+      joining_date: employee.joiningDate ? employee.joiningDate.toISOString().split('T')[0] : '',
+      status: employee.status,
+      employment_status: employee.employmentStatus,
+      probation_start_date: employee.probationStartDate ? employee.probationStartDate.toISOString().split('T')[0] : null,
+      probation_end_date: employee.probationEndDate ? employee.probationEndDate.toISOString().split('T')[0] : null,
+      confirmation_date: employee.confirmationDate ? employee.confirmationDate.toISOString().split('T')[0] : null,
+      location: employee.location || '',
+      avatar: employee.avatar || '',
+    });
+  } catch (error: any) {
+    if (error?.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || 'field';
+      const msg = `${field === 'employeeCode' ? 'Employee code' : field} already exists.`;
+      res.status(400).json({ detail: msg, [field === 'employeeCode' ? 'employee_code' : field]: msg });
+      return;
+    }
+    res.status(400).json({ detail: error?.message || 'Failed to update employee.' });
+  }
 }
 
 export async function deleteEmployee(req: Request, res: Response): Promise<void> {
