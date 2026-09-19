@@ -83,6 +83,7 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
   }, []);
 
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [documentsModalOpen, setDocumentsModalOpen] = useState(false);
@@ -167,9 +168,13 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
         subtitle="A clear view of everyone building FLUMENX."
         action={
           canManageEmployees ? (
-            <Link className="primary-button" href={`${employeeBasePath}/create`}>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => setCreateModalOpen(true)}
+            >
               Add employee <UserPlus size={17} />
-            </Link>
+            </button>
           ) : undefined
         }
       />
@@ -442,6 +447,24 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
     )}
   </div>
 
+    {createModalOpen && (
+    <Modal
+      title="Add New Employee"
+      size="lg"
+      onClose={() => setCreateModalOpen(false)}
+    >
+      <EmployeeForm
+        role={role}
+        hideHeader
+        onSuccess={() => {
+          setCreateModalOpen(false);
+          loadEmployees();
+        }}
+        onCancel={() => setCreateModalOpen(false)}
+      />
+    </Modal>
+  )}
+
   {editModalOpen && selectedEmployee && (
     <Modal title={`Edit ${selectedEmployee.name}`} onClose={() => { setEditModalOpen(false); setSelectedEmployee(null); }}>
       <EmployeeForm
@@ -645,7 +668,17 @@ export function EmployeeForm({
   if (loadError) return <EmptyState title="Could not load employee" text={loadError} />;
 
   return <>
-    <PageHeader eyebrow="PEOPLE / RECORD" title={currentEmployee ? "Employee profile." : "Add someone new."} subtitle={currentEmployee ? "Review and update this employee record." : "Create their FLUMENX identity and workspace access."} />
+    {!hideHeader && (
+      <PageHeader
+        eyebrow="PEOPLE / RECORD"
+        title={currentEmployee ? "Employee profile." : "Add someone new."}
+        subtitle={
+          currentEmployee
+            ? "Review and update this employee record."
+            : "Create their FLUMENX identity and workspace access."
+        }
+      />
+    )}
     {saved && <div className="toast success"><Check size={18} /> Employee record saved successfully.</div>}
     {error && (
       <div className="toast error" style={{ background: "rgba(255,107,107,0.15)", border: "1px solid rgba(255,107,107,0.3)", color: "#FF6B6B", padding: "12px 16px", borderRadius: "var(--r-sm)", marginBottom: "16px", fontSize: "12px", fontWeight: 600 }}>

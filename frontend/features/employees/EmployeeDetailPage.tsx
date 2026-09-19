@@ -148,7 +148,12 @@ export function EmployeeDetailPage({ id, role }: { id: string; role?: "admin" | 
   };
 
   useEffect(() => {
-    if (id) loadProfile();
+    if (!id) return;
+    if (id === "create") {
+      router.replace(role ? `/${role}/employees` : "/employees");
+      return;
+    }
+    loadProfile();
   }, [id]);
 
   const handleSaveSalaryStructure = async (e: React.FormEvent) => {

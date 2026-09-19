@@ -92,6 +92,10 @@ export async function getEmployees(req: Request, res: Response): Promise<void> {
 }
 
 export async function getEmployeeById(req: Request, res: Response): Promise<void> {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    res.status(404).json({ detail: 'Employee not found.' });
+    return;
+  }
   const employee = await Employee.findById(req.params.id).populate('user departmentRef teamLead');
 
   if (!employee) {
