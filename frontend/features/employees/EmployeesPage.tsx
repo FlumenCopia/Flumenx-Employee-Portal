@@ -571,12 +571,14 @@ export function EmployeeForm({
   role,
   onSuccess,
   onCancel,
+  hideHeader,
 }: {
   employee?: Employee;
   employeeId?: number;
   role?: EmployeeWorkspaceRole;
   onSuccess?: () => void;
   onCancel?: () => void;
+  hideHeader?: boolean;
 }) {
   const router = useRouter();
   const employeeBasePath = role ? `/${role}/employees` : `/employees`;
