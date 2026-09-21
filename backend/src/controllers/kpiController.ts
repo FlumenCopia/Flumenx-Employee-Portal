@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Employee } from '../models/Employee.js';
+import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { EmployeeKPIRating } from '../models/EmployeeKPIRating.js';
 import { KPIService, getKPIGrade } from '../services/kpiEngine.js';
 
@@ -78,7 +79,7 @@ export async function getKPIDashboard(req: Request, res: Response): Promise<void
   const isTeamLead = req.user?.role === 'TEAM_LEAD';
 
   if (!isSuper && !isHRorAdmin) {
-    const ownEmp = await Employee.findOne({ user: req.user?._id });
+    const ownEmp = await getEmployeeForUser(req.user);
     if (!ownEmp) {
       res.json({ selected_month: targetMonth, selected_year: targetYear, total_employees: 0, evaluated_employees: 0, average_kpi: 0, average_kpi_out_of_10: 0, top_performer: null, critical_performers_count: 0, critical_performers: [], department_averages: [], leaderboard: [] });
       return;
@@ -182,7 +183,7 @@ export async function getMyKPI(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const employee = await Employee.findOne({ user: req.user._id });
+  const employee = await getEmployeeForUser(req.user);
   if (!employee) {
     res.status(404).json({ detail: 'No employee profile associated with account.' });
     return;

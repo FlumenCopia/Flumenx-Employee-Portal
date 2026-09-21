@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { TrackingService } from '../services/trackingService.js';
 import { Employee } from '../models/Employee.js';
+import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { TrackingSession } from '../models/TrackingSession.js';
 import { LocationHistory } from '../models/LocationHistory.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
@@ -26,7 +27,7 @@ async function canAccessEmployee(
     return { allowed: true, employee: targetEmployee };
   }
 
-  const ownEmployee = await Employee.findOne({ user: reqUser._id });
+  const ownEmployee = await getEmployeeForUser(reqUser);
   if (!ownEmployee) {
     return { allowed: false, employee: null };
   }
@@ -48,12 +49,7 @@ async function canAccessEmployee(
  * Helper to get current authenticated employee
  */
 async function getAuthenticatedEmployee(reqUser: any): Promise<any> {
-  let employee = await Employee.findOne({ user: reqUser._id });
-  if (!employee && (reqUser.role === 'SUPER_ADMIN' || reqUser.isSuperuser)) {
-    // If super admin has no employee doc, find or create one for tracking
-    employee = await Employee.findOne({ email: reqUser.email });
-  }
-  return employee;
+  return await getEmployeeForUser(reqUser);
 }
 
 /**
@@ -247,7 +243,7 @@ export async function getLiveTracking(req: Request, res: Response): Promise<void
     }
 
     const role = (req.user.role || '').toUpperCase();
-    const ownEmployee = await Employee.findOne({ user: req.user._id });
+    const ownEmployee = await getEmployeeForUser(req.user);
 
     const filter: any = {};
     if (role === 'TEAM_LEAD' && ownEmployee) {
@@ -288,7 +284,7 @@ export async function getDailyRoute(req: Request, res: Response): Promise<void> 
 
     let targetEmployeeId = req.query.employeeId as string;
     if (!targetEmployeeId) {
-      const ownEmp = await Employee.findOne({ user: req.user._id });
+      const ownEmp = await getEmployeeForUser(req.user);
       if (!ownEmp) {
         res.status(404).json({ detail: 'Employee record not found.' });
         return;
@@ -334,7 +330,7 @@ export async function getDailySummary(req: Request, res: Response): Promise<void
 
     let targetEmployeeId = req.query.employeeId as string;
     if (!targetEmployeeId) {
-      const ownEmp = await Employee.findOne({ user: req.user._id });
+      const ownEmp = await getEmployeeForUser(req.user);
       if (!ownEmp) {
         res.status(404).json({ detail: 'Employee record not found.' });
         return;
@@ -370,7 +366,7 @@ export async function getLocationHistory(req: Request, res: Response): Promise<v
 
     let targetEmployeeId = req.query.employeeId as string;
     if (!targetEmployeeId) {
-      const ownEmp = await Employee.findOne({ user: req.user._id });
+      const ownEmp = await getEmployeeForUser(req.user);
       if (!ownEmp) {
         res.status(404).json({ detail: 'Employee record not found.' });
         return;
@@ -447,7 +443,7 @@ export async function getTrackingSessions(req: Request, res: Response): Promise<
 
     let targetEmployeeId = req.query.employeeId as string;
     if (!targetEmployeeId) {
-      const ownEmp = await Employee.findOne({ user: req.user._id });
+      const ownEmp = await getEmployeeForUser(req.user);
       if (!ownEmp) {
         res.status(404).json({ detail: 'Employee record not found.' });
         return;
@@ -497,7 +493,7 @@ export async function exportLocationHistoryCSV(req: Request, res: Response): Pro
       return;
     }
 
-    const targetEmployeeId = (req.query.employeeId as string) || (await Employee.findOne({ user: req.user._id }))?._id?.toString();
+    const targetEmployeeId = (req.query.employeeId as string) || (await getEmployeeForUser(req.user))?._id?.toString();
     if (!targetEmployeeId) {
       res.status(400).json({ detail: 'Employee ID is required.' });
       return;

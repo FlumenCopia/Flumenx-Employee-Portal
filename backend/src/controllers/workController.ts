@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { WorkAssignment } from '../models/WorkAssignment.js';
 import { Client } from '../models/Client.js';
 import { Employee } from '../models/Employee.js';
+import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { User } from '../models/User.js';
 import { Project } from '../models/Project.js';
 import { ClientWorkShareLink } from '../models/ClientWorkShareLink.js';
@@ -541,7 +542,7 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
       { status: { $in: ['In Review', 'Changes Requested'] } },
     ];
     if (!isSuper && !isManagement) {
-      const ownEmployee = req.user ? (await Employee.findOne({ user: req.user._id }) || await Employee.findById(req.user._id)) : null;
+      const ownEmployee = req.user ? await getEmployeeForUser(req.user) : null;
       if (isTeamLead && ownEmployee?.department) {
         const deptRegex = new RegExp(`^${ownEmployee.department.trim()}$`, 'i');
         const teamEmployees = await Employee.find({ department: deptRegex }).select('_id user');
@@ -570,7 +571,7 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
     }
   } else if (!isSuper && !isManagement) {
     // Regular employees and BDEs can ONLY view their own assigned tasks
-    const ownEmployee = req.user ? (await Employee.findOne({ user: req.user._id }) || await Employee.findById(req.user._id)) : null;
+    const ownEmployee = req.user ? await getEmployeeForUser(req.user) : null;
     if (!ownEmployee) {
       res.json({ count: 0, next: null, previous: null, results: [] });
       return;
@@ -620,7 +621,7 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
   } else {
     // SuperAdmin / Admin / HR / Operations
     if (assigned_to_me === 'true' || employee_id === 'me') {
-      const ownEmp = req.user ? (await Employee.findOne({ user: req.user._id }) || await Employee.findById(req.user._id)) : null;
+      const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
       if (ownEmp) {
         filter.$or = [{ employee: ownEmp._id }, { employee: req.user?._id }];
       }
@@ -821,7 +822,7 @@ export async function startTaskTimer(req: Request, res: Response): Promise<void>
   }
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+  const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
 
   // Strictly enforce that only the assigned employee can start the timer
   if (!isSuper) {
@@ -905,7 +906,7 @@ export async function stopTaskTimer(req: Request, res: Response): Promise<void> 
   }
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+  const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
 
   // Enforce that only the assigned employee or the user who started it can stop it
   if (!isSuper) {
@@ -944,7 +945,7 @@ export async function getWorkAssignmentsSummary(req: Request, res: Response): Pr
   const isTeamLead = req.user?.role === 'TEAM_LEAD';
 
   if (!isSuper && !isManagement) {
-    const ownEmployee = req.user ? (await Employee.findOne({ user: req.user._id }) || await Employee.findById(req.user._id)) : null;
+    const ownEmployee = req.user ? await getEmployeeForUser(req.user) : null;
     if (ownEmployee) {
       if (isTeamLead && ownEmployee.department) {
         const deptRegex = new RegExp(`^${ownEmployee.department.trim()}$`, 'i');
@@ -1154,7 +1155,7 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
   const resolvedEmpId = await resolveEmployeeDoc(rawEmp);
 
   if (!isSuper && req.user?.role === 'TEAM_LEAD' && resolvedEmpId && req.user) {
-    const ownEmp = await Employee.findOne({ user: req.user._id });
+    const ownEmp = await getEmployeeForUser(req.user);
     if (ownEmp && ownEmp.department) {
       const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
       const targetEmp = await Employee.findById(resolvedEmpId);
@@ -1476,7 +1477,7 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     }
   }
 
-  const ownEmp = await Employee.findOne({ user: req.user?._id });
+  const ownEmp = await getEmployeeForUser(req.user);
   const isReviewer = (assignment.reviewer && ownEmp && String(assignment.reviewer) === String(ownEmp._id)) ||
                      (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
   const hasAssignedReviewer = Boolean(assignment.reviewer);
@@ -1560,7 +1561,7 @@ export async function reviewWorkAssignment(req: Request, res: Response): Promise
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
   const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD'].includes(req.user?.role || '');
-  const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+  const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
 
   const isReviewer = (assignment.reviewer && ownEmp && String(assignment.reviewer) === String(ownEmp._id)) ||
                      (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
@@ -1696,7 +1697,7 @@ export async function adjustTaskTime(req: Request, res: Response): Promise<void>
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
   const isManagementOrLead = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD'].includes(req.user?.role || '');
-  const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+  const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
   const isAssignee = assignment.employee && ownEmp && String(assignment.employee) === String(ownEmp._id);
 
   if (!isSuper && !isManagementOrLead && !isAssignee) {
@@ -1759,7 +1760,7 @@ export async function getWorkEmployeeOptions(req: Request, res: Response): Promi
   const empFilter: any = { status: { $ne: 'Inactive' } };
 
   if (!isSuper && !isManagement && isTeamLead && req.user) {
-    const ownEmp = await Employee.findOne({ user: req.user._id });
+    const ownEmp = await getEmployeeForUser(req.user);
     if (ownEmp && ownEmp.department) {
       const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
       empFilter.$or = [

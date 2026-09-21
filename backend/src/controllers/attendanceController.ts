@@ -4,6 +4,7 @@ import { AttendanceRecord, IAttendanceRecord } from '../models/AttendanceRecord.
 import { AttendancePolicy, IAttendancePolicy } from '../models/AttendancePolicy.js';
 import { AttendanceCorrection } from '../models/AttendanceCorrection.js';
 import { Employee } from '../models/Employee.js';
+import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { calculateAttendanceRecordState, calculateHaversineDistanceMeters } from '../services/attendanceEngine.js';
 import { timeStringToMinutes } from '../utils/tzUtils.js';
 
@@ -144,7 +145,7 @@ export async function getAttendanceRecords(req: Request, res: Response): Promise
   const isTeamLead = req.user?.role === 'TEAM_LEAD';
 
   if (!isSuper && !isManagement) {
-    const ownEmp = await Employee.findOne({ user: req.user?._id });
+    const ownEmp = await getEmployeeForUser(req.user);
     if (!ownEmp) {
       res.json({ count: 0, next: null, previous: null, results: [] });
       return;
@@ -173,7 +174,7 @@ export async function getAttendanceRecords(req: Request, res: Response): Promise
     }
   } else {
     if (my_attendance === 'true' && req.user) {
-      const emp = await Employee.findOne({ user: req.user._id });
+      const emp = await getEmployeeForUser(req.user);
       if (emp) filter.employee = emp._id;
     } else if (employee_id) {
       filter.employee = employee_id;
@@ -234,7 +235,7 @@ export async function getAttendanceSummary(req: Request, res: Response): Promise
   let isSingleEmployee = false;
 
   if (my_attendance === 'true' && req.user) {
-    const emp = await Employee.findOne({ user: req.user._id });
+    const emp = await getEmployeeForUser(req.user);
     if (emp) {
       filter.employee = emp._id;
       isSingleEmployee = true;
@@ -308,7 +309,7 @@ export async function getMonthlyStatistics(req: Request, res: Response): Promise
   let isSingleEmployee = false;
 
   if (my_attendance === 'true' && req.user) {
-    const emp = await Employee.findOne({ user: req.user._id });
+    const emp = await getEmployeeForUser(req.user);
     if (emp) {
       filter.employee = emp._id;
       isSingleEmployee = true;
@@ -469,7 +470,7 @@ export async function checkInAttendance(req: Request, res: Response): Promise<vo
     await optimizeImageFile(req.file.path, { maxWidth: 800, maxHeight: 800, quality: 80 });
   }
 
-  const employee = await Employee.findOne({ user: req.user._id });
+  const employee = await getEmployeeForUser(req.user);
   if (!employee) {
     res.status(400).json({ detail: 'No employee profile linked to user.' });
     return;
@@ -533,7 +534,7 @@ export async function checkOutAttendance(req: Request, res: Response): Promise<v
     return;
   }
 
-  const employee = await Employee.findOne({ user: req.user._id });
+  const employee = await getEmployeeForUser(req.user);
   if (!employee) {
     res.status(400).json({ detail: 'No employee profile linked to user.' });
     return;

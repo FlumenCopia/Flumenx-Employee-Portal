@@ -83,6 +83,11 @@ export async function login(req: Request, res: Response): Promise<void> {
     $or: [{ user: user._id }, { email: user.email }],
   });
 
+  if (employee && (!employee.user || employee.user.toString() !== user._id.toString())) {
+    employee.user = user._id;
+    await employee.save().catch((err: any) => console.error('[Login] Failed to link employee to user:', err));
+  }
+
   const permissions = await resolveUserPermissions(user);
 
   res.json({

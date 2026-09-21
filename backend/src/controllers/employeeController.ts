@@ -6,7 +6,11 @@ import { Employee } from '../models/Employee.js';
 import { Department } from '../models/Department.js';
 import { User } from '../models/User.js';
 import { EmployeeDocument } from '../models/EmployeeDocument.js';
+import { DynamicRole } from '../models/DynamicRole.js';
+import { EmployeeSalaryStructure } from '../models/EmployeeSalaryStructure.js';
+import { LeaveLedger } from '../models/LeaveLedger.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
+import { getEmployeeForUser } from '../utils/employeeResolver.js';
 
 
 export async function getEmployees(req: Request, res: Response): Promise<void> {
@@ -182,6 +186,8 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
       location,
       team_lead,
       user_id,
+      password,
+      portal_role,
     } = body;
 
     let code = employee_code ? String(employee_code).trim() : '';
@@ -200,9 +206,17 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
       return;
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+
     const existingCode = await Employee.findOne({ employeeCode: code });
     if (existingCode) {
       res.status(400).json({ detail: 'Employee code already exists.' });
+      return;
+    }
+
+    const existingEmail = await Employee.findOne({ email: cleanEmail });
+    if (existingEmail) {
+      res.status(400).json({ detail: 'An employee with this email already exists.' });
       return;
     }
 
@@ -213,10 +227,51 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
     const pStart = probation_start_date ? new Date(probation_start_date) : joinDateObj;
     const pEnd = probation_end_date ? new Date(probation_end_date) : new Date(joinDateObj.getTime() + 90 * 24 * 3600 * 1000);
 
+    // 1. Resolve or Create User Account
+    let linkedUserId: any = user_id || null;
+    const roleToAssign = (portal_role || 'EMPLOYEE').toUpperCase();
+    const dynRole = await DynamicRole.findOne({ code: roleToAssign });
+
+    if (!linkedUserId) {
+      let userDoc = await User.findOne({ email: cleanEmail });
+      if (userDoc) {
+        linkedUserId = userDoc._id;
+        if (portal_role) {
+          userDoc.role = roleToAssign as any;
+          if (dynRole) userDoc.dynamicRole = dynRole._id as any;
+          await userDoc.save();
+        }
+      } else {
+        const nameParts = (name || '').trim().split(' ');
+        const firstName = nameParts[0] || 'Employee';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        const baseUsername = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '_');
+        let finalUsername = baseUsername;
+        let counter = 1;
+        while (await User.findOne({ username: finalUsername })) {
+          finalUsername = `${baseUsername}_${counter++}`;
+        }
+
+        const newUser = new User({
+          username: finalUsername,
+          email: cleanEmail,
+          firstName,
+          lastName,
+          role: roleToAssign as any,
+          dynamicRole: dynRole ? dynRole._id : null,
+          isActive: (status || 'Active') === 'Active',
+          isStaff: ['TEAM_LEAD', 'HR', 'ACCOUNTANT', 'SUPER_ADMIN'].includes(roleToAssign),
+        });
+        await newUser.setPassword(password || 'password123');
+        await newUser.save();
+        linkedUserId = newUser._id;
+      }
+    }
+
     const employee = new Employee({
       employeeCode: code,
       name: name.trim(),
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
       phone: phone.trim(),
       department,
       departmentRef: deptObj ? deptObj._id : null,
@@ -230,10 +285,62 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
       avatar: avatar || '',
       location: location || '',
       teamLead: team_lead || null,
-      user: user_id || null,
+      user: linkedUserId,
     });
 
     await employee.save();
+
+    // 2. Initialize default EmployeeSalaryStructure if not existing
+    const existingStructure = await EmployeeSalaryStructure.findOne({ employee: employee._id });
+    if (!existingStructure) {
+      const defaultSalary = new EmployeeSalaryStructure({
+        employee: employee._id,
+        effectiveDate: joinDateObj,
+        grossSalary: 25000,
+        basicSalary: 12500,
+        hra: 6250,
+        conveyance: 2000,
+        specialAllowance: 4250,
+        pfEnabled: true,
+        pfEmployeePercent: 12,
+        pfEmployerPercent: 12,
+        pfWageCeiling: 15000,
+        esiEnabled: false,
+        professionalTax: 200,
+        tds: 0,
+        isActive: true,
+      });
+      await defaultSalary.save().catch((e: any) => console.error('[createEmployee] Failed to seed salary structure:', e));
+    }
+
+    // 3. Initialize LeaveLedger opening balances (Sick: 1, Casual: 1) if not existing
+    const existingLedger = await LeaveLedger.findOne({ employee: employee._id });
+    if (!existingLedger) {
+      const now = new Date();
+      await Promise.all([
+        new LeaveLedger({
+          employee: employee._id,
+          leaveType: 'Sick',
+          transactionType: 'OpeningBalance',
+          quantity: 1,
+          balanceAfter: 1,
+          earnedMonth: now.getMonth() + 1,
+          earnedYear: now.getFullYear(),
+          notes: 'Initial monthly sick leave balance',
+        }).save(),
+        new LeaveLedger({
+          employee: employee._id,
+          leaveType: 'Casual',
+          transactionType: 'OpeningBalance',
+          quantity: 1,
+          balanceAfter: 1,
+          earnedMonth: now.getMonth() + 1,
+          earnedYear: now.getFullYear(),
+          notes: 'Initial monthly casual leave balance',
+        }).save(),
+      ]).catch((e: any) => console.error('[createEmployee] Failed to seed leave ledger:', e));
+    }
+
     res.status(201).json({
       id: employee._id,
       employee_code: employee.employeeCode,
@@ -329,10 +436,20 @@ export async function updateEmployee(req: Request, res: Response): Promise<void>
     if (status) employee.status = status;
 
     if (portal_role) {
+      const dynRole = await DynamicRole.findOne({ code: portal_role.toUpperCase() });
       if (employee.user) {
-        await User.findByIdAndUpdate(employee.user, { role: portal_role });
+        await User.findByIdAndUpdate(employee.user, {
+          role: portal_role.toUpperCase(),
+          ...(dynRole ? { dynamicRole: dynRole._id } : {}),
+        });
       } else if (employee.email) {
-        const u = await User.findOneAndUpdate({ email: employee.email }, { role: portal_role });
+        const u = await User.findOneAndUpdate(
+          { email: employee.email },
+          {
+            role: portal_role.toUpperCase(),
+            ...(dynRole ? { dynamicRole: dynRole._id } : {}),
+          }
+        );
         if (u) employee.user = u._id;
       }
     }

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { SalarySlip } from '../models/SalarySlip.js';
 import { Employee } from '../models/Employee.js';
+import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { generatePdfSalarySlip } from '../services/pdfGenerator.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
 
@@ -22,7 +23,7 @@ export async function getSalarySlips(req: Request, res: Response): Promise<void>
 
   // Restrict filter to user's own Employee record if not superuser/payroll role or lacking manage permissions
   if (req.user && !isSuper && !isPayrollRole && !canManageAllSalaries) {
-    const ownEmployee = await Employee.findOne({ user: req.user._id });
+    const ownEmployee = await getEmployeeForUser(req.user);
     if (!ownEmployee) {
       res.json({ count: 0, next: null, previous: null, results: [] });
       return;
@@ -209,7 +210,7 @@ export async function downloadSalarySlip(req: Request, res: Response): Promise<v
 
   // IDOR Protection: Non-admin/HR/Accountant users can only download their own salary slip
   if (req.user && ['EMPLOYEE', 'TEAM_LEAD', 'BDE', 'OPERATIONS'].includes(req.user.role) && !req.user.isSuperuser) {
-    const ownEmployee = await Employee.findOne({ user: req.user._id });
+    const ownEmployee = await getEmployeeForUser(req.user);
     const slipEmpId = slip.employee && typeof slip.employee === 'object' && '_id' in slip.employee
       ? (slip.employee as any)._id.toString()
       : String(slip.employee || '');

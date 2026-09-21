@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { TimeEntry } from '../models/TimeEntry.js';
 import { WorkAssignment } from '../models/WorkAssignment.js';
 import { Employee } from '../models/Employee.js';
+import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { AuditLog } from '../models/AuditLog.js';
 
 function getTodayDateString(d: Date = new Date()): string {
@@ -43,7 +44,7 @@ export async function getActiveTimer(req: Request, res: Response): Promise<void>
       return;
     }
 
-    const ownEmp = await Employee.findOne({ user: req.user._id });
+    const ownEmp = await getEmployeeForUser(req.user);
     if (!ownEmp) {
       res.json(null);
       return;
@@ -94,7 +95,7 @@ export async function startTimer(req: Request, res: Response): Promise<void> {
     }
 
     const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-    const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+    const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
 
     if (!isSuper) {
       if (!ownEmp || !task.employee || String(task.employee) !== String(ownEmp._id)) {
@@ -208,7 +209,7 @@ export async function pauseTimer(req: Request, res: Response): Promise<void> {
       return;
     }
     const taskId = req.params.id || req.body.taskId;
-    const ownEmp = await Employee.findOne({ user: req.user._id });
+    const ownEmp = await getEmployeeForUser(req.user);
     if (!ownEmp) {
       res.status(401).json({ detail: 'Employee account required.' });
       return;
@@ -258,7 +259,7 @@ export async function resumeTimer(req: Request, res: Response): Promise<void> {
       return;
     }
     const taskId = req.params.id || req.body.taskId;
-    const ownEmp = await Employee.findOne({ user: req.user._id });
+    const ownEmp = await getEmployeeForUser(req.user);
     if (!ownEmp) {
       res.status(401).json({ detail: 'Employee account required.' });
       return;
@@ -312,7 +313,7 @@ export async function stopTimer(req: Request, res: Response): Promise<void> {
       return;
     }
     const taskId = req.params.id || req.body.taskId;
-    const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+    const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
     const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
 
     const filter: any = { status: { $in: ['RUNNING', 'PAUSED'] } };
@@ -427,7 +428,7 @@ export async function getTimeEntries(req: Request, res: Response): Promise<void>
     const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
 
     if (!isSuper && !isManagement) {
-      const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+      const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
       if (!ownEmp) {
         res.json({ count: 0, results: [] });
         return;
@@ -488,7 +489,7 @@ export async function createManualTimeEntry(req: Request, res: Response): Promis
       return;
     }
 
-    const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+    const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
     if (!ownEmp) {
       res.status(401).json({ detail: 'Employee account required.' });
       return;
@@ -596,7 +597,7 @@ export async function updateTimeEntry(req: Request, res: Response): Promise<void
 
     const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
     const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
-    const ownEmp = req.user ? await Employee.findOne({ user: req.user._id }) : null;
+    const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
 
     if (!isSuper && !isManagement) {
       if (!ownEmp || String(timeEntry.employee) !== String(ownEmp._id)) {

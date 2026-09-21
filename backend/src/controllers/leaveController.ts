@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { LeaveRequest } from '../models/LeaveRequest.js';
 import { Employee } from '../models/Employee.js';
+import { getEmployeeForUser } from '../utils/employeeResolver.js';
 
 export async function getLeaves(req: Request, res: Response): Promise<void> {
   const { employee_id, status } = req.query;
@@ -14,7 +15,7 @@ export async function getLeaves(req: Request, res: Response): Promise<void> {
   const isTeamLead = req.user?.role === 'TEAM_LEAD';
 
   if (!isSuper && !isManagement) {
-    const ownEmployee = await Employee.findOne({ user: req.user?._id });
+    const ownEmployee = await getEmployeeForUser(req.user);
     if (!ownEmployee) {
       res.json({ count: 0, next: null, previous: null, results: [] });
       return;
@@ -77,7 +78,7 @@ export async function createLeave(req: Request, res: Response): Promise<void> {
   const isSuperOrHR = ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(req.user?.role || '') || req.user?.isSuperuser;
 
   if (!isSuperOrHR || !empId) {
-    const emp = await Employee.findOne({ user: req.user?._id });
+    const emp = await getEmployeeForUser(req.user);
     if (emp) empId = emp._id;
   }
 
@@ -162,7 +163,7 @@ export async function updateLeave(req: Request, res: Response): Promise<void> {
 
   if (!isSuper && !isHRorAdmin) {
     if (isTeamLead) {
-      const ownEmp = await Employee.findOne({ user: req.user?._id });
+      const ownEmp = await getEmployeeForUser(req.user);
       const targetEmp = leave.employee as any;
       if (!ownEmp || !targetEmp || targetEmp.department !== ownEmp.department) {
         res.status(403).json({ detail: 'Permission denied. Team leads can only decide leaves for their department.' });
@@ -208,7 +209,7 @@ export async function deleteLeave(req: Request, res: Response): Promise<void> {
 
   const isSuperOrAdmin = ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(req.user?.role || '') || req.user?.isSuperuser;
   if (!isSuperOrAdmin) {
-    const ownEmp = await Employee.findOne({ user: req.user?._id });
+    const ownEmp = await getEmployeeForUser(req.user);
     if (!ownEmp || String(leave.employee) !== String(ownEmp._id) || leave.status !== 'Pending') {
       res.status(403).json({ detail: 'You can only cancel your own pending leave requests.' });
       return;
