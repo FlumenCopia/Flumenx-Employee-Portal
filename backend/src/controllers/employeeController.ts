@@ -236,11 +236,15 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
       let userDoc = await User.findOne({ email: cleanEmail });
       if (userDoc) {
         linkedUserId = userDoc._id;
+        userDoc.isActive = (status || 'Active') === 'Active';
+        if (password) {
+          await userDoc.setPassword(password);
+        }
         if (portal_role) {
           userDoc.role = roleToAssign as any;
           if (dynRole) userDoc.dynamicRole = dynRole._id as any;
-          await userDoc.save();
         }
+        await userDoc.save();
       } else {
         const nameParts = (name || '').trim().split(' ');
         const firstName = nameParts[0] || 'Employee';
@@ -433,7 +437,15 @@ export async function updateEmployee(req: Request, res: Response): Promise<void>
     }
     if (designation) employee.designation = designation.trim();
     if (joining_date) employee.joiningDate = new Date(joining_date);
-    if (status) employee.status = status;
+    if (status) {
+      employee.status = status;
+      const isActive = status === 'Active';
+      if (employee.user) {
+        await User.findByIdAndUpdate(employee.user, { isActive });
+      } else if (employee.email) {
+        await User.findOneAndUpdate({ email: employee.email }, { isActive });
+      }
+    }
 
     if (portal_role) {
       const dynRole = await DynamicRole.findOne({ code: portal_role.toUpperCase() });
