@@ -166,7 +166,7 @@ export function ClientTasksPage({ role }: Props) {
     const total = filteredTasks.length;
     const urgent = filteredTasks.filter((t) => t.priority === "Urgent").length;
     const high = filteredTasks.filter((t) => t.priority === "High").length;
-    const inReview = filteredTasks.filter((t) => t.status === "In Review" || t.review_status === "PENDING_REVIEW").length;
+    const inReview = filteredTasks.filter((t) => t.status === "In Review").length;
     const completed = filteredTasks.filter((t) => t.status === "Completed" || t.status === "Published").length;
     const totalAssignedQty = filteredTasks.reduce((s, t) => s + (t.assigned_quantity || 0), 0);
     const totalCompletedQty = filteredTasks.reduce((s, t) => s + (t.completed_quantity || 0), 0);

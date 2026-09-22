@@ -86,7 +86,7 @@ export interface TaskItem {
   status: "backlog" | "assigned" | "progress" | "review" | "approved" | "published";
   priority: "p0" | "p1" | "p2";
   rawStatus?: WorkStatus;
-  reviewStatus?: "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED";
+  reviewStatus?: "NONE" | "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED";
   reviewNote?: string;
   reviewedBy?: number | string | null;
   reviewedAt?: string | null;
@@ -273,7 +273,7 @@ export function CommandCenterView({
   selectedClientId?: string;
   onClientChange?: (clientId: string) => void;
   onStatusChange?: (id: number | string, status: WorkStatus) => Promise<void> | void;
-  onReviewCheck?: (id: number | string, reviewStatus: "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED", note?: string) => Promise<unknown>;
+  onReviewCheck?: (id: number | string, reviewStatus: "NONE" | "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED", note?: string) => Promise<unknown>;
   onDeleteWork?: (id: number | string) => Promise<boolean>;
   onEditWork?: (assignment: WorkAssignment) => void;
   initialTab?: string;
@@ -473,7 +473,7 @@ export function CommandCenterView({
           status: finalStatus,
           priority: priorityMap[a.priority] || "p1",
           rawStatus: a.status,
-          reviewStatus: a.review_status || "PENDING_REVIEW",
+          reviewStatus: a.review_status || "NONE",
           reviewNote: a.review_note || "",
           reviewedBy: a.reviewed_by,
           reviewedAt: a.reviewed_at,
@@ -1576,7 +1576,7 @@ export function CommandCenterView({
                                     ↩ Correction Needed
                                   </span>
                                 )}
-                                {(!t.reviewStatus || t.reviewStatus === "PENDING_REVIEW") && (
+                                {(t.status === "review" || t.rawStatus === "In Review") && t.reviewStatus === "PENDING_REVIEW" && (
                                   <span style={{ background: "rgba(201, 135, 23, 0.12)", color: "var(--warning)", border: "1px solid rgba(201, 135, 23, 0.3)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700 }}>
                                     ⏳ Pending Review
                                   </span>
@@ -2001,7 +2001,7 @@ export function CommandCenterView({
           <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", padding: "12px 16px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               {[
-                { id: "pending", label: `Pending Review (${tasks.filter((t) => t.reviewStatus === "PENDING_REVIEW" || t.status === "review" || t.rawStatus === "In Review").length})` },
+                { id: "pending", label: `Pending Review (${tasks.filter((t) => t.status === "review" || t.rawStatus === "In Review").length})` },
                 { id: "corrections", label: `Changes Requested (${tasks.filter((t) => t.reviewStatus === "CORRECTION_NEEDED" || t.rawStatus === "Changes Requested").length})` },
                 { id: "approved", label: `Approved (${tasks.filter((t) => t.reviewStatus === "OK" || t.status === "approved" || t.status === "published").length})` },
               ].map((sub) => {
@@ -2030,7 +2030,7 @@ export function CommandCenterView({
 
             <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
               Showing {tasks.filter((t) => {
-                if (approvalsSubTab === "pending") return t.reviewStatus === "PENDING_REVIEW" || t.status === "review" || t.rawStatus === "In Review";
+                if (approvalsSubTab === "pending") return t.status === "review" || t.rawStatus === "In Review";
                 if (approvalsSubTab === "corrections") return t.reviewStatus === "CORRECTION_NEEDED" || t.rawStatus === "Changes Requested";
                 return t.reviewStatus === "OK" || t.status === "approved" || t.status === "published";
               }).length} tasks
@@ -2041,7 +2041,7 @@ export function CommandCenterView({
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "14px" }}>
             {tasks
               .filter((t) => {
-                if (approvalsSubTab === "pending") return t.reviewStatus === "PENDING_REVIEW" || t.status === "review" || t.rawStatus === "In Review";
+                if (approvalsSubTab === "pending") return t.status === "review" || t.rawStatus === "In Review";
                 if (approvalsSubTab === "corrections") return t.reviewStatus === "CORRECTION_NEEDED" || t.rawStatus === "Changes Requested";
                 return t.reviewStatus === "OK" || t.status === "approved" || t.status === "published";
               })
@@ -2710,7 +2710,7 @@ export function CommandCenterView({
                               ↩ Correction Needed
                             </span>
                           )}
-                          {(!gt.reviewStatus || gt.reviewStatus === "PENDING_REVIEW") && (
+                          {(gt.status === "review" || gt.rawStatus === "In Review") && gt.reviewStatus === "PENDING_REVIEW" && (
                             <span style={{ background: "rgba(201, 135, 23, 0.12)", color: "var(--warning)", border: "1px solid rgba(201, 135, 23, 0.3)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700 }}>
                               ⏳ Pending Review
                             </span>
@@ -2816,9 +2816,9 @@ export function CommandCenterView({
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>Reviewer Check:</span>
                           <select
-                            value={pendingCorrectionTaskId === gt.id ? "CORRECTION_NEEDED" : (gt.reviewStatus || "PENDING_REVIEW")}
+                            value={pendingCorrectionTaskId === gt.id ? "CORRECTION_NEEDED" : (gt.reviewStatus || "NONE")}
                             onChange={async (e) => {
-                              const newRev = e.target.value as "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED";
+                              const newRev = e.target.value as "NONE" | "PENDING_REVIEW" | "OK" | "CORRECTION_NEEDED";
                               e.target.blur();
                               if (newRev === "CORRECTION_NEEDED") {
                                 setPendingCorrectionTaskId(gt.id);
@@ -2846,6 +2846,7 @@ export function CommandCenterView({
                               fontWeight: 700,
                             }}
                           >
+                            <option value="NONE" style={{ background: "var(--panel)", color: "var(--text)" }}>— None</option>
                             <option value="PENDING_REVIEW" style={{ background: "var(--panel)", color: "var(--text)" }}>⏳ Pending Review</option>
                             <option value="OK" style={{ background: "var(--panel)", color: "var(--text)" }}>✓ OK / Approved</option>
                             <option value="CORRECTION_NEEDED" style={{ background: "var(--panel)", color: "var(--text)" }}>↩ Correction Needed</option>

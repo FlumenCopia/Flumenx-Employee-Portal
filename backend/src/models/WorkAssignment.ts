@@ -24,7 +24,7 @@ export type WorkStatusType = (typeof WORK_STATUSES)[number];
 export const WORK_PRIORITIES = ['Low', 'Normal', 'High', 'Urgent'] as const;
 export type WorkPriorityType = (typeof WORK_PRIORITIES)[number];
 
-export const REVIEW_STATUSES = ['PENDING_REVIEW', 'OK', 'CORRECTION_NEEDED'] as const;
+export const REVIEW_STATUSES = ['NONE', 'PENDING_REVIEW', 'OK', 'CORRECTION_NEEDED'] as const;
 export type ReviewStatusType = (typeof REVIEW_STATUSES)[number];
 
 export interface IWorkDeliverable {
@@ -235,7 +235,7 @@ const workAssignmentSchema = new Schema<IWorkAssignment>(
     assignedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     reviewer: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     reviewerName: { type: String, default: '' },
-    reviewStatus: { type: String, enum: REVIEW_STATUSES, default: 'PENDING_REVIEW' },
+    reviewStatus: { type: String, enum: REVIEW_STATUSES, default: 'NONE' },
     reviewNote: { type: String, default: '' },
     reviewedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     reviewedAt: { type: Date, default: null },

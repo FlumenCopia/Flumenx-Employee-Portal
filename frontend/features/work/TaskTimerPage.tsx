@@ -284,7 +284,7 @@ export function TaskTimerPage() {
         patchBody.review_status = "PENDING_REVIEW";
       } else if (!isTargetReached && (selectedTask.status === "In Review" || selectedTask.status === "Completed")) {
         patchBody.status = "In Progress";
-        patchBody.review_status = "IN_PROGRESS";
+        patchBody.review_status = "NONE";
       }
 
       const updated = await api<WorkAssignment>(`/work-assignments/${selectedTask.id}/`, {

@@ -1,3 +1,5 @@
+
+
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { WorkAssignment } from '../models/WorkAssignment.js';
@@ -1068,9 +1070,9 @@ export async function getWorkAssignmentsSummary(req: Request, res: Response): Pr
       overdue++;
     }
 
-    if (a.reviewStatus === 'PENDING_REVIEW') review_pending++;
+    if (a.status === 'In Review') review_pending++;
     else if (a.reviewStatus === 'OK') review_ok++;
-    else if (a.reviewStatus === 'CORRECTION_NEEDED') review_correction++;
+    else if (a.reviewStatus === 'CORRECTION_NEEDED' || a.status === 'Changes Requested') review_correction++;
   }
 
   res.json({
@@ -1212,11 +1214,11 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
     };
   });
 
-  const rawClientList = Array.isArray(clients) && clients.length > 0 
-    ? clients 
-    : Array.isArray(client_ids) && client_ids.length > 0 
-    ? client_ids 
-    : [client].filter(Boolean);
+  const rawClientList = Array.isArray(clients) && clients.length > 0
+    ? clients
+    : Array.isArray(client_ids) && client_ids.length > 0
+      ? client_ids
+      : [client].filter(Boolean);
 
   const targetClientIds = rawClientList.filter((cid: any) => cid && mongoose.Types.ObjectId.isValid(String(cid)));
 
@@ -1239,6 +1241,7 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
         assignedDate: assigned_date ? new Date(assigned_date) : new Date(),
         dueDate: due_date ? new Date(due_date) : new Date(Date.now() + 7 * 24 * 3600 * 1000),
         status: status || 'Assigned',
+        reviewStatus: status === 'In Review' ? 'PENDING_REVIEW' : 'NONE',
         assignedQuantity: assigned_quantity || 1,
         unit: unit || 'tasks',
         deliverables: sanitizedDeliverables,
@@ -1277,6 +1280,7 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
     assignedDate: assigned_date ? new Date(assigned_date) : new Date(),
     dueDate: due_date ? new Date(due_date) : new Date(Date.now() + 7 * 24 * 3600 * 1000),
     status: status || 'Assigned',
+    reviewStatus: status === 'In Review' ? 'PENDING_REVIEW' : 'NONE',
     assignedQuantity: assigned_quantity || 1,
     unit: unit || 'tasks',
     deliverables: sanitizedDeliverables,
@@ -1367,6 +1371,7 @@ export async function bulkCreateWorkAssignments(req: Request, res: Response): Pr
       assignedDate: t.assigned_date ? new Date(t.assigned_date) : new Date(),
       dueDate: t.due_date ? new Date(t.due_date) : new Date(Date.now() + 7 * 24 * 3600 * 1000),
       status: t.status || 'Assigned',
+      reviewStatus: t.status === 'In Review' ? 'PENDING_REVIEW' : 'NONE',
       assignedQuantity: t.assigned_quantity || req.body.assigned_quantity || 1,
       unit: t.unit || req.body.unit || 'tasks',
       deliverables: sanitizedDeliverables,
@@ -1409,7 +1414,7 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
 
     const isAssignee = assignment.employee && String(assignment.employee) === String(ownEmp._id);
     const isReviewer = (assignment.reviewer && String(assignment.reviewer) === String(ownEmp._id)) ||
-                       (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
+      (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
 
     if (isTeamLead) {
       // Check if task belongs to own employee or someone in team lead's department or is reviewer
@@ -1445,7 +1450,15 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     }
     if (fields.employee !== undefined || fields.employee_id !== undefined || fields.assigned_to !== undefined || fields.assignedTo !== undefined) {
       const empVal = fields.employee ?? fields.employee_id ?? fields.assigned_to ?? fields.assignedTo;
+      const prevEmp = assignment.employee;
       assignment.employee = await resolveEmployeeDoc(empVal);
+      if (!prevEmp && assignment.employee && (!assignment.timeLogs || assignment.timeLogs.length === 0) && ['Approved', 'Completed'].includes(assignment.status)) {
+        assignment.status = 'Assigned';
+        assignment.progress = 0;
+        assignment.completedQuantity = 0;
+        assignment.reviewStatus = 'NONE';
+        assignment.completedAt = null;
+      }
     }
     if (fields.client !== undefined || fields.client_id !== undefined) {
       const clientVal = fields.client || fields.client_id;
@@ -1479,7 +1492,7 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
 
   const ownEmp = await getEmployeeForUser(req.user);
   const isReviewer = (assignment.reviewer && ownEmp && String(assignment.reviewer) === String(ownEmp._id)) ||
-                     (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
+    (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
   const hasAssignedReviewer = Boolean(assignment.reviewer);
 
   if (fields.status) {
@@ -1510,6 +1523,9 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
       }
     } else if (['Backlog', 'Assigned', 'In Progress'].includes(rawStatus)) {
       assignment.status = rawStatus as any;
+      if (assignment.reviewStatus === 'PENDING_REVIEW') {
+        assignment.reviewStatus = 'NONE';
+      }
     } else {
       assignment.status = fields.status;
     }
@@ -1526,6 +1542,12 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
       if (!assignment.completedAt) assignment.completedAt = new Date();
     } else if (fields.review_status === 'CORRECTION_NEEDED') {
       assignment.status = 'In Progress';
+    } else if (fields.review_status === 'PENDING_REVIEW') {
+      assignment.status = 'In Review';
+    } else if (fields.review_status === 'NONE') {
+      if (assignment.status === 'In Review') {
+        assignment.status = 'In Progress';
+      }
     }
   }
   if (fields.review_note !== undefined) assignment.reviewNote = fields.review_note;
@@ -1564,7 +1586,7 @@ export async function reviewWorkAssignment(req: Request, res: Response): Promise
   const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
 
   const isReviewer = (assignment.reviewer && ownEmp && String(assignment.reviewer) === String(ownEmp._id)) ||
-                     (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
+    (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
 
   if (!isSuper && !isManagement && !isReviewer) {
     res.status(403).json({ detail: 'Permission denied. You are not authorized as reviewer for this task.' });
@@ -2105,8 +2127,8 @@ export async function incrementDeliverable(req: Request, res: Response): Promise
     (deliverable as any).delivered !== undefined
       ? (deliverable as any).delivered
       : (deliverable as any).status === 'Completed' || (deliverable as any).status === 'Published'
-      ? 1
-      : 0;
+        ? 1
+        : 0;
 
   const targetDelta = Number(delta);
   let newDelivered = currentDelivered + targetDelta;
