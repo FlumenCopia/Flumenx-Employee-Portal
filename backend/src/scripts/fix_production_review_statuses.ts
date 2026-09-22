@@ -37,14 +37,20 @@ async function runMigration() {
   const mistakenlyCompletedAssigned = await WorkAssignment.find({
     status: 'Assigned',
     progress: { $gt: 0 },
-    $or: [
-      { totalTimeSpentSeconds: 0 },
-      { totalTimeSpentSeconds: { $exists: false } },
-    ],
-    $or: [
-      { deliverables: { $size: 0 } },
-      { 'deliverables.delivered': 0 },
-      { deliverables: { $exists: false } },
+    $and: [
+      {
+        $or: [
+          { totalTimeSpentSeconds: 0 },
+          { totalTimeSpentSeconds: { $exists: false } },
+        ],
+      },
+      {
+        $or: [
+          { deliverables: { $size: 0 } },
+          { 'deliverables.delivered': 0 },
+          { deliverables: { $exists: false } },
+        ],
+      },
     ],
   }).select('_id title status progress completedQuantity');
 
