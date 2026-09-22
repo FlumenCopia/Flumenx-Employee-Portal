@@ -49,6 +49,7 @@ import { ProfitMarginCalculatorTool } from "../modules/business/ProfitMarginCalc
 import { CommissionCalculatorTool } from "../modules/business/CommissionCalculatorTool";
 import { GstTaxCalculatorTool } from "../modules/business/GstTaxCalculatorTool";
 import { NumberToWordsTool } from "../modules/business/NumberToWordsTool";
+import { PdfBatchGeneratorTool } from "../modules/business/PdfBatchGeneratorTool";
 
 export const toolsConfig: ToolDefinition[] = [
   // 1. Accounting & Finance
@@ -480,5 +481,18 @@ export const toolsConfig: ToolDefinition[] = [
     keywords: ["csv", "table", "csv to json", "spreadsheet", "viewer", "filter"],
     popular: true,
     component: CsvViewerFormatterTool,
+  },
+  {
+    id: "pdf-batch-generator",
+    name: "PDF Batch Generator (Mail Merge)",
+    shortDescription: "Upload a template PDF and Excel/JSON data to batch-generate customized PDFs for each row.",
+    description: "Mail merge utility for PDFs: map data columns to fillable AcroForm fields or visually place field markers on any PDF (certificates, invoices, offer letters) and batch download as ZIP or merged PDF.",
+    category: "generators",
+    departments: ["operations", "business", "accounting", "general"],
+    iconName: "FileSpreadsheet",
+    keywords: ["pdf", "batch pdf", "mail merge", "excel to pdf", "json to pdf", "certificate", "invoice", "template", "generator"],
+    popular: true,
+    privacyBadge: "100% In-Browser",
+    component: PdfBatchGeneratorTool,
   },
 ];
