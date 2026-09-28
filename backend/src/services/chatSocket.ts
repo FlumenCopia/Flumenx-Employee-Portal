@@ -593,8 +593,48 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
       }
     });
 
+    // 4. In-Call Media Toggle (Camera on/off, Mic mute/unmute)
+    socket.on('call:toggle-media', (data: {
+      toSocketId?: string;
+      roomId?: string;
+      isAudioMuted: boolean;
+      isVideoOff: boolean;
+    }) => {
+      const payload = {
+        fromSocketId: socket.id,
+        fromUserId: socket.userId,
+        isAudioMuted: Boolean(data?.isAudioMuted),
+        isVideoOff: Boolean(data?.isVideoOff),
+      };
+      if (data?.toSocketId) {
+        io.to(data.toSocketId).emit('call:peer-media-toggled', payload);
+      }
+      if (data?.roomId) {
+        socket.to(`call-room:${data.roomId}`).emit('call:peer-media-toggled', payload);
+      }
+    });
+
+    // 5. In-Call Screen Sharing Toggle
+    socket.on('call:toggle-screen-share', (data: {
+      toSocketId?: string;
+      roomId?: string;
+      isSharing: boolean;
+    }) => {
+      const payload = {
+        fromSocketId: socket.id,
+        fromUserId: socket.userId,
+        isSharing: Boolean(data?.isSharing),
+      };
+      if (data?.toSocketId) {
+        io.to(data.toSocketId).emit('call:peer-screen-shared', payload);
+      }
+      if (data?.roomId) {
+        socket.to(`call-room:${data.roomId}`).emit('call:peer-screen-shared', payload);
+      }
+    });
+
     // =========================================================================
-    // 4. DISCONNECTION CLEANUP
+    // 6. DISCONNECTION CLEANUP
     // =========================================================================
     socket.on('disconnect', () => {
       const uId = socket.userId;

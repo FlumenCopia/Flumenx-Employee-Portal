@@ -106,6 +106,15 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   const [remotePeers, setRemotePeers] = useState<RemotePeer[]>([]);
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
+  // Remote peer in-call state (Mute, Camera toggle, Screen sharing)
+  const [remoteMediaState, setRemoteMediaState] = useState<{ isAudioMuted: boolean; isVideoOff: boolean }>({
+    isAudioMuted: false,
+    isVideoOff: false,
+  });
+  const [remotePeerMediaStates, setRemotePeerMediaStates] = useState<Record<string, { isAudioMuted: boolean; isVideoOff: boolean }>>({});
+  const [isRemoteScreenSharing, setIsRemoteScreenSharing] = useState<boolean>(false);
+  const [remotePeerScreenShares, setRemotePeerScreenShares] = useState<Record<string, boolean>>({});
+
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const pendingRemoteCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
@@ -166,6 +175,10 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       setRemoteStream(null);
     }
     setRemotePeers([]);
+    setRemoteMediaState({ isAudioMuted: false, isVideoOff: false });
+    setRemotePeerMediaStates({});
+    setIsRemoteScreenSharing(false);
+    setRemotePeerScreenShares({});
     pendingRemoteCandidatesRef.current = [];
     pendingLocalCandidatesRef.current = [];
     incomingOfferRef.current = null;
@@ -210,6 +223,11 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peerConnectionRef.current = pc;
 
+    try {
+      pc.addTransceiver("audio", { direction: "sendrecv" });
+      pc.addTransceiver("video", { direction: "sendrecv" });
+    } catch {}
+
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         const socket = getGlobalSocket();
@@ -226,10 +244,18 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     };
 
     pc.ontrack = (event) => {
+      console.log("[WebRTC 1:1] ontrack received:", event.track.kind, event.track.id);
       if (event.streams && event.streams[0]) {
         setRemoteStream(event.streams[0]);
-      } else if (event.track) {
-        setRemoteStream(new MediaStream([event.track]));
+      } else {
+        setRemoteStream((prev) => {
+          if (!prev) return new MediaStream([event.track]);
+          const existingTracks = prev.getTracks();
+          if (!existingTracks.some((t) => t.id === event.track.id)) {
+            prev.addTrack(event.track);
+          }
+          return new MediaStream(prev.getTracks());
+        });
       }
     };
 
@@ -252,8 +278,18 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       const pc = new RTCPeerConnection(ICE_SERVERS);
       peerConnectionsRef.current.set(targetSocketId, pc);
 
+      try {
+        pc.addTransceiver("audio", { direction: "sendrecv" });
+        pc.addTransceiver("video", { direction: "sendrecv" });
+      } catch {}
+
       stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream);
+        const sender = pc.getSenders().find((s) => s.track?.kind === track.kind || (s as any).kind === track.kind);
+        if (sender) {
+          sender.replaceTrack(track);
+        } else {
+          pc.addTrack(track, stream);
+        }
       });
 
       pc.onicecandidate = (event) => {
@@ -267,9 +303,25 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       };
 
       pc.ontrack = (event) => {
+        console.log("[WebRTC Mesh] ontrack received from", targetSocketId, event.track.kind, event.track.id);
         const incomingStream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
         setRemoteStream(incomingStream);
         setRemotePeers((prev) => {
+          const existingPeer = prev.find((p) => p.socketId === targetSocketId);
+          let finalStream: MediaStream;
+          if (existingPeer && existingPeer.stream) {
+            finalStream = existingPeer.stream;
+            if (event.streams && event.streams[0]) {
+              finalStream = event.streams[0];
+            } else {
+              const tracks = finalStream.getTracks();
+              if (!tracks.some((t) => t.id === event.track.id)) {
+                finalStream.addTrack(event.track);
+              }
+            }
+          } else {
+            finalStream = incomingStream;
+          }
           const filtered = prev.filter((p) => p.socketId !== targetSocketId);
           return [
             ...filtered,
@@ -278,7 +330,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
               userId: meta?.userId,
               name: meta?.name || "Colleague",
               avatar: meta?.avatar,
-              stream: incomingStream,
+              stream: finalStream,
             },
           ];
         });
@@ -296,6 +348,60 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     },
     []
   );
+
+  // In-call video track replacement (for screen share, camera switch, or mute)
+  const replaceVideoTrack = useCallback(async (newTrack: MediaStreamTrack | null) => {
+    // 1. Direct 1:1 call connection
+    const pc1 = peerConnectionRef.current;
+    if (pc1 && pc1.signalingState !== "closed") {
+      const sender = pc1.getSenders().find((s) => s.track?.kind === "video" || (s as any).kind === "video");
+      if (sender) {
+        await sender.replaceTrack(newTrack).catch((e) => console.warn("[WebRTC] replaceTrack 1:1 error:", e));
+      } else if (newTrack && localStreamRef.current) {
+        try {
+          pc1.addTrack(newTrack, localStreamRef.current);
+        } catch {}
+      }
+    }
+    // 2. Mesh peer connections
+    peerConnectionsRef.current.forEach(async (pc) => {
+      if (pc && pc.signalingState !== "closed") {
+        const sender = pc.getSenders().find((s) => s.track?.kind === "video" || (s as any).kind === "video");
+        if (sender) {
+          await sender.replaceTrack(newTrack).catch((e) => console.warn("[WebRTC] replaceTrack mesh error:", e));
+        } else if (newTrack && localStreamRef.current) {
+          try {
+            pc.addTrack(newTrack, localStreamRef.current);
+          } catch {}
+        }
+      }
+    });
+  }, []);
+
+  // Broadcast media toggle (Camera on/off, Mic mute/unmute)
+  const sendMediaToggle = useCallback((isAudioMuted: boolean, isVideoOff: boolean) => {
+    const socket = getGlobalSocket();
+    const call = activeCallRef.current;
+    if (!socket || !call) return;
+    socket.emit("call:toggle-media", {
+      toSocketId: call.partnerSocketId,
+      roomId: call.roomId,
+      isAudioMuted,
+      isVideoOff,
+    });
+  }, []);
+
+  // Broadcast screen sharing state
+  const sendScreenShareToggle = useCallback((isSharing: boolean) => {
+    const socket = getGlobalSocket();
+    const call = activeCallRef.current;
+    if (!socket || !call) return;
+    socket.emit("call:toggle-screen-share", {
+      toSocketId: call.partnerSocketId,
+      roomId: call.roomId,
+      isSharing,
+    });
+  }, []);
 
   // Listen to Socket.IO signaling events
   useEffect(() => {
@@ -374,7 +480,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
           }
 
           const resolvedRoomId = data.roomId || activeCallRef.current?.roomId;
-          if (resolvedRoomId) {
+          // Only join room if this call is an active group call
+          if (resolvedRoomId && activeCallRef.current?.isGroup) {
             socket.emit("call:join-room", {
               roomId: resolvedRoomId,
               name: activeCallRef.current?.partnerName || "Colleague",
@@ -397,6 +504,15 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       avatar?: string;
       callType?: CallType;
     }) => {
+      // Guard against creating duplicate peer connection for direct 1:1 partner
+      if (
+        !activeCallRef.current?.isGroup &&
+        (data.peerSocketId === activeCallRef.current?.partnerSocketId ||
+          String(data.userId) === String(activeCallRef.current?.partnerId))
+      ) {
+        return;
+      }
+
       let stream = localStreamRef.current;
       if (!stream) {
         stream = await acquireMediaStream(activeCallRef.current?.callType || "video");
@@ -440,6 +556,15 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       avatar?: string;
       roomId?: string;
     }) => {
+      // Guard against creating duplicate peer connection for direct 1:1 partner
+      if (
+        !activeCallRef.current?.isGroup &&
+        (data.fromSocketId === activeCallRef.current?.partnerSocketId ||
+          String(data.fromUserId) === String(activeCallRef.current?.partnerId))
+      ) {
+        return;
+      }
+
       let stream = localStreamRef.current;
       if (!stream) {
         stream = await acquireMediaStream(activeCallRef.current?.callType || "video");
@@ -597,6 +722,40 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       endCallCleanup();
     };
 
+    // Media and screen share toggle notifications from remote peer
+    const handlePeerMediaToggled = (data: {
+      fromSocketId: string;
+      fromUserId?: string;
+      isAudioMuted: boolean;
+      isVideoOff: boolean;
+    }) => {
+      console.log("[WebRTC] Peer media toggled:", data);
+      setRemoteMediaState({
+        isAudioMuted: Boolean(data.isAudioMuted),
+        isVideoOff: Boolean(data.isVideoOff),
+      });
+      setRemotePeerMediaStates((prev) => ({
+        ...prev,
+        [data.fromSocketId]: {
+          isAudioMuted: Boolean(data.isAudioMuted),
+          isVideoOff: Boolean(data.isVideoOff),
+        },
+      }));
+    };
+
+    const handlePeerScreenShared = (data: {
+      fromSocketId: string;
+      fromUserId?: string;
+      isSharing: boolean;
+    }) => {
+      console.log("[WebRTC] Peer screen shared:", data);
+      setIsRemoteScreenSharing(Boolean(data.isSharing));
+      setRemotePeerScreenShares((prev) => ({
+        ...prev,
+        [data.fromSocketId]: Boolean(data.isSharing),
+      }));
+    };
+
     const handlePresenceUpdate = (data: { userId?: string; status?: string; onlineUserIds?: string[] }) => {
       if (data?.onlineUserIds && Array.isArray(data.onlineUserIds)) {
         setOnlineUserIds(data.onlineUserIds.map(String));
@@ -621,6 +780,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     socket.on("call:ended", handleCallEnded);
     socket.on("call:unavailable", handleCallUnavailable);
     socket.on("call:error", handleCallError);
+    socket.on("call:peer-media-toggled", handlePeerMediaToggled);
+    socket.on("call:peer-screen-shared", handlePeerScreenShared);
 
     // Multi-peer listeners
     socket.on("call:peer-joined", handlePeerJoined);
@@ -642,6 +803,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       socket.off("call:ended", handleCallEnded);
       socket.off("call:unavailable", handleCallUnavailable);
       socket.off("call:error", handleCallError);
+      socket.off("call:peer-media-toggled", handlePeerMediaToggled);
+      socket.off("call:peer-screen-shared", handlePeerScreenShared);
 
       socket.off("call:peer-joined", handlePeerJoined);
       socket.off("call:relay-offer", handleRelayOffer);
@@ -683,13 +846,6 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       roomId,
     });
 
-    // Join room so caller is in room for multi-party mesh
-    socket?.emit("call:join-room", {
-      roomId,
-      name: "Me",
-      callType: params.callType,
-    });
-
     // 2. Trigger REST API call initiation so HTTP request shows in Network tab and notifies server
     api("/chat/call/initiate/", {
       method: "POST",
@@ -714,8 +870,18 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       pendingLocalCandidatesRef.current = [];
       pendingRemoteCandidatesRef.current = [];
 
+      try {
+        pc.addTransceiver("audio", { direction: "sendrecv" });
+        pc.addTransceiver("video", { direction: "sendrecv" });
+      } catch {}
+
       stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream);
+        const sender = pc.getSenders().find((s) => s.track?.kind === track.kind || (s as any).kind === track.kind);
+        if (sender) {
+          sender.replaceTrack(track);
+        } else {
+          pc.addTrack(track, stream);
+        }
       });
 
       pc.onicecandidate = (event) => {
@@ -732,10 +898,18 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       };
 
       pc.ontrack = (event) => {
+        console.log("[WebRTC 1:1 Outgoing] ontrack received:", event.track.kind, event.track.id);
         if (event.streams && event.streams[0]) {
           setRemoteStream(event.streams[0]);
-        } else if (event.track) {
-          setRemoteStream(new MediaStream([event.track]));
+        } else {
+          setRemoteStream((prev) => {
+            if (!prev) return new MediaStream([event.track]);
+            const existingTracks = prev.getTracks();
+            if (!existingTracks.some((t) => t.id === event.track.id)) {
+              prev.addTrack(event.track);
+            }
+            return new MediaStream(prev.getTracks());
+          });
         }
       };
 
@@ -875,8 +1049,18 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       if (incomingOfferRef.current && activeCall.partnerSocketId) {
         const pc = createPeerConnection(activeCall.partnerSocketId);
 
+        try {
+          pc.addTransceiver("audio", { direction: "sendrecv" });
+          pc.addTransceiver("video", { direction: "sendrecv" });
+        } catch {}
+
         stream.getTracks().forEach((track) => {
-          pc.addTrack(track, stream);
+          const sender = pc.getSenders().find((s) => s.track?.kind === track.kind || (s as any).kind === track.kind);
+          if (sender) {
+            sender.replaceTrack(track);
+          } else {
+            pc.addTrack(track, stream);
+          }
         });
 
         await pc.setRemoteDescription(new RTCSessionDescription(incomingOfferRef.current));
@@ -898,8 +1082,8 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 2. If this call has a roomId (group call or colleague added), join the mesh room
-      if (activeCall.roomId) {
+      // 2. Only if this call is an active group call, join the mesh room
+      if (activeCall.isGroup && activeCall.roomId) {
         socket.emit("call:join-room", {
           roomId: activeCall.roomId,
           name: activeCall.partnerName,
@@ -971,6 +1155,13 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
           participants={activeCall.participants}
           onInvitePerson={inviteToCall}
           onlineUserIds={onlineUserIds}
+          remoteMediaState={remoteMediaState}
+          remotePeerMediaStates={remotePeerMediaStates}
+          isRemoteScreenSharing={isRemoteScreenSharing}
+          remotePeerScreenShares={remotePeerScreenShares}
+          onToggleMedia={sendMediaToggle}
+          onToggleScreenShare={sendScreenShareToggle}
+          onReplaceVideoTrack={replaceVideoTrack}
         />
       )}
     </WebRTCContext.Provider>

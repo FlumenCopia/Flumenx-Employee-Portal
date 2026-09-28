@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import { Invoice } from '../../models/accounting/Invoice.js';
+import { JournalEntry } from '../../models/accounting/JournalEntry.js';
+import { CustomerReceipt } from '../../models/accounting/CustomerReceipt.js';
+import { AuditLog } from '../../models/AuditLog.js';
 import { createAndPostInvoice } from '../../services/accounting/receivableService.js';
+import { revertJournalEntryBalances } from '../../services/accounting/accountingEngine.js';
 
 export async function getInvoices(req: Request, res: Response): Promise<void> {
   const { client, status, search, start_date, end_date } = req.query;
@@ -60,3 +64,56 @@ export async function createInvoice(req: Request, res: Response): Promise<void> 
     res.status(400).json({ detail: err.message || 'Failed to create and post invoice.' });
   }
 }
+
+export async function deleteInvoice(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+
+  try {
+    const invoice = await Invoice.findById(id);
+    if (!invoice) {
+      res.status(404).json({ detail: 'Invoice not found.' });
+      return;
+    }
+
+    if (invoice.amountPaid > 0) {
+      res.status(400).json({
+        detail: `Cannot delete invoice ${invoice.invoiceNumber}: Customer payments (₹${invoice.amountPaid.toFixed(2)}) have been applied to this invoice. Delete or unallocate associated customer receipts first.`,
+      });
+      return;
+    }
+
+    const linkedReceipt = await CustomerReceipt.findOne({ 'allocations.invoice': invoice._id });
+    if (linkedReceipt) {
+      res.status(400).json({
+        detail: `Cannot delete invoice ${invoice.invoiceNumber}: Receipt ${linkedReceipt.receiptNumber} references this invoice. Delete or remove allocation from receipt first.`,
+      });
+      return;
+    }
+
+    if (invoice.journalEntry) {
+      const journal = await JournalEntry.findById(invoice.journalEntry);
+      if (journal) {
+        await revertJournalEntryBalances(journal);
+        await JournalEntry.findByIdAndDelete(journal._id);
+      }
+    }
+
+    await Invoice.findByIdAndDelete(id);
+
+    try {
+      await AuditLog.create({
+        user: req.user?._id || null,
+        action: 'DELETE_INVOICE',
+        module: 'ACCOUNTING',
+        details: `Super Admin permanently deleted invoice ${invoice.invoiceNumber} for client ${invoice.clientName} (₹${invoice.totalAmount}). Reverted General Ledger postings.`,
+      });
+    } catch (e) {
+      // Non-blocking
+    }
+
+    res.json({ message: `Invoice ${invoice.invoiceNumber} deleted successfully.`, id });
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to delete invoice.' });
+  }
+}
+

@@ -30,27 +30,90 @@ export interface RemotePeer {
 }
 
 function RemotePeerAudio({ stream }: { stream: MediaStream }) {
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const attachAudio = useCallback(
+    (el: HTMLAudioElement | null) => {
+      audioRef.current = el;
+      if (el && stream) {
+        el.setAttribute("playsinline", "true");
+        el.setAttribute("autoplay", "true");
+        el.volume = 1.0;
+        el.muted = false;
+        if (el.srcObject !== stream) {
+          el.srcObject = stream;
+        }
+        el.play().catch(() => {});
+      }
+    },
+    [stream]
+  );
+
   useEffect(() => {
-    if (audioRef.current && stream) {
-      audioRef.current.srcObject = stream;
-      audioRef.current.play().catch(() => {});
+    const el = audioRef.current;
+    if (el && stream) {
+      if (el.srcObject !== stream) el.srcObject = stream;
+      el.volume = 1.0;
+      el.muted = false;
+      el.play().catch(() => {});
     }
   }, [stream]);
-  return <audio ref={audioRef} autoPlay playsInline />;
+
+  return <audio ref={attachAudio} autoPlay playsInline />;
 }
 
-function ParticipantVideoTile({ peer }: { peer: RemotePeer }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+function ParticipantVideoTile({
+  peer,
+  mediaState,
+  isScreenSharing,
+}: {
+  peer: RemotePeer;
+  mediaState?: { isAudioMuted: boolean; isVideoOff: boolean };
+  isScreenSharing?: boolean;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const hasVideoTrack = Boolean(
+    peer.stream &&
+    peer.stream.getVideoTracks().length > 0 &&
+    peer.stream.getVideoTracks().some((t) => t.readyState !== "ended")
+  );
+
+  const shouldShowVideo = Boolean(isScreenSharing || (!mediaState?.isVideoOff && hasVideoTrack));
+
+  const attachVideo = useCallback(
+    (el: HTMLVideoElement | null) => {
+      videoRef.current = el;
+      if (el && peer.stream) {
+        el.setAttribute("playsinline", "true");
+        el.setAttribute("autoplay", "true");
+        if (el.srcObject !== peer.stream) {
+          el.srcObject = peer.stream;
+        }
+        el.play().catch(() => {});
+      }
+    },
+    [peer.stream]
+  );
 
   useEffect(() => {
-    if (videoRef.current && peer.stream) {
-      videoRef.current.srcObject = peer.stream;
-      videoRef.current.play().catch(() => {});
+    const el = videoRef.current;
+    if (el && peer.stream && shouldShowVideo) {
+      if (el.srcObject !== peer.stream) {
+        el.srcObject = peer.stream;
+      }
+      el.play().catch(() => {});
     }
-  }, [peer.stream]);
-
-  const hasVideo = peer.stream && peer.stream.getVideoTracks().some((t) => t.enabled && t.readyState === "live");
+    const handleTrack = () => {
+      if (el && shouldShowVideo) el.play().catch(() => {});
+    };
+    peer.stream.addEventListener("addtrack", handleTrack);
+    peer.stream.addEventListener("removetrack", handleTrack);
+    return () => {
+      peer.stream.removeEventListener("addtrack", handleTrack);
+      peer.stream.removeEventListener("removetrack", handleTrack);
+    };
+  }, [peer.stream, shouldShowVideo]);
 
   return (
     <div
@@ -69,20 +132,24 @@ function ParticipantVideoTile({ peer }: { peer: RemotePeer }) {
       }}
     >
       <video
-        ref={videoRef}
+        ref={attachVideo}
         autoPlay
         playsInline
+        onLoadedMetadata={(e) => e.currentTarget.play().catch(() => {})}
         style={{
           width: "100%",
           height: "100%",
-          objectFit: "cover",
-          display: hasVideo ? "block" : "none",
+          objectFit: isScreenSharing ? "contain" : "cover",
+          display: shouldShowVideo ? "block" : "none",
         }}
       />
-      {!hasVideo && (
+      {!shouldShowVideo && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", padding: "16px" }}>
           <Avatar name={peer.name} avatar={peer.avatar} size={56} />
           <span style={{ fontSize: "13px", color: "#e2e8f0", fontWeight: 700 }}>{peer.name}</span>
+          <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+            {mediaState?.isVideoOff ? "Camera is off" : "Audio only"}
+          </span>
         </div>
       )}
       <div
@@ -105,6 +172,10 @@ function ParticipantVideoTile({ peer }: { peer: RemotePeer }) {
       >
         <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#10b981" }} />
         {peer.name}
+        {mediaState?.isAudioMuted && <MicOff size={11} color="#ef4444" style={{ marginLeft: "4px" }} />}
+        {isScreenSharing && (
+          <span style={{ marginLeft: "4px", fontSize: "9px", color: "#38bdf8", fontWeight: 800 }}>[SCREEN]</span>
+        )}
       </div>
     </div>
   );
@@ -125,6 +196,13 @@ type Props = {
   participants?: { id: string; name: string; avatar?: string; status: "calling" | "connected" }[];
   onInvitePerson?: (user: { id: string; name: string; avatar?: string }) => void;
   onlineUserIds?: string[];
+  remoteMediaState?: { isAudioMuted: boolean; isVideoOff: boolean };
+  remotePeerMediaStates?: Record<string, { isAudioMuted: boolean; isVideoOff: boolean }>;
+  isRemoteScreenSharing?: boolean;
+  remotePeerScreenShares?: Record<string, boolean>;
+  onToggleMedia?: (isAudioMuted: boolean, isVideoOff: boolean) => void;
+  onToggleScreenShare?: (isSharing: boolean) => void;
+  onReplaceVideoTrack?: (track: MediaStreamTrack | null) => Promise<void>;
 };
 
 export function DirectCallModal({
@@ -142,6 +220,13 @@ export function DirectCallModal({
   participants,
   onInvitePerson,
   onlineUserIds = [],
+  remoteMediaState,
+  remotePeerMediaStates,
+  isRemoteScreenSharing = false,
+  remotePeerScreenShares,
+  onToggleMedia,
+  onToggleScreenShare,
+  onReplaceVideoTrack,
 }: Props) {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -149,6 +234,8 @@ export function DirectCallModal({
 
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(callType === "audio");
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const screenStreamRef = useRef<MediaStream | null>(null);
   const [callDuration, setCallDuration] = useState(0);
 
   // In-call Add Person modal state
@@ -168,6 +255,36 @@ export function DirectCallModal({
   }, [showAddPerson, colleagues.length]);
 
   const [hasLocalVideoTrack, setHasLocalVideoTrack] = useState(false);
+
+  // Global Interaction Autoplay Unblocker
+  useEffect(() => {
+    const unlockAll = () => {
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.play().catch(() => {});
+      }
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.play().catch(() => {});
+      }
+    };
+    window.addEventListener("click", unlockAll);
+    window.addEventListener("touchstart", unlockAll);
+    window.addEventListener("keydown", unlockAll);
+    return () => {
+      window.removeEventListener("click", unlockAll);
+      window.removeEventListener("touchstart", unlockAll);
+      window.removeEventListener("keydown", unlockAll);
+    };
+  }, []);
+
+  // Screen share track cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((t) => t.stop());
+        screenStreamRef.current = null;
+      }
+    };
+  }, []);
 
   // Monitor live video tracks on localStream
   useEffect(() => {
@@ -194,21 +311,24 @@ export function DirectCallModal({
   const attachLocalVideo = useCallback(
     (el: HTMLVideoElement | null) => {
       (localVideoRef as any).current = el;
-      if (el && localStream) {
-        el.defaultMuted = true;
-        el.muted = true;
-        el.setAttribute("muted", "true");
-        el.setAttribute("playsinline", "true");
-        el.setAttribute("autoplay", "true");
-        if (el.srcObject !== localStream) {
-          el.srcObject = localStream;
+      if (el) {
+        const streamToAttach = isScreenSharing && screenStreamRef.current ? screenStreamRef.current : localStream;
+        if (streamToAttach) {
+          el.defaultMuted = true;
+          el.muted = true;
+          el.setAttribute("muted", "true");
+          el.setAttribute("playsinline", "true");
+          el.setAttribute("autoplay", "true");
+          if (el.srcObject !== streamToAttach) {
+            el.srcObject = streamToAttach;
+          }
+          el.play().catch((err) => {
+            console.warn("[WebRTC] Local video play error:", err);
+          });
         }
-        el.play().catch((err) => {
-          console.warn("[WebRTC] Local video play error:", err);
-        });
       }
     },
-    [localStream]
+    [localStream, isScreenSharing]
   );
 
   // Robust callback ref for remote video attachment
@@ -229,79 +349,90 @@ export function DirectCallModal({
     [remoteStream]
   );
 
-  // Local stream attachment & camera auto-recovery effect
+  // Local stream attachment effect
   useEffect(() => {
     let active = true;
     const videoEl = localVideoRef.current;
+    if (!videoEl) return;
 
-    const syncLocalStream = async () => {
-      let stream = localStream;
+    const stream = isScreenSharing && screenStreamRef.current ? screenStreamRef.current : localStream;
+    if (!stream) return;
 
-      // If call is video but localStream has no video tracks, attempt camera recovery
-      if (callType === "video" && (!stream || stream.getVideoTracks().length === 0)) {
-        try {
-          const camStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-            audio: false,
-          });
-          if (!active) return;
-          if (stream) {
-            camStream.getVideoTracks().forEach((t) => stream!.addTrack(t));
-          } else {
-            stream = camStream;
-          }
-          setHasLocalVideoTrack(true);
-        } catch (camErr) {
-          console.warn("[WebRTC] Camera auto-recovery failed:", camErr);
-        }
-      }
+    videoEl.defaultMuted = true;
+    videoEl.muted = true;
+    videoEl.setAttribute("muted", "true");
+    videoEl.setAttribute("playsinline", "true");
+    videoEl.setAttribute("autoplay", "true");
 
-      if (!active || !videoEl || !stream) return;
+    if (videoEl.srcObject !== stream) {
+      videoEl.srcObject = stream;
+    }
 
-      videoEl.defaultMuted = true;
-      videoEl.muted = true;
-      videoEl.setAttribute("muted", "true");
-      videoEl.setAttribute("playsinline", "true");
-      videoEl.setAttribute("autoplay", "true");
-
-      if (videoEl.srcObject !== stream) {
-        videoEl.srcObject = stream;
-      }
-
-      const playSafely = () => {
-        videoEl.play().catch((err) => {
-          console.warn("[WebRTC] Local video play error:", err);
-        });
-      };
-
-      videoEl.onloadedmetadata = playSafely;
-      playSafely();
+    const playSafely = () => {
+      videoEl.play().catch((err) => {
+        console.warn("[WebRTC] Local video play error:", err);
+      });
     };
 
-    syncLocalStream();
+    videoEl.onloadedmetadata = playSafely;
+    playSafely();
 
     return () => {
       active = false;
     };
-  }, [localStream, mode, callType]);
+  }, [localStream, isScreenSharing, mode]);
+
+  const remoteHasVideo = Boolean(
+    remoteStream &&
+    remoteStream.getVideoTracks().length > 0 &&
+    remoteStream.getVideoTracks().some((t) => t.readyState !== "ended")
+  );
+
+  const shouldShowRemoteVideo = Boolean(
+    isRemoteScreenSharing || (!remoteMediaState?.isVideoOff && remoteHasVideo)
+  );
 
   // Remote stream attachment (Both Audio & Video)
   useEffect(() => {
     if (remoteStream) {
-      if (remoteAudioRef.current && remoteAudioRef.current.srcObject !== remoteStream) {
-        remoteAudioRef.current.srcObject = remoteStream;
+      if (remoteAudioRef.current) {
+        if (remoteAudioRef.current.srcObject !== remoteStream) {
+          remoteAudioRef.current.srcObject = remoteStream;
+        }
+        remoteAudioRef.current.volume = 1.0;
+        remoteAudioRef.current.muted = false;
         remoteAudioRef.current.play().catch((err) => {
           console.warn("[WebRTC] Remote audio autoplay blocked by browser policy:", err);
         });
       }
-      if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remoteStream) {
-        remoteVideoRef.current.srcObject = remoteStream;
-        remoteVideoRef.current.play().catch((err) => {
-          console.warn("[WebRTC] Remote video autoplay error:", err);
-        });
+      if (remoteVideoRef.current) {
+        if (remoteVideoRef.current.srcObject !== remoteStream) {
+          remoteVideoRef.current.srcObject = remoteStream;
+        }
+        if (shouldShowRemoteVideo) {
+          remoteVideoRef.current.play().catch((err) => {
+            console.warn("[WebRTC] Remote video autoplay error:", err);
+          });
+        }
       }
+
+      const handleRemoteTrack = () => {
+        if (remoteAudioRef.current) {
+          remoteAudioRef.current.play().catch(() => {});
+        }
+        if (remoteVideoRef.current && shouldShowRemoteVideo) {
+          remoteVideoRef.current.play().catch(() => {});
+        }
+      };
+
+      remoteStream.addEventListener("addtrack", handleRemoteTrack);
+      remoteStream.addEventListener("removetrack", handleRemoteTrack);
+      return () => {
+        remoteStream.removeEventListener("addtrack", handleRemoteTrack);
+        remoteStream.removeEventListener("removetrack", handleRemoteTrack);
+      };
     }
-  }, [remoteStream, mode, callType]);
+  }, [remoteStream, mode, shouldShowRemoteVideo]);
 
   // Call timer when connected
   useEffect(() => {
@@ -320,40 +451,154 @@ export function DirectCallModal({
 
   const toggleAudio = () => {
     if (localStream) {
+      const nextMuted = !isAudioMuted;
       localStream.getAudioTracks().forEach((track) => {
-        track.enabled = !track.enabled;
+        track.enabled = !nextMuted;
       });
-      setIsAudioMuted((prev) => !prev);
+      setIsAudioMuted(nextMuted);
+      if (onToggleMedia) {
+        onToggleMedia(nextMuted, isVideoOff);
+      }
     }
   };
 
   const toggleVideo = async () => {
-    if (localStream) {
-      const vTracks = localStream.getVideoTracks();
-      if (vTracks.length === 0) {
-        try {
-          const camStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-            audio: false,
-          });
-          camStream.getVideoTracks().forEach((t) => localStream.addTrack(t));
-          if (localVideoRef.current) {
+    // If sharing screen, stop screen share first
+    if (isScreenSharing && screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((t) => t.stop());
+      screenStreamRef.current = null;
+      setIsScreenSharing(false);
+      if (onToggleScreenShare) onToggleScreenShare(false);
+    }
+
+    if (!localStream) {
+      toast.error("Call stream not initialized");
+      return;
+    }
+
+    let vTracks = localStream.getVideoTracks();
+    if (vTracks.length === 0) {
+      try {
+        const camStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+          audio: false,
+        });
+        const newTrack = camStream.getVideoTracks()[0];
+        localStream.addTrack(newTrack);
+        setIsVideoOff(false);
+        setHasLocalVideoTrack(true);
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = localStream;
+          localVideoRef.current.play().catch(() => {});
+        }
+
+        if (onReplaceVideoTrack) {
+          await onReplaceVideoTrack(newTrack);
+        }
+        if (onToggleMedia) {
+          onToggleMedia(isAudioMuted, false);
+        }
+        return;
+      } catch (err) {
+        console.error("Camera acquisition error:", err);
+        toast.error("Could not access camera");
+        return;
+      }
+    }
+
+    const nextVideoOff = !isVideoOff;
+    setIsVideoOff(nextVideoOff);
+
+    vTracks.forEach((track) => {
+      track.enabled = !nextVideoOff;
+    });
+
+    if (onReplaceVideoTrack) {
+      const trackToSend = nextVideoOff ? null : vTracks.find((t) => t.readyState === "live") || null;
+      await onReplaceVideoTrack(trackToSend);
+    }
+
+    if (onToggleMedia) {
+      onToggleMedia(isAudioMuted, nextVideoOff);
+    }
+  };
+
+  const toggleScreenShare = async () => {
+    if (isScreenSharing) {
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((t) => t.stop());
+        screenStreamRef.current = null;
+      }
+      setIsScreenSharing(false);
+      if (onToggleScreenShare) onToggleScreenShare(false);
+
+      const activeCamTrack = (!isVideoOff && localStream)
+        ? localStream.getVideoTracks().find((t) => t.readyState === "live") || null
+        : null;
+      if (onReplaceVideoTrack) {
+        await onReplaceVideoTrack(activeCamTrack);
+      }
+      if (localVideoRef.current && localStream) {
+        localVideoRef.current.srcObject = localStream;
+        localVideoRef.current.play().catch(() => {});
+      }
+      toast.info("Screen sharing stopped");
+    } else {
+      try {
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            cursor: "always",
+            displaySurface: "monitor",
+          } as any,
+          audio: false,
+        });
+        const screenTrack = displayStream.getVideoTracks()[0];
+        if (!screenTrack) {
+          toast.error("No screen track available");
+          return;
+        }
+
+        screenStreamRef.current = displayStream;
+        setIsScreenSharing(true);
+        if (onToggleScreenShare) onToggleScreenShare(true);
+
+        if (onReplaceVideoTrack) {
+          await onReplaceVideoTrack(screenTrack);
+        }
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = displayStream;
+          localVideoRef.current.play().catch(() => {});
+        }
+
+        screenTrack.onended = async () => {
+          if (screenStreamRef.current) {
+            screenStreamRef.current.getTracks().forEach((t) => t.stop());
+            screenStreamRef.current = null;
+          }
+          setIsScreenSharing(false);
+          if (onToggleScreenShare) onToggleScreenShare(false);
+
+          const activeCam = (!isVideoOff && localStream)
+            ? localStream.getVideoTracks().find((t) => t.readyState === "live") || null
+            : null;
+          if (onReplaceVideoTrack) {
+            await onReplaceVideoTrack(activeCam);
+          }
+          if (localVideoRef.current && localStream) {
             localVideoRef.current.srcObject = localStream;
             localVideoRef.current.play().catch(() => {});
           }
-          setIsVideoOff(false);
-          setHasLocalVideoTrack(true);
-          return;
-        } catch {
-          toast.error("Could not access camera");
-          return;
+          toast.info("Screen sharing ended");
+        };
+
+        toast.success("Sharing screen");
+      } catch (err: any) {
+        if (err.name !== "NotAllowedError") {
+          toast.error("Screen share error: " + (err.message || "Failed to start"));
         }
       }
-
-      vTracks.forEach((track) => {
-        track.enabled = !track.enabled;
-      });
-      setIsVideoOff((prev) => !prev);
     }
   };
 
@@ -387,7 +632,9 @@ export function DirectCallModal({
       <div
         style={{
           width: "100%",
-          maxWidth: callType === "video" && mode === "connected" ? (remotePeers && remotePeers.length > 1 ? "920px" : "680px") : (remotePeers && remotePeers.length > 1 ? "560px" : "400px"),
+          maxWidth: (callType === "video" || isScreenSharing || isRemoteScreenSharing) && mode === "connected"
+            ? (remotePeers && remotePeers.length > 1 ? "960px" : "780px")
+            : (remotePeers && remotePeers.length > 1 ? "560px" : "440px"),
           background: "#121816",
           borderRadius: "20px",
           overflow: "hidden",
@@ -535,208 +782,281 @@ export function DirectCallModal({
             )}
 
             {/* Video Streams / Audio Avatar Canvas */}
-            <div style={{ position: "relative", minHeight: callType === "video" ? "380px" : "240px", background: "#0c0c10", display: "grid", placeItems: "center" }}>
-              {callType === "video" ? (
-                remotePeers && remotePeers.length > 1 ? (
-                  /* MULTI-PEER RESPONSIVE GRID (2, 3, 4+ participants) */
+            <div
+              style={{
+                position: "relative",
+                minHeight: (callType === "video" || isScreenSharing || isRemoteScreenSharing) ? "400px" : "260px",
+                background: "#0c0c10",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              {remotePeers && remotePeers.length > 1 ? (
+                /* MULTI-PEER RESPONSIVE GRID (2, 3, 4+ participants) */
+                <div
+                  style={{
+                    width: "100%",
+                    minHeight: "380px",
+                    display: "grid",
+                    gridTemplateColumns: remotePeers.length === 2 ? "repeat(2, 1fr)" : "repeat(auto-fit, minmax(260px, 1fr))",
+                    gap: "10px",
+                    padding: "12px",
+                    background: "#0c0c10",
+                    position: "relative",
+                  }}
+                >
+                  {remotePeers.map((peer) => (
+                    <ParticipantVideoTile
+                      key={peer.socketId}
+                      peer={peer}
+                      mediaState={remotePeerMediaStates?.[peer.socketId]}
+                      isScreenSharing={remotePeerScreenShares?.[peer.socketId]}
+                    />
+                  ))}
+                  {/* Floating Local PIP */}
                   <div
                     style={{
-                      width: "100%",
-                      minHeight: "380px",
-                      display: "grid",
-                      gridTemplateColumns: remotePeers.length === 2 ? "repeat(2, 1fr)" : "repeat(auto-fit, minmax(260px, 1fr))",
-                      gap: "10px",
-                      padding: "12px",
-                      background: "#0c0c10",
-                      position: "relative",
+                      position: "absolute",
+                      bottom: "16px",
+                      right: "16px",
+                      width: "140px",
+                      height: "100px",
+                      borderRadius: "10px",
+                      overflow: "hidden",
+                      border: "2px solid #10b981",
+                      background: "#18181b",
+                      boxShadow: "0 6px 15px rgba(0,0,0,0.6)",
+                      zIndex: 40,
+                      isolation: "isolate",
                     }}
                   >
-                    {remotePeers.map((peer) => (
-                      <ParticipantVideoTile key={peer.socketId} peer={peer} />
-                    ))}
-                    {/* Floating Local PIP */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: "16px",
-                        right: "16px",
-                        width: "140px",
-                        height: "100px",
-                        borderRadius: "10px",
-                        overflow: "hidden",
-                        border: "2px solid #10b981",
-                        background: "#18181b",
-                        boxShadow: "0 6px 15px rgba(0,0,0,0.6)",
-                        zIndex: 40,
-                        isolation: "isolate",
-                      }}
-                    >
-                      <video
-                        ref={(el) => {
-                          (localVideoRef as any).current = el;
-                          attachLocalVideo(el);
-                        }}
-                        autoPlay
-                        playsInline
-                        muted
-                        onLoadedMetadata={(e) => {
-                          const v = e.currentTarget;
-                          v.muted = true;
-                          v.play().catch(() => {});
-                        }}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          transform: "scaleX(-1)",
-                          WebkitTransform: "scaleX(-1)",
-                          display: isVideoOff ? "none" : "block",
-                          background: "#18181b",
-                        }}
-                      />
-                      {isVideoOff && (
-                        <div style={{ width: "100%", height: "100%", background: "#18181b", display: "grid", placeItems: "center" }}>
-                          <VideoOff size={20} color="#94a3b8" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  /* 1:1 CALL MAIN REMOTE + LOCAL PIP */
-                  <>
                     <video
-                      ref={attachRemoteVideo}
+                      ref={attachLocalVideo}
                       autoPlay
                       playsInline
-                      style={{ width: "100%", height: "100%", maxHeight: "420px", objectFit: "cover" }}
-                    />
-
-                    {/* Local Video (Floating Picture-in-Picture) */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: "16px",
-                        right: "16px",
-                        width: "140px",
-                        height: "100px",
-                        borderRadius: "10px",
-                        overflow: "hidden",
-                        border: "2px solid #10b981",
-                        background: "#18181b",
-                        boxShadow: "0 6px 15px rgba(0,0,0,0.5)",
-                        zIndex: 10,
-                        isolation: "isolate",
+                      muted
+                      onLoadedMetadata={(e) => {
+                        const v = e.currentTarget;
+                        v.muted = true;
+                        v.play().catch(() => {});
                       }}
-                    >
-                      <video
-                        ref={(el) => {
-                          (localVideoRef as any).current = el;
-                          attachLocalVideo(el);
-                        }}
-                        autoPlay
-                        playsInline
-                        muted
-                        onLoadedMetadata={(e) => {
-                          const v = e.currentTarget;
-                          v.muted = true;
-                          v.play().catch(() => {});
-                        }}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: isScreenSharing ? "contain" : "cover",
+                        transform: isScreenSharing ? "none" : "scaleX(-1)",
+                        WebkitTransform: isScreenSharing ? "none" : "scaleX(-1)",
+                        display: isVideoOff && !isScreenSharing ? "none" : "block",
+                        background: "#18181b",
+                      }}
+                    />
+                    {isVideoOff && !isScreenSharing && (
+                      <div
                         style={{
                           width: "100%",
                           height: "100%",
-                          objectFit: "cover",
-                          transform: "scaleX(-1)",
-                          WebkitTransform: "scaleX(-1)",
-                          display: isVideoOff ? "none" : "block",
                           background: "#18181b",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "4px",
+                          cursor: "pointer",
                         }}
-                      />
-                      {isVideoOff ? (
-                        <div
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: "#18181b",
-                            gap: "4px",
-                          }}
-                        >
-                          <VideoOff size={22} color="#94a3b8" />
-                          <span style={{ fontSize: "10px", color: "#94a3b8", fontWeight: 600 }}>Camera Off</span>
-                        </div>
-                      ) : !hasLocalVideoTrack ? (
-                        <div
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: "#18181b",
-                            gap: "4px",
-                            position: "absolute",
-                            inset: 0,
-                            cursor: "pointer",
-                          }}
-                          onClick={toggleVideo}
-                          title="Click to turn on camera"
-                        >
-                          <VideoOff size={22} color="#f59e0b" />
-                          <span style={{ fontSize: "9px", color: "#f59e0b", fontWeight: 700 }}>Enable Cam</span>
-                        </div>
-                      ) : null}
-                    </div>
-                  </>
-                )
-              ) : (
-                /* Audio Only Avatar View */
-                remotePeers && remotePeers.length > 1 ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: "24px", padding: "36px 20px" }}>
-                    {remotePeers.map((peer) => (
-                      <div key={peer.socketId} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
-                        <div style={{ position: "relative" }}>
-                          <div
-                            style={{
-                              position: "absolute",
-                              inset: "-8px",
-                              borderRadius: "50%",
-                              border: "2px solid #10b981",
-                              animation: "pulseRing 2.5s infinite",
-                            }}
-                          />
-                          <Avatar name={peer.name} avatar={peer.avatar} size={64} />
-                        </div>
-                        <span style={{ fontSize: "12px", color: "#fff", fontWeight: 700 }}>{peer.name}</span>
+                        onClick={toggleVideo}
+                        title="Click to turn on camera"
+                      >
+                        <VideoOff size={20} color="#94a3b8" />
+                        <span style={{ fontSize: "10px", color: "#94a3b8", fontWeight: 600 }}>Camera Off</span>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "14px", padding: "36px 0" }}>
-                    <div style={{ position: "relative" }}>
+                    )}
+                    {isScreenSharing && (
                       <div
                         style={{
                           position: "absolute",
-                          inset: "-10px",
-                          borderRadius: "50%",
-                          border: "2px solid #10b981",
-                          animation: "pulseRing 2.5s infinite",
+                          bottom: "4px",
+                          left: "4px",
+                          background: "rgba(2, 132, 199, 0.8)",
+                          padding: "1px 5px",
+                          borderRadius: "4px",
+                          fontSize: "8px",
+                          fontWeight: 700,
+                          color: "#fff",
                         }}
-                      />
-                      <Avatar name={partnerName} avatar={partnerAvatar} size={84} />
-                    </div>
-                    <span style={{ fontSize: "13px", color: "#34D399", fontWeight: 700 }}>FLUMENX Audio Call Connected</span>
+                      >
+                        Sharing Screen
+                      </div>
+                    )}
                   </div>
-                )
+                </div>
+              ) : (
+                /* 1:1 CALL MAIN REMOTE + LOCAL PIP */
+                <div style={{ width: "100%", height: "100%", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <video
+                    ref={attachRemoteVideo}
+                    autoPlay
+                    playsInline
+                    onLoadedMetadata={(e) => e.currentTarget.play().catch(() => {})}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      maxHeight: "440px",
+                      objectFit: isRemoteScreenSharing ? "contain" : "cover",
+                      display: shouldShowRemoteVideo ? "block" : "none",
+                    }}
+                  />
+
+                  {/* Remote Avatar (DP) when video is off */}
+                  {!shouldShowRemoteVideo && (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "40px 16px" }}>
+                      <div style={{ position: "relative" }}>
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: "-10px",
+                            borderRadius: "50%",
+                            border: "2px solid #10b981",
+                            animation: "pulseRing 2.5s infinite",
+                          }}
+                        />
+                        <Avatar name={partnerName} avatar={partnerAvatar} size={84} />
+                      </div>
+                      <span style={{ fontSize: "15px", fontWeight: 700, color: "#fff" }}>{partnerName}</span>
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: remoteMediaState?.isVideoOff ? "#94a3b8" : "#34D399",
+                          background: "rgba(255,255,255,0.06)",
+                          padding: "4px 14px",
+                          borderRadius: "20px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                        }}
+                      >
+                        {remoteMediaState?.isVideoOff ? (
+                          <>
+                            <VideoOff size={13} color="#94a3b8" /> Camera is turned off
+                          </>
+                        ) : callType === "audio" ? (
+                          "FLUMENX Voice Call Connected"
+                        ) : (
+                          "Connecting video stream..."
+                        )}
+                      </span>
+                      {remoteMediaState?.isAudioMuted && (
+                        <span style={{ fontSize: "11px", color: "#ef4444", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                          <MicOff size={12} /> Colleague is muted
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Local Video (Floating Picture-in-Picture) */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: "16px",
+                      right: "16px",
+                      width: "140px",
+                      height: "100px",
+                      borderRadius: "10px",
+                      overflow: "hidden",
+                      border: "2px solid #10b981",
+                      background: "#18181b",
+                      boxShadow: "0 6px 15px rgba(0,0,0,0.5)",
+                      zIndex: 10,
+                      isolation: "isolate",
+                    }}
+                  >
+                    <video
+                      ref={attachLocalVideo}
+                      autoPlay
+                      playsInline
+                      muted
+                      onLoadedMetadata={(e) => {
+                        const v = e.currentTarget;
+                        v.muted = true;
+                        v.play().catch(() => {});
+                      }}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: isScreenSharing ? "contain" : "cover",
+                        transform: isScreenSharing ? "none" : "scaleX(-1)",
+                        WebkitTransform: isScreenSharing ? "none" : "scaleX(-1)",
+                        display: isVideoOff && !isScreenSharing ? "none" : "block",
+                        background: "#18181b",
+                      }}
+                    />
+                    {isVideoOff && !isScreenSharing ? (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "#18181b",
+                          gap: "4px",
+                          cursor: "pointer",
+                        }}
+                        onClick={toggleVideo}
+                        title="Click to turn on camera"
+                      >
+                        <VideoOff size={22} color="#94a3b8" />
+                        <span style={{ fontSize: "10px", color: "#94a3b8", fontWeight: 600 }}>Camera Off</span>
+                      </div>
+                    ) : !hasLocalVideoTrack && !isScreenSharing ? (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "#18181b",
+                          gap: "4px",
+                          position: "absolute",
+                          inset: 0,
+                          cursor: "pointer",
+                        }}
+                        onClick={toggleVideo}
+                        title="Click to turn on camera"
+                      >
+                        <VideoOff size={22} color="#f59e0b" />
+                        <span style={{ fontSize: "9px", color: "#f59e0b", fontWeight: 700 }}>Enable Cam</span>
+                      </div>
+                    ) : null}
+                    {isScreenSharing && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "4px",
+                          left: "4px",
+                          background: "rgba(2, 132, 199, 0.8)",
+                          padding: "1px 5px",
+                          borderRadius: "4px",
+                          fontSize: "8px",
+                          fontWeight: 700,
+                          color: "#fff",
+                        }}
+                      >
+                        Sharing Screen
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
 
             {/* Bottom Controls */}
             <div style={{ padding: "16px 20px", background: "rgba(0,0,0,0.4)", display: "flex", justifyContent: "center", alignItems: "center", gap: "16px" }}>
               <button
+                type="button"
                 onClick={toggleAudio}
                 style={{
                   width: "46px",
@@ -755,26 +1075,47 @@ export function DirectCallModal({
                 {isAudioMuted ? <MicOff size={20} /> : <Mic size={20} />}
               </button>
 
-              {callType === "video" && (
-                <button
-                  onClick={toggleVideo}
-                  style={{
-                    width: "46px",
-                    height: "46px",
-                    borderRadius: "50%",
-                    background: isVideoOff || !hasLocalVideoTrack ? "#ef4444" : "rgba(255,255,255,0.1)",
-                    color: "#fff",
-                    border: 0,
-                    cursor: "pointer",
-                    display: "grid",
-                    placeItems: "center",
-                    transition: "all 0.15s ease",
-                  }}
-                  title={isVideoOff || !hasLocalVideoTrack ? "Turn Camera On" : "Turn Camera Off"}
-                >
-                  {isVideoOff || !hasLocalVideoTrack ? <VideoOff size={20} /> : <Video size={20} />}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={toggleVideo}
+                style={{
+                  width: "46px",
+                  height: "46px",
+                  borderRadius: "50%",
+                  background: isVideoOff || (!hasLocalVideoTrack && !isScreenSharing) ? "#ef4444" : "rgba(255,255,255,0.1)",
+                  color: "#fff",
+                  border: 0,
+                  cursor: "pointer",
+                  display: "grid",
+                  placeItems: "center",
+                  transition: "all 0.15s ease",
+                }}
+                title={isVideoOff ? "Turn Camera On" : "Turn Camera Off"}
+              >
+                {isVideoOff || (!hasLocalVideoTrack && !isScreenSharing) ? <VideoOff size={20} /> : <Video size={20} />}
+              </button>
+
+              {/* Screen Share Button */}
+              <button
+                type="button"
+                onClick={toggleScreenShare}
+                style={{
+                  width: "46px",
+                  height: "46px",
+                  borderRadius: "50%",
+                  background: isScreenSharing ? "#0284c7" : "rgba(255,255,255,0.1)",
+                  color: "#fff",
+                  border: isScreenSharing ? "2px solid #38bdf8" : 0,
+                  cursor: "pointer",
+                  display: "grid",
+                  placeItems: "center",
+                  transition: "all 0.15s ease",
+                  boxShadow: isScreenSharing ? "0 0 12px rgba(2, 132, 199, 0.6)" : "none",
+                }}
+                title={isScreenSharing ? "Stop Sharing Screen" : "Share Screen"}
+              >
+                {isScreenSharing ? <ScreenShareOff size={20} /> : <ScreenShare size={20} />}
+              </button>
 
               {/* Add Person to Call (Native In-App) */}
               <button
@@ -798,6 +1139,7 @@ export function DirectCallModal({
               </button>
 
               <button
+                type="button"
                 onClick={onEndCall}
                 style={{
                   width: "50px",

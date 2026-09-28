@@ -95,11 +95,7 @@ export const QUALITY_PROFILES: Record<
 };
 
 function optimizeSdpOpusAudio(sdp: string): string {
-  if (!sdp) return sdp;
-  return sdp.replace(
-    /a=fmtp:111 (.*)/g,
-    "a=fmtp:111 $1;useinbandfec=1;usedtx=1;minptime=10;maxaveragebitrate=64000"
-  );
+  return sdp;
 }
 
 export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
@@ -362,9 +358,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       try {
         if (peer.pc.signalingState !== "stable") return;
         const offer = await peer.pc.createOffer();
-        const optSdp = optimizeSdpOpusAudio(offer.sdp || "");
-        const newOffer = new RTCSessionDescription({ type: offer.type, sdp: optSdp });
-        await peer.pc.setLocalDescription(newOffer);
+        await peer.pc.setLocalDescription(offer);
         applyQualityToPeerSenders(peer.pc, videoQuality);
         if (socketRef.current) {
           socketRef.current.emit("signal-offer", {
@@ -394,7 +388,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           if (track.kind === "video") track.enabled = !isVideoOffRef.current;
 
           const existingSender = senders.find(
-            (s) => s.track?.kind === track.kind || (s.track && s.track.id === track.id)
+            (s) => (s.track && s.track.kind === track.kind) || (s as any).kind === track.kind
           );
           if (existingSender) {
             existingSender.replaceTrack(track).catch(() => {});
@@ -444,7 +438,9 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         activeStream.getTracks().forEach((track) => {
           if (track.kind === "audio") track.enabled = !isAudioMutedRef.current;
           if (track.kind === "video") track.enabled = !isVideoOffRef.current;
-          pc.addTrack(track, activeStream);
+          try {
+            pc.addTrack(track, activeStream);
+          } catch {}
         });
       }
 
@@ -465,7 +461,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
       pc.onnegotiationneeded = async () => {
         const p = peersRef.current.get(socketId);
-        if (p) {
+        if (p && p.pc.signalingState === "stable" && isInitiator) {
           await renegotiatePeer(p);
         }
       };
@@ -474,12 +470,15 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         const peerObj = peersRef.current.get(socketId);
         let remoteStream = peerObj?.stream;
         if (!remoteStream) {
-          remoteStream = event.streams[0] || new MediaStream();
+          remoteStream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream();
         }
         if (!remoteStream.getTracks().some((t) => t.id === event.track.id)) {
           remoteStream.addTrack(event.track);
         }
         const freshStream = new MediaStream(remoteStream.getTracks());
+        if (peerObj) {
+          peerObj.stream = freshStream;
+        }
         setPeers((prev) => {
           const next = new Map(prev);
           const p = next.get(socketId);
@@ -489,9 +488,6 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
           }
           return next;
         });
-        if (peerObj) {
-          peerObj.stream = freshStream;
-        }
       };
 
       const peerObj: PeerConnection = {
@@ -510,11 +506,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
       if (isInitiator) {
         pc.createOffer()
-          .then((offer) => {
-            const optSdp = optimizeSdpOpusAudio(offer.sdp || "");
-            const newOffer = new RTCSessionDescription({ type: offer.type, sdp: optSdp });
-            return pc.setLocalDescription(newOffer);
-          })
+          .then((offer) => pc.setLocalDescription(offer))
           .then(() => {
             applyQualityToPeerSenders(pc, videoQuality);
             if (socketRef.current) {
@@ -569,7 +561,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     }
 
     const socket = io(socketUrl || "", {
-      path: "/socket.io/",
+      path: "/socket.io",
       auth: { token },
       query: { token },
       extraHeaders: token ? { Authorization: `Bearer ${token}` } : {},
@@ -629,13 +621,16 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       }
       if (peer) {
         try {
+          if (peer.pc.signalingState !== "stable") {
+            if (peer.pc.signalingState === "have-local-offer") {
+              await peer.pc.setLocalDescription({ type: "rollback" } as any).catch(() => {});
+            }
+          }
           await peer.pc.setRemoteDescription(new RTCSessionDescription(data.offer));
           const answer = await peer.pc.createAnswer();
-          const optSdp = optimizeSdpOpusAudio(answer.sdp || "");
-          const newAnswer = new RTCSessionDescription({ type: answer.type, sdp: optSdp });
-          await peer.pc.setLocalDescription(newAnswer);
+          await peer.pc.setLocalDescription(answer);
           applyQualityToPeerSenders(peer.pc, videoQuality);
-          socket.emit("signal-answer", { to: data.from, answer: newAnswer });
+          socket.emit("signal-answer", { to: data.from, answer: peer.pc.localDescription });
 
           const queued = iceCandidatesQueue.current.get(data.from) || [];
           for (const cand of queued) {
@@ -652,7 +647,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
     socket.on("signal-answer", async (data: { from: string; answer: RTCSessionDescriptionInit }) => {
       const peer = peersRef.current.get(data.from);
-      if (peer) {
+      if (peer && peer.pc.signalingState !== "closed") {
         try {
           await peer.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
           const queued = iceCandidatesQueue.current.get(data.from) || [];
@@ -885,6 +880,20 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       videoTrack.enabled = !nextState;
       setIsVideoOff(nextState);
 
+      // Re-apply to peer senders if enabling
+      if (!nextState) {
+        peersRef.current.forEach((peer) => {
+          const sender = peer.pc.getSenders().find((s) => (s.track && s.track.kind === "video") || (s as any).kind === "video");
+          if (sender) {
+            sender.replaceTrack(videoTrack).catch(() => {});
+          }
+        });
+        if (localVideoRef.current && targetStream) {
+          localVideoRef.current.srcObject = targetStream;
+          localVideoRef.current.play().catch(() => {});
+        }
+      }
+
       if (socketRef.current) {
         socketRef.current.emit("toggle-media", {
           meetingCode,
@@ -942,7 +951,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         }
 
         peersRef.current.forEach((peer) => {
-          const sender = peer.pc.getSenders().find((s) => s.track?.kind === "video" || s.track === null);
+          const sender = peer.pc.getSenders().find((s) => (s.track && s.track.kind === "video") || (s as any).kind === "video");
           if (sender) {
             sender.replaceTrack(newVideoTrack).catch((err) => console.warn("replaceTrack video error:", err));
           }
@@ -977,7 +986,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         newAudioTrack.enabled = !isAudioMuted;
 
         peersRef.current.forEach((peer) => {
-          const sender = peer.pc.getSenders().find((s) => s.track?.kind === "audio" || s.track === null);
+          const sender = peer.pc.getSenders().find((s) => (s.track && s.track.kind === "audio") || (s as any).kind === "audio");
           if (sender) {
             sender.replaceTrack(newAudioTrack).catch((err) => console.warn("replaceTrack audio error:", err));
           }
@@ -997,17 +1006,16 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
       }
       setIsScreenSharing(false);
 
-      if (localStream) {
-        const videoTrack = localStream.getVideoTracks()[0];
-        peersRef.current.forEach((peer) => {
-          const sender = peer.pc.getSenders().find((s) => s.track && s.track.kind === "video");
-          if (sender && videoTrack) {
-            sender.replaceTrack(videoTrack);
-          }
-        });
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = localStream;
+      const videoTrack = localStream?.getVideoTracks()[0] || null;
+      peersRef.current.forEach((peer) => {
+        const sender = peer.pc.getSenders().find((s) => (s.track && s.track.kind === "video") || (s as any).kind === "video");
+        if (sender) {
+          sender.replaceTrack(videoTrack).catch(() => {});
         }
+      });
+      if (localVideoRef.current && localStream) {
+        localVideoRef.current.srcObject = localStream;
+        localVideoRef.current.play().catch(() => {});
       }
 
       if (socketRef.current) {
@@ -1025,14 +1033,20 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         const screenVideoTrack = screenStream.getVideoTracks()[0];
 
         peersRef.current.forEach((peer) => {
-          const sender = peer.pc.getSenders().find((s) => s.track && s.track.kind === "video");
-          if (sender && screenVideoTrack) {
-            sender.replaceTrack(screenVideoTrack);
+          let sender = peer.pc.getSenders().find((s) => (s.track && s.track.kind === "video") || (s as any).kind === "video");
+          if (sender) {
+            sender.replaceTrack(screenVideoTrack).catch(() => {});
+          } else {
+            try {
+              peer.pc.addTrack(screenVideoTrack, screenStream);
+              renegotiatePeer(peer);
+            } catch {}
           }
         });
 
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = screenStream;
+          localVideoRef.current.play().catch(() => {});
         }
 
         if (socketRef.current) {
@@ -1140,6 +1154,33 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
     showToast("Meeting link copied to clipboard!");
     setTimeout(() => setCopied(false), 2500);
   };
+
+  // Global audio & video playback unblocker (overcomes browser Autoplay policy)
+  useEffect(() => {
+    const unblockAllAudio = () => {
+      document.querySelectorAll("audio").forEach((el) => {
+        if (el.paused && el.srcObject) {
+          el.volume = 1.0;
+          el.muted = false;
+          el.play().catch(() => {});
+        }
+      });
+      document.querySelectorAll("video").forEach((el) => {
+        if (el.paused && el.srcObject && el.style.display !== "none") {
+          el.play().catch(() => {});
+        }
+      });
+    };
+
+    window.addEventListener("click", unblockAllAudio);
+    window.addEventListener("touchstart", unblockAllAudio);
+    window.addEventListener("keydown", unblockAllAudio);
+    return () => {
+      window.removeEventListener("click", unblockAllAudio);
+      window.removeEventListener("touchstart", unblockAllAudio);
+      window.removeEventListener("keydown", unblockAllAudio);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -1639,10 +1680,25 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
               <div style={{ flex: 1, position: "relative", background: "#13231F", borderRadius: "16px", overflow: "hidden", border: "2px solid #34D399", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {isLocalPinned ? (
                   <video
-                    ref={localVideoRef}
+                    ref={(el) => {
+                      localVideoRef.current = el;
+                      if (el) {
+                        el.defaultMuted = true;
+                        el.muted = true;
+                        const s = isScreenSharing && screenStreamRef.current ? screenStreamRef.current : localStream;
+                        if (s && el.srcObject !== s) {
+                          el.srcObject = s;
+                        }
+                        el.play().catch(() => {});
+                      }
+                    }}
                     autoPlay
                     playsInline
                     muted
+                    onLoadedMetadata={(e) => {
+                      e.currentTarget.muted = true;
+                      e.currentTarget.play().catch(() => {});
+                    }}
                     style={{ width: "100%", height: "100%", objectFit: isScreenSharing ? "contain" : "cover", transform: isScreenSharing ? "none" : "scaleX(-1)" }}
                   />
                 ) : (
@@ -1750,10 +1806,25 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
                   }}
                 >
                   <video
-                    ref={localVideoRef}
+                    ref={(el) => {
+                      localVideoRef.current = el;
+                      if (el) {
+                        el.defaultMuted = true;
+                        el.muted = true;
+                        const s = isScreenSharing && screenStreamRef.current ? screenStreamRef.current : localStream;
+                        if (s && el.srcObject !== s) {
+                          el.srcObject = s;
+                        }
+                        el.play().catch(() => {});
+                      }
+                    }}
                     autoPlay
                     playsInline
                     muted
+                    onLoadedMetadata={(e) => {
+                      e.currentTarget.muted = true;
+                      e.currentTarget.play().catch(() => {});
+                    }}
                     style={{
                       width: "100%",
                       height: "100%",
@@ -2244,64 +2315,85 @@ function RemotePeerTile({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
-    const videoEl = videoRef.current;
-    const audioEl = audioRef.current;
-    if (!peer.stream) return;
-
-    const playMedia = () => {
-      if (videoEl && peer.stream) {
-        videoEl.srcObject = peer.stream;
-        videoEl.play().catch((err) => console.warn("Remote video play catch:", err));
-      }
-      if (audioEl && peer.stream) {
-        audioEl.srcObject = peer.stream;
-        audioEl.volume = 1.0;
-        audioEl.muted = false;
-        audioEl.play().catch((err) => console.warn("Remote audio play catch:", err));
-      }
-    };
-
-    playMedia();
-
-    // Auto-retry playing audio/video on first user gesture if browser blocked autoplay policy
-    const unlockAutoplay = () => {
-      if (audioEl) {
-        audioEl.volume = 1.0;
-        audioEl.muted = false;
-        audioEl.play().catch(() => {});
-      }
-      if (videoEl && videoEl.paused) {
-        videoEl.play().catch(() => {});
-      }
-    };
-
-    document.addEventListener("click", unlockAutoplay, { once: true });
-    document.addEventListener("touchstart", unlockAutoplay, { once: true });
-
-    const handleStreamTrackEvent = () => {
-      playMedia();
-    };
-
-    peer.stream.addEventListener("addtrack", handleStreamTrackEvent);
-    peer.stream.addEventListener("removetrack", handleStreamTrackEvent);
-
-    return () => {
-      document.removeEventListener("click", unlockAutoplay);
-      document.removeEventListener("touchstart", unlockAutoplay);
-      if (peer.stream) {
-        peer.stream.removeEventListener("addtrack", handleStreamTrackEvent);
-        peer.stream.removeEventListener("removetrack", handleStreamTrackEvent);
-      }
-    };
-  }, [peer.stream]);
-
   const hasVideoTrack = Boolean(
     peer.stream &&
     peer.stream.getVideoTracks().length > 0 &&
     peer.stream.getVideoTracks().some((t) => t.readyState !== "ended")
   );
   const shouldShowVideo = !peer.isVideoOff && (hasVideoTrack || peer.isScreenSharing);
+
+  const attachVideo = useCallback(
+    (el: HTMLVideoElement | null) => {
+      videoRef.current = el;
+      if (el && peer.stream) {
+        el.setAttribute("playsinline", "true");
+        el.setAttribute("autoplay", "true");
+        if (el.srcObject !== peer.stream) {
+          el.srcObject = peer.stream;
+        }
+        el.play().catch(() => {});
+      }
+    },
+    [peer.stream]
+  );
+
+  const attachAudio = useCallback(
+    (el: HTMLAudioElement | null) => {
+      audioRef.current = el;
+      if (el && peer.stream) {
+        el.setAttribute("playsinline", "true");
+        el.setAttribute("autoplay", "true");
+        el.volume = 1.0;
+        el.muted = false;
+        if (el.srcObject !== peer.stream) {
+          el.srcObject = peer.stream;
+        }
+        el.play().catch(() => {});
+      }
+    },
+    [peer.stream]
+  );
+
+  useEffect(() => {
+    const videoEl = videoRef.current;
+    const audioEl = audioRef.current;
+    if (!peer.stream) return;
+
+    if (videoEl && shouldShowVideo) {
+      if (videoEl.srcObject !== peer.stream) {
+        videoEl.srcObject = peer.stream;
+      }
+      videoEl.play().catch(() => {});
+    }
+
+    if (audioEl) {
+      if (audioEl.srcObject !== peer.stream) {
+        audioEl.srcObject = peer.stream;
+      }
+      audioEl.volume = 1.0;
+      audioEl.muted = false;
+      audioEl.play().catch(() => {});
+    }
+
+    const handleStreamTrackEvent = () => {
+      if (videoEl && shouldShowVideo) {
+        videoEl.play().catch(() => {});
+      }
+      if (audioEl) {
+        audioEl.play().catch(() => {});
+      }
+    };
+
+    peer.stream.addEventListener("addtrack", handleStreamTrackEvent);
+    peer.stream.addEventListener("removetrack", handleStreamTrackEvent);
+
+    return () => {
+      if (peer.stream) {
+        peer.stream.removeEventListener("addtrack", handleStreamTrackEvent);
+        peer.stream.removeEventListener("removetrack", handleStreamTrackEvent);
+      }
+    };
+  }, [peer.stream, shouldShowVideo, peer.isVideoOff, peer.isScreenSharing]);
 
   return (
     <div
@@ -2330,9 +2422,10 @@ function RemotePeerTile({
     >
       {/* Remote Video Stream */}
       <video
-        ref={videoRef}
+        ref={attachVideo}
         autoPlay
         playsInline
+        onLoadedMetadata={(e) => e.currentTarget.play().catch(() => {})}
         style={{
           width: "100%",
           height: "100%",
@@ -2343,12 +2436,25 @@ function RemotePeerTile({
       />
 
       {/* Hidden Dedicated Audio Stream Player */}
-      <audio ref={audioRef} autoPlay playsInline />
+      <audio
+        ref={attachAudio}
+        autoPlay
+        playsInline
+        onLoadedMetadata={(e) => {
+          e.currentTarget.volume = 1.0;
+          e.currentTarget.muted = false;
+          e.currentTarget.play().catch(() => {});
+        }}
+      />
 
       {!shouldShowVideo && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <Avatar name={peer.name} avatar={peer.avatar} size={compact ? 36 : totalCount <= 2 ? 68 : 50} />
-          {!compact && <span style={{ marginTop: "10px", fontSize: "12px", color: "#94A3B8" }}>{peer.isVideoOff ? "Camera is off" : "Connecting video..."}</span>}
+          {!compact && (
+            <span style={{ marginTop: "10px", fontSize: "12px", color: "#94A3B8" }}>
+              {peer.isVideoOff ? "Camera is off" : "Connecting video..."}
+            </span>
+          )}
         </div>
       )}
 
@@ -2390,74 +2496,78 @@ function RemotePinnedVideo({ peer }: { peer?: PeerConnection | null }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const hasVideoTrack = Boolean(
+    peer?.stream &&
+    peer.stream.getVideoTracks().length > 0 &&
+    peer.stream.getVideoTracks().some((t) => t.readyState !== "ended")
+  );
+  const shouldShowVideo = Boolean(peer && !peer.isVideoOff && (hasVideoTrack || peer.isScreenSharing));
+
+  const attachVideo = useCallback(
+    (el: HTMLVideoElement | null) => {
+      videoRef.current = el;
+      if (el && peer?.stream) {
+        el.setAttribute("playsinline", "true");
+        el.setAttribute("autoplay", "true");
+        if (el.srcObject !== peer.stream) {
+          el.srcObject = peer.stream;
+        }
+        el.play().catch(() => {});
+      }
+    },
+    [peer?.stream]
+  );
+
+  const attachAudio = useCallback(
+    (el: HTMLAudioElement | null) => {
+      audioRef.current = el;
+      if (el && peer?.stream) {
+        el.setAttribute("playsinline", "true");
+        el.setAttribute("autoplay", "true");
+        el.volume = 1.0;
+        el.muted = false;
+        if (el.srcObject !== peer.stream) {
+          el.srcObject = peer.stream;
+        }
+        el.play().catch(() => {});
+      }
+    },
+    [peer?.stream]
+  );
+
   useEffect(() => {
     const videoEl = videoRef.current;
     const audioEl = audioRef.current;
     if (!peer?.stream) return;
 
-    const playMedia = () => {
-      if (videoEl && peer.stream) {
+    if (videoEl && shouldShowVideo) {
+      if (videoEl.srcObject !== peer.stream) {
         videoEl.srcObject = peer.stream;
-        videoEl.play().catch((err) => console.warn("Remote pinned video playback catch:", err));
       }
-      if (audioEl && peer.stream) {
+      videoEl.play().catch(() => {});
+    }
+
+    if (audioEl) {
+      if (audioEl.srcObject !== peer.stream) {
         audioEl.srcObject = peer.stream;
-        audioEl.volume = 1.0;
-        audioEl.muted = false;
-        audioEl.play().catch((err) => console.warn("Remote pinned audio catch:", err));
       }
-    };
-
-    playMedia();
-
-    const unlockAutoplay = () => {
-      if (audioEl) {
-        audioEl.volume = 1.0;
-        audioEl.muted = false;
-        audioEl.play().catch(() => {});
-      }
-      if (videoEl && videoEl.paused) {
-        videoEl.play().catch(() => {});
-      }
-    };
-
-    document.addEventListener("click", unlockAutoplay, { once: true });
-    document.addEventListener("touchstart", unlockAutoplay, { once: true });
-
-    const handleStreamTrackEvent = () => {
-      playMedia();
-    };
-
-    peer.stream.addEventListener("addtrack", handleStreamTrackEvent);
-    peer.stream.addEventListener("removetrack", handleStreamTrackEvent);
-
-    return () => {
-      document.removeEventListener("click", unlockAutoplay);
-      document.removeEventListener("touchstart", unlockAutoplay);
-      if (peer?.stream) {
-        peer.stream.removeEventListener("addtrack", handleStreamTrackEvent);
-        peer.stream.removeEventListener("removetrack", handleStreamTrackEvent);
-      }
-    };
-  }, [peer?.stream]);
+      audioEl.volume = 1.0;
+      audioEl.muted = false;
+      audioEl.play().catch(() => {});
+    }
+  }, [peer?.stream, shouldShowVideo, peer?.isVideoOff, peer?.isScreenSharing]);
 
   if (!peer) {
     return <div style={{ color: "#94A3B8", fontSize: "13px" }}>Spotlight participant media stream loading...</div>;
   }
 
-  const hasVideoTrack = Boolean(
-    peer.stream &&
-    peer.stream.getVideoTracks().length > 0 &&
-    peer.stream.getVideoTracks().some((t) => t.readyState !== "ended")
-  );
-  const shouldShowVideo = !peer.isVideoOff && (hasVideoTrack || peer.isScreenSharing);
-
   return (
     <div style={{ width: "100%", height: "100%", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <video
-        ref={videoRef}
+        ref={attachVideo}
         autoPlay
         playsInline
+        onLoadedMetadata={(e) => e.currentTarget.play().catch(() => {})}
         style={{
           width: "100%",
           height: "100%",
@@ -2465,11 +2575,22 @@ function RemotePinnedVideo({ peer }: { peer?: PeerConnection | null }) {
           display: shouldShowVideo ? "block" : "none",
         }}
       />
-      <audio ref={audioRef} autoPlay playsInline />
+      <audio
+        ref={attachAudio}
+        autoPlay
+        playsInline
+        onLoadedMetadata={(e) => {
+          e.currentTarget.volume = 1.0;
+          e.currentTarget.muted = false;
+          e.currentTarget.play().catch(() => {});
+        }}
+      />
       {!shouldShowVideo && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <Avatar name={peer.name} avatar={peer.avatar} size={64} />
-          <span style={{ marginTop: "10px", fontSize: "12px", color: "#94A3B8" }}>{peer.isVideoOff ? "Camera is off" : "Connecting video..."}</span>
+          <span style={{ marginTop: "10px", fontSize: "12px", color: "#94A3B8" }}>
+            {peer.isVideoOff ? "Camera is off" : "Connecting video..."}
+          </span>
         </div>
       )}
     </div>

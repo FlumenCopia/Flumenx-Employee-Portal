@@ -41,7 +41,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
     SUPER_ADMIN_USERS: READ_ONLY,
     PAGE_MANAGEMENT: READ_ONLY,
     SALARY_SLIPS: FULL_ACCESS,
-    ACCOUNTING: FULL_ACCESS,
+    ACCOUNTING: MANAGE_NO_DELETE,
     ANNOUNCEMENTS: FULL_ACCESS,
     AUDIT_LOGS: READ_ONLY,
     SETTINGS_ACCESS: READ_ONLY,
@@ -128,7 +128,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
     MEETINGS: FULL_ACCESS,
     REPORTS: FULL_ACCESS,
     SALARY_SLIPS: FULL_ACCESS,
-    ACCOUNTING: FULL_ACCESS,
+    ACCOUNTING: MANAGE_NO_DELETE,
     ANNOUNCEMENTS: READ_ONLY,
   },
   CFO: {
@@ -150,7 +150,7 @@ export const defaultRoleActionMatrix: Record<string, Record<string, ActionPerms>
     MEETINGS: FULL_ACCESS,
     REPORTS: FULL_ACCESS,
     SALARY_SLIPS: FULL_ACCESS,
-    ACCOUNTING: FULL_ACCESS,
+    ACCOUNTING: MANAGE_NO_DELETE,
     ANNOUNCEMENTS: FULL_ACCESS,
     AUDIT_LOGS: READ_ONLY,
     SETTINGS_ACCESS: READ_ONLY,
@@ -332,3 +332,33 @@ export function requirePermission(moduleCode: string, action: PermissionAction =
     }
   };
 }
+
+export function requireSuperAdmin() {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        res.status(401).json({ detail: 'Authentication required.' });
+        return;
+      }
+
+      if (req.user.role === 'SUPER_ADMIN' || req.user.isSuperuser) {
+        return next();
+      }
+
+      if (req.user.dynamicRole) {
+        const dynamicRole = await DynamicRole.findById(req.user.dynamicRole);
+        if (dynamicRole && dynamicRole.isSuperadminWildcard) {
+          return next();
+        }
+      }
+
+      res.status(403).json({
+        detail: 'Access denied: Only Super Admin is permitted to delete accounting data.',
+        code: 'super_admin_required',
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+}
+

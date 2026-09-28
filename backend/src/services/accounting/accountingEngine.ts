@@ -264,3 +264,31 @@ export async function reverseJournalEntry(
 
   return reversalJournal;
 }
+
+/**
+ * Reverts the balance impact of a journal entry line items from ChartOfAccount.
+ * Used during permanent deletion of accounting records (e.g. invoices, receipts, bills, payments, expenses, journals).
+ */
+export async function revertJournalEntryBalances(journal: IJournalEntry): Promise<void> {
+  if (!journal || !journal.lines || !Array.isArray(journal.lines)) return;
+
+  for (const line of journal.lines) {
+    if (!line.account) continue;
+    const acc = await ChartOfAccount.findById(line.account);
+    if (acc) {
+      const debit = Number(line.debit || 0);
+      const credit = Number(line.credit || 0);
+
+      acc.totalDebit = Math.max(0, Math.round((acc.totalDebit - debit) * 100) / 100);
+      acc.totalCredit = Math.max(0, Math.round((acc.totalCredit - credit) * 100) / 100);
+
+      if (acc.nature === 'DEBIT') {
+        acc.currentBalance = Math.round((acc.currentBalance - (debit - credit)) * 100) / 100;
+      } else {
+        acc.currentBalance = Math.round((acc.currentBalance - (credit - debit)) * 100) / 100;
+      }
+      await acc.save();
+    }
+  }
+}
+
