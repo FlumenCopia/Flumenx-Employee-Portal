@@ -80,21 +80,22 @@ export function PwaInstallButton({ variant = "header" }: { variant?: "header" | 
             gap: "10px",
             width: "100%",
             padding: "9px 12px",
-            borderRadius: "10px",
-            background: "rgba(8, 122, 91, 0.15)",
-            border: "1px solid rgba(8, 122, 91, 0.35)",
-            color: "#34D399",
-            fontSize: "12.5px",
+            borderRadius: "8px",
+            background: "rgba(255, 255, 255, 0.02)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
+            color: "#8C9993",
+            fontSize: "12px",
             fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
             cursor: "pointer",
-            marginBottom: "10px",
-            transition: "all 0.2s ease",
+            marginBottom: "8px",
+            transition: "all 0.15s ease",
           }}
           title="Install FLUMENX BOS App to your phone or desktop"
         >
-          <Smartphone size={16} />
-          <span>Install FLUMENX App</span>
-          <Download size={14} style={{ marginLeft: "auto", opacity: 0.8 }} />
+          <Download size={16} />
+          <span>Install App</span>
         </button>
 
         {showModal && <PwaInstructionsModal isIos={isIos} isDesktop={isDesktop} onClose={() => setShowModal(false)} />}

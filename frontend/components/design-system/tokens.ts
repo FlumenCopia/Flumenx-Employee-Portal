@@ -45,11 +45,12 @@ export const TOKENS = {
     infoBorder: '#BFDBFE',
 
     // Sidebar
-    sidebarBg: '#13231F',
-    sidebarHover: '#1F3830',
-    sidebarActive: '#23463C',
+    sidebarBg: '#0B0F12',
+    sidebarHover: 'rgba(255, 255, 255, 0.04)',
+    sidebarActive: 'rgba(255, 255, 255, 0.06)',
     sidebarText: '#FFFFFF',
-    sidebarMuted: '#A2B3AC',
+    sidebarMuted: '#8C9993',
+    sidebarBorder: 'rgba(255, 255, 255, 0.08)',
   },
 
   radius: {

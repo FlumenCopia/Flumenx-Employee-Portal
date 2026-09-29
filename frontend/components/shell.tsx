@@ -660,13 +660,13 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
     <ShellUserContext.Provider value={user}>
       <div className="app-shell">
         <aside className={`sidebar ${open ? "open" : ""}`}>
-            <div className="side-brand" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px", paddingBottom: "14px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "12px" }}>
+            <div className="side-brand" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px", paddingBottom: "14px", borderBottom: "1px solid rgba(255,255,255,0.07)", marginBottom: "12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
                 <FlumenxMark />
                 <button className="mobile-close" onClick={() => setOpen(false)} aria-label="Close navigation sidebar"><X /></button>
               </div>
-              <div className="sub-brand" style={{ paddingLeft: "2px", marginTop: "4px", fontSize: "11.5px", fontWeight: 800, letterSpacing: "0.15em", color: "var(--brand-primary, #087A5B)" }}>
-                FLUMENX BOS
+              <div className="sub-brand" style={{ paddingLeft: "2px", marginTop: "4px", fontSize: "10px", fontWeight: 700, letterSpacing: "0.14em", color: "#52635B" }}>
+                BUSINESS OPERATING SYSTEM
               </div>
             </div>
         <nav className="sidebar-nav-container">
@@ -707,7 +707,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
                           onClick={() => setOpen(false)}
                           className={isActive ? "active" : ""}
                         >
-                          <Icon size={18} />
+                          <Icon size={16} />
                           <span>{label}</span>
                           {label.toLowerCase().includes("leave") && pendingLeaveCount > 0 && (
                             <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>
@@ -724,7 +724,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
         <div className="sidebar-foot">
           <PwaInstallButton variant="sidebar" />
           <div
-            className="mini-profile cursor-pointer hover:bg-[rgba(8,122,91,0.12)] transition-colors rounded-xl p-2 mb-2"
+            className="mini-profile cursor-pointer transition-colors p-2 mb-2"
             onClick={() => {
               setOpen(false);
               router.push(`/${workspaceRole}/profile`);
@@ -737,7 +737,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
               <span>{roleLabel}</span>
             </div>
           </div>
-          <button type="button" onClick={openLogoutModal} disabled={loggingOut}><LogOut size={17} /> {loggingOut ? "Signing out..." : "Sign out"}</button>
+          <button type="button" onClick={openLogoutModal} disabled={loggingOut}><LogOut size={16} /> {loggingOut ? "Signing out..." : "Logout"}</button>
         </div>
       </aside>
       {open && <div className="scrim" onClick={() => setOpen(false)} />}
