@@ -513,13 +513,20 @@ export async function buildAttendanceMatrixData(options: {
       ...(employeeId ? { employee: employeeId } : {}),
     }),
     CompanyHoliday.find({
-      isActive: true,
-      date: { $gte: cycleInfo.cycleStart, $lte: cycleInfo.cycleEnd },
+      isActive: { $ne: false },
+      $or: [
+        { date: { $gte: cycleInfo.cycleStart, $lte: cycleInfo.cycleEnd } },
+        { dateStr: { $gte: cycleInfo.startStr, $lte: cycleInfo.endStr } },
+      ],
     }),
   ]);
 
-  const holidayMap = new Map<string, string>();
-  holidays.forEach((h) => holidayMap.set(h.dateStr, h.name));
+  const holidayMap = new Map<string, { name: string; holiday: any }>();
+  holidays.forEach((h) => {
+    const val = { name: h.name, holiday: h };
+    if (h.dateStr) holidayMap.set(h.dateStr, val);
+    if (h.date) holidayMap.set(getISTDateString(h.date), val);
+  });
 
   const recordMap = new Map<string, any>();
   records.forEach((r) => {
@@ -566,8 +573,9 @@ export async function buildAttendanceMatrixData(options: {
 
     for (const day of dayDates) {
       const dStr = day.dateStr;
-      const isHoliday = holidayMap.has(dStr);
-      const holidayName = holidayMap.get(dStr);
+      const holObj = holidayMap.get(dStr);
+      const isHoliday = !!holObj;
+      const holidayName = holObj?.name || 'Holiday';
 
       const isBeforeJoining = joiningDateStr && dStr < joiningDateStr;
       const isAfterExit = exitDateStr && dStr > exitDateStr;
@@ -588,6 +596,7 @@ export async function buildAttendanceMatrixData(options: {
 
       const rec = recordMap.get(`${empIdStr}_${dStr}`);
 
+      // Check if employee physically checked in or worked
       if (rec && (rec.checkInTime || rec.attendanceStatus === 'Present' || rec.attendanceStatus === 'Half Day')) {
         if (rec.isLate) lateArrivalsCount += 1;
         if (rec.attendanceStatus === 'Half Day') {
@@ -611,6 +620,12 @@ export async function buildAttendanceMatrixData(options: {
             isLate: rec.isLate,
           };
         }
+      } else if (day.isSunday) {
+        // Week Off takes precedence over non-working/auto-absent records
+        dailyStatuses[dStr] = { code: 'W', label: 'Week Off' };
+      } else if (isHoliday) {
+        // Company Holiday takes precedence over non-working/auto-absent records
+        dailyStatuses[dStr] = { code: 'H', label: holidayName };
       } else if (rec && rec.attendanceStatus === 'Leave') {
         paidLeaveDays += 1;
         dailyStatuses[dStr] = { code: 'L', label: 'Leave' };
@@ -618,29 +633,23 @@ export async function buildAttendanceMatrixData(options: {
         absentDays += 1;
         dailyStatuses[dStr] = { code: 'A', label: 'Absent' };
       } else {
-        if (day.isSunday) {
-          dailyStatuses[dStr] = { code: 'W', label: 'Week Off' };
-        } else if (isHoliday) {
-          dailyStatuses[dStr] = { code: 'H', label: holidayName || 'Holiday' };
-        } else {
-          const leaveMatch = empLeaves.find((l) => {
-            const lStart = getISTDateString(l.startDate);
-            const lEnd = getISTDateString(l.endDate);
-            return dStr >= lStart && dStr <= lEnd;
-          });
+        const leaveMatch = empLeaves.find((l) => {
+          const lStart = getISTDateString(l.startDate);
+          const lEnd = getISTDateString(l.endDate);
+          return dStr >= lStart && dStr <= lEnd;
+        });
 
-          if (leaveMatch) {
-            if (isProbation || leaveMatch.leaveType === 'Unpaid') {
-              unpaidLeaveDays += 1;
-              dailyStatuses[dStr] = { code: 'L', label: `Leave (${leaveMatch.leaveType})` };
-            } else {
-              paidLeaveDays += 1;
-              dailyStatuses[dStr] = { code: 'L', label: `Leave (${leaveMatch.leaveType})` };
-            }
+        if (leaveMatch) {
+          if (isProbation || leaveMatch.leaveType === 'Unpaid') {
+            unpaidLeaveDays += 1;
+            dailyStatuses[dStr] = { code: 'L', label: `Leave (${leaveMatch.leaveType})` };
           } else {
-            absentDays += 1;
-            dailyStatuses[dStr] = { code: 'A', label: 'Absent' };
+            paidLeaveDays += 1;
+            dailyStatuses[dStr] = { code: 'L', label: `Leave (${leaveMatch.leaveType})` };
           }
+        } else {
+          absentDays += 1;
+          dailyStatuses[dStr] = { code: 'A', label: 'Absent' };
         }
       }
     }
@@ -710,8 +719,8 @@ export async function buildAttendanceMatrixData(options: {
       dayNumber: day.dayNumber,
       dayName: day.dayName,
       isSunday: day.isSunday,
-      isHoliday: holidayMap.has(day.dateStr),
-      holidayName: holidayMap.get(day.dateStr),
+      isHoliday: !!holidayMap.get(day.dateStr),
+      holidayName: holidayMap.get(day.dateStr)?.name || undefined,
       totals: {
         present,
         absent,

@@ -596,6 +596,17 @@ export function AttendanceReportsPage() {
                     >
                       Leave
                     </th>
+                    <th
+                      style={{
+                        padding: "12px 14px",
+                        fontWeight: 700,
+                        color: "#7c3aed",
+                        minWidth: "95px",
+                        background: "#faf5ff",
+                      }}
+                    >
+                      Holiday / Off
+                    </th>
                   </tr>
                 </thead>
 
@@ -635,12 +646,18 @@ export function AttendanceReportsPage() {
                           style={{
                             padding: "6px 10px",
                             fontSize: "11px",
-                            color: day.isSunday ? "#94a3b8" : "#475569",
+                            color: day.isSunday ? "#94a3b8" : day.isHoliday ? "#7c3aed" : "#475569",
                             borderRight: "1px solid rgba(0,0,0,0.06)",
                             whiteSpace: "nowrap",
+                            fontWeight: day.isHoliday ? 600 : 400,
                           }}
                         >
-                          {day.dayName}, {day.dateStr.slice(5)}
+                          <div>{day.dayName}, {day.dateStr.slice(5)}</div>
+                          {day.isHoliday && (
+                            <div style={{ fontSize: "9.5px", color: "#7c3aed", fontWeight: 700 }}>
+                              {day.holidayName || "Holiday"}
+                            </div>
+                          )}
                         </td>
 
                         {/* Employee status cells */}
@@ -699,6 +716,16 @@ export function AttendanceReportsPage() {
                           }}
                         >
                           {day.totals.leave}
+                        </td>
+                        <td
+                          style={{
+                            padding: "6px 10px",
+                            fontWeight: 700,
+                            color: "#7c3aed",
+                            background: isPeachRow ? "#f3e8ff" : "#faf5ff",
+                          }}
+                        >
+                          {day.totals.holiday + (day.isSunday ? day.totals.weekOff : 0)}
                         </td>
                       </tr>
                     );
@@ -767,6 +794,15 @@ export function AttendanceReportsPage() {
                       }}
                     >
                       {matrixData.days.reduce((s, d) => s + d.totals.leave, 0)}
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 8px",
+                        color: "#7c3aed",
+                        background: "#f3e8ff",
+                      }}
+                    >
+                      {matrixData.days.reduce((s, d) => s + d.totals.holiday + (d.isSunday ? d.totals.weekOff : 0), 0)}
                     </td>
                   </tr>
                 </tfoot>

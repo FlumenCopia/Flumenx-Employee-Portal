@@ -23,6 +23,7 @@ import { MeetingMessage } from '../models/MeetingMessage.js';
 import { Notification } from '../models/Notification.js';
 import { Announcement } from '../models/Announcement.js';
 import { AuditLog } from '../models/AuditLog.js';
+import { getISTDateString } from '../utils/tzUtils.js';
 import { EmployeeDocument } from '../models/EmployeeDocument.js';
 import { EmployeeKPIRating } from '../models/EmployeeKPIRating.js';
 import { seedAttendance } from './seed_attendance.js';
@@ -471,7 +472,7 @@ async function seed() {
   ];
 
   for (const h of holidaysData) {
-    const dStr = h.date.toISOString().split('T')[0];
+    const dStr = getISTDateString(h.date);
     const hObj = new CompanyHoliday({
       name: h.name,
       date: h.date,
