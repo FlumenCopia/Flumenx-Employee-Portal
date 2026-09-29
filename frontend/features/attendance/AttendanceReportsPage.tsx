@@ -841,7 +841,11 @@ export function AttendanceReportsPage() {
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span style={getStatusStyle("L")}>L</span>
-              <span style={{ color: "#334155" }}>Approved Leave</span>
+              <span style={{ color: "#334155" }}>Paid Leave (PL)</span>
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={getStatusStyle("UL")}>UL</span>
+              <span style={{ color: "#334155" }}>Unpaid Leave (Loss of Pay)</span>
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span style={getStatusStyle("HD")}>HD</span>
@@ -849,7 +853,7 @@ export function AttendanceReportsPage() {
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span style={getStatusStyle("H")}>H</span>
-              <span style={{ color: "#334155" }}>Company Holiday</span>
+              <span style={{ color: "#334155" }}>Company Holiday (Fully Paid)</span>
             </span>
           </div>
         </div>
@@ -990,7 +994,7 @@ export function AttendanceReportsPage() {
                         borderLeft: "2px solid #cbd5e1",
                         background: "#f8fafc",
                       }}
-                      title="Total Calendar Days"
+                      title="Total Calendar Days in Cycle"
                     >
                       Days
                     </th>
@@ -1001,7 +1005,7 @@ export function AttendanceReportsPage() {
                         color: "#047857",
                         background: "#f0fdf4",
                       }}
-                      title="Present Days"
+                      title="Present Days (Fully Paid)"
                     >
                       P
                     </th>
@@ -1012,7 +1016,7 @@ export function AttendanceReportsPage() {
                         color: "#d97706",
                         background: "#fffbeb",
                       }}
-                      title="Half Days"
+                      title="Half Days (0.5 Day Paid)"
                     >
                       HD
                     </th>
@@ -1020,12 +1024,12 @@ export function AttendanceReportsPage() {
                       style={{
                         padding: "10px 8px",
                         minWidth: "45px",
-                        color: "#dc2626",
-                        background: "#fef2f2",
+                        color: "#7c3aed",
+                        background: "#faf5ff",
                       }}
-                      title="Absent Days"
+                      title="Company Holidays (100% Paid Holiday)"
                     >
-                      A
+                      H (Paid)
                     </th>
                     <th
                       style={{
@@ -1034,9 +1038,31 @@ export function AttendanceReportsPage() {
                         color: "#2563eb",
                         background: "#eff6ff",
                       }}
-                      title="Paid Leaves"
+                      title="Paid Leaves (Annual / Sick / Casual - Paid)"
                     >
-                      L
+                      PL
+                    </th>
+                    <th
+                      style={{
+                        padding: "10px 8px",
+                        minWidth: "45px",
+                        color: "#e11d48",
+                        background: "#fff1f2",
+                      }}
+                      title="Unpaid Leaves / Loss of Pay (Deducted from Salary)"
+                    >
+                      UL
+                    </th>
+                    <th
+                      style={{
+                        padding: "10px 8px",
+                        minWidth: "45px",
+                        color: "#dc2626",
+                        background: "#fef2f2",
+                      }}
+                      title="Absent Days (Deducted from Salary)"
+                    >
+                      A
                     </th>
                     <th
                       style={{
@@ -1048,17 +1074,6 @@ export function AttendanceReportsPage() {
                       title="Week Offs (Sundays)"
                     >
                       W
-                    </th>
-                    <th
-                      style={{
-                        padding: "10px 8px",
-                        minWidth: "45px",
-                        color: "#7c3aed",
-                        background: "#faf5ff",
-                      }}
-                      title="Company Holidays"
-                    >
-                      H
                     </th>
                     <th
                       style={{
@@ -1095,6 +1110,18 @@ export function AttendanceReportsPage() {
                       title="Calculated Payable Days for Payroll"
                     >
                       Payable Days
+                    </th>
+                    <th
+                      style={{
+                        padding: "10px 8px",
+                        minWidth: "60px",
+                        fontWeight: 700,
+                        color: "#dc2626",
+                        background: "#fef2f2",
+                      }}
+                      title="Unpaid Days (Salary Deductions)"
+                    >
+                      Unpaid
                     </th>
                   </tr>
                 </thead>
@@ -1201,12 +1228,13 @@ export function AttendanceReportsPage() {
                         <td
                           style={{
                             padding: "6px 4px",
+                            color: "#7c3aed",
                             fontWeight: 700,
-                            color: "#dc2626",
-                            background: isEven ? "#fef2f2" : "#fde8e8",
+                            background: isEven ? "#faf5ff" : "#f3e8ff",
                           }}
+                          title={`${emp.summary.holidays} Fully Paid Company Holidays`}
                         >
-                          {emp.summary.absentDays}
+                          {emp.summary.holidays}
                         </td>
                         <td
                           style={{
@@ -1215,8 +1243,31 @@ export function AttendanceReportsPage() {
                             color: "#2563eb",
                             background: isEven ? "#eff6ff" : "#e5f0fe",
                           }}
+                          title={`${emp.summary.paidLeaveDays} Paid Leaves (PL)`}
                         >
                           {emp.summary.paidLeaveDays}
+                        </td>
+                        <td
+                          style={{
+                            padding: "6px 4px",
+                            fontWeight: 700,
+                            color: "#e11d48",
+                            background: isEven ? "#fff1f2" : "#ffe4e6",
+                          }}
+                          title={`${emp.summary.unpaidLeaveDays} Unpaid Leaves / Loss of Pay (UL)`}
+                        >
+                          {emp.summary.unpaidLeaveDays}
+                        </td>
+                        <td
+                          style={{
+                            padding: "6px 4px",
+                            fontWeight: 700,
+                            color: "#dc2626",
+                            background: isEven ? "#fef2f2" : "#fde8e8",
+                          }}
+                          title={`${emp.summary.absentDays} Absent Days`}
+                        >
+                          {emp.summary.absentDays}
                         </td>
                         <td
                           style={{
@@ -1225,15 +1276,6 @@ export function AttendanceReportsPage() {
                           }}
                         >
                           {emp.summary.weekOffs}
-                        </td>
-                        <td
-                          style={{
-                            padding: "6px 4px",
-                            color: "#7c3aed",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {emp.summary.holidays}
                         </td>
                         <td
                           style={{
@@ -1271,6 +1313,18 @@ export function AttendanceReportsPage() {
                           }}
                         >
                           {emp.summary.payableDays}
+                        </td>
+                        <td
+                          style={{
+                            padding: "6px 6px",
+                            fontWeight: 700,
+                            fontSize: "12px",
+                            color: emp.summary.unpaidDays > 0 ? "#dc2626" : "#64748b",
+                            background: emp.summary.unpaidDays > 0 ? (isEven ? "#fef2f2" : "#fde8e8") : "transparent",
+                          }}
+                          title={`${emp.summary.unpaidDays} unpaid days deducted from salary`}
+                        >
+                          {emp.summary.unpaidDays}
                         </td>
                       </tr>
                     );
@@ -1314,9 +1368,10 @@ export function AttendanceReportsPage() {
  * P: Regular dark charcoal
  * A: Bold Red
  * W: Italicized Light Gray
- * L: Vibrant Blue
- * HD: Amber
- * H: Purple
+ * L: Vibrant Blue (Paid Leave)
+ * UL: Bold Rose Red (Unpaid Leave / LOP)
+ * HD: Amber (Half Day)
+ * H: Purple (Paid Company Holiday)
  */
 function getStatusStyle(code: string): React.CSSProperties {
   switch (code) {
@@ -1342,7 +1397,13 @@ function getStatusStyle(code: string): React.CSSProperties {
     case "L":
       return {
         fontWeight: 700,
-        color: "#2563eb", // Blue
+        color: "#2563eb", // Blue (Paid Leave)
+        display: "inline-block",
+      };
+    case "UL":
+      return {
+        fontWeight: 800,
+        color: "#e11d48", // Rose Red (Unpaid Leave / LOP)
         display: "inline-block",
       };
     case "HD":
@@ -1355,7 +1416,7 @@ function getStatusStyle(code: string): React.CSSProperties {
     case "H":
       return {
         fontWeight: 700,
-        color: "#7c3aed", // Purple
+        color: "#7c3aed", // Purple (Paid Holiday)
         display: "inline-block",
       };
     default:

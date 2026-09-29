@@ -563,7 +563,7 @@ export async function buildAttendanceMatrixData(options: {
     let lateArrivalsCount = 0;
 
     const dailyStatuses: Record<string, {
-      code: 'P' | 'A' | 'W' | 'L' | 'HD' | 'H' | '-';
+      code: 'P' | 'A' | 'W' | 'L' | 'UL' | 'HD' | 'H' | '-';
       label: string;
       checkIn?: string;
       checkOut?: string;
@@ -588,68 +588,68 @@ export async function buildAttendanceMatrixData(options: {
 
       if (day.isSunday) {
         weekOffs += 1;
-      } else if (isHoliday) {
-        companyHolidays += 1;
-      } else {
-        workingDays += 1;
-      }
-
-      const rec = recordMap.get(`${empIdStr}_${dStr}`);
-
-      // Check if employee physically checked in or worked
-      if (rec && (rec.checkInTime || rec.attendanceStatus === 'Present' || rec.attendanceStatus === 'Half Day')) {
-        if (rec.isLate) lateArrivalsCount += 1;
-        if (rec.attendanceStatus === 'Half Day') {
-          halfDays += 1;
-          dailyStatuses[dStr] = {
-            code: 'HD',
-            label: 'Half Day',
-            checkIn: rec.checkInTime,
-            checkOut: rec.checkOutTime,
-            workingHours: rec.workingHours,
-            isLate: rec.isLate,
-          };
-        } else {
-          presentDays += 1;
-          dailyStatuses[dStr] = {
-            code: 'P',
-            label: 'Present',
-            checkIn: rec.checkInTime,
-            checkOut: rec.checkOutTime,
-            workingHours: rec.workingHours,
-            isLate: rec.isLate,
-          };
-        }
-      } else if (day.isSunday) {
-        // Week Off takes precedence over non-working/auto-absent records
+        // Week Off takes precedence
         dailyStatuses[dStr] = { code: 'W', label: 'Week Off' };
       } else if (isHoliday) {
-        // Company Holiday takes precedence over non-working/auto-absent records
-        dailyStatuses[dStr] = { code: 'H', label: holidayName };
-      } else if (rec && rec.attendanceStatus === 'Leave') {
-        paidLeaveDays += 1;
-        dailyStatuses[dStr] = { code: 'L', label: 'Leave' };
-      } else if (rec && rec.attendanceStatus === 'Absent') {
-        absentDays += 1;
-        dailyStatuses[dStr] = { code: 'A', label: 'Absent' };
+        companyHolidays += 1;
+        // Company Holiday is a FULLY PAID holiday for all employees
+        dailyStatuses[dStr] = { code: 'H', label: `${holidayName} (Paid Holiday)` };
       } else {
-        const leaveMatch = empLeaves.find((l) => {
-          const lStart = getISTDateString(l.startDate);
-          const lEnd = getISTDateString(l.endDate);
-          return dStr >= lStart && dStr <= lEnd;
-        });
+        workingDays += 1;
+        const rec = recordMap.get(`${empIdStr}_${dStr}`);
 
-        if (leaveMatch) {
-          if (isProbation || leaveMatch.leaveType === 'Unpaid') {
-            unpaidLeaveDays += 1;
-            dailyStatuses[dStr] = { code: 'L', label: `Leave (${leaveMatch.leaveType})` };
+        // Check if employee physically checked in or worked
+        if (rec && (rec.checkInTime || rec.attendanceStatus === 'Present' || rec.attendanceStatus === 'Half Day')) {
+          if (rec.isLate) lateArrivalsCount += 1;
+          if (rec.attendanceStatus === 'Half Day') {
+            halfDays += 1;
+            dailyStatuses[dStr] = {
+              code: 'HD',
+              label: 'Half Day',
+              checkIn: rec.checkInTime,
+              checkOut: rec.checkOutTime,
+              workingHours: rec.workingHours,
+              isLate: rec.isLate,
+            };
           } else {
-            paidLeaveDays += 1;
-            dailyStatuses[dStr] = { code: 'L', label: `Leave (${leaveMatch.leaveType})` };
+            presentDays += 1;
+            dailyStatuses[dStr] = {
+              code: 'P',
+              label: 'Present',
+              checkIn: rec.checkInTime,
+              checkOut: rec.checkOutTime,
+              workingHours: rec.workingHours,
+              isLate: rec.isLate,
+            };
           }
         } else {
-          absentDays += 1;
-          dailyStatuses[dStr] = { code: 'A', label: 'Absent' };
+          const leaveMatch = empLeaves.find((l) => {
+            const lStart = getISTDateString(l.startDate);
+            const lEnd = getISTDateString(l.endDate);
+            return dStr >= lStart && dStr <= lEnd;
+          });
+
+          if (leaveMatch) {
+            const isUnpaid = isProbation || leaveMatch.leaveType === 'Unpaid';
+            if (isUnpaid) {
+              unpaidLeaveDays += 1;
+              dailyStatuses[dStr] = { code: 'UL', label: `Unpaid Leave (${leaveMatch.leaveType})` };
+            } else {
+              paidLeaveDays += 1;
+              dailyStatuses[dStr] = { code: 'L', label: `Paid Leave (${leaveMatch.leaveType})` };
+            }
+          } else if (rec && rec.attendanceStatus === 'Leave') {
+            if (isProbation) {
+              unpaidLeaveDays += 1;
+              dailyStatuses[dStr] = { code: 'UL', label: 'Unpaid Leave (Probation)' };
+            } else {
+              paidLeaveDays += 1;
+              dailyStatuses[dStr] = { code: 'L', label: 'Paid Leave' };
+            }
+          } else {
+            absentDays += 1;
+            dailyStatuses[dStr] = { code: 'A', label: 'Absent' };
+          }
         }
       }
     }
@@ -709,7 +709,7 @@ export async function buildAttendanceMatrixData(options: {
       if (code === 'P') present++;
       else if (code === 'A') absent++;
       else if (code === 'HD') halfDay++;
-      else if (code === 'L') leave++;
+      else if (code === 'L' || code === 'UL') leave++;
       else if (code === 'W') weekOff++;
       else if (code === 'H') holiday++;
     });
@@ -950,15 +950,16 @@ export async function exportAttendanceCSV(req: Request, res: Response): Promise<
       'Total Days',
       'Present (P)',
       'Half Day (HD)',
-      'Absent (A)',
+      'Paid Holiday (H)',
       'Paid Leave (L)',
+      'Unpaid Leave (UL)',
+      'Absent (A)',
       'Week Off (W)',
-      'Holiday (H)',
       'Late Arrivals',
       'Late Half-Day Deductions',
-      'Salary Days (Total - WeekOffs)',
+      'Salary Days (Total - Sundays)',
       'Payable Days (Salary Calculation)',
-      'Unpaid Days',
+      'Unpaid Days (Deductions)',
     ];
 
     const dataRows = matrix.employees.map((emp) => {
@@ -973,10 +974,11 @@ export async function exportAttendanceCSV(req: Request, res: Response): Promise<
         String(emp.summary.totalCalendarDays),
         String(emp.summary.presentDays),
         String(emp.summary.halfDays),
-        String(emp.summary.absentDays),
-        String(emp.summary.paidLeaveDays),
-        String(emp.summary.weekOffs),
         String(emp.summary.holidays),
+        String(emp.summary.paidLeaveDays),
+        String(emp.summary.unpaidLeaveDays),
+        String(emp.summary.absentDays),
+        String(emp.summary.weekOffs),
         String(emp.summary.lateArrivals),
         String(emp.summary.lateHalfDayDeductions),
         String(emp.summary.salaryDays),
@@ -988,7 +990,7 @@ export async function exportAttendanceCSV(req: Request, res: Response): Promise<
     const titleRows = [
       [`Flumenx Employee Portal - Salary Attendance Muster Roll (${cycleType === 'salary' ? 'Salary Cycle 26th-25th' : 'Calendar Month'})`],
       [`Cycle Period: ${matrix.cycle.readablePeriod} | Total Employees: ${matrix.employees.length} | Department: ${department || 'All'}`],
-      [`Rule: Salary Days = Total Calendar Days - WeekOffs | Payable Days = Present + Holidays + Paid Leave + 0.5*HalfDays - Late Deductions`],
+      [`Policy Rules: Company Holidays are FULLY PAID holidays. Salary Days = Total Calendar Days - Sundays. Payable Days = Present + Paid Holidays + Paid Leave + 0.5*HalfDays - Late Deductions. Unpaid Leave and Absences are deducted.`],
       [],
     ];
 

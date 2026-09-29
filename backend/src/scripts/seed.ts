@@ -466,6 +466,8 @@ async function seed() {
     { name: 'Eid-ul-Fitr', date: new Date('2026-03-20T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'Eid Holiday' },
     { name: 'Independence Day', date: new Date('2026-08-15T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'Indian Independence Day' },
     { name: 'Thiruvonam (Onam)', date: new Date('2026-08-27T00:00:00.000+05:30'), holiday_type: 'Company', is_paid: true, description: 'Kerala State Festival' },
+    { name: 'Third Onam', date: new Date('2026-08-28T00:00:00.000+05:30'), holiday_type: 'Company', is_paid: true, description: 'Kerala State Festival' },
+    { name: 'Milad-un-Nabi', date: new Date('2026-09-04T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'Milad-un-Nabi Holiday' },
     { name: 'Gandhi Jayanti', date: new Date('2026-10-02T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'Mahatma Gandhi Birthday' },
     { name: 'Deepavali', date: new Date('2026-11-08T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'Festival of Lights' },
     { name: 'Christmas', date: new Date('2026-12-25T00:00:00.000+05:30'), holiday_type: 'Public', is_paid: true, description: 'Christmas Day' },

@@ -15,7 +15,7 @@ export type AttendancePolicy = {
 };
 
 export type DayAttendanceStatus = {
-  code: 'P' | 'A' | 'W' | 'L' | 'HD' | 'H' | '-';
+  code: 'P' | 'A' | 'W' | 'L' | 'UL' | 'HD' | 'H' | '-';
   label: string;
   checkIn?: string;
   checkOut?: string;

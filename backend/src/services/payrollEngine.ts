@@ -58,11 +58,18 @@ export async function calculateAttendanceForCycle(
 
   // Fetch company holidays in cycle range
   const holidays = await CompanyHoliday.find({
-    isActive: true,
-    date: { $gte: cycle.cycleStart, $lte: cycle.cycleEnd },
+    isActive: { $ne: false },
+    $or: [
+      { date: { $gte: cycle.cycleStart, $lte: cycle.cycleEnd } },
+      { dateStr: { $gte: cycle.startStr, $lte: cycle.endStr } },
+    ],
   });
 
-  const holidayDateMap = new Set(holidays.map((h) => h.dateStr));
+  const holidayDateMap = new Set<string>();
+  holidays.forEach((h) => {
+    if (h.dateStr) holidayDateMap.add(h.dateStr);
+    if (h.date) holidayDateMap.add(getISTDateString(h.date));
+  });
   const recordMap = new Map<string, any>();
   records.forEach((r) => {
     const dStr = getISTDateString(r.attendanceDate);
@@ -110,7 +117,11 @@ export async function calculateAttendanceForCycle(
 
     const rec = recordMap.get(dStr);
 
-    if (rec && rec.checkInTime) {
+    if (isSunday || isHoliday) {
+      // Sundays and Company Holidays are non-working days.
+      // Holidays are 100% paid company holidays included in effectivePresentDays.
+      // Do not count as absent or leave.
+    } else if (rec && (rec.checkInTime || rec.attendanceStatus === 'Present' || rec.attendanceStatus === 'Half Day')) {
       // Check late arrival (> 9:35 AM IST)
       if (rec.isLate) {
         lateArrivalsCount += 1;
@@ -122,25 +133,29 @@ export async function calculateAttendanceForCycle(
         presentDays += 1;
       }
     } else {
-      // No check-in recorded for this day
-      if (!isSunday && !isHoliday) {
-        // Check if there is an approved leave covering this day
-        const leaveMatch = leaves.find((l) => {
-          const lStart = getISTDateString(l.startDate);
-          const lEnd = getISTDateString(l.endDate);
-          return dStr >= lStart && dStr <= lEnd;
-        });
+      // Normal working day with no check-in
+      // Check if there is an approved leave covering this day
+      const leaveMatch = leaves.find((l) => {
+        const lStart = getISTDateString(l.startDate);
+        const lEnd = getISTDateString(l.endDate);
+        return dStr >= lStart && dStr <= lEnd;
+      });
 
-        if (leaveMatch) {
-          // Probation employees have 0 paid leave -> always unpaid
-          if (isProbation || leaveMatch.leaveType === 'Unpaid') {
-            unpaidLeaveDays += 1;
-          } else {
-            paidLeaveDays += 1;
-          }
+      if (leaveMatch) {
+        // Probation employees have 0 paid leave -> always unpaid (Loss of Pay)
+        if (isProbation || leaveMatch.leaveType === 'Unpaid') {
+          unpaidLeaveDays += 1;
         } else {
-          absentDays += 1;
+          paidLeaveDays += 1;
         }
+      } else if (rec && rec.attendanceStatus === 'Leave') {
+        if (isProbation) {
+          unpaidLeaveDays += 1;
+        } else {
+          paidLeaveDays += 1;
+        }
+      } else {
+        absentDays += 1;
       }
     }
 
