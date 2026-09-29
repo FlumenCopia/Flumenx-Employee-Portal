@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { AlertCircle, Bell, Calendar, Megaphone, Plus, Trash2 } from "lucide-react";
+import React, { useState, useEffect, type FormEvent } from "react";
+import { AlertCircle, AlertOctagon, AlertTriangle, Bell, Calendar, Megaphone, Pin, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
 import type { Announcement, Paginated } from "@/lib/types";
@@ -73,11 +73,11 @@ export function AnnouncementsPage({ employee = false }: { employee?: boolean }) 
   const priorityBadgeStyle = (priority: string) => {
     switch (priority) {
       case "Urgent":
-        return { bg: "#fee2e2", color: "#dc2626", border: "#fca5a5", icon: "🚨" };
+        return { bg: "#fee2e2", color: "#dc2626", border: "#fca5a5", Icon: AlertOctagon };
       case "Important":
-        return { bg: "#fef3c7", color: "#d97706", border: "#fde68a", icon: "⚠️" };
+        return { bg: "#fef3c7", color: "#d97706", border: "#fde68a", Icon: AlertTriangle };
       default:
-        return { bg: "#e0f2fe", color: "#0284c7", border: "#bae6fd", icon: "📢" };
+        return { bg: "#e0f2fe", color: "#0284c7", border: "#bae6fd", Icon: Megaphone };
     }
   };
 
@@ -164,10 +164,10 @@ export function AnnouncementsPage({ employee = false }: { employee?: boolean }) 
                         border: `1px solid ${badge.border}`,
                         display: "inline-flex",
                         alignItems: "center",
-                        gap: "4px",
+                        gap: "5px",
                       }}
                     >
-                      {badge.icon} {announcement.priority}
+                      <badge.Icon size={12} /> {announcement.priority}
                     </span>
                   </div>
 
@@ -238,9 +238,9 @@ export function AnnouncementsPage({ employee = false }: { employee?: boolean }) 
             <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
               PRIORITY LEVEL
               <select name="priority" defaultValue="Normal" className="fs">
-                <option value="Normal">📌 Normal Notice</option>
-                <option value="Important">⚠️ Important Update</option>
-                <option value="Urgent">🚨 Urgent Priority</option>
+                <option value="Normal">Normal Notice</option>
+                <option value="Important">Important Update</option>
+                <option value="Urgent">Urgent Priority</option>
               </select>
             </label>
 
@@ -261,7 +261,10 @@ export function AnnouncementsPage({ employee = false }: { employee?: boolean }) 
                 Cancel
               </button>
               <PrimaryButton type="submit" disabled={submitting}>
-                {submitting ? "Broadcasting..." : "📢 Post & Broadcast Announcement"}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <Megaphone size={14} />
+                  {submitting ? "Broadcasting..." : "Post & Broadcast Announcement"}
+                </span>
               </PrimaryButton>
             </div>
           </form>

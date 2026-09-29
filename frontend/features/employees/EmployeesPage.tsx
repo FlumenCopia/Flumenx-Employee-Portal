@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Check, Eye, FileText, MessageSquare, Pencil, Phone, Search, Trash2, UserPlus, Video } from "lucide-react";
+import { Check, Eye, FileText, MessageSquare, Pencil, Phone, Search, Trash2, UserPlus, Video, AlertTriangle } from "lucide-react";
 import { Department, Employee, Paginated, PortalRole } from "@/lib/types";
 import { api, ApiError } from "@/lib/api";
 import { Avatar } from "@/components/icons";
@@ -511,11 +511,12 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
               color: "#FF6B6B",
               padding: "12px 16px",
               borderRadius: "var(--r-sm, 6px)",
-              fontSize: "12px",
-              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
             }}
           >
-            ⚠️ You cannot delete your own logged-in employee profile.
+            <AlertTriangle size={16} /> You cannot delete your own logged-in employee profile.
           </div>
         )}
 
@@ -530,9 +531,12 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
               borderRadius: "var(--r-sm, 6px)",
               fontSize: "12px",
               fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
             }}
           >
-            ⚠️ {deleteError}
+            <AlertTriangle size={16} /> {deleteError}
           </div>
         )}
 
@@ -683,8 +687,8 @@ export function EmployeeForm({
     )}
     {saved && <div className="toast success"><Check size={18} /> Employee record saved successfully.</div>}
     {error && (
-      <div className="toast error" style={{ background: "rgba(255,107,107,0.15)", border: "1px solid rgba(255,107,107,0.3)", color: "#FF6B6B", padding: "12px 16px", borderRadius: "var(--r-sm)", marginBottom: "16px", fontSize: "12px", fontWeight: 600 }}>
-        ⚠️ {error}
+      <div className="toast error" style={{ background: "rgba(255,107,107,0.15)", border: "1px solid rgba(255,107,107,0.3)", color: "#FF6B6B", padding: "12px 16px", borderRadius: "var(--r-sm)", marginBottom: "16px", fontSize: "12px", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
+        <AlertTriangle size={16} /> {error}
       </div>
     )}
     <form className="editor-card" onSubmit={submit}>

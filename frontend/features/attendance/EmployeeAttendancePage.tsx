@@ -16,9 +16,11 @@ import {
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
   TriangleAlert,
   X,
+  Smartphone,
+  Laptop,
+  Apple,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AttendanceRecord, Paginated } from "@/lib/types";
@@ -269,7 +271,7 @@ export function EmployeeAttendancePage() {
       if (err && err.code === 1) { // PERMISSION_DENIED
         setGpsStatus("denied");
         setGpsInfo({
-          errorMsg: "Location permission is blocked or denied. Please enable GPS in your browser address bar (🔒 / ⚙️) or phone settings.",
+          errorMsg: "Location permission is blocked or denied. Please enable GPS in your browser address bar (Lock / Settings icon) or phone settings.",
         });
         if (showModalIfDenied) {
           setShowGpsHelpModal(true);
@@ -733,16 +735,16 @@ export function EmployeeAttendancePage() {
                   <h2 style={{ fontSize: "16px", margin: 0 }}>Enable GPS on Your Device</h2>
                 </div>
               </div>
-              <button onClick={() => setShowGpsHelpModal(false)} aria-label="Close modal">✕</button>
+              <button onClick={() => setShowGpsHelpModal(false)} aria-label="Close modal" style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", display: "flex", alignItems: "center" }}><X size={18} /></button>
             </div>
 
             <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: "12px" }}>
               <div style={{ background: "var(--panel2, rgba(255,255,255,0.04))", border: "1px solid var(--border)", borderRadius: "10px", padding: "12px 14px" }}>
                 <b style={{ fontSize: "12.5px", color: "var(--text)", display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
-                  📱 Android (Google Chrome / Brave)
+                  <Smartphone size={14} /> Android (Google Chrome / Brave)
                 </b>
                 <ol style={{ margin: "4px 0 0 16px", padding: 0, fontSize: "11.5px", color: "var(--muted)", lineHeight: 1.6 }}>
-                  <li>Tap the <b>Lock (🔒)</b> or <b>Tune (⚙️)</b> icon next to the website address at the top.</li>
+                  <li>Tap the <b>Lock / Settings</b> icon next to the website address at the top.</li>
                   <li>Tap <b>Permissions</b> &rarr; <b>Location</b> &rarr; choose <b>Allow</b> (or tap <i>Reset permissions</i>).</li>
                   <li>Pull down your phone notification tray and ensure <b>Location / GPS</b> is turned <b>ON</b>.</li>
                 </ol>
@@ -750,7 +752,7 @@ export function EmployeeAttendancePage() {
 
               <div style={{ background: "var(--panel2, rgba(255,255,255,0.04))", border: "1px solid var(--border)", borderRadius: "10px", padding: "12px 14px" }}>
                 <b style={{ fontSize: "12.5px", color: "var(--text)", display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
-                  🍏 iPhone / iPad (Safari)
+                  <Apple size={14} /> iPhone / iPad (Safari)
                 </b>
                 <ol style={{ margin: "4px 0 0 16px", padding: 0, fontSize: "11.5px", color: "var(--muted)", lineHeight: 1.6 }}>
                   <li>Open iPhone <b>Settings</b> &rarr; <b>Privacy & Security</b> &rarr; <b>Location Services</b> &rarr; Make sure it is <b>ON</b>.</li>
@@ -761,10 +763,10 @@ export function EmployeeAttendancePage() {
 
               <div style={{ background: "var(--panel2, rgba(255,255,255,0.04))", border: "1px solid var(--border)", borderRadius: "10px", padding: "12px 14px" }}>
                 <b style={{ fontSize: "12.5px", color: "var(--text)", display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
-                  💻 Laptop / Desktop (Chrome / Edge / Firefox)
+                  <Laptop size={14} /> Laptop / Desktop (Chrome / Edge / Firefox)
                 </b>
                 <ol style={{ margin: "4px 0 0 16px", padding: 0, fontSize: "11.5px", color: "var(--muted)", lineHeight: 1.6 }}>
-                  <li>Click the <b>Tune (⚙️) / Lock (🔒)</b> icon to the left of the website address in the address bar.</li>
+                  <li>Click the <b>Settings / Lock</b> icon to the left of the website address in the address bar.</li>
                   <li>Toggle the <b>Location</b> permission switch to <b>ON / Allow</b>.</li>
                 </ol>
               </div>

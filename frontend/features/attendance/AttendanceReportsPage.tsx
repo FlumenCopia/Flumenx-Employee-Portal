@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   AlertCircle,
   BarChart3,
+  Building2,
 } from "lucide-react";
 import { api, apiBlob } from "@/lib/api";
 import { PageHeader, PrimaryButton, Button, Section, StatCard } from "@/components/ui";
@@ -213,11 +214,12 @@ export function AttendanceReportsPage() {
                   borderRadius: "4px",
                   fontSize: "12px",
                   fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
                 }}
               >
-                🏢 Salary Cycle (26th–25th)
+                <Building2 size={13} /> Salary Cycle (26th–25th)
               </button>
               <button
                 type="button"
@@ -232,9 +234,12 @@ export function AttendanceReportsPage() {
                   fontWeight: 600,
                   cursor: "pointer",
                   transition: "all 0.15s ease",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
                 }}
               >
-                📅 Calendar Month (1st–31st)
+                <Calendar size={13} /> Calendar Month (1st–31st)
               </button>
             </div>
           </div>

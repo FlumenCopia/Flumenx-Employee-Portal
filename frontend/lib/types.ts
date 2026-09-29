@@ -836,7 +836,7 @@ export type StandupWorkSummary = {
 };
 
 // ==========================================
-// 📍 EMPLOYEE LOCATION TRACKING TYPES
+// EMPLOYEE LOCATION TRACKING TYPES
 // ==========================================
 
 export type TrackingStatus = 'ONLINE' | 'OFFLINE' | 'GPS_LOST' | 'DISCONNECTED' | 'ERROR';
@@ -974,7 +974,7 @@ export type LocationHistoryPoint = {
 };
 
 // ==========================================
-// 🏛️ FLUMENX DOUBLE-ENTRY ACCOUNTING TYPES
+// FLUMENX DOUBLE-ENTRY ACCOUNTING TYPES
 // ==========================================
 
 export type AccountType = "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";

@@ -34,8 +34,10 @@ import {
   AlertCircle,
   Camera,
   HelpCircle,
-  Info,
   CheckCircle2,
+  Smartphone,
+  Laptop,
+  Apple,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Avatar } from "@/components/icons";
@@ -1506,24 +1508,24 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
 
               <div style={{ display: "flex", flexDirection: "column", gap: "14px", fontSize: "13px", color: "#CBD5E1" }}>
                 <div style={{ background: "rgba(255,255,255,0.04)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <strong style={{ color: "#34D399", display: "block", marginBottom: "4px" }}>📱 Android (Chrome / Firefox):</strong>
-                  1. Tap the 🔒 <strong>Lock / Settings icon</strong> on the left side of the address bar.<br />
+                  <strong style={{ color: "#34D399", display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}><Smartphone size={14} /> Android (Chrome / Firefox):</strong>
+                  1. Tap the <strong>Lock / Settings icon</strong> on the left side of the address bar.<br />
                   2. Tap <strong>Permissions</strong>.<br />
                   3. Set <strong>Camera</strong> and <strong>Microphone</strong> to <strong>Allow</strong>.<br />
                   4. Refresh the page.
                 </div>
 
                 <div style={{ background: "rgba(255,255,255,0.04)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <strong style={{ color: "#34D399", display: "block", marginBottom: "4px" }}>🍏 iOS Safari (iPhone / iPad):</strong>
+                  <strong style={{ color: "#34D399", display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}><Apple size={14} /> iOS Safari (iPhone / iPad):</strong>
                   1. Tap <strong>aA</strong> in the URL bar.<br />
                   2. Tap <strong>Website Settings</strong>.<br />
-                  3. Set <strong>Camera</strong> & <strong>Microphone</strong> to <strong>Allow</strong>.<br />
+                  3. Set <strong>Camera</strong> &amp; <strong>Microphone</strong> to <strong>Allow</strong>.<br />
                   4. Reload the page.
                 </div>
 
                 <div style={{ background: "rgba(255,255,255,0.04)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <strong style={{ color: "#34D399", display: "block", marginBottom: "4px" }}>💻 PC / Mac (Chrome, Edge, Brave):</strong>
-                  1. Click the 🎛️ <strong>Tune / Lock icon</strong> next to the URL.<br />
+                  <strong style={{ color: "#34D399", display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}><Laptop size={14} /> PC / Mac (Chrome, Edge, Brave):</strong>
+                  1. Click the <strong>Tune / Lock icon</strong> next to the URL.<br />
                   2. Switch <strong>Camera</strong> and <strong>Microphone</strong> toggles to <strong>ON</strong>.<br />
                   3. Click &quot;Re-check Permission&quot; below.
                 </div>

@@ -31,6 +31,14 @@ import {
   Play,
   Pause,
   Eye,
+  Square,
+  Building2,
+  Calendar,
+  User,
+  RotateCcw,
+  Lock,
+  Check,
+  X,
 } from "lucide-react";
 
 import type { WorkAssignment, Client, WorkEmployeeOption, WorkPriority, WorkStatus, PortalRole, DepartmentItem, WorkSummary } from "@/lib/types";
@@ -1216,7 +1224,7 @@ export function CommandCenterView({
               gap: "12px",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: 700, color: "#DC2626" }}>
-                <span>⚠️ {tasks.filter(t => t.status === "backlog").length === 1 ? "1 task is overdue" : `${tasks.filter(t => t.status === "backlog").length} tasks are overdue`}</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><AlertTriangle size={15} /> {tasks.filter(t => t.status === "backlog").length === 1 ? "1 task is overdue" : `${tasks.filter(t => t.status === "backlog").length} tasks are overdue`}</span>
               </div>
               <button
                 type="button"
@@ -1243,7 +1251,7 @@ export function CommandCenterView({
                 title="Close reminder banner"
               >
                 <span>Close</span>
-                <span>✕</span>
+                <X size={12} />
               </button>
 
             </div>
@@ -1347,8 +1355,8 @@ export function CommandCenterView({
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                             {t.clientName && (
-                              <span style={{ background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", border: "1px solid rgba(59, 130, 246, 0.3)", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                                🏢 {t.clientName}
+                              <span style={{ background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", border: "1px solid rgba(59, 130, 246, 0.3)", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                <Building2 size={11} /> {t.clientName}
                               </span>
                             )}
                             <span style={{ background: "var(--soft-brand-bg)", color: "var(--amber)", border: "1px solid rgba(8, 122, 91, 0.25)", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, textTransform: "uppercase" }}>
@@ -1358,13 +1366,13 @@ export function CommandCenterView({
                               {(t.priority || "NORMAL").toUpperCase()}
                             </span>
                             {t.reviewStatus === "OK" && (
-                              <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                                ✓ OK
+                              <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                                <Check size={11} /> OK
                               </span>
                             )}
                             {t.reviewStatus === "CORRECTION_NEEDED" && (
-                              <span style={{ background: "rgba(200, 75, 75, 0.1)", color: "var(--red)", border: "1px solid rgba(200, 75, 75, 0.25)", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                                ↩ Correction Needed
+                              <span style={{ background: "rgba(200, 75, 75, 0.1)", color: "var(--red)", border: "1px solid rgba(200, 75, 75, 0.25)", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                                <RotateCcw size={11} /> Correction Needed
                               </span>
                             )}
                           </div>
@@ -1424,7 +1432,7 @@ export function CommandCenterView({
                           <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap", fontSize: "12px" }}>
                             {/* Assignee */}
                             <div style={{ display: "flex", alignItems: "center", gap: "5px", color: "var(--text)", fontWeight: 600 }}>
-                              <span style={{ color: "var(--muted)", fontSize: "11px" }}>👤</span>
+                              <User size={12} style={{ color: "var(--muted)" }} />
                               <span>{t.assigneeName || "Unassigned"}</span>
                             </div>
 
@@ -1556,8 +1564,8 @@ export function CommandCenterView({
                             >
                               <div className="tc-top" style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
                                 {t.clientName && (
-                                  <span className="chip" style={{ background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", border: "1px solid rgba(59, 130, 246, 0.3)", padding: "3px 9px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                                    🏢 {t.clientName}
+                                  <span className="chip" style={{ background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", border: "1px solid rgba(59, 130, 246, 0.3)", padding: "3px 9px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                    <Building2 size={11} /> {t.clientName}
                                   </span>
                                 )}
                                 <span className="chip" style={{ background: "var(--soft-brand-bg)", color: "var(--amber)", border: "1px solid rgba(8, 122, 91, 0.25)", padding: "3px 9px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, textTransform: "uppercase" }}>
@@ -1567,18 +1575,18 @@ export function CommandCenterView({
                                   {(t.priority || "NORMAL").toUpperCase()}
                                 </span>
                                 {t.reviewStatus === "OK" && (
-                                  <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                                    ✓ OK
+                                  <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                                    <Check size={11} /> OK
                                   </span>
                                 )}
                                 {t.reviewStatus === "CORRECTION_NEEDED" && (
-                                  <span style={{ background: "rgba(200, 75, 75, 0.1)", color: "var(--red)", border: "1px solid rgba(200, 75, 75, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                                    ↩ Correction Needed
+                                  <span style={{ background: "rgba(200, 75, 75, 0.1)", color: "var(--red)", border: "1px solid rgba(200, 75, 75, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                                    <RotateCcw size={11} /> Correction Needed
                                   </span>
                                 )}
                                 {(t.status === "review" || t.rawStatus === "In Review") && t.reviewStatus === "PENDING_REVIEW" && (
-                                  <span style={{ background: "rgba(201, 135, 23, 0.12)", color: "var(--warning)", border: "1px solid rgba(201, 135, 23, 0.3)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700 }}>
-                                    ⏳ Pending Review
+                                  <span style={{ background: "rgba(201, 135, 23, 0.12)", color: "var(--warning)", border: "1px solid rgba(201, 135, 23, 0.3)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                                    <Clock size={11} /> Pending Review
                                   </span>
                                 )}
                                 <span className="tc-code" title={t.code} style={{ marginLeft: "auto", fontSize: "10.5px", color: "var(--muted)", fontFamily: "monospace", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "110px", flexShrink: 1 }}>{t.code}</span>
@@ -1708,7 +1716,9 @@ export function CommandCenterView({
                                         cursor: "pointer",
                                       }}
                                     >
-                                      ⏹ Stop Timer
+                                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                        <Square size={10} fill="#ffffff" /> Stop Timer
+                                      </span>
                                     </button>
                                   ) : (
                                     <button
@@ -1726,13 +1736,15 @@ export function CommandCenterView({
                                         cursor: "pointer",
                                       }}
                                     >
-                                      ▶ Start Timer
+                                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                        <Play size={10} fill="#ffffff" /> Start Timer
+                                      </span>
                                     </button>
                                   )
                                 ) : (
                                   t.activeTimer ? (
-                                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--red)", background: "rgba(239, 68, 68, 0.12)", padding: "3px 8px", borderRadius: "6px" }}>
-                                      🔴 Active ({t.assigneeName || 'Assignee'})
+                                    <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--red)", background: "rgba(239, 68, 68, 0.12)", padding: "3px 8px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--red)", display: "inline-block" }} /> Active ({t.assigneeName || 'Assignee'})
                                     </span>
                                   ) : null
                                 )}
@@ -1779,7 +1791,7 @@ export function CommandCenterView({
                                      const isAllowed = !isBacklog && canUserChangeTaskStatus(t) && (!isReviewerOnly || isReviewerOrManager(t));
                                      return (
                                        <option key={st.id} value={st.id} disabled={!isAllowed}>
-                                         {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(t) ? "🔒" : ""}
+                                         {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(t) ? " [Restricted]" : ""}
                                        </option>
                                      );
                                    })}
@@ -1944,7 +1956,7 @@ export function CommandCenterView({
                   </div>
                   {(canManageAll || isReviewerOrManager(t)) && (
                     <div style={{ display: "flex", gap: "6px" }}>
-                      <button type="button" onClick={() => moveTask(t.id, "approved")} className="btn btn-p" style={{ padding: "4px 10px", fontSize: "11px" }}>✓ Approve</button>
+                      <button type="button" onClick={() => moveTask(t.id, "approved")} className="btn btn-p" style={{ padding: "4px 10px", fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }}><Check size={11} /> Approve</button>
                       <button type="button" onClick={() => moveTask(t.id, "progress")} className="btn btn-d" style={{ padding: "4px 10px", fontSize: "11px" }}>← Revise</button>
                     </div>
                   )}
@@ -2079,9 +2091,9 @@ export function CommandCenterView({
 
                     {/* Metadata summary */}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", fontSize: "11.5px", color: "var(--muted)" }}>
-                      <span>👤 <b>{task.assigneeName || "Unassigned"}</b></span>
-                      <span>📅 Due: <b>{task.due || "—"}</b></span>
-                      <span>⏱️ <b>{formatTimeSpent(task.totalTimeSpentSeconds || 0)}</b> ({task.hours || 0}h est)</span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><User size={12} /> <b>{task.assigneeName || "Unassigned"}</b></span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><Calendar size={12} /> Due: <b>{task.due || "—"}</b></span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><Clock size={12} /> <b>{formatTimeSpent(task.totalTimeSpentSeconds || 0)}</b> ({task.hours || 0}h est)</span>
                     </div>
 
                     {/* Preset Feedback Tags */}
@@ -2170,9 +2182,12 @@ export function CommandCenterView({
                               fontWeight: 700,
                               fontSize: "12px",
                               cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
                             }}
                           >
-                            ↩ Request Changes
+                            <RotateCcw size={12} /> Request Changes
                           </button>
                         </>
                       )}
@@ -2189,10 +2204,13 @@ export function CommandCenterView({
                           fontSize: "11.5px",
                           fontWeight: 700,
                           cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
                         }}
                         title="Adjust Logged Time"
                       >
-                        ⏱️ Adjust
+                        <Clock size={12} /> Adjust
                       </button>
 
                       <button
@@ -2286,7 +2304,7 @@ export function CommandCenterView({
                   cursor: submittingAdjustTime || !adjustReason.trim() ? "not-allowed" : "pointer",
                 }}
               >
-                {submittingAdjustTime ? "Saving..." : "Save Time Adjustment ✓"}
+                {submittingAdjustTime ? "Saving..." : "Save Time Adjustment"}
               </button>
             </div>
           </form>
@@ -2395,8 +2413,8 @@ export function CommandCenterView({
                   MOVE TO STATUS
                 </span>
                 {!canMoveSelectedTaskStatus && (
-                  <span style={{ fontSize: "11.5px", color: "var(--amber)", fontWeight: 700 }}>
-                    🔒 Restricted to designated Reviewer ({selectedTask.reviewer || "Reviewer"}) or Management
+                  <span style={{ fontSize: "11.5px", color: "var(--amber)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    <Lock size={12} /> Restricted to designated Reviewer ({selectedTask.reviewer || "Reviewer"}) or Management
                   </span>
                 )}
               </div>
@@ -2423,7 +2441,7 @@ export function CommandCenterView({
                       cursor: "not-allowed",
                     }}
                   >
-                    Backlog (Automated Overdue) ✓
+                    Backlog (Automated Overdue)
                   </button>
                 )}
                 {!ALL_WORK_STATUSES.some((st) => st.id === selectedTask.rawStatus) && selectedTask.rawStatus && selectedTask.rawStatus !== "Backlog" && (
@@ -2442,7 +2460,7 @@ export function CommandCenterView({
                       opacity: 0.8,
                     }}
                   >
-                    {selectedTask.rawStatus} ✓
+                    {selectedTask.rawStatus}
                   </button>
                 )}
                 {ALL_WORK_STATUSES.filter((st) => st.id !== "Backlog").map((st) => {
@@ -2473,7 +2491,7 @@ export function CommandCenterView({
                       }}
                       title={!isAllowed ? `Requires Reviewer (${selectedTask.reviewer}) or Management permission` : `Move to ${st.name}`}
                     >
-                      {st.name} {isCurrent ? "✓" : ""}
+                      {st.name}
                     </button>
                   );
                 })}
@@ -2497,14 +2515,14 @@ export function CommandCenterView({
                   color: selectedTask.reviewStatus === "OK" ? "var(--green)" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "var(--red)" : "var(--warning)",
                   border: selectedTask.reviewStatus === "OK" ? "1px solid rgba(22, 133, 91, 0.25)" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "1px solid rgba(200, 75, 75, 0.25)" : "1px solid rgba(201, 135, 23, 0.3)",
                 }}>
-                  {selectedTask.reviewStatus === "OK" ? "✓ OK" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "↩ Correction Needed" : "⏳ Pending Review"}
+                  {selectedTask.reviewStatus === "OK" ? "OK" : selectedTask.reviewStatus === "CORRECTION_NEEDED" ? "Correction Needed" : "Pending Review"}
                 </span>
               </div>
 
               {selectedTask.reviewStatus === "CORRECTION_NEEDED" && (
                 <div style={{ background: "rgba(200, 75, 75, 0.05)", border: "1px solid rgba(200, 75, 75, 0.2)", borderRadius: "8px", padding: "12px 14px", marginBottom: "14px" }}>
-                  <div style={{ fontWeight: 800, color: "var(--red)", fontSize: "11px", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "4px" }}>
-                    ↩ CORRECTION NEEDED
+                  <div style={{ fontWeight: 800, color: "var(--red)", fontSize: "11px", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <RotateCcw size={12} /> CORRECTION NEEDED
                   </div>
                   <div style={{ fontSize: "13px", color: "var(--text)", marginBottom: "6px", lineHeight: "1.45", fontWeight: 500 }}>
                     "{selectedTask.reviewNote || "Correction requested."}"
@@ -2516,8 +2534,8 @@ export function CommandCenterView({
               )}
 
               {selectedTask.reviewStatus === "OK" && (
-                <div style={{ background: "rgba(22, 133, 91, 0.08)", border: "1px solid rgba(22, 133, 91, 0.25)", borderRadius: "8px", padding: "12px 14px", marginBottom: "14px", fontSize: "12.5px", color: "var(--green)", fontWeight: 600 }}>
-                  ✓ Quality audit passed — Marked OK by <b style={{ fontWeight: 800 }}>{selectedTask.reviewedByName || selectedTask.reviewer || "Reviewer"}</b> {selectedTask.reviewedAt ? `on ${new Date(selectedTask.reviewedAt).toLocaleDateString()}` : ""}
+                <div style={{ background: "rgba(22, 133, 91, 0.08)", border: "1px solid rgba(22, 133, 91, 0.25)", borderRadius: "8px", padding: "12px 14px", marginBottom: "14px", fontSize: "12.5px", color: "var(--green)", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}>
+                  <CheckCircle2 size={14} /> Quality audit passed — Marked OK by <b style={{ fontWeight: 800 }}>{selectedTask.reviewedByName || selectedTask.reviewer || "Reviewer"}</b> {selectedTask.reviewedAt ? `on ${new Date(selectedTask.reviewedAt).toLocaleDateString()}` : ""}
                 </div>
               )}
 
@@ -2550,9 +2568,9 @@ export function CommandCenterView({
                           setIsSubmittingReview(false);
                         }
                       }}
-                      style={{ flex: 1, minWidth: "130px", height: "40px", borderRadius: "6px", background: "var(--amber)", color: "#FFFFFF", fontWeight: 800, fontSize: "12.5px", border: "none", cursor: isSubmittingReview ? "not-allowed" : "pointer" }}
+                      style={{ flex: 1, minWidth: "130px", height: "40px", borderRadius: "6px", background: "var(--amber)", color: "#FFFFFF", fontWeight: 800, fontSize: "12.5px", border: "none", cursor: isSubmittingReview ? "not-allowed" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "5px" }}
                     >
-                      ✓ Mark as OK
+                      <Check size={14} /> Mark as OK
                     </button>
 
                     <button
@@ -2568,10 +2586,10 @@ export function CommandCenterView({
                           setIsSubmittingReview(false);
                         }
                       }}
-                      style={{ flex: 1, minWidth: "150px", height: "40px", borderRadius: "6px", background: "var(--red)", color: "#FFFFFF", border: "none", fontWeight: 800, fontSize: "12.5px", cursor: (isSubmittingReview || !reviewNoteInput.trim()) ? "not-allowed" : "pointer", opacity: reviewNoteInput.trim() ? 1 : 0.5 }}
+                      style={{ flex: 1, minWidth: "150px", height: "40px", borderRadius: "6px", background: "var(--red)", color: "#FFFFFF", border: "none", fontWeight: 800, fontSize: "12.5px", cursor: (isSubmittingReview || !reviewNoteInput.trim()) ? "not-allowed" : "pointer", opacity: reviewNoteInput.trim() ? 1 : 0.5, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "5px" }}
                       title={!reviewNoteInput.trim() ? "A reviewer note is required to request corrections" : "Request Correction"}
                     >
-                      ↩ Correction Needed
+                      <RotateCcw size={14} /> Correction Needed
                     </button>
                   </div>
                 </div>
@@ -2701,19 +2719,13 @@ export function CommandCenterView({
                             {(gt.priority || "NORMAL").toUpperCase()}
                           </span>
                           {gt.reviewStatus === "OK" && (
-                            <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                              ✓ OK
-                            </span>
+                            <span style={{ background: "rgba(22, 133, 91, 0.1)", color: "var(--green)", border: "1px solid rgba(22, 133, 91, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, display: "inline-flex", alignItems: "center", gap: "4px" }}><Check size={11} /> OK</span>
                           )}
                           {gt.reviewStatus === "CORRECTION_NEEDED" && (
-                            <span style={{ background: "rgba(200, 75, 75, 0.1)", color: "var(--red)", border: "1px solid rgba(200, 75, 75, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                              ↩ Correction Needed
-                            </span>
+                            <span style={{ background: "rgba(200, 75, 75, 0.1)", color: "var(--red)", border: "1px solid rgba(200, 75, 75, 0.25)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800, display: "inline-flex", alignItems: "center", gap: "4px" }}><RotateCcw size={11} /> Correction Needed</span>
                           )}
                           {(gt.status === "review" || gt.rawStatus === "In Review") && gt.reviewStatus === "PENDING_REVIEW" && (
-                            <span style={{ background: "rgba(201, 135, 23, 0.12)", color: "var(--warning)", border: "1px solid rgba(201, 135, 23, 0.3)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700 }}>
-                              ⏳ Pending Review
-                            </span>
+                            <span style={{ background: "rgba(201, 135, 23, 0.12)", color: "var(--warning)", border: "1px solid rgba(201, 135, 23, 0.3)", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "4px" }}><Clock size={11} /> Pending Review</span>
                           )}
                         </div>
                         <div style={{ fontSize: "15px", fontWeight: 800, color: "var(--text)", marginBottom: "4px", lineHeight: "1.4" }}>{gt.title}</div>
@@ -2722,7 +2734,7 @@ export function CommandCenterView({
 
                       <div style={{ textAlign: "right", flexShrink: 0 }}>
                         <div style={{ fontSize: "12px", color: isOverdue ? "var(--red)" : "var(--muted)", fontWeight: isOverdue ? 800 : 600 }}>
-                          📅 {isOverdue ? "Overdue: " : "Due: "}{gt.due}
+                          {isOverdue ? "Overdue: " : "Due: "}{gt.due}
                         </div>
                         <button
                           type="button"
@@ -2741,7 +2753,7 @@ export function CommandCenterView({
                             padding: 0,
                           }}
                         >
-                          Manage Details ➔
+                          Manage Details
                         </button>
                       </div>
                     </div>
@@ -2804,7 +2816,7 @@ export function CommandCenterView({
                             const isAllowed = !isBacklog && canUserChangeTaskStatus(gt) && (!isReviewerOnly || isReviewerOrManager(gt));
                             return (
                               <option key={st.id} value={st.id} disabled={!isAllowed} style={{ background: "var(--panel)", color: isAllowed ? "var(--text)" : "var(--muted)" }}>
-                                {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(gt) ? "🔒" : ""}
+                                {st.name} {isBacklog ? "(Auto Overdue)" : isReviewerOnly && !isReviewerOrManager(gt) ? " [Restricted]" : ""}
                               </option>
                             );
                           })}
@@ -2847,9 +2859,9 @@ export function CommandCenterView({
                             }}
                           >
                             <option value="NONE" style={{ background: "var(--panel)", color: "var(--text)" }}>— None</option>
-                            <option value="PENDING_REVIEW" style={{ background: "var(--panel)", color: "var(--text)" }}>⏳ Pending Review</option>
-                            <option value="OK" style={{ background: "var(--panel)", color: "var(--text)" }}>✓ OK / Approved</option>
-                            <option value="CORRECTION_NEEDED" style={{ background: "var(--panel)", color: "var(--text)" }}>↩ Correction Needed</option>
+                            <option value="PENDING_REVIEW" style={{ background: "var(--panel)", color: "var(--text)" }}>Pending Review</option>
+                            <option value="OK" style={{ background: "var(--panel)", color: "var(--text)" }}>OK / Approved</option>
+                            <option value="CORRECTION_NEEDED" style={{ background: "var(--panel)", color: "var(--text)" }}>Correction Needed</option>
                           </select>
                         </div>
                       )}
@@ -2898,17 +2910,17 @@ export function CommandCenterView({
                     {pendingCorrectionTaskId === gt.id && (
                       <div style={{ background: "rgba(200, 75, 75, 0.05)", border: "1px solid rgba(200, 75, 75, 0.2)", borderRadius: "8px", padding: "12px 14px", marginTop: "6px", display: "flex", flexDirection: "column", gap: "10px" }}>
                         <div style={{ fontSize: "11px", fontWeight: 800, color: "var(--red)", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span>↩ ADD CORRECTION DETAILS</span>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}><RotateCcw size={12} /> ADD CORRECTION DETAILS</span>
                           <button
                             type="button"
                             onClick={() => {
                               setPendingCorrectionTaskId(null);
                               setPendingCorrectionNote("");
                             }}
-                            style={{ background: "transparent", border: 0, color: "var(--muted)", fontSize: "14px", fontWeight: 700, cursor: "pointer", padding: "0 4px" }}
+                            style={{ background: "transparent", border: 0, color: "var(--muted)", cursor: "pointer", padding: "0 4px", display: "inline-flex", alignItems: "center" }}
                             title="Close / Cancel correction"
                           >
-                            ✕
+                            <X size={14} />
                           </button>
                         </div>
 
@@ -2988,7 +3000,7 @@ export function CommandCenterView({
                               opacity: pendingCorrectionNote.trim() ? 1 : 0.5,
                             }}
                           >
-                            Save Correction ✓
+                            Save Correction
                           </button>
                         </div>
                       </div>
@@ -2999,7 +3011,7 @@ export function CommandCenterView({
                       <div style={{ background: "rgba(200, 75, 75, 0.05)", border: "1px solid rgba(200, 75, 75, 0.2)", borderRadius: "8px", padding: "10px 14px", marginTop: "4px", display: "flex", flexDirection: "column", gap: "4px" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--red)", letterSpacing: "0.05em", textTransform: "uppercase" }}>
-                            ↩ CORRECTION DETAILS
+                            CORRECTION DETAILS
                           </span>
                           {isReviewerOrManager(gt) && (
                             <button
@@ -3010,7 +3022,7 @@ export function CommandCenterView({
                               }}
                               style={{ background: "transparent", border: 0, color: "var(--amber)", fontSize: "11px", fontWeight: 700, cursor: "pointer", textDecoration: "underline", padding: 0 }}
                             >
-                              Edit Note ✏️
+                              Edit Note
                             </button>
                           )}
                         </div>

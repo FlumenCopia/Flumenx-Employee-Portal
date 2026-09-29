@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Maximize2, ArrowRight, Copy } from "lucide-react";
+import { Maximize2, ArrowRight, Copy, Check } from "lucide-react";
 import { aspectRatiosList } from "../../config/presets.config";
 import { toast } from "@/components/ToastContext";
 
@@ -177,8 +177,8 @@ export function AspectRatioCalculatorTool() {
             <div style={{ padding: "14px", backgroundColor: "var(--tools-surface)", borderRadius: "10px", border: "1px solid var(--tools-border)" }}>
               <div style={{ fontSize: "0.78rem", color: "var(--tools-text-muted)", marginBottom: "4px" }}>Standard Preset Category:</div>
               <div style={{ fontWeight: 700, fontSize: "1rem" }}>{ratioData.closestMatch}</div>
-              <div style={{ fontSize: "0.8rem", color: ratioData.isExactMatch ? "#10B981" : "#F59E0B", marginTop: "4px", fontWeight: 600 }}>
-                {ratioData.isExactMatch ? "✓ Exact standard match" : "~ Approximate match"}
+              <div style={{ fontSize: "0.8rem", color: ratioData.isExactMatch ? "#10B981" : "#F59E0B", marginTop: "4px", fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
+                {ratioData.isExactMatch ? <><Check size={12} /> Exact standard match</> : "Approximate match"}
               </div>
             </div>
           </div>

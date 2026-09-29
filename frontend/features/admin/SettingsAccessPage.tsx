@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Key, Shield, Users as UsersIcon, ArrowRight, Trash2, MapPin, Building2, UserCog } from "lucide-react";
+import { Plus, Pencil, Key, Shield, Users as UsersIcon, ArrowRight, Trash2, MapPin, Building2, UserCog, Sparkles } from "lucide-react";
 import { useShellUser } from "@/components/shell";
 import { EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -273,8 +273,8 @@ export function SettingsAccessPage() {
                             </td>
                             <td style={{ padding: "10px 10px", verticalAlign: "top" }}>
                               {r.is_superadmin_wildcard || r.code === "SUPER_ADMIN" ? (
-                                <span style={{ fontSize: "11px", color: "var(--neon)", fontWeight: 600 }}>
-                                  ★ Full access (* wildcards)
+                                <span style={{ fontSize: "11px", color: "var(--neon)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                  <Sparkles size={12} /> Full access (* wildcards)
                                 </span>
                               ) : (
                                 <span style={{ fontSize: "11px", color: "var(--muted)" }}>

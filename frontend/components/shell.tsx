@@ -460,7 +460,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
         const isOnChat = typeof window !== "undefined" && window.location.pathname.includes("/chat");
         if (!isOnChat) {
           const senderName = msg.sender?.name || (msg.sender?.firstName ? `${msg.sender.firstName} ${msg.sender.lastName || ''}`.trim() : "Colleague");
-          toast.info(`💬 ${senderName}: ${msg.content || (msg.attachments?.length ? 'Sent an attachment' : 'New message')}`);
+          toast.info(`${senderName}: ${msg.content || (msg.attachments?.length ? 'Sent an attachment' : 'New message')}`);
 
           if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
             try {

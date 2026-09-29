@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Check, RotateCcw, Trash2, X } from "lucide-react";
+import { Check, RotateCcw, Trash2, X, AlertTriangle } from "lucide-react";
 import { Leave, Paginated } from "@/lib/types";
 import { api } from "@/lib/api";
 import { Avatar } from "@/components/icons";
@@ -341,8 +341,11 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
           )}
 
           {user?.employee?.employment_status === "Probation" && (
-            <div style={{ background: "#FEF3C7", border: "1px solid #FCD34D", color: "#92400E", padding: "10px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 600, marginBottom: "14px" }}>
-              ⚠️ <strong>Probation Period Policy:</strong> Employees on Probation are not eligible for Sick or Casual leave. Only Unpaid (Loss of Pay) or Emergency leave is permitted until formal confirmation.
+            <div style={{ background: "#FEF3C7", border: "1px solid #FCD34D", color: "#92400E", padding: "10px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 600, marginBottom: "14px", display: "flex", alignItems: "flex-start", gap: "8px" }}>
+              <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: "1px" }} />
+              <div>
+                <strong>Probation Period Policy:</strong> Employees on Probation are not eligible for Sick or Casual leave. Only Unpaid (Loss of Pay) or Emergency leave is permitted until formal confirmation.
+              </div>
             </div>
           )}
           <label>

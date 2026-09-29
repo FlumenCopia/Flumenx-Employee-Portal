@@ -1981,7 +1981,7 @@ export function ClientMasterPage({ role }: Props) {
                     gap: "6px",
                   }}
                 >
-                  <TrendingUp size={14} /> 🔢 Progressive Count Task (Videos/Photos)
+                  <TrendingUp size={14} /> Progressive Count Task (Videos/Photos)
                 </button>
 
                 <button
@@ -2004,7 +2004,7 @@ export function ClientMasterPage({ role }: Props) {
                     gap: "6px",
                   }}
                 >
-                  <ListTodo size={14} /> 📋 To-Do / Milestone Checklist (SEO, UI Design)
+                  <ListTodo size={14} /> To-Do / Milestone Checklist (SEO, UI Design)
                 </button>
               </div>
 

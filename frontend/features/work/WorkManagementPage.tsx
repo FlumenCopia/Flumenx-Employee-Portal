@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BriefcaseBusiness, CheckCircle2, CheckSquare, Clock, Copy, Globe, Kanban, List, Pencil, Plus, RotateCw, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import { BriefcaseBusiness, CheckCircle2, CheckSquare, Clock, Copy, Globe, Kanban, List, Pencil, Plus, RotateCw, Search, SlidersHorizontal, Trash2, Building2, Calendar, User, MessageSquare, RotateCcw, Zap, Sparkles } from "lucide-react";
 import { ApiError, api } from "@/lib/api";
 import type { Client, DepartmentItem, Paginated, WorkAssignment, WorkDeliverable, WorkEmployeeOption, WorkReviewerOption, WorkPriority, WorkStatus, WorkSummary, WorkspaceRole } from "@/lib/types";
 import { SHOW_ADVANCED_WORKBOARD, normalizeDepartment } from "@/lib/types";
@@ -1236,14 +1236,14 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
     >
       {[
         { key: "", label: "All Departments" },
-        { key: "web_development", label: "💻 Web Development" },
-        { key: "video_editing", label: "🎬 Video Editing" },
-        { key: "design", label: "🎨 Design" },
-        { key: "digital_marketing", label: "📈 Digital Marketing" },
-        { key: "accountant", label: "💰 Accounts" },
-        { key: "hr", label: "👥 HR" },
-        { key: "business_development", label: "🚀 Business Dev" },
-        { key: "operations", label: "⚙️ Operations" },
+        { key: "web_development", label: "Web Development" },
+        { key: "video_editing", label: "Video Editing" },
+        { key: "design", label: "Design" },
+        { key: "digital_marketing", label: "Digital Marketing" },
+        { key: "accountant", label: "Accounts" },
+        { key: "hr", label: "HR" },
+        { key: "business_development", label: "Business Dev" },
+        { key: "operations", label: "Operations" },
       ].map((dept) => {
         const isSelected = filters.department === dept.key;
         return (
@@ -1561,16 +1561,16 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
 
                     {/* Metadata Summary */}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", fontSize: "11.5px", color: "var(--muted)" }}>
-                      <span>👤 Assignee: <b>{item.employee_name || "Unassigned"}</b></span>
-                      <span>🔍 Reviewer: <b>{(item as any).reviewer_name || (item as any).reviewerName || "Unassigned"}</b></span>
-                      <span>📅 Due: <b>{item.due_date ? formatDate(item.due_date) : "—"}</b></span>
-                      <span>⏱️ <b>{spentLabel}</b></span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><User size={12} /> Assignee: <b>{item.employee_name || "Unassigned"}</b></span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><Search size={12} /> Reviewer: <b>{(item as any).reviewer_name || (item as any).reviewerName || "Unassigned"}</b></span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><Calendar size={12} /> Due: <b>{item.due_date ? formatDate(item.due_date) : "—"}</b></span>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><Clock size={12} /> <b>{spentLabel}</b></span>
                     </div>
 
                     {/* Attached Review Note */}
                     {(item as any).review_note && (
-                      <div style={{ fontSize: "11.5px", padding: "6px 10px", borderRadius: "6px", background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.2)", color: "var(--foreground)" }}>
-                        💬 <b>Feedback Note:</b> {(item as any).review_note}
+                      <div style={{ fontSize: "11.5px", padding: "6px 10px", borderRadius: "6px", background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.2)", color: "var(--foreground)", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <MessageSquare size={13} /> <span><b>Feedback Note:</b> {(item as any).review_note}</span>
                       </div>
                     )}
 
@@ -1648,10 +1648,13 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                               fontSize: "11.5px",
                               fontWeight: 600,
                               cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
                             }}
                             title="Re-open task for updates"
                           >
-                            ↩ Re-open
+                            <RotateCcw size={12} /> Re-open
                           </button>
                           <button
                             type="button"
@@ -1764,9 +1767,12 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                               fontWeight: 700,
                               fontSize: "12px",
                               cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
                             }}
                           >
-                            ↩ Request Changes
+                            <RotateCcw size={12} /> Request Changes
                           </button>
 
                           <button
@@ -1894,9 +1900,12 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                               padding: "2px 6px",
                               fontSize: "10.5px",
                               fontWeight: 700,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
                             }}
                           >
-                            🏢 {t.client_name}
+                            <Building2 size={11} /> {t.client_name}
                           </span>
                         )}
                         <span
@@ -1910,7 +1919,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                           }}
                         >
                           {String(t.department_category || "").toLowerCase().includes("web") || String(t.department_category || "").toLowerCase().includes("dev") || t.employee_department?.toLowerCase().includes("web")
-                            ? "💻 Web Development"
+                            ? "Web Development"
                             : t.department_category || "Task"}
                         </span>
                         <Badge tone={t.priority}>{t.priority}</Badge>
@@ -1959,9 +1968,9 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                           borderTop: "1px solid var(--border)",
                         }}
                       >
-                        <span style={{ fontWeight: 600 }}>👤 {t.employee_name}</span>
-                        <span style={{ color: t.is_overdue ? "#EF4444" : "inherit", fontWeight: t.is_overdue ? 700 : 500 }}>
-                          📅 {t.due_date ? formatDate(t.due_date) : "No date"}
+                        <span style={{ fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px" }}><User size={11} /> {t.employee_name}</span>
+                        <span style={{ color: t.is_overdue ? "#EF4444" : "inherit", fontWeight: t.is_overdue ? 700 : 500, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                          <Calendar size={11} /> {t.due_date ? formatDate(t.due_date) : "No date"}
                         </span>
                       </div>
 
@@ -2495,7 +2504,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
 
                 {smartBannerInfo && (
                   <div style={{ background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.25)", borderRadius: "6px", padding: "8px 12px", fontSize: "11.5px", color: "#065f46", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span>⚡ <b>Smart Derivation:</b> Dept: {smartBannerInfo.department}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><Zap size={13} /> <b>Smart Derivation:</b> Dept: {smartBannerInfo.department}</span>
                     <span>· Default Reviewer: <b>{smartBannerInfo.reviewerName}</b> (Auto-Assigned)</span>
                   </div>
                 )}
@@ -2515,7 +2524,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                 {/* 1-Click Department Deliverable Templates */}
                 {selectedEmployee && DEPARTMENT_TEMPLATES[normalizeDepartment(selectedEmployee.department)] && (
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", background: "rgba(99, 102, 241, 0.06)", padding: "8px 12px", borderRadius: "8px", border: "1px solid rgba(99, 102, 241, 0.2)" }}>
-                    <span style={{ fontSize: "11px", fontWeight: 800, color: "#4f46e5" }}>⚡ 1-Click Templates:</span>
+                    <span style={{ fontSize: "11px", fontWeight: 800, color: "#4f46e5", display: "inline-flex", alignItems: "center", gap: "4px" }}><Sparkles size={12} /> 1-Click Templates:</span>
                     {DEPARTMENT_TEMPLATES[normalizeDepartment(selectedEmployee.department)].map((tpl, i) => (
                       <button
                         key={i}
@@ -2542,7 +2551,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                 {/* 1-Click Due Date Presets */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px", padding: "2px 0" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--muted)" }}>📅 Due Date Presets:</span>
+                    <span style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: "4px" }}><Calendar size={12} /> Due Date Presets:</span>
                     {[
                       { id: "today", label: "Today" },
                       { id: "tomorrow", label: "Tomorrow" },
@@ -2590,7 +2599,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                       >
                         {clients.map(c => (
                           <option key={c.id} value={String(c.id)}>
-                            🏢 {c.name}
+                            {c.name}
                           </option>
                         ))}
                       </select>
@@ -2763,8 +2772,8 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                 </div>
 
                 {/* Live Summary Preview */}
-                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", padding: "8px 12px", fontSize: "11.5px", color: "#166534", fontWeight: 700 }}>
-                  ⚡ <b>Batch Dispatch:</b> Creating {tasksToAssign.length} independent {tasksToAssign.length === 1 ? "task" : "tasks"} for {selectedEmployee ? selectedEmployee.display_name : "the selected employee"} across {new Set(tasksToAssign.map(t => t.client || (clients[0]?.id))).size} {new Set(tasksToAssign.map(t => t.client || (clients[0]?.id))).size === 1 ? "client" : "clients"}.
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", padding: "8px 12px", fontSize: "11.5px", color: "#166534", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Zap size={14} /> <span><b>Batch Dispatch:</b> Creating {tasksToAssign.length} independent {tasksToAssign.length === 1 ? "task" : "tasks"} for {selectedEmployee ? selectedEmployee.display_name : "the selected employee"} across {new Set(tasksToAssign.map(t => t.client || (clients[0]?.id))).size} {new Set(tasksToAssign.map(t => t.client || (clients[0]?.id))).size === 1 ? "client" : "clients"}.</span>
                 </div>
               </div>
             </div>

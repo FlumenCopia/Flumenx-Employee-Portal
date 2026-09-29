@@ -312,8 +312,8 @@ export function EmployeeDashboard() {
                         {t.title}
                       </span>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px" }}>
-                        <span style={{ color: isOverdue ? "#FF6B6B" : "var(--muted)", fontWeight: isOverdue ? 700 : 400 }}>
-                          📅 {isOverdue ? "Overdue: " : "Due: "}{t.due_date}
+                        <span style={{ color: isOverdue ? "#FF6B6B" : "var(--muted)", fontWeight: isOverdue ? 700 : 400, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                          <CalendarDays size={12} /> {isOverdue ? "Overdue: " : "Due: "}{t.due_date}
                         </span>
                       </div>
                     </div>

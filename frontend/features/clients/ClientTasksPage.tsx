@@ -734,7 +734,7 @@ export function ClientTasksPage({ role }: Props) {
                             <span style={{ fontWeight: 600 }}>
                               {task.completed_quantity || 0} / {task.assigned_quantity || 1} {task.unit}
                             </span>
-                            {task.due_date && <span>📅 {task.due_date.slice(0, 10)}</span>}
+                            {task.due_date && <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}><Calendar size={11} /> {task.due_date.slice(0, 10)}</span>}
                           </div>
                         </div>
                       ))
@@ -1610,8 +1610,9 @@ export function ClientTasksPage({ role }: Props) {
                             const isDone = (del.delivered || 0) > 0 || del.status === "Completed" || del.status === "Published";
                             return (
                               <div key={dIdx} style={{ background: isDone ? "var(--color-primary-subtle, #E7F3EE)" : "var(--panel2, #F8FAF9)", border: `1px solid ${isDone ? "var(--color-brand-border, #B2D8CB)" : "var(--border, #DCE3E0)"}`, padding: "6px 10px", borderRadius: "6px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11.5px" }}>
-                                <span style={{ fontWeight: 700, color: isDone ? "var(--color-primary, #087A5B)" : "var(--color-text, #18231F)" }}>
-                                  {isDone ? "✓ " : "• "}{del.name || del.title}
+                                <span style={{ fontWeight: 700, color: isDone ? "var(--color-primary, #087A5B)" : "var(--color-text, #18231F)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                  {isDone && <CheckCircle2 size={12} />}
+                                  {del.name || del.title}
                                 </span>
                                 <span style={{ fontSize: "10px", fontWeight: 800, color: isDone ? "var(--color-primary, #087A5B)" : "var(--color-text-muted, #718096)" }}>
                                   {isDone ? "Done" : "Pending"}

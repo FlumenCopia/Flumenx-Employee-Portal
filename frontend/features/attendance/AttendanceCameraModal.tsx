@@ -472,8 +472,8 @@ export function AttendanceCameraModal({
                 </button>
 
                 {!faceDetected && !cameraLoading && !cameraError && (
-                  <p style={{ fontSize: "11.5px", color: "#f87171", textAlign: "center", margin: 0 }}>
-                    ⚠️ Position your face inside the green oval frame to enable photo capture.
+                  <p style={{ fontSize: "11.5px", color: "#f87171", textAlign: "center", margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "5px" }}>
+                    <AlertTriangle size={13} /> Position your face inside the green oval frame to enable photo capture.
                   </p>
                 )}
               </>

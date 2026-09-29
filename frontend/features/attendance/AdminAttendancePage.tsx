@@ -286,8 +286,8 @@ export function AdminAttendancePage() {
         }
       >
         {actionMessage && (
-          <div style={{ padding: "8px 12px", background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#065f46", borderRadius: "8px", fontSize: "12px", fontWeight: 600, marginBottom: "10px" }}>
-            ✓ {actionMessage}
+          <div style={{ padding: "8px 12px", background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#065f46", borderRadius: "8px", fontSize: "12px", fontWeight: 600, marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
+            <CheckCircle2 size={14} /> {actionMessage}
           </div>
         )}
 

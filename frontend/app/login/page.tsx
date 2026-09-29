@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, X } from "lucide-react";
 import { FlumenxMark } from "@/components/icons";
 import { api, ApiError } from "@/lib/api";
 import { getWorkspaceDestination } from "@/components/layout/navigation";
@@ -275,7 +275,7 @@ export default function LoginPage() {
           <div style={{ width: "100%", maxWidth: "420px", background: "var(--panel)", border: "1px solid var(--border2)", borderRadius: "16px", padding: "24px", color: "var(--text)", display: "flex", flexDirection: "column", gap: "16px", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <b style={{ fontSize: "16px", letterSpacing: "0.5px" }}>RESET PASSWORD</b>
-              <button type="button" onClick={() => setForgotModalOpen(false)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "18px" }}>✕</button>
+              <button type="button" onClick={() => setForgotModalOpen(false)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", display: "flex", alignItems: "center" }}><X size={18} /></button>
             </div>
             <p style={{ fontSize: "12.5px", color: "var(--muted)", lineHeight: 1.5 }}>
               Enter the work email address linked to your account. We will send you a secure link to reset your password.

@@ -23,6 +23,7 @@ import {
   Video,
   Palette,
   Megaphone,
+  FolderOpen,
   Code2,
   Box,
   X,
@@ -353,8 +354,8 @@ export function PublicWorkProgressPage({ token }: { token: string }) {
                 </span>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                   {data.services_provided.map((s, idx) => (
-                    <span key={idx} style={{ fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.08)", color: "#FFFFFF", padding: "4px 10px", borderRadius: TOKENS.radius.sm, border: "1px solid rgba(255,255,255,0.1)" }}>
-                      ✓ {s}
+                    <span key={idx} style={{ fontSize: "11px", fontWeight: 700, background: "rgba(255,255,255,0.08)", color: "#FFFFFF", padding: "4px 10px", borderRadius: TOKENS.radius.sm, border: "1px solid rgba(255,255,255,0.1)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      <Check size={12} /> {s}
                     </span>
                   ))}
                 </div>
@@ -407,8 +408,8 @@ export function PublicWorkProgressPage({ token }: { token: string }) {
           {/* Fast Access Resources Sidebar Card */}
           {(((data as any).documents && (data as any).documents.length > 0) || ((data as any).brand_assets && (data as any).brand_assets.length > 0)) && (
             <div id="resources" style={{ background: TOKENS.colors.surfacePanel, borderRadius: TOKENS.radius.xl, border: `1px solid ${TOKENS.colors.borderLight}`, padding: "1.25rem", boxShadow: TOKENS.shadows.sm }}>
-              <span style={{ fontSize: "10.5px", fontWeight: 800, color: TOKENS.colors.textMuted, textTransform: "uppercase", letterSpacing: "0.5px", display: "block", marginBottom: "10px" }}>
-                📁 Brand Resources & Files
+              <span style={{ fontSize: "10.5px", fontWeight: 800, color: TOKENS.colors.textMuted, textTransform: "uppercase", letterSpacing: "0.5px", display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+                <FolderOpen size={14} /> Brand Resources &amp; Files
               </span>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -436,7 +437,7 @@ export function PublicWorkProgressPage({ token }: { token: string }) {
                       <Palette size={14} style={{ color: TOKENS.colors.brandPrimary, flexShrink: 0 }} />
                       {asset.name}
                     </span>
-                    <span style={{ fontSize: "10px", color: TOKENS.colors.brandPrimary, fontWeight: 800 }}>Open ↗</span>
+                    <span style={{ fontSize: "10px", color: TOKENS.colors.brandPrimary, fontWeight: 800, display: "inline-flex", alignItems: "center", gap: "2px" }}>Open <ExternalLink size={10} /></span>
                   </a>
                 ))}
 
@@ -464,7 +465,7 @@ export function PublicWorkProgressPage({ token }: { token: string }) {
                       <FileText size={14} style={{ color: TOKENS.colors.success, flexShrink: 0 }} />
                       {doc.name}
                     </span>
-                    <span style={{ fontSize: "10px", color: TOKENS.colors.success, fontWeight: 800 }}>{doc.document_type || "Doc"} ↗</span>
+                    <span style={{ fontSize: "10px", color: TOKENS.colors.success, fontWeight: 800, display: "inline-flex", alignItems: "center", gap: "2px" }}>{doc.document_type || "Doc"} <ExternalLink size={10} /></span>
                   </a>
                 ))}
               </div>
@@ -478,8 +479,8 @@ export function PublicWorkProgressPage({ token }: { token: string }) {
           {/* Account Leadership Update Banner */}
           {data.public_update && (
             <div style={{ background: TOKENS.colors.surfacePanel, borderLeft: `4px solid ${TOKENS.colors.brandPrimary}`, border: `1px solid ${TOKENS.colors.borderLight}`, borderLeftWidth: "4px", borderRadius: TOKENS.radius.lg, padding: "1.1rem 1.4rem", boxShadow: TOKENS.shadows.sm }}>
-              <span style={{ fontSize: "10.5px", fontWeight: 800, color: TOKENS.colors.brandPrimary, textTransform: "uppercase", letterSpacing: "0.5px", display: "block", marginBottom: "3px" }}>
-                📢 Account Leadership Note
+              <span style={{ fontSize: "10.5px", fontWeight: 800, color: TOKENS.colors.brandPrimary, textTransform: "uppercase", letterSpacing: "0.5px", display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
+                <Megaphone size={13} /> Account Leadership Note
               </span>
               <p style={{ fontSize: "13.5px", color: TOKENS.colors.textSecondary, margin: 0, fontWeight: 600, lineHeight: "1.5" }}>{data.public_update}</p>
             </div>
@@ -653,9 +654,9 @@ export function PublicWorkProgressPage({ token }: { token: string }) {
               {selectedPhase !== "all" && (
                 <button
                   onClick={() => setSelectedPhase("all")}
-                  style={{ fontSize: "12px", color: TOKENS.colors.brandPrimary, fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}
+                  style={{ fontSize: "12px", color: TOKENS.colors.brandPrimary, fontWeight: 700, background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
                 >
-                  Clear Phase Filter ({PHASE_TITLES[selectedPhase]}) ✕
+                  Clear Phase Filter ({PHASE_TITLES[selectedPhase]}) <X size={13} />
                 </button>
               )}
             </div>

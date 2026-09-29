@@ -302,7 +302,7 @@ export function TaskTimerPage() {
       setTasks((prev) => prev.map((t) => (t.id === selectedTask.id ? { ...t, ...updated, completed_quantity: newQty, status: patchBody.status || t.status } : t)));
       
       if (isTargetReached) {
-        setActionMessage({ type: "success", text: `🎉 Target reached (${newQty}/${assignedQty})! Task automatically submitted for review.` });
+        setActionMessage({ type: "success", text: `Target reached (${newQty}/${assignedQty})! Task automatically submitted for review.` });
       } else {
         setActionMessage({ type: "success", text: `Updated progress: ${newQty} / ${assignedQty} ${selectedTask.unit || "items"}` });
       }
@@ -554,8 +554,8 @@ export function TaskTimerPage() {
                             </span>
                             <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#0f172a", marginTop: "1px" }}>{t.title}</div>
                             {t.parent_task_title && (
-                              <div style={{ fontSize: "0.7rem", color: "#0369a1", background: "rgba(14, 165, 233, 0.1)", padding: "2px 6px", borderRadius: "4px", marginTop: "3px", fontWeight: 600, display: "inline-block" }}>
-                                🔗 Goal: {t.parent_task_title}
+                              <div style={{ fontSize: "0.7rem", color: "#0369a1", background: "rgba(14, 165, 233, 0.1)", padding: "2px 6px", borderRadius: "4px", marginTop: "3px", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                                <Layers size={11} /> Goal: {t.parent_task_title}
                               </div>
                             )}
                           </div>
@@ -727,7 +727,7 @@ export function TaskTimerPage() {
                   {formatSeconds(isCurrentSelectedRunning ? liveDurationSeconds : 0)}
                 </div>
                 <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.375rem", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>
-                  {isCurrentSelectedRunning ? "⏱ Active Session Stopwatch" : "Stopwatch Idle (Click Start to Log Work)"}
+                  {isCurrentSelectedRunning ? "Active Session Stopwatch" : "Stopwatch Idle (Click Start to Log Work)"}
                 </div>
               </div>
 
@@ -773,7 +773,7 @@ export function TaskTimerPage() {
                                 completed_quantity: selectedTask.assigned_quantity || 1,
                               }),
                             });
-                            setActionMessage({ type: "success", text: "Task marked complete and submitted for Review! 🎉" });
+                            setActionMessage({ type: "success", text: "Task marked complete and submitted for Review!" });
                             await fetchTasks();
                           } catch (err: any) {
                             setActionMessage({ type: "error", text: err.message || "Failed to submit for review." });
@@ -798,8 +798,8 @@ export function TaskTimerPage() {
                       >
                         <CheckCircle2 size={16} />
                         {(selectedTask.completed_quantity || 0) >= (selectedTask.assigned_quantity || 1)
-                          ? "📨 Submit for Review (Done) 🎉"
-                          : "📨 Mark Done & Send for Review"}
+                          ? "Submit for Review (Done)"
+                          : "Mark Done & Send for Review"}
                       </button>
                     )}
                   </>
@@ -844,7 +844,7 @@ export function TaskTimerPage() {
                               completed_quantity: selectedTask.assigned_quantity || 1,
                             }),
                           });
-                          setActionMessage({ type: "success", text: "Task marked complete and submitted for Review! 🎉" });
+                          setActionMessage({ type: "success", text: "Task marked complete and submitted for Review!" });
                           await fetchTasks();
                         } catch (err: any) {
                           setActionMessage({ type: "error", text: err.message || "Failed to mark complete." });

@@ -11,6 +11,8 @@ import {
   Users,
   Download,
   Pencil,
+  Building2,
+  PenLine,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
@@ -1179,9 +1181,12 @@ export function BillsAndPaymentsView({
                       borderRadius: "4px",
                       cursor: "pointer",
                       boxShadow: billVendorMode === "VENDOR" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
                     }}
                   >
-                    🏢 Registered Vendor
+                    <Building2 size={13} /> Registered Vendor
                   </button>
                   <button
                     type="button"
@@ -1196,9 +1201,12 @@ export function BillsAndPaymentsView({
                       borderRadius: "4px",
                       cursor: "pointer",
                       boxShadow: billVendorMode === "MANUAL" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
                     }}
                   >
-                    ✍️ Manual Vendor / Ad-hoc Bill
+                    <PenLine size={13} /> Manual Vendor / Ad-hoc Bill
                   </button>
                 </div>
               </div>
@@ -1545,9 +1553,12 @@ export function BillsAndPaymentsView({
                       borderRadius: "4px",
                       cursor: "pointer",
                       boxShadow: payVendorMode === "VENDOR" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
                     }}
                   >
-                    🏢 Registered Vendor
+                    <Building2 size={13} /> Registered Vendor
                   </button>
                   <button
                     type="button"
@@ -1562,9 +1573,12 @@ export function BillsAndPaymentsView({
                       borderRadius: "4px",
                       cursor: "pointer",
                       boxShadow: payVendorMode === "MANUAL" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
                     }}
                   >
-                    ✍️ Manual Payee / Ref
+                    <PenLine size={13} /> Manual Payee / Ref
                   </button>
                 </div>
               </div>

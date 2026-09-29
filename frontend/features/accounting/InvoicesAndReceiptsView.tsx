@@ -9,6 +9,8 @@ import {
   Receipt,
   Download,
   Trash2,
+  Building2,
+  PenLine,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
@@ -935,9 +937,12 @@ export function InvoicesAndReceiptsView({
                       borderRadius: "4px",
                       cursor: "pointer",
                       boxShadow: invClientMode === "ERP" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
                     }}
                   >
-                    🏢 ERP Client Directory
+                    <Building2 size={13} /> ERP Client Directory
                   </button>
                   <button
                     type="button"
@@ -952,9 +957,12 @@ export function InvoicesAndReceiptsView({
                       borderRadius: "4px",
                       cursor: "pointer",
                       boxShadow: invClientMode === "MANUAL" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
                     }}
                   >
-                    ✍️ Manual Entry / Custom Ref
+                    <PenLine size={13} /> Manual Entry / Custom Ref
                   </button>
                 </div>
               </div>
@@ -1357,9 +1365,12 @@ export function InvoicesAndReceiptsView({
                       borderRadius: "4px",
                       cursor: "pointer",
                       boxShadow: recClientMode === "ERP" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
                     }}
                   >
-                    🏢 ERP Client Directory
+                    <Building2 size={13} /> ERP Client Directory
                   </button>
                   <button
                     type="button"
@@ -1374,9 +1385,12 @@ export function InvoicesAndReceiptsView({
                       borderRadius: "4px",
                       cursor: "pointer",
                       boxShadow: recClientMode === "MANUAL" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
                     }}
                   >
-                    ✍️ Manual Customer / Ref
+                    <PenLine size={13} /> Manual Customer / Ref
                   </button>
                 </div>
               </div>

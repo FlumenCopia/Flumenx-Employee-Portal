@@ -223,12 +223,12 @@ export function AttendancePolicySettings() {
                   background: "#087A5B",
                   color: "#FFFFFF",
                   border: "none",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
                 }}
               >
-                📍 Apply Sasthamangalam HQ ({HQ_LATITUDE}, {HQ_LONGITUDE.toFixed(4)})
+                <MapPin size={13} /> Apply Sasthamangalam HQ ({HQ_LATITUDE}, {HQ_LONGITUDE.toFixed(4)})
               </button>
               <button
                 type="button"
@@ -242,9 +242,12 @@ export function AttendancePolicySettings() {
                   fontSize: "12px",
                   fontWeight: 600,
                   cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
                 }}
               >
-                📡 Use Device GPS
+                <Navigation size={13} /> Use Device GPS
               </button>
             </div>
           </div>

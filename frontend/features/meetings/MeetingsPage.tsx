@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import React, { useState, useEffect, type FormEvent } from "react";
+import { Trash2, Video, Radio } from "lucide-react";
 import { Department, Meeting, Paginated } from "@/lib/types";
 import { api } from "@/lib/api";
 import { Badge, EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
@@ -160,7 +160,7 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
               boxShadow: "0 2px 8px rgba(8, 122, 91, 0.4)",
             }}
           >
-            🟢 Enter Live Room
+            <Video size={14} /> Enter Live Room
           </a>
         )}
       </div>
@@ -171,7 +171,13 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
                 <Badge tone={m.status === "LIVE" ? "success" : i === 0 ? "Important" : "neutral"}>
-                  {m.status === "LIVE" ? "🟢 LIVE NOW" : m.department}
+                  {m.status === "LIVE" ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      <Radio size={12} /> LIVE NOW
+                    </span>
+                  ) : (
+                    m.department
+                  )}
                 </Badge>
                 {m.status === "ENDED" && <span style={{ fontSize: "10px", color: "#94A3B8", fontWeight: 700 }}>Concluded</span>}
               </div>

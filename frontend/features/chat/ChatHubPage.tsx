@@ -369,7 +369,7 @@ export function ChatHubPage({ role }: Props) {
           if (String(c.id) === String(msg.conversation_id)) {
             return {
               ...c,
-              last_message_text: msg.text || (msg.message_type === "IMAGE" ? "📷 Image" : msg.message_type === "VIDEO" ? "🎥 Video" : "📁 File attachment"),
+              last_message_text: msg.text || (msg.message_type === "IMAGE" ? "Image" : msg.message_type === "VIDEO" ? "Video" : "File attachment"),
               last_message_at: msg.created_at || new Date().toISOString(),
               last_message_sender_name: msg.sender_name,
               has_unread: String(msg.conversation_id) !== String(activeConversationId),
@@ -390,7 +390,7 @@ export function ChatHubPage({ role }: Props) {
             if (String(c.id) === String(data.conversationId)) {
               return {
                 ...c,
-                last_message_text: msg.text || (msg.message_type === "IMAGE" ? "📷 Image" : "📁 File"),
+                last_message_text: msg.text || (msg.message_type === "IMAGE" ? "Image" : "File"),
                 last_message_at: msg.created_at || new Date().toISOString(),
                 last_message_sender_name: msg.sender_name,
                 has_unread: String(data.conversationId) !== String(activeConversationId),
@@ -1410,7 +1410,7 @@ export function ChatHubPage({ role }: Props) {
                 {!hasMoreMessages && messages.length > 0 && !loadingMessages && (
                   <div style={{ textAlign: "center", padding: "6px 0 2px", color: "var(--color-text-muted, #718096)", fontSize: "11px" }}>
                     <span style={{ padding: "3px 10px", borderRadius: "12px", background: "var(--panel2, #F8FAF9)", border: "1px solid var(--border, #DCE3E0)" }}>
-                      ✦ Beginning of conversation history
+                      Beginning of conversation history
                     </span>
                   </div>
                 )}
@@ -2513,7 +2513,7 @@ export function ChatHubPage({ role }: Props) {
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
                   <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--color-text, #18231F)" }}>
-                    {callPickerType === "video" ? "📹 Instant Group Video Call" : "📞 Instant Group Voice Call"}
+                    {callPickerType === "video" ? "Instant Group Video Call" : "Instant Group Voice Call"}
                   </span>
                   <Badge tone="success">Group</Badge>
                 </div>
@@ -2731,7 +2731,7 @@ export function ChatHubPage({ role }: Props) {
                 Forwarding message from {messageToForward.sender_name}:
               </span>
               <div style={{ fontStyle: "italic", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {messageToForward.text || (messageToForward.message_type === "IMAGE" ? "📷 Image" : messageToForward.message_type === "VIDEO" ? "🎥 Video" : "📎 Attachment")}
+                {messageToForward.text || (messageToForward.message_type === "IMAGE" ? "Image" : messageToForward.message_type === "VIDEO" ? "Video" : "Attachment")}
               </div>
             </div>
 

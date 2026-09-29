@@ -345,7 +345,7 @@ export function ManualAttendanceModal({ onClose, onSuccess }: ManualAttendanceMo
               onChange={(e) => setWaiveLate(e.target.checked)}
               style={{ width: "16px", height: "16px", cursor: "pointer" }}
             />
-            ✓ Mark as On Time / Waive Late arrival penalty
+            Mark as On Time / Waive Late arrival penalty
           </label>
 
           <div>

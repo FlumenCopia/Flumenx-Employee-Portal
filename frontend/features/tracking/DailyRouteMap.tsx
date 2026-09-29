@@ -349,7 +349,7 @@ export function DailyRouteMap({
             gap: 5px;
             cursor: pointer;
           ">
-            <span>🏁 START</span>
+            <span>START</span>
             <span style="opacity: 0.85; font-weight: 600;">${formatTime(firstPt.timestamp)}</span>
           </div>
         `;
@@ -378,7 +378,7 @@ export function DailyRouteMap({
             gap: 5px;
             cursor: pointer;
           ">
-            <span>🛑 FINISH</span>
+            <span>FINISH</span>
             <span style="opacity: 0.85; font-weight: 600;">${formatTime(lastPt.timestamp)}</span>
           </div>
         `;
@@ -404,7 +404,7 @@ export function DailyRouteMap({
               box-shadow: 0 2px 8px rgba(0,0,0,0.25);
               cursor: pointer;
             ">
-              ⏸️ ${Math.round(stop.durationSeconds / 60)}m stop
+              ${Math.round(stop.durationSeconds / 60)}m stop
             </div>
           `;
           const stopMarker = new maplibregl.Marker({ element: stopEl })

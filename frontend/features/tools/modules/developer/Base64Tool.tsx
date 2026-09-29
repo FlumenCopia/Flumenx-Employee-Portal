@@ -6,7 +6,7 @@ import { toast } from "@/components/ToastContext";
 
 export function Base64Tool() {
   const [mode, setMode] = useState<"encode" | "decode">("encode");
-  const [input, setInput] = useState<string>("Hello, Flumenx World! 🚀");
+  const [input, setInput] = useState<string>("Hello, Flumenx World!");
   const [urlSafe, setUrlSafe] = useState(false);
 
   // UTF-8 safe encode/decode

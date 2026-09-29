@@ -5,7 +5,7 @@ import { AttendanceRecord } from "@/lib/types";
 import { Avatar } from "@/components/icons";
 import { Badge } from "@/components/ui";
 import { displayTime, statusTone } from "./helpers";
-import { Calendar, CheckCircle2, Clock3, Edit3, MapPin, RotateCcw, Save, ShieldAlert, Sparkles, Trash2, User, X } from "lucide-react";
+import { Calendar, CheckCircle2, Clock3, Edit3, MapPin, RotateCcw, Save, ShieldAlert, Sparkles, Trash2, User, X, Zap } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
 
@@ -342,7 +342,7 @@ export function AttendanceDetailModal({ record, onClose, onUpdated }: Attendance
                   }}
                   style={{ width: "16px", height: "16px", cursor: "pointer" }}
                 />
-                ✓ Waive Late Penalty &amp; Mark as On Time (Remove Half Day penalty)
+                Waive Late Penalty &amp; Mark as On Time (Remove Half Day penalty)
               </label>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
@@ -600,7 +600,7 @@ export function AttendanceDetailModal({ record, onClose, onUpdated }: Attendance
               }}
             >
               <span style={{ fontWeight: 800, color: "#f59e0b", display: "flex", alignItems: "center", gap: "6px" }}>
-                ⚡ Auto-Checkout System Notice
+                <Zap size={14} /> Auto-Checkout System Notice
               </span>
               <span style={{ color: "#e2e8f0" }}>
                 {record.auto_checkout_reason || "Employee forgot to check out. Automatically checked out by the system at midnight with standard shift end time."}

@@ -1103,8 +1103,8 @@ export function SalaryPage({ employee = false }: { employee?: boolean }) {
 
           {/* Real Calendar Grid */}
           <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "16px" }}>
-            <div style={{ fontSize: "12px", color: "#64748B", marginBottom: "12px" }}>
-              💡 Click on any date or holiday card below to add or edit company holidays.
+            <div style={{ fontSize: "12px", color: "#64748B", marginBottom: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+              <Info size={14} /> Click on any date or holiday card below to add or edit company holidays.
             </div>
             {renderVisualCalendar()}
           </div>

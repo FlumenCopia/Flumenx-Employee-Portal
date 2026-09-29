@@ -13,6 +13,8 @@ import {
   ChevronRight,
   Trash2,
   Download,
+  Building2,
+  PenLine,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
@@ -869,9 +871,12 @@ export function JournalEntriesView({ initialOpenNewModal = false, onModalClose }
                       background: partyMode === "CLIENT" ? "#ffffff" : "transparent",
                       color: partyMode === "CLIENT" ? "#0f172a" : "#64748b",
                       boxShadow: partyMode === "CLIENT" ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
                     }}
                   >
-                    🏢 ERP Client
+                    <Building2 size={13} /> ERP Client
                   </button>
                   <button
                     type="button"
@@ -890,9 +895,12 @@ export function JournalEntriesView({ initialOpenNewModal = false, onModalClose }
                       background: partyMode === "MANUAL" ? "#ffffff" : "transparent",
                       color: partyMode === "MANUAL" ? "#0f172a" : "#64748b",
                       boxShadow: partyMode === "MANUAL" ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
                     }}
                   >
-                    ✍️ Manual Party & Ref
+                    <PenLine size={13} /> Manual Party & Ref
                   </button>
                 </div>
               </div>
