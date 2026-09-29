@@ -49,7 +49,6 @@ export function StatCard({
       style={{
         backgroundColor: active ? "rgba(8, 122, 91, 0.05)" : TOKENS.colors.surfacePanel,
         border: active ? "1.5px solid #087A5B" : `1px solid ${TOKENS.colors.borderLight}`,
-        borderTop: active ? "3px solid #087A5B" : accent ? `3px solid ${TOKENS.colors.brandPrimary}` : `1px solid ${TOKENS.colors.borderLight}`,
         borderRadius: TOKENS.radius.lg,
         padding: "20px",
         boxShadow: active ? "0 0 0 2px rgba(8, 122, 91, 0.2), 0 4px 12px rgba(8, 122, 91, 0.15)" : TOKENS.shadows.sm,

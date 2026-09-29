@@ -71,7 +71,7 @@ export function StatCard({ label, value, note, icon, accent, style }: StatCardPr
         flexDirection: 'column',
         justifyContent: 'space-between',
         minHeight: '120px',
-        borderTop: accent ? `3px solid ${TOKENS.colors.brandPrimary}` : `1px solid ${TOKENS.colors.borderLight}`,
+        border: `1px solid ${TOKENS.colors.borderLight}`,
         ...style,
       }}
     >
