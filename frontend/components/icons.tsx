@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { User } from "lucide-react";
 
 export function FlumenxMark({ small = false, height }: { small?: boolean; height?: number }) {
   if (small) {
@@ -33,15 +34,6 @@ export function Avatar({ name = "", avatar = "", size = 38 }: { name?: string; a
   }, [avatar]);
 
   const safeName = (name || "User").trim();
-  const words = safeName.split(/\s+/).filter(Boolean);
-  let initials = "US";
-  if (words.length >= 2) {
-    initials = (words[0][0] + words[1][0]).toUpperCase();
-  } else if (words.length === 1 && words[0].length >= 2) {
-    initials = words[0].slice(0, 2).toUpperCase();
-  } else if (words.length === 1 && words[0].length === 1) {
-    initials = words[0].toUpperCase();
-  }
 
   if (avatar && !imgError) {
     let src = avatar;
@@ -67,26 +59,25 @@ export function Avatar({ name = "", avatar = "", size = 38 }: { name?: string; a
     );
   }
 
+  const iconSize = Math.max(12, Math.round(size * 0.5));
+
   return (
     <span
       className="avatar"
       style={{
         width: `${size}px`,
         height: `${size}px`,
-        fontSize: `${Math.max(10, Math.floor(size * 0.38))}px`,
-        fontWeight: 700,
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
         borderRadius: "50%",
-        backgroundColor: "#087A5B",
-        color: "#FFFFFF",
+        backgroundColor: "rgba(255, 255, 255, 0.08)",
+        border: "1.5px solid rgba(255, 255, 255, 0.14)",
+        color: "#E2E8F0",
         flexShrink: 0,
-        textTransform: "uppercase",
-        letterSpacing: "0.5px",
       }}
     >
-      {initials}
+      <User size={iconSize} />
     </span>
   );
 }
