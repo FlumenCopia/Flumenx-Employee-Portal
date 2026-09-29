@@ -2480,5 +2480,40 @@ body{font-size:13px;line-height:1.45}.sidebar nav a{font-size:13px;padding:12px 
   }
 }
 
-
-
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print,
+  nav,
+  aside,
+  header,
+  .sidebar,
+  .topbar,
+  .bottom-nav,
+  .chat-widget-fab {
+    display: none !important;
+  }
+  .page,
+  .main-content,
+  .content-area,
+  .attendance-reports-page {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  .daily-attendance-section,
+  .muster-roll-section {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  table {
+    font-size: 10px !important;
+  }
+  th, td {
+    padding: 4px 6px !important;
+  }
+}

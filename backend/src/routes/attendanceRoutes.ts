@@ -5,6 +5,7 @@ import {
   getAttendanceRecords,
   getAttendanceSummary,
   getMonthlyStatistics,
+  getAttendanceMatrixReport,
   exportAttendanceCSV,
   checkInAttendance,
   checkOutAttendance,
@@ -34,6 +35,7 @@ router.patch('/attendance-policy/?', requirePermission('attendance', 'canEdit'),
 // Sub-actions
 router.get('/attendance/summary/?', requirePermission('attendance', 'canView'), getAttendanceSummary);
 router.get('/attendance/monthly-statistics/?', requirePermission('attendance', 'canView'), getMonthlyStatistics);
+router.get('/attendance/matrix-report/?', requirePermission('attendance', 'canView'), getAttendanceMatrixReport);
 router.get('/attendance/export/?', requirePermission('attendance', 'canView'), exportAttendanceCSV);
 router.post('/attendance/check-in/?', requirePermission('attendance', 'canView'), upload.single('photo'), checkInAttendance);
 router.post('/attendance/check-out/?', requirePermission('attendance', 'canView'), checkOutAttendance);

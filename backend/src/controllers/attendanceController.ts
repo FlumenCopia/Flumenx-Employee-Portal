@@ -5,9 +5,11 @@ import { AttendancePolicy, IAttendancePolicy } from '../models/AttendancePolicy.
 import { AttendanceCorrection } from '../models/AttendanceCorrection.js';
 import { Employee } from '../models/Employee.js';
 import { AuditLog } from '../models/AuditLog.js';
+import { LeaveRequest } from '../models/LeaveRequest.js';
+import { CompanyHoliday } from '../models/CompanyHoliday.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { calculateAttendanceRecordState, calculateHaversineDistanceMeters } from '../services/attendanceEngine.js';
-import { timeStringToMinutes } from '../utils/tzUtils.js';
+import { timeStringToMinutes, getAttendanceCycleForMonth, getISTDateString, AttendanceCycleInfo } from '../utils/tzUtils.js';
 
 export async function getAttendancePolicy(): Promise<IAttendancePolicy> {
   let policy = await AttendancePolicy.findOne();
@@ -418,43 +420,581 @@ export async function getMonthlyStatistics(req: Request, res: Response): Promise
   });
 }
 
-export async function exportAttendanceCSV(req: Request, res: Response): Promise<void> {
-  const { month } = req.query;
-  const filter: any = {};
+/**
+ * Builds comprehensive attendance matrix data for either:
+ * - Salary Calculation Cycle: 26th of previous month to 25th of selected month
+ * - Calendar Month Cycle: 1st of month to last day of month
+ * Computes exact daily codes ('P', 'A', 'W', 'L', 'HD', 'H') and salary calculation summaries.
+ */
+export async function buildAttendanceMatrixData(options: {
+  year: number;
+  month: number;
+  cycleType?: 'salary' | 'calendar';
+  department?: string;
+  employeeId?: string;
+}) {
+  const { year, month, cycleType = 'salary', department, employeeId } = options;
 
-  if (month && typeof month === 'string' && month.includes('-')) {
-    const [y, m] = month.split('-').map(Number);
-    const lastDay = new Date(y, m, 0).getDate();
-    const startOfMonth = new Date(`${y}-${String(m).padStart(2, '0')}-01T00:00:00.000+05:30`);
-    const endOfMonth = new Date(`${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999+05:30`);
-    filter.attendanceDate = { $gte: startOfMonth, $lte: endOfMonth };
+  let cycleInfo: AttendanceCycleInfo;
+  if (cycleType === 'calendar') {
+    const lastDay = new Date(year, month, 0).getDate();
+    const mStr = String(month).padStart(2, '0');
+    const startStr = `${year}-${mStr}-01`;
+    const endStr = `${year}-${mStr}-${String(lastDay).padStart(2, '0')}`;
+    const cycleStart = new Date(`${startStr}T00:00:00.000+05:30`);
+    const cycleEnd = new Date(`${endStr}T23:59:59.999+05:30`);
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const shortNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    cycleInfo = {
+      year,
+      month,
+      cycleName: `${monthNames[month - 1]} ${year} (1st - ${lastDay}th)`,
+      readablePeriod: `01 ${shortNames[month - 1]} ${year} → ${lastDay} ${shortNames[month - 1]} ${year}`,
+      startStr,
+      endStr,
+      cycleStart,
+      cycleEnd,
+      totalCalendarDays: lastDay,
+    };
+  } else {
+    cycleInfo = getAttendanceCycleForMonth(year, month);
   }
 
-  const records = await AttendanceRecord.find(filter).populate('employee').sort({ attendanceDate: -1 });
+  // Generate all consecutive day slots in the cycle
+  const dayDates: Array<{
+    dateStr: string;
+    dayNumber: number;
+    dayName: string;
+    isSunday: boolean;
+  }> = [];
 
-  const rows = [
-    ['Employee Code', 'Employee Name', 'Department', 'Date', 'Check-In', 'Check-Out', 'Working Hours', 'Status'],
-  ];
+  let cur = new Date(cycleInfo.cycleStart.getTime());
+  while (cur.getTime() <= cycleInfo.cycleEnd.getTime()) {
+    const dStr = getISTDateString(cur);
+    const dayNum = parseInt(dStr.split('-')[2], 10);
+    const weekdayName = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'short',
+    }).format(cur);
+    const isSunday = weekdayName === 'Sun';
 
+    dayDates.push({
+      dateStr: dStr,
+      dayNumber: dayNum,
+      dayName: weekdayName,
+      isSunday,
+    });
+
+    cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
+  }
+
+  // Filter employees
+  const empFilter: any = {};
+  if (department && department !== 'All' && department !== 'all') {
+    empFilter.department = department;
+  }
+  if (employeeId) {
+    empFilter._id = employeeId;
+  }
+
+  const [employees, records, leaves, holidays] = await Promise.all([
+    Employee.find(empFilter).sort({ employeeCode: 1, name: 1 }),
+    AttendanceRecord.find({
+      attendanceDate: { $gte: cycleInfo.cycleStart, $lte: cycleInfo.cycleEnd },
+      ...(employeeId ? { employee: employeeId } : {}),
+    }),
+    LeaveRequest.find({
+      status: 'Approved',
+      startDate: { $lte: cycleInfo.cycleEnd },
+      endDate: { $gte: cycleInfo.cycleStart },
+      ...(employeeId ? { employee: employeeId } : {}),
+    }),
+    CompanyHoliday.find({
+      isActive: true,
+      date: { $gte: cycleInfo.cycleStart, $lte: cycleInfo.cycleEnd },
+    }),
+  ]);
+
+  const holidayMap = new Map<string, string>();
+  holidays.forEach((h) => holidayMap.set(h.dateStr, h.name));
+
+  const recordMap = new Map<string, any>();
   records.forEach((r) => {
-    const emp = r.employee as any;
-    rows.push([
-      emp ? emp.employeeCode : 'N/A',
-      emp ? emp.name : 'Unknown',
-      emp ? emp.department : 'General',
-      r.attendanceDate.toISOString().split('T')[0],
-      r.checkInTime || '',
-      r.checkOutTime || '',
-      r.workingHours.toString(),
-      r.attendanceStatus,
-    ]);
+    const dStr = getISTDateString(r.attendanceDate);
+    const eId = r.employee ? r.employee.toString() : '';
+    if (eId) recordMap.set(`${eId}_${dStr}`, r);
   });
 
-  const csvString = rows.map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n');
+  const leavesByEmp = new Map<string, any[]>();
+  leaves.forEach((l) => {
+    const eId = l.employee ? l.employee.toString() : '';
+    if (eId) {
+      if (!leavesByEmp.has(eId)) leavesByEmp.set(eId, []);
+      leavesByEmp.get(eId)!.push(l);
+    }
+  });
 
-  res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', 'attachment; filename=Attendance_Export.csv');
-  res.send(csvString);
+  // Process employee metrics
+  const employeeList = employees.map((emp) => {
+    const empIdStr = emp._id.toString();
+    const isProbation = emp.employmentStatus === 'Probation';
+    const joiningDateStr = emp.joiningDate ? getISTDateString(emp.joiningDate) : null;
+    const exitDateStr = emp.exitDate ? getISTDateString(emp.exitDate) : null;
+    const empLeaves = leavesByEmp.get(empIdStr) || [];
+
+    let workingDays = 0;
+    let weekOffs = 0;
+    let companyHolidays = 0;
+    let presentDays = 0;
+    let halfDays = 0;
+    let paidLeaveDays = 0;
+    let unpaidLeaveDays = 0;
+    let absentDays = 0;
+    let lateArrivalsCount = 0;
+
+    const dailyStatuses: Record<string, {
+      code: 'P' | 'A' | 'W' | 'L' | 'HD' | 'H' | '-';
+      label: string;
+      checkIn?: string;
+      checkOut?: string;
+      workingHours?: number;
+      isLate?: boolean;
+    }> = {};
+
+    for (const day of dayDates) {
+      const dStr = day.dateStr;
+      const isHoliday = holidayMap.has(dStr);
+      const holidayName = holidayMap.get(dStr);
+
+      const isBeforeJoining = joiningDateStr && dStr < joiningDateStr;
+      const isAfterExit = exitDateStr && dStr > exitDateStr;
+
+      if (isBeforeJoining || isAfterExit) {
+        dailyStatuses[dStr] = { code: '-', label: 'Inactive / Not Joined' };
+        absentDays += 1;
+        continue;
+      }
+
+      if (day.isSunday) {
+        weekOffs += 1;
+      } else if (isHoliday) {
+        companyHolidays += 1;
+      } else {
+        workingDays += 1;
+      }
+
+      const rec = recordMap.get(`${empIdStr}_${dStr}`);
+
+      if (rec && (rec.checkInTime || rec.attendanceStatus === 'Present' || rec.attendanceStatus === 'Half Day')) {
+        if (rec.isLate) lateArrivalsCount += 1;
+        if (rec.attendanceStatus === 'Half Day') {
+          halfDays += 1;
+          dailyStatuses[dStr] = {
+            code: 'HD',
+            label: 'Half Day',
+            checkIn: rec.checkInTime,
+            checkOut: rec.checkOutTime,
+            workingHours: rec.workingHours,
+            isLate: rec.isLate,
+          };
+        } else {
+          presentDays += 1;
+          dailyStatuses[dStr] = {
+            code: 'P',
+            label: 'Present',
+            checkIn: rec.checkInTime,
+            checkOut: rec.checkOutTime,
+            workingHours: rec.workingHours,
+            isLate: rec.isLate,
+          };
+        }
+      } else if (rec && rec.attendanceStatus === 'Leave') {
+        paidLeaveDays += 1;
+        dailyStatuses[dStr] = { code: 'L', label: 'Leave' };
+      } else if (rec && rec.attendanceStatus === 'Absent') {
+        absentDays += 1;
+        dailyStatuses[dStr] = { code: 'A', label: 'Absent' };
+      } else {
+        if (day.isSunday) {
+          dailyStatuses[dStr] = { code: 'W', label: 'Week Off' };
+        } else if (isHoliday) {
+          dailyStatuses[dStr] = { code: 'H', label: holidayName || 'Holiday' };
+        } else {
+          const leaveMatch = empLeaves.find((l) => {
+            const lStart = getISTDateString(l.startDate);
+            const lEnd = getISTDateString(l.endDate);
+            return dStr >= lStart && dStr <= lEnd;
+          });
+
+          if (leaveMatch) {
+            if (isProbation || leaveMatch.leaveType === 'Unpaid') {
+              unpaidLeaveDays += 1;
+              dailyStatuses[dStr] = { code: 'L', label: `Leave (${leaveMatch.leaveType})` };
+            } else {
+              paidLeaveDays += 1;
+              dailyStatuses[dStr] = { code: 'L', label: `Leave (${leaveMatch.leaveType})` };
+            }
+          } else {
+            absentDays += 1;
+            dailyStatuses[dStr] = { code: 'A', label: 'Absent' };
+          }
+        }
+      }
+    }
+
+    const totalCalendarDays = dayDates.length;
+    const lateHalfDayDeductions = Math.floor(lateArrivalsCount / 3) * 0.5;
+    const salaryDays = Math.max(1, totalCalendarDays - weekOffs);
+
+    let effectivePresentDays = 0;
+    if (presentDays > 0 || halfDays > 0 || paidLeaveDays > 0) {
+      effectivePresentDays =
+        presentDays + companyHolidays + paidLeaveDays + halfDays * 0.5 - lateHalfDayDeductions;
+    }
+
+    const payableDays = Math.max(0, Math.min(salaryDays, Math.round(effectivePresentDays * 100) / 100));
+    const unpaidDays = Math.max(0, Math.round((salaryDays - payableDays) * 100) / 100);
+
+    return {
+      id: emp._id.toString(),
+      employeeCode: emp.employeeCode || 'N/A',
+      name: emp.name || 'Unknown',
+      department: emp.department || 'General',
+      designation: emp.designation || 'Staff',
+      employmentStatus: emp.employmentStatus || 'Permanent',
+      dailyStatuses,
+      summary: {
+        totalCalendarDays,
+        workingDays,
+        weekOffs,
+        holidays: companyHolidays,
+        presentDays,
+        halfDays,
+        paidLeaveDays,
+        unpaidLeaveDays,
+        absentDays,
+        lateArrivals: lateArrivalsCount,
+        lateHalfDayDeductions,
+        salaryDays,
+        effectivePresentDays,
+        payableDays,
+        unpaidDays,
+      },
+    };
+  });
+
+  // Calculate day totals across all employees
+  const daysWithTotals = dayDates.map((day) => {
+    let present = 0;
+    let absent = 0;
+    let halfDay = 0;
+    let leave = 0;
+    let weekOff = 0;
+    let holiday = 0;
+
+    employeeList.forEach((emp) => {
+      const code = emp.dailyStatuses[day.dateStr]?.code;
+      if (code === 'P') present++;
+      else if (code === 'A') absent++;
+      else if (code === 'HD') halfDay++;
+      else if (code === 'L') leave++;
+      else if (code === 'W') weekOff++;
+      else if (code === 'H') holiday++;
+    });
+
+    return {
+      dateStr: day.dateStr,
+      dayNumber: day.dayNumber,
+      dayName: day.dayName,
+      isSunday: day.isSunday,
+      isHoliday: holidayMap.has(day.dateStr),
+      holidayName: holidayMap.get(day.dateStr),
+      totals: {
+        present,
+        absent,
+        halfDay,
+        leave,
+        weekOff,
+        holiday,
+        totalEmployees: employeeList.length,
+      },
+    };
+  });
+
+  const totalEmployees = employeeList.length;
+  const totalPresentAll = employeeList.reduce((acc, e) => acc + e.summary.presentDays, 0);
+  const totalAbsentAll = employeeList.reduce((acc, e) => acc + e.summary.absentDays, 0);
+  const totalLeaveAll = employeeList.reduce((acc, e) => acc + e.summary.paidLeaveDays + e.summary.unpaidLeaveDays, 0);
+  const avgPayable =
+    totalEmployees > 0
+      ? Math.round((employeeList.reduce((acc, e) => acc + e.summary.payableDays, 0) / totalEmployees) * 100) / 100
+      : 0;
+
+  return {
+    cycle: {
+      year: cycleInfo.year,
+      month: cycleInfo.month,
+      cycleType: (cycleType || 'salary') as 'salary' | 'calendar',
+      cycleName: cycleInfo.cycleName,
+      readablePeriod: cycleInfo.readablePeriod || '',
+      startStr: cycleInfo.startStr,
+      endStr: cycleInfo.endStr,
+      totalCalendarDays: cycleInfo.totalCalendarDays,
+    },
+    days: daysWithTotals,
+    employees: employeeList,
+    overallSummary: {
+      totalEmployees,
+      totalCalendarDays: cycleInfo.totalCalendarDays,
+      avgPayableDays: avgPayable,
+      totalPresent: totalPresentAll,
+      totalAbsent: totalAbsentAll,
+      totalLeaves: totalLeaveAll,
+    },
+  };
+}
+
+/**
+ * Returns JSON matrix report with daily codes and salary calculation summary
+ */
+export async function getAttendanceMatrixReport(req: Request, res: Response): Promise<void> {
+  try {
+    const monthParam = typeof req.query.month === 'string' ? req.query.month : '';
+    const cycleType = req.query.cycleType === 'calendar' ? 'calendar' : 'salary';
+    const department = typeof req.query.department === 'string' ? req.query.department : undefined;
+    const employeeId = typeof req.query.employeeId === 'string' ? req.query.employeeId : undefined;
+
+    let y: number;
+    let m: number;
+    if (monthParam && monthParam.includes('-')) {
+      const parts = monthParam.split('-').map(Number);
+      y = parts[0];
+      m = parts[1];
+    } else {
+      const [cy, cm] = getISTDateString(new Date()).split('-').map(Number);
+      y = cy;
+      m = cm;
+    }
+
+    const data = await buildAttendanceMatrixData({
+      year: y,
+      month: m,
+      cycleType,
+      department,
+      employeeId,
+    });
+
+    res.json({ success: true, ...data });
+  } catch (error: any) {
+    res.status(500).json({ detail: error?.message || 'Failed to generate attendance matrix report.' });
+  }
+}
+
+function toCSVCell(val: any): string {
+  const str = String(val === undefined || val === null ? '' : val);
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Exports Attendance in either:
+ * 1. 'muster' (Default): Full Salary Calculation Muster Roll with daily codes + payable days calculation
+ * 2. 'daily': Daily Attendance Register matching user reference format (Days in rows, Employees in columns)
+ * 3. 'flat': Legacy flat log of check-in / check-out records
+ */
+export async function exportAttendanceCSV(req: Request, res: Response): Promise<void> {
+  try {
+    const monthParam = typeof req.query.month === 'string' ? req.query.month : '';
+    const cycleType = req.query.cycleType === 'calendar' ? 'calendar' : 'salary';
+    const layout = typeof req.query.layout === 'string' ? req.query.layout : 'muster';
+    const department = typeof req.query.department === 'string' ? req.query.department : undefined;
+    const employeeId = typeof req.query.employeeId === 'string' ? req.query.employeeId : undefined;
+
+    let y: number;
+    let m: number;
+    if (monthParam && monthParam.includes('-')) {
+      const parts = monthParam.split('-').map(Number);
+      y = parts[0];
+      m = parts[1];
+    } else {
+      const [cy, cm] = getISTDateString(new Date()).split('-').map(Number);
+      y = cy;
+      m = cm;
+    }
+
+    // Legacy flat log export
+    if (layout === 'flat') {
+      const filter: any = {};
+      if (monthParam && monthParam.includes('-')) {
+        const lastDay = new Date(y, m, 0).getDate();
+        const startOfMonth = new Date(`${y}-${String(m).padStart(2, '0')}-01T00:00:00.000+05:30`);
+        const endOfMonth = new Date(`${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59.999+05:30`);
+        filter.attendanceDate = { $gte: startOfMonth, $lte: endOfMonth };
+      }
+      if (department && department !== 'All') {
+        const emps = await Employee.find({ department }).select('_id');
+        filter.employee = { $in: emps.map((e) => e._id) };
+      }
+      const records = await AttendanceRecord.find(filter).populate('employee').sort({ attendanceDate: -1 });
+
+      const rows = [
+        ['Employee Code', 'Employee Name', 'Department', 'Date', 'Check-In', 'Check-Out', 'Working Hours', 'Status'],
+      ];
+
+      records.forEach((r) => {
+        const emp = r.employee as any;
+        rows.push([
+          emp ? emp.employeeCode : 'N/A',
+          emp ? emp.name : 'Unknown',
+          emp ? emp.department : 'General',
+          r.attendanceDate.toISOString().split('T')[0],
+          r.checkInTime || '',
+          r.checkOutTime || '',
+          r.workingHours.toString(),
+          r.attendanceStatus,
+        ]);
+      });
+
+      const csvString = rows.map((row) => row.map(toCSVCell).join(',')).join('\r\n');
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=Attendance_Log_${y}_${String(m).padStart(2, '0')}.csv`);
+      res.send(csvString);
+      return;
+    }
+
+    const matrix = await buildAttendanceMatrixData({
+      year: y,
+      month: m,
+      cycleType,
+      department,
+      employeeId,
+    });
+
+    if (layout === 'daily') {
+      // DAILY ATTENDANCE REGISTER (Matches the visual format of daily register)
+      const headerRow = [
+        'Day',
+        'Date',
+        'Day Name',
+        ...matrix.employees.map((e) => `${e.name} (${e.employeeCode})`),
+        'Present Count',
+        'Absent Count',
+        'Leave Count',
+        'Week Off / Holiday',
+      ];
+
+      const dataRows = matrix.days.map((day) => {
+        const empStatuses = matrix.employees.map((e) => e.dailyStatuses[day.dateStr]?.code || '-');
+        return [
+          String(day.dayNumber),
+          day.dateStr,
+          day.dayName,
+          ...empStatuses,
+          String(day.totals.present),
+          String(day.totals.absent),
+          String(day.totals.leave),
+          String(day.totals.weekOff + day.totals.holiday),
+        ];
+      });
+
+      const totalsRow = [
+        'TOTALS',
+        '-',
+        '-',
+        ...matrix.employees.map((e) => `${e.summary.presentDays}P / ${e.summary.absentDays}A`),
+        String(matrix.days.reduce((s, d) => s + d.totals.present, 0)),
+        String(matrix.days.reduce((s, d) => s + d.totals.absent, 0)),
+        String(matrix.days.reduce((s, d) => s + d.totals.leave, 0)),
+        String(matrix.days.reduce((s, d) => s + d.totals.weekOff + d.totals.holiday, 0)),
+      ];
+
+      const titleRows = [
+        [`Flumenx Employee Portal - Daily Attendance Register`],
+        [`Period: ${matrix.cycle.readablePeriod} (${matrix.cycle.cycleName}) | Department: ${department || 'All'}`],
+        [`Legend: P=Present | A=Absent | W=Week Off | L=Leave | HD=Half Day | H=Holiday`],
+        [],
+      ];
+
+      const allRows = [...titleRows, headerRow, ...dataRows, totalsRow];
+      const csvString = allRows.map((row) => row.map(toCSVCell).join(',')).join('\r\n');
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=Daily_Attendance_${matrix.cycle.startStr}_to_${matrix.cycle.endStr}.csv`
+      );
+      res.send(csvString);
+      return;
+    }
+
+    // DEFAULT: SALARY ATTENDANCE MUSTER ROLL (For Salary Calculation based on 26th-25th or calendar days)
+    const dayHeaders = matrix.days.map((d) => `Day ${d.dayNumber} (${d.dayName})`);
+    const headerRow = [
+      'Employee Code',
+      'Employee Name',
+      'Department',
+      'Designation',
+      'Status',
+      ...dayHeaders,
+      'Total Days',
+      'Present (P)',
+      'Half Day (HD)',
+      'Absent (A)',
+      'Paid Leave (L)',
+      'Week Off (W)',
+      'Holiday (H)',
+      'Late Arrivals',
+      'Late Half-Day Deductions',
+      'Salary Days (Total - WeekOffs)',
+      'Payable Days (Salary Calculation)',
+      'Unpaid Days',
+    ];
+
+    const dataRows = matrix.employees.map((emp) => {
+      const dayCols = matrix.days.map((d) => emp.dailyStatuses[d.dateStr]?.code || '-');
+      return [
+        emp.employeeCode,
+        emp.name,
+        emp.department,
+        emp.designation,
+        emp.employmentStatus,
+        ...dayCols,
+        String(emp.summary.totalCalendarDays),
+        String(emp.summary.presentDays),
+        String(emp.summary.halfDays),
+        String(emp.summary.absentDays),
+        String(emp.summary.paidLeaveDays),
+        String(emp.summary.weekOffs),
+        String(emp.summary.holidays),
+        String(emp.summary.lateArrivals),
+        String(emp.summary.lateHalfDayDeductions),
+        String(emp.summary.salaryDays),
+        String(emp.summary.payableDays),
+        String(emp.summary.unpaidDays),
+      ];
+    });
+
+    const titleRows = [
+      [`Flumenx Employee Portal - Salary Attendance Muster Roll (${cycleType === 'salary' ? 'Salary Cycle 26th-25th' : 'Calendar Month'})`],
+      [`Cycle Period: ${matrix.cycle.readablePeriod} | Total Employees: ${matrix.employees.length} | Department: ${department || 'All'}`],
+      [`Rule: Salary Days = Total Calendar Days - WeekOffs | Payable Days = Present + Holidays + Paid Leave + 0.5*HalfDays - Late Deductions`],
+      [],
+    ];
+
+    const allRows = [...titleRows, headerRow, ...dataRows];
+    const csvString = allRows.map((row) => row.map(toCSVCell).join(',')).join('\r\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=Salary_Muster_Roll_${matrix.cycle.startStr}_to_${matrix.cycle.endStr}.csv`
+    );
+    res.send(csvString);
+  } catch (error: any) {
+    res.status(500).json({ detail: error?.message || 'Failed to export attendance CSV.' });
+  }
 }
 
 import { optimizeImageFile } from '../utils/imageOptimizer.js';
