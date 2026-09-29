@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, CheckCircle2, Clock3, FileBarChart, MapPin, TimerOff, UserX, X } from "lucide-react";
+import { Check, CheckCircle2, Clock3, FileBarChart, MapPin, PlusCircle, TimerOff, Trash2, UserX, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
 import { AttendanceRecord, Paginated } from "@/lib/types";
@@ -11,6 +11,7 @@ import { Badge, EmptyState, PageHeader, Section, StatCard } from "@/components/u
 import { defaultSummary, displayTime, statusTone, getTodayISTDateString } from "./helpers";
 import { AttendanceSummary } from "./types";
 import { AttendanceDetailModal } from "./AttendanceDetailModal";
+import { ManualAttendanceModal } from "./ManualAttendanceModal";
 
 export interface AttendanceCorrectionItem {
   id: string;
@@ -56,6 +57,7 @@ export function AdminAttendancePage() {
   const [recordsError, setRecordsError] = useState("");
   const [summaryError, setSummaryError] = useState("");
   const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
   // Correction approval workflow state
   const [corrections, setCorrections] = useState<AttendanceCorrectionItem[]>([]);
@@ -156,6 +158,17 @@ export function AdminAttendancePage() {
     }
   };
 
+  const handleDeleteCorrection = async (correctionId: string) => {
+    if (!window.confirm("Are you sure you want to permanently delete this correction request?")) return;
+    try {
+      await api(`/attendance-corrections/${correctionId}/`, { method: "DELETE" });
+      toast.success("Correction request deleted.");
+      loadCorrections();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete correction request.");
+    }
+  };
+
   const summaryUnavailable = summaryLoading || Boolean(summaryError);
   const pendingCorrectionsCount = corrections.filter((c) => c.status === "Pending").length;
 
@@ -166,7 +179,27 @@ export function AdminAttendancePage() {
         title="Attendance."
         subtitle="Today's workforce rhythm, attendance correction approvals, and live register across all departments."
         action={
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+            <button
+              type="button"
+              onClick={() => setIsManualModalOpen(true)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "#10b981",
+                color: "#ffffff",
+                border: 0,
+                padding: "8px 14px",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
+              }}
+            >
+              <PlusCircle size={15} /> + Manual Attendance Entry
+            </button>
             <Link className="secondary-button" href="/admin/attendance/settings">
               <MapPin size={16} /> GPS &amp; Policy Settings
             </Link>
@@ -361,6 +394,24 @@ export function AdminAttendancePage() {
                           {c.adminNote || c.admin_note ? `Note: ${c.adminNote || c.admin_note}` : `Reviewed as ${c.status}`}
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCorrection(cId)}
+                        style={{
+                          background: "transparent",
+                          border: "1px solid var(--border)",
+                          color: "var(--muted)",
+                          padding: "5px 7px",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          marginLeft: "6px",
+                        }}
+                        title="Delete correction request"
+                      >
+                        <Trash2 size={12} />
+                      </button>
                     </div>
                   </div>
                 );
@@ -427,6 +478,13 @@ export function AdminAttendancePage() {
           record={selectedRecord}
           onClose={() => setSelectedRecord(null)}
           onUpdated={reloadAllAttendance}
+        />
+      )}
+
+      {isManualModalOpen && (
+        <ManualAttendanceModal
+          onClose={() => setIsManualModalOpen(false)}
+          onSuccess={reloadAllAttendance}
         />
       )}
     </>

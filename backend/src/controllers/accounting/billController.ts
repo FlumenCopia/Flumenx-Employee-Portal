@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import { Bill } from '../../models/accounting/Bill.js';
+import { JournalEntry } from '../../models/accounting/JournalEntry.js';
+import { VendorPayment } from '../../models/accounting/VendorPayment.js';
+import { AuditLog } from '../../models/AuditLog.js';
 import { createAndPostBill } from '../../services/accounting/payableService.js';
+import { revertJournalEntryBalances } from '../../services/accounting/accountingEngine.js';
 
 export async function getBills(req: Request, res: Response): Promise<void> {
   const { vendor, status, search, start_date, end_date } = req.query;
@@ -60,3 +64,96 @@ export async function createBill(req: Request, res: Response): Promise<void> {
     res.status(400).json({ detail: err.message || 'Failed to record and post vendor bill.' });
   }
 }
+
+export async function updateBill(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { notes, vendorReference, vendorInvoiceNumber, dueDate, status } = req.body;
+
+  try {
+    const bill = await Bill.findById(id);
+    if (!bill) {
+      res.status(404).json({ detail: 'Bill not found.' });
+      return;
+    }
+
+    if (notes !== undefined) bill.notes = notes;
+    if (vendorReference !== undefined) bill.vendorReference = vendorReference;
+    if (vendorInvoiceNumber !== undefined) bill.vendorInvoiceNumber = vendorInvoiceNumber;
+    if (dueDate !== undefined) bill.dueDate = new Date(dueDate);
+    if (status !== undefined && ['DRAFT', 'SUBMITTED', 'APPROVED', 'CANCELLED'].includes(status)) {
+      bill.status = status as any;
+    }
+
+    await bill.save();
+
+    try {
+      await AuditLog.create({
+        actor: req.user?._id || null,
+        action: 'BILL_UPDATED',
+        entityType: 'Bill',
+        entityId: String(bill._id),
+        details: { billNumber: bill.billNumber, status: bill.status },
+      });
+    } catch (e) {
+      // Non-blocking
+    }
+
+    res.json(bill);
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to update bill.' });
+  }
+}
+
+export async function deleteBill(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+
+  try {
+    const bill = await Bill.findById(id);
+    if (!bill) {
+      res.status(404).json({ detail: 'Bill not found.' });
+      return;
+    }
+
+    if (bill.amountPaid > 0) {
+      res.status(400).json({
+        detail: `Cannot delete bill ${bill.billNumber}: Payments (₹${bill.amountPaid.toFixed(2)}) have been applied to this bill. Delete or unallocate associated payments first.`,
+      });
+      return;
+    }
+
+    const linkedPayment = await VendorPayment.findOne({ 'allocations.bill': bill._id });
+    if (linkedPayment) {
+      res.status(400).json({
+        detail: `Cannot delete bill ${bill.billNumber}: Payment ${linkedPayment.paymentNumber} references this bill. Delete payment or remove allocation first.`,
+      });
+      return;
+    }
+
+    if (bill.journalEntry) {
+      const journal = await JournalEntry.findById(bill.journalEntry);
+      if (journal) {
+        await revertJournalEntryBalances(journal);
+        await JournalEntry.findByIdAndDelete(journal._id);
+      }
+    }
+
+    await Bill.findByIdAndDelete(id);
+
+    try {
+      await AuditLog.create({
+        actor: req.user?._id || null,
+        action: 'BILL_DELETED',
+        entityType: 'Bill',
+        entityId: String(bill._id),
+        details: { billNumber: bill.billNumber, vendor: bill.vendorName, totalAmount: bill.totalAmount },
+      });
+    } catch (e) {
+      // Non-blocking
+    }
+
+    res.json({ message: `Bill ${bill.billNumber} deleted successfully.`, id });
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to delete bill.' });
+  }
+}
+

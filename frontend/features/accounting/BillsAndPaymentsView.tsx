@@ -10,6 +10,7 @@ import {
   Trash2,
   Users,
   Download,
+  Pencil,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
@@ -53,6 +54,8 @@ export function BillsAndPaymentsView({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   // Bill Modal
   const [showBillModal, setShowBillModal] = useState(initialOpenBill);
   const [billSubmitting, setBillSubmitting] = useState(false);
@@ -88,6 +91,7 @@ export function BillsAndPaymentsView({
 
   // Vendor Modal
   const [showVendorModal, setShowVendorModal] = useState(false);
+  const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [vendorSubmitting, setVendorSubmitting] = useState(false);
   const [vName, setVName] = useState("");
   const [vCode, setVCode] = useState("");
@@ -127,6 +131,83 @@ export function BillsAndPaymentsView({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteBill = async (b: AccountingBill) => {
+    if (b.amountPaid > 0) {
+      toast.error("Cannot delete a bill that has payments recorded. Please delete the associated payments first.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete bill ${b.billNumber}? This will revert journal entries and balance records.`)) {
+      return;
+    }
+    try {
+      setDeletingId(b._id);
+      await api(`/accounting/bills/${b._id}`, { method: "DELETE" });
+      toast.success(`Bill ${b.billNumber} deleted successfully.`);
+      fetchData();
+    } catch (err: any) {
+      console.error("Failed to delete bill:", err);
+      toast.error(err.message || "Failed to delete bill");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDeletePayment = async (p: VendorPayment) => {
+    if (!confirm(`Are you sure you want to delete payment ${p.paymentNumber}? This will unallocate payments from bills and reverse journal entries.`)) {
+      return;
+    }
+    try {
+      setDeletingId(p._id);
+      await api(`/accounting/vendor-payments/${p._id}`, { method: "DELETE" });
+      toast.success(`Payment ${p.paymentNumber} deleted successfully.`);
+      fetchData();
+    } catch (err: any) {
+      console.error("Failed to delete payment:", err);
+      toast.error(err.message || "Failed to delete payment");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDeleteVendor = async (v: Vendor) => {
+    if (!confirm(`Are you sure you want to delete vendor "${v.name}"? If transactions exist, it will be deactivated instead.`)) {
+      return;
+    }
+    try {
+      setDeletingId(v._id);
+      const res: any = await api(`/accounting/entities/vendors/${v._id}`, { method: "DELETE" });
+      toast.success(res?.message || `Vendor "${v.name}" deleted.`);
+      fetchData();
+    } catch (err: any) {
+      console.error("Failed to delete vendor:", err);
+      toast.error(err.message || "Failed to delete vendor");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleOpenEditVendor = (v: Vendor) => {
+    setEditingVendor(v);
+    setVName(v.name || "");
+    setVCode(v.code || "");
+    setVContact(v.contactPerson || "");
+    setVEmail(v.email || "");
+    setVPhone(v.phone || "");
+    setVGstin(v.taxId || "");
+    setShowVendorModal(true);
+  };
+
+  const handleOpenNewVendor = () => {
+    setEditingVendor(null);
+    setVName("");
+    setVCode("");
+    setVContact("");
+    setVEmail("");
+    setVPhone("");
+    setVGstin("");
+    setShowVendorModal(true);
   };
 
   useEffect(() => {
@@ -305,21 +386,37 @@ export function BillsAndPaymentsView({
 
     setVendorSubmitting(true);
     try {
-      await api("/accounting/entities/vendors", {
-        method: "POST",
-        body: JSON.stringify({
-          name: vName,
-          code: vCode || undefined,
-          contactPerson: vContact,
-          email: vEmail,
-          phone: vPhone,
-          taxId: vGstin,
-          paymentTerms: "NET_30",
-        }),
-      });
+      if (editingVendor) {
+        await api(`/accounting/entities/vendors/${editingVendor._id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            name: vName,
+            code: vCode || undefined,
+            contactPerson: vContact,
+            email: vEmail,
+            phone: vPhone,
+            taxId: vGstin,
+          }),
+        });
+        toast.success(`Vendor ${vName} updated successfully`);
+      } else {
+        await api("/accounting/entities/vendors", {
+          method: "POST",
+          body: JSON.stringify({
+            name: vName,
+            code: vCode || undefined,
+            contactPerson: vContact,
+            email: vEmail,
+            phone: vPhone,
+            taxId: vGstin,
+            paymentTerms: "NET_30",
+          }),
+        });
+        toast.success(`Vendor ${vName} added successfully`);
+      }
 
-      toast.success(`Vendor ${vName} added successfully`);
       setShowVendorModal(false);
+      setEditingVendor(null);
       setVName("");
       setVCode("");
       setVContact("");
@@ -328,8 +425,8 @@ export function BillsAndPaymentsView({
       setVGstin("");
       fetchData();
     } catch (err: any) {
-      console.error("Failed to create vendor:", err);
-      toast.error(err.message || "Failed to create vendor");
+      console.error("Failed to save vendor:", err);
+      toast.error(err.message || "Failed to save vendor");
     } finally {
       setVendorSubmitting(false);
     }
@@ -550,7 +647,7 @@ export function BillsAndPaymentsView({
             <button
               type="button"
               className="btn btn-primary btn-sm"
-              onClick={() => setShowVendorModal(true)}
+              onClick={handleOpenNewVendor}
               style={{ display: "flex", alignItems: "center", gap: "6px" }}
             >
               <Plus size={14} /> New Vendor
@@ -707,19 +804,20 @@ export function BillsAndPaymentsView({
                   <th style={{ padding: "12px 16px", textAlign: "right" }}>Total</th>
                   <th style={{ padding: "12px 16px", textAlign: "right" }}>Balance Due</th>
                   <th style={{ padding: "12px 16px", textAlign: "center" }}>Status</th>
+                  <th style={{ padding: "12px 16px", textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={10} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
+                    <td colSpan={11} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
                       <RefreshCw size={20} className="animate-spin" style={{ display: "inline", marginRight: "8px" }} />
                       Loading vendor bills...
                     </td>
                   </tr>
                 ) : filteredBills.length === 0 ? (
                   <tr>
-                    <td colSpan={10} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
+                    <td colSpan={11} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
                       No bills recorded. Click "Record Bill" to log supplier invoices.
                     </td>
                   </tr>
@@ -787,6 +885,29 @@ export function BillsAndPaymentsView({
                             {b.status}
                           </span>
                         </td>
+                        <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBill(b)}
+                            disabled={deletingId === b._id}
+                            title={b.amountPaid > 0 ? "Cannot delete bill with payments recorded" : "Delete bill"}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              cursor: b.amountPaid > 0 ? "not-allowed" : "pointer",
+                              color: b.amountPaid > 0 ? "#cbd5e1" : "#ef4444",
+                              padding: "6px",
+                              borderRadius: "6px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "all 0.2s",
+                            }}
+                            className={b.amountPaid > 0 ? "" : "hover:bg-red-50"}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -820,19 +941,20 @@ export function BillsAndPaymentsView({
                   <th style={{ padding: "12px 16px", textAlign: "right" }}>Amount Paid</th>
                   <th style={{ padding: "12px 16px", textAlign: "right" }}>Unallocated</th>
                   <th style={{ padding: "12px 16px", textAlign: "center" }}>Status</th>
+                  <th style={{ padding: "12px 16px", textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
+                    <td colSpan={9} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
                       <RefreshCw size={20} className="animate-spin" style={{ display: "inline", marginRight: "8px" }} />
                       Loading vendor payments...
                     </td>
                   </tr>
                 ) : filteredPayments.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
+                    <td colSpan={9} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
                       No vendor payments recorded yet. Click "Record Payment" to register payouts.
                     </td>
                   </tr>
@@ -878,6 +1000,29 @@ export function BillsAndPaymentsView({
                             {p.status}
                           </span>
                         </td>
+                        <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePayment(p)}
+                            disabled={deletingId === p._id}
+                            title="Delete payment"
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              color: "#ef4444",
+                              padding: "6px",
+                              borderRadius: "6px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "all 0.2s",
+                            }}
+                            className="hover:bg-red-50"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -910,12 +1055,13 @@ export function BillsAndPaymentsView({
                   <th style={{ padding: "12px 16px" }}>Phone</th>
                   <th style={{ padding: "12px 16px" }}>GSTIN / Tax ID</th>
                   <th style={{ padding: "12px 16px", textAlign: "center" }}>Status</th>
+                  <th style={{ padding: "12px 16px", textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {vendors.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
+                    <td colSpan={8} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
                       No vendors added yet. Click "New Vendor" to register suppliers.
                     </td>
                   </tr>
@@ -948,6 +1094,49 @@ export function BillsAndPaymentsView({
                         ) : (
                           <span style={{ fontSize: "11px", color: "#94a3b8" }}>Inactive</span>
                         )}
+                      </td>
+                      <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditVendor(v)}
+                            title="Edit Vendor"
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              color: "#3b82f6",
+                              padding: "4px",
+                              borderRadius: "4px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                            className="hover:bg-blue-50"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteVendor(v)}
+                            disabled={deletingId === v._id}
+                            title="Delete Vendor"
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              color: "#ef4444",
+                              padding: "4px",
+                              borderRadius: "4px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                            className="hover:bg-red-50"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -1558,13 +1747,16 @@ export function BillsAndPaymentsView({
         </Modal>
       )}
 
-      {/* New Vendor Modal */}
+      {/* New / Edit Vendor Modal */}
       {showVendorModal && (
         <Modal
-          title="Add New Vendor / Supplier"
+          title={editingVendor ? "Edit Vendor / Supplier" : "Add New Vendor / Supplier"}
           eyebrow="ACCOUNTS PAYABLE MASTER"
           size="md"
-          onClose={() => setShowVendorModal(false)}
+          onClose={() => {
+            setShowVendorModal(false);
+            setEditingVendor(null);
+          }}
         >
           <form onSubmit={handleCreateVendor} style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "12px 0" }}>
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "12px" }}>
@@ -1657,7 +1849,10 @@ export function BillsAndPaymentsView({
                 type="button"
                 className="btn btn-secondary"
                 style={{ height: "42px", minWidth: "110px", padding: "0 20px", fontSize: "13.5px", fontWeight: 600 }}
-                onClick={() => setShowVendorModal(false)}
+                onClick={() => {
+                  setShowVendorModal(false);
+                  setEditingVendor(null);
+                }}
                 disabled={vendorSubmitting}
               >
                 Cancel
@@ -1668,7 +1863,7 @@ export function BillsAndPaymentsView({
                 style={{ height: "42px", minWidth: "150px", padding: "0 24px", fontSize: "13.5px", fontWeight: 600 }}
                 disabled={vendorSubmitting}
               >
-                {vendorSubmitting ? "Adding Vendor..." : "Save Vendor"}
+                {vendorSubmitting ? "Saving Vendor..." : editingVendor ? "Update Vendor" : "Save Vendor"}
               </button>
             </div>
           </form>

@@ -7,10 +7,12 @@ import {
   getMeetingChatHistory,
   createMeeting,
   createInstantMeeting,
+  updateMeeting,
   endMeeting,
   deleteMeeting,
   getAnnouncements,
   createAnnouncement,
+  updateAnnouncement,
   deleteAnnouncement,
   getNotifications,
   getUnreadNotificationCount,
@@ -54,11 +56,15 @@ router.get('/meetings/code/:code/messages/?', getMeetingChatHistory);
 router.post('/meetings/create-instant/?', createInstantMeeting);
 router.post('/meetings/code/:code/end/?', endMeeting);
 router.post('/meetings/?', requirePermission('meetings', 'canCreate'), createMeeting);
+router.put('/meetings/:id/?', requirePermission('meetings', 'canEdit'), updateMeeting);
+router.patch('/meetings/:id/?', requirePermission('meetings', 'canEdit'), updateMeeting);
 router.delete('/meetings/:id/?', requirePermission('meetings', 'canDelete'), deleteMeeting);
 
 // Announcements
 router.get('/announcements/?', requirePermission('announcements', 'canView'), getAnnouncements);
 router.post('/announcements/?', requirePermission('announcements', 'canCreate'), createAnnouncement);
+router.put('/announcements/:id/?', requirePermission('announcements', 'canEdit'), updateAnnouncement);
+router.patch('/announcements/:id/?', requirePermission('announcements', 'canEdit'), updateAnnouncement);
 router.delete('/announcements/:id/?', requirePermission('announcements', 'canDelete'), deleteAnnouncement);
 
 // Notifications

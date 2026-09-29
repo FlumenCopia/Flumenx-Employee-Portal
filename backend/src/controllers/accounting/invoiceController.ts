@@ -102,10 +102,11 @@ export async function deleteInvoice(req: Request, res: Response): Promise<void> 
 
     try {
       await AuditLog.create({
-        user: req.user?._id || null,
-        action: 'DELETE_INVOICE',
-        module: 'ACCOUNTING',
-        details: `Super Admin permanently deleted invoice ${invoice.invoiceNumber} for client ${invoice.clientName} (₹${invoice.totalAmount}). Reverted General Ledger postings.`,
+        actor: req.user?._id || null,
+        action: 'INVOICE_DELETED',
+        entityType: 'Invoice',
+        entityId: String(invoice._id),
+        details: { invoiceNumber: invoice.invoiceNumber, client: invoice.clientName, totalAmount: invoice.totalAmount },
       });
     } catch (e) {
       // Non-blocking
@@ -116,4 +117,44 @@ export async function deleteInvoice(req: Request, res: Response): Promise<void> 
     res.status(500).json({ detail: err.message || 'Failed to delete invoice.' });
   }
 }
+
+export async function updateInvoice(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { notes, clientReference, paymentTerms, dueDate, status } = req.body;
+
+  try {
+    const invoice = await Invoice.findById(id);
+    if (!invoice) {
+      res.status(404).json({ detail: 'Invoice not found.' });
+      return;
+    }
+
+    if (notes !== undefined) invoice.notes = notes;
+    if (clientReference !== undefined) invoice.clientReference = clientReference;
+    if (paymentTerms !== undefined) invoice.paymentTerms = paymentTerms;
+    if (dueDate !== undefined) invoice.dueDate = new Date(dueDate);
+    if (status !== undefined && ['DRAFT', 'SENT', 'VOID'].includes(status)) {
+      invoice.status = status as any;
+    }
+
+    await invoice.save();
+
+    try {
+      await AuditLog.create({
+        actor: req.user?._id || null,
+        action: 'INVOICE_UPDATED',
+        entityType: 'Invoice',
+        entityId: String(invoice._id),
+        details: { invoiceNumber: invoice.invoiceNumber, status: invoice.status },
+      });
+    } catch (e) {
+      // Non-blocking
+    }
+
+    res.json(invoice);
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to update invoice.' });
+  }
+}
+
 

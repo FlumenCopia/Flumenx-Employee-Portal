@@ -4,6 +4,7 @@ import { AttendanceRecord, IAttendanceRecord } from '../models/AttendanceRecord.
 import { AttendancePolicy, IAttendancePolicy } from '../models/AttendancePolicy.js';
 import { AttendanceCorrection } from '../models/AttendanceCorrection.js';
 import { Employee } from '../models/Employee.js';
+import { AuditLog } from '../models/AuditLog.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { calculateAttendanceRecordState, calculateHaversineDistanceMeters } from '../services/attendanceEngine.js';
 import { timeStringToMinutes } from '../utils/tzUtils.js';
@@ -709,3 +710,176 @@ export async function adjustAttendanceTimeHandler(req: Request, res: Response): 
 
   res.json(formatSingleRecord(record, record.employee));
 }
+
+export async function createManualAttendanceRecord(req: Request, res: Response): Promise<void> {
+  try {
+    const {
+      employee_id,
+      attendance_date,
+      check_in_time,
+      check_out_time,
+      attendance_status,
+      check_in_status,
+      notes,
+      waive_late,
+    } = req.body;
+
+    if (!employee_id || !mongoose.Types.ObjectId.isValid(employee_id)) {
+      res.status(400).json({ detail: 'Valid employee ID is required.' });
+      return;
+    }
+
+    if (!attendance_date) {
+      res.status(400).json({ detail: 'Attendance date is required (YYYY-MM-DD).' });
+      return;
+    }
+
+    const employee = await Employee.findById(employee_id);
+    if (!employee) {
+      res.status(404).json({ detail: 'Employee not found.' });
+      return;
+    }
+
+    const { startOfDay, endOfDay } = getISTDateRange(attendance_date);
+
+    let record = await AttendanceRecord.findOne({
+      employee: employee._id,
+      attendanceDate: { $gte: startOfDay, $lte: endOfDay },
+    });
+
+    const policy = await getAttendancePolicy();
+
+    if (!record) {
+      record = new AttendanceRecord({
+        employee: employee._id,
+        attendanceDate: startOfDay,
+        checkInTime: check_in_time || '09:30',
+        checkOutTime: check_out_time || null,
+        source: 'Admin',
+        locationVerified: true,
+        notes: notes ? `${notes} (Manual Entry by Admin)` : 'Manual Entry by Admin',
+      });
+    } else {
+      if (check_in_time !== undefined) record.checkInTime = check_in_time;
+      if (check_out_time !== undefined) record.checkOutTime = check_out_time || null;
+      record.source = 'Admin';
+      record.locationVerified = true;
+      if (notes) record.notes = `${notes} (Admin Updated)`;
+    }
+
+    calculateAttendanceRecordState(record, policy);
+
+    if (waive_late) {
+      record.isLate = false;
+      record.lateMinutes = 0;
+      record.checkInStatus = check_in_status || 'On Time';
+      if (attendance_status) {
+        record.attendanceStatus = attendance_status;
+      } else if (record.attendanceStatus === 'Half Day' || record.attendanceStatus === 'Present (Late)') {
+        record.attendanceStatus = 'Present';
+      }
+    } else {
+      if (check_in_status) record.checkInStatus = check_in_status;
+      if (attendance_status) record.attendanceStatus = attendance_status;
+    }
+
+    await record.save();
+
+    try {
+      await AuditLog.create({
+        actor: req.user?._id || null,
+        action: 'ATTENDANCE_MANUAL_CREATED',
+        entityType: 'AttendanceRecord',
+        entityId: String(record._id),
+        details: {
+          employee: employee.name,
+          date: attendance_date,
+          checkIn: record.checkInTime,
+          checkOut: record.checkOutTime,
+          status: record.attendanceStatus,
+        },
+      });
+    } catch (e) {
+      // Non-blocking
+    }
+
+    res.status(201).json(formatSingleRecord(record, employee));
+  } catch (error: any) {
+    res.status(500).json({ detail: error.message || 'Failed to create manual attendance record.' });
+  }
+}
+
+export async function deleteAttendanceRecord(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(404).json({ detail: 'Attendance record not found.' });
+      return;
+    }
+
+    const record = await AttendanceRecord.findById(id).populate('employee');
+    if (!record) {
+      res.status(404).json({ detail: 'Attendance record not found.' });
+      return;
+    }
+
+    const empName = (record.employee as any)?.name || 'Employee';
+    const attDate = record.attendanceDate ? record.attendanceDate.toISOString().split('T')[0] : '';
+
+    await AttendanceRecord.findByIdAndDelete(id);
+
+    // Clean up any linked attendance corrections for this record
+    await AttendanceCorrection.deleteMany({ attendanceRecord: id });
+
+    try {
+      await AuditLog.create({
+        actor: req.user?._id || null,
+        action: 'ATTENDANCE_RECORD_DELETED',
+        entityType: 'AttendanceRecord',
+        entityId: String(id),
+        details: { employee: empName, date: attDate, reason: 'Deleted by Admin' },
+      });
+    } catch (e) {
+      // Non-blocking
+    }
+
+    res.json({ message: 'Attendance record successfully deleted.', id });
+  } catch (error: any) {
+    res.status(500).json({ detail: error.message || 'Failed to delete attendance record.' });
+  }
+}
+
+export async function deleteAttendanceCorrection(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(404).json({ detail: 'Attendance correction request not found.' });
+      return;
+    }
+
+    const correction = await AttendanceCorrection.findById(id);
+    if (!correction) {
+      res.status(404).json({ detail: 'Attendance correction request not found.' });
+      return;
+    }
+
+    await AttendanceCorrection.findByIdAndDelete(id);
+
+    try {
+      await AuditLog.create({
+        actor: req.user?._id || null,
+        action: 'ATTENDANCE_CORRECTION_DELETED',
+        entityType: 'AttendanceCorrection',
+        entityId: String(id),
+        details: { id },
+      });
+    } catch (e) {
+      // Non-blocking
+    }
+
+    res.json({ message: 'Attendance correction request deleted.', id });
+  } catch (error: any) {
+    res.status(500).json({ detail: error.message || 'Failed to delete correction request.' });
+  }
+}
+

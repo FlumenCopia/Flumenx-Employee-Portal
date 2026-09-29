@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import { ExpenseTransaction } from '../../models/accounting/ExpenseTransaction.js';
 import { ChartOfAccount } from '../../models/accounting/ChartOfAccount.js';
-import { postJournalEntry, generateDocumentNumber, CreateJournalLineInput } from '../../services/accounting/accountingEngine.js';
+import { JournalEntry } from '../../models/accounting/JournalEntry.js';
+import { AuditLog } from '../../models/AuditLog.js';
+import { postJournalEntry, generateDocumentNumber, CreateJournalLineInput, revertJournalEntryBalances } from '../../services/accounting/accountingEngine.js';
 
 export async function getExpenses(req: Request, res: Response): Promise<void> {
   const { category, status, employee, vendor, start_date, end_date, search } = req.query;
@@ -154,3 +156,79 @@ export async function createExpense(req: Request, res: Response): Promise<void> 
     res.status(400).json({ detail: err.message || 'Failed to record expense.' });
   }
 }
+
+export async function updateExpense(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { title, category, description, referenceNumber, paymentMethod } = req.body;
+
+  try {
+    const expense = await ExpenseTransaction.findById(id);
+    if (!expense) {
+      res.status(404).json({ detail: 'Expense not found.' });
+      return;
+    }
+
+    if (title !== undefined) expense.title = title.trim();
+    if (category !== undefined) expense.category = category.trim();
+    if (description !== undefined) expense.description = description;
+    if (referenceNumber !== undefined) expense.referenceNumber = referenceNumber;
+    if (paymentMethod !== undefined) expense.paymentMethod = paymentMethod;
+
+    await expense.save();
+
+    try {
+      await AuditLog.create({
+        actor: req.user?._id || null,
+        action: 'EXPENSE_UPDATED',
+        entityType: 'ExpenseTransaction',
+        entityId: String(expense._id),
+        details: { expenseNumber: expense.expenseNumber, title: expense.title },
+      });
+    } catch (e) {
+      // Non-blocking
+    }
+
+    res.json(expense);
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to update expense.' });
+  }
+}
+
+export async function deleteExpense(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+
+  try {
+    const expense = await ExpenseTransaction.findById(id);
+    if (!expense) {
+      res.status(404).json({ detail: 'Expense not found.' });
+      return;
+    }
+
+    if (expense.journalEntry) {
+      const journal = await JournalEntry.findById(expense.journalEntry);
+      if (journal) {
+        await revertJournalEntryBalances(journal);
+        await JournalEntry.findByIdAndDelete(journal._id);
+      }
+    }
+
+    await ExpenseTransaction.findByIdAndDelete(id);
+
+    try {
+      await AuditLog.create({
+        actor: req.user?._id || null,
+        action: 'EXPENSE_DELETED',
+        entityType: 'ExpenseTransaction',
+        entityId: String(expense._id),
+        details: { expenseNumber: expense.expenseNumber, title: expense.title, totalAmount: expense.totalAmount },
+      });
+    } catch (e) {
+      // Non-blocking
+    }
+
+    res.json({ message: `Expense ${expense.expenseNumber} deleted successfully.`, id });
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to delete expense.' });
+  }
+}
+

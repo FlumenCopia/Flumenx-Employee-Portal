@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import { Vendor } from '../../models/accounting/Vendor.js';
+import { Bill } from '../../models/accounting/Bill.js';
 import { TaxRate, FixedAsset, CostCenter, Budget, FiscalYear, AccountingPeriod } from '../../models/accounting/AccountingEntities.js';
 import { Client } from '../../models/Client.js';
 import { Project } from '../../models/Project.js';
+import { AuditLog } from '../../models/AuditLog.js';
 import { postJournalEntry } from '../../services/accounting/accountingEngine.js';
 
 // ==========================================
@@ -41,6 +43,84 @@ export async function createVendor(req: Request, res: Response): Promise<void> {
   res.status(201).json(vendor);
 }
 
+export async function updateVendor(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { name, code, taxId, email, phone, contactPerson, address, bankDetails, paymentTerms, defaultExpenseAccount, isActive } = req.body;
+
+  try {
+    const vendor = await Vendor.findById(id);
+    if (!vendor) {
+      res.status(404).json({ detail: 'Vendor not found.' });
+      return;
+    }
+
+    if (name) vendor.name = name.trim();
+    if (code !== undefined) vendor.code = code.trim();
+    if (taxId !== undefined) vendor.taxId = taxId;
+    if (email !== undefined) vendor.email = email;
+    if (phone !== undefined) vendor.phone = phone;
+    if (contactPerson !== undefined) vendor.contactPerson = contactPerson;
+    if (address !== undefined) vendor.address = address;
+    if (bankDetails !== undefined) vendor.bankDetails = bankDetails;
+    if (paymentTerms !== undefined) vendor.paymentTerms = paymentTerms;
+    if (defaultExpenseAccount !== undefined) vendor.defaultExpenseAccount = defaultExpenseAccount || null;
+    if (isActive !== undefined) vendor.isActive = Boolean(isActive);
+
+    await vendor.save();
+
+    try {
+      await AuditLog.create({
+        actor: req.user?._id || null,
+        action: 'VENDOR_UPDATED',
+        entityType: 'Vendor',
+        entityId: String(vendor._id),
+        details: { name: vendor.name },
+      });
+    } catch (e) {}
+
+    res.json(vendor);
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to update vendor.' });
+  }
+}
+
+export async function deleteVendor(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  try {
+    const vendor = await Vendor.findById(id);
+    if (!vendor) {
+      res.status(404).json({ detail: 'Vendor not found.' });
+      return;
+    }
+
+    // Check if vendor has bills or payments
+    const hasBills = await Bill.findOne({ vendor: vendor._id });
+    if (hasBills) {
+      // Soft deactivate instead of hard delete to maintain ledger integrity
+      vendor.isActive = false;
+      await vendor.save();
+      res.json({ message: `Vendor ${vendor.name} has active transactions and has been deactivated.`, id });
+      return;
+    }
+
+    await Vendor.findByIdAndDelete(id);
+
+    try {
+      await AuditLog.create({
+        actor: req.user?._id || null,
+        action: 'VENDOR_DELETED',
+        entityType: 'Vendor',
+        entityId: String(id),
+        details: { name: vendor.name },
+      });
+    } catch (e) {}
+
+    res.json({ message: `Vendor ${vendor.name} deleted successfully.`, id });
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to delete vendor.' });
+  }
+}
+
 // ==========================================
 // TAX RATES CONTROLLER
 // ==========================================
@@ -69,6 +149,40 @@ export async function createTaxRate(req: Request, res: Response): Promise<void> 
   await tax.save();
   res.status(201).json(tax);
 }
+
+export async function updateTaxRate(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { name, code, ratePercentage, taxType, glAccount, description, isActive } = req.body;
+  try {
+    const tax = await TaxRate.findById(id);
+    if (!tax) {
+      res.status(404).json({ detail: 'Tax rate not found.' });
+      return;
+    }
+    if (name) tax.name = name.trim();
+    if (code) tax.code = code.trim();
+    if (ratePercentage !== undefined) tax.ratePercentage = Number(ratePercentage);
+    if (taxType) tax.taxType = taxType;
+    if (glAccount) tax.glAccount = glAccount;
+    if (description !== undefined) tax.description = description;
+    if (isActive !== undefined) tax.isActive = Boolean(isActive);
+    await tax.save();
+    res.json(tax);
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to update tax rate.' });
+  }
+}
+
+export async function deleteTaxRate(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  try {
+    await TaxRate.findByIdAndDelete(id);
+    res.json({ message: 'Tax rate deleted.', id });
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to delete tax rate.' });
+  }
+}
+
 
 // ==========================================
 // FIXED ASSETS CONTROLLER
@@ -212,6 +326,37 @@ export async function createCostCenter(req: Request, res: Response): Promise<voi
 
   await cc.save();
   res.status(201).json(cc);
+}
+
+export async function updateCostCenter(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  const { code, name, category, description, isActive } = req.body;
+  try {
+    const cc = await CostCenter.findById(id);
+    if (!cc) {
+      res.status(404).json({ detail: 'Cost center not found.' });
+      return;
+    }
+    if (code) cc.code = code.trim();
+    if (name) cc.name = name.trim();
+    if (category) cc.category = category;
+    if (description !== undefined) cc.description = description;
+    if (isActive !== undefined) cc.isActive = Boolean(isActive);
+    await cc.save();
+    res.json(cc);
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to update cost center.' });
+  }
+}
+
+export async function deleteCostCenter(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+  try {
+    await CostCenter.findByIdAndDelete(id);
+    res.json({ message: 'Cost center deleted successfully.', id });
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to delete cost center.' });
+  }
 }
 
 // ==========================================

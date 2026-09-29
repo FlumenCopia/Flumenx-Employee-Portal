@@ -13,6 +13,9 @@ import {
   updateAttendanceCorrection,
   triggerForcedCheckoutHandler,
   adjustAttendanceTimeHandler,
+  createManualAttendanceRecord,
+  deleteAttendanceRecord,
+  deleteAttendanceCorrection,
 } from '../controllers/attendanceController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
@@ -40,7 +43,11 @@ router.put('/attendance/:id/adjust-time/?', requirePermission('attendance', 'can
 router.patch('/attendance/:id/adjust/?', requirePermission('attendance', 'canEdit'), adjustAttendanceTimeHandler);
 router.post('/attendance/:id/adjust/?', requirePermission('attendance', 'canEdit'), adjustAttendanceTimeHandler);
 
-// Attendance Records
+// Attendance Records - Admin Manual Create & Delete
+router.post('/attendance/manual/?', requirePermission('attendance', 'canCreate'), createManualAttendanceRecord);
+router.delete('/attendance/:id/?', requirePermission('attendance', 'canDelete'), deleteAttendanceRecord);
+
+// Attendance Records - Standard Self Endpoints
 router.get('/attendance/?', requirePermission('attendance', 'canView'), getAttendanceRecords);
 router.post('/attendance/?', requirePermission('attendance', 'canView'), upload.single('photo'), checkInAttendance);
 router.put('/attendance/:id/?', requirePermission('attendance', 'canView'), checkOutAttendance);
@@ -51,5 +58,6 @@ router.get('/attendance-corrections/?', requirePermission('attendance', 'canView
 router.post('/attendance-corrections/?', requirePermission('attendance', 'canView'), createAttendanceCorrection);
 router.put('/attendance-corrections/:id/?', requirePermission('attendance', 'canEdit'), updateAttendanceCorrection);
 router.patch('/attendance-corrections/:id/?', requirePermission('attendance', 'canEdit'), updateAttendanceCorrection);
+router.delete('/attendance-corrections/:id/?', requirePermission('attendance', 'canDelete'), deleteAttendanceCorrection);
 
 export default router;
