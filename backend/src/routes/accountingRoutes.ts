@@ -22,23 +22,31 @@ import {
   getInvoices,
   getInvoiceById,
   createInvoice,
+  updateInvoice,
+  deleteInvoice,
 } from '../controllers/accounting/invoiceController.js';
 import {
   getReceipts,
   createReceipt,
+  deleteReceipt,
 } from '../controllers/accounting/receiptController.js';
 import {
   getBills,
   getBillById,
   createBill,
+  updateBill,
+  deleteBill,
 } from '../controllers/accounting/billController.js';
 import {
   getVendorPayments,
   createVendorPayment,
+  deleteVendorPayment,
 } from '../controllers/accounting/vendorPaymentController.js';
 import {
   getExpenses,
   createExpense,
+  updateExpense,
+  deleteExpense,
 } from '../controllers/accounting/expenseController.js';
 import {
   getBankAccounts,
@@ -58,13 +66,19 @@ import {
 import {
   getVendors,
   createVendor,
+  updateVendor,
+  deleteVendor,
   getTaxRates,
   createTaxRate,
+  updateTaxRate,
+  deleteTaxRate,
   getFixedAssets,
   createFixedAsset,
   runMonthlyDepreciation,
   getCostCenters,
   createCostCenter,
+  updateCostCenter,
+  deleteCostCenter,
   getFiscalYears,
   getAccountingPeriods,
   lockAccountingPeriod,
@@ -111,19 +125,27 @@ router.get('/ledger/vendor/?', getVendorLedgerHandler);
 router.get('/invoices/?', getInvoices);
 router.post('/invoices/?', requirePermission('ACCOUNTING', 'canCreate'), createInvoice);
 router.get('/invoices/:id/?', getInvoiceById);
+router.put('/invoices/:id/?', requirePermission('ACCOUNTING', 'canEdit'), updateInvoice);
+router.delete('/invoices/:id/?', requirePermission('ACCOUNTING', 'canDelete'), deleteInvoice);
 router.get('/receipts/?', getReceipts);
 router.post('/receipts/?', requirePermission('ACCOUNTING', 'canCreate'), createReceipt);
+router.delete('/receipts/:id/?', requirePermission('ACCOUNTING', 'canDelete'), deleteReceipt);
 
 // 6. Bills & Vendor Payments (Purchases / AP)
 router.get('/bills/?', getBills);
 router.post('/bills/?', requirePermission('ACCOUNTING', 'canCreate'), createBill);
 router.get('/bills/:id/?', getBillById);
+router.put('/bills/:id/?', requirePermission('ACCOUNTING', 'canEdit'), updateBill);
+router.delete('/bills/:id/?', requirePermission('ACCOUNTING', 'canDelete'), deleteBill);
 router.get('/vendor-payments/?', getVendorPayments);
 router.post('/vendor-payments/?', requirePermission('ACCOUNTING', 'canCreate'), createVendorPayment);
+router.delete('/vendor-payments/:id/?', requirePermission('ACCOUNTING', 'canDelete'), deleteVendorPayment);
 
 // 7. Expenses
 router.get('/expenses/?', getExpenses);
 router.post('/expenses/?', requirePermission('ACCOUNTING', 'canCreate'), createExpense);
+router.put('/expenses/:id/?', requirePermission('ACCOUNTING', 'canEdit'), updateExpense);
+router.delete('/expenses/:id/?', requirePermission('ACCOUNTING', 'canDelete'), deleteExpense);
 
 // 8. Banking & Reconciliation
 router.get('/banking/accounts/?', getBankAccounts);
@@ -141,27 +163,47 @@ router.get('/entities/projects/?', getAccountingProjects);
 // 10. Vendors & Taxes (with /entities/ aliases)
 router.get('/vendors/?', getVendors);
 router.post('/vendors/?', requirePermission('ACCOUNTING', 'canCreate'), createVendor);
+router.put('/vendors/:id/?', requirePermission('ACCOUNTING', 'canEdit'), updateVendor);
+router.delete('/vendors/:id/?', requirePermission('ACCOUNTING', 'canDelete'), deleteVendor);
+
 router.get('/entities/vendors/?', getVendors);
 router.post('/entities/vendors/?', requirePermission('ACCOUNTING', 'canCreate'), createVendor);
+router.put('/entities/vendors/:id/?', requirePermission('ACCOUNTING', 'canEdit'), updateVendor);
+router.delete('/entities/vendors/:id/?', requirePermission('ACCOUNTING', 'canDelete'), deleteVendor);
+
 router.get('/taxes/?', getTaxRates);
 router.post('/taxes/?', requirePermission('ACCOUNTING', 'canCreate'), createTaxRate);
+router.put('/taxes/:id/?', requirePermission('ACCOUNTING', 'canEdit'), updateTaxRate);
+router.delete('/taxes/:id/?', requirePermission('ACCOUNTING', 'canDelete'), deleteTaxRate);
+
 router.get('/entities/tax-rates/?', getTaxRates);
 router.post('/entities/tax-rates/?', requirePermission('ACCOUNTING', 'canCreate'), createTaxRate);
+router.put('/entities/tax-rates/:id/?', requirePermission('ACCOUNTING', 'canEdit'), updateTaxRate);
+router.delete('/entities/tax-rates/:id/?', requirePermission('ACCOUNTING', 'canDelete'), deleteTaxRate);
+
 router.get('/entities/taxes/?', getTaxRates);
 router.post('/entities/taxes/?', requirePermission('ACCOUNTING', 'canCreate'), createTaxRate);
+router.put('/entities/taxes/:id/?', requirePermission('ACCOUNTING', 'canEdit'), updateTaxRate);
+router.delete('/entities/taxes/:id/?', requirePermission('ACCOUNTING', 'canDelete'), deleteTaxRate);
 
-// 10. Fixed Assets & Depreciation
+// 11. Fixed Assets & Depreciation
 router.get('/assets/?', getFixedAssets);
 router.post('/assets/?', requirePermission('ACCOUNTING', 'canCreate'), createFixedAsset);
 router.get('/entities/fixed-assets/?', getFixedAssets);
 router.post('/entities/fixed-assets/?', requirePermission('ACCOUNTING', 'canCreate'), createFixedAsset);
 router.post('/assets/run-depreciation/?', requirePermission('ACCOUNTING', 'canEdit'), runMonthlyDepreciation);
 
-// 11. Cost Centers, Budgets & Periods
+// 12. Cost Centers, Budgets & Periods
 router.get('/cost-centers/?', getCostCenters);
 router.post('/cost-centers/?', requirePermission('ACCOUNTING', 'canCreate'), createCostCenter);
+router.put('/cost-centers/:id/?', requirePermission('ACCOUNTING', 'canEdit'), updateCostCenter);
+router.delete('/cost-centers/:id/?', requirePermission('ACCOUNTING', 'canDelete'), deleteCostCenter);
+
 router.get('/entities/cost-centers/?', getCostCenters);
 router.post('/entities/cost-centers/?', requirePermission('ACCOUNTING', 'canCreate'), createCostCenter);
+router.put('/entities/cost-centers/:id/?', requirePermission('ACCOUNTING', 'canEdit'), updateCostCenter);
+router.delete('/entities/cost-centers/:id/?', requirePermission('ACCOUNTING', 'canDelete'), deleteCostCenter);
+
 router.get('/fiscal-years/?', getFiscalYears);
 router.get('/entities/fiscal-years/?', getFiscalYears);
 router.get('/periods/?', getAccountingPeriods);

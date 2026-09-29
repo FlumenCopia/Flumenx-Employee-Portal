@@ -6,6 +6,7 @@ import {
   Search,
   RefreshCw,
   Download,
+  Trash2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
@@ -26,6 +27,7 @@ export function ExpensesView({ initialOpenModal = false, onModalClose }: Props) 
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Modal State
   const [showModal, setShowModal] = useState(initialOpenModal);
@@ -69,9 +71,22 @@ export function ExpensesView({ initialOpenModal = false, onModalClose }: Props) 
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const handleDeleteExpense = async (exp: ExpenseTransaction) => {
+    if (!confirm(`Are you sure you want to delete expense ${exp.expenseNumber}? This will revert journal entries and general ledger balances.`)) {
+      return;
+    }
+    try {
+      setDeletingId(exp._id);
+      await api(`/accounting/expenses/${exp._id}`, { method: "DELETE" });
+      toast.success(`Expense ${exp.expenseNumber} deleted successfully.`);
+      fetchData();
+    } catch (err: any) {
+      console.error("Failed to delete expense:", err);
+      toast.error(err.message || "Failed to delete expense");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleCreateExpense = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -301,19 +316,20 @@ export function ExpensesView({ initialOpenModal = false, onModalClose }: Props) 
                 <th style={{ padding: "12px 16px", textAlign: "right" }}>Tax</th>
                 <th style={{ padding: "12px 16px", textAlign: "right" }}>Total Paid</th>
                 <th style={{ padding: "12px 16px", textAlign: "center" }}>Status</th>
+                <th style={{ padding: "12px 16px", textAlign: "center" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
+                  <td colSpan={10} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
                     <RefreshCw size={20} className="animate-spin" style={{ display: "inline", marginRight: "8px" }} />
                     Loading operational expenses...
                   </td>
                 </tr>
               ) : filteredExpenses.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
+                  <td colSpan={10} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
                     No expenses recorded. Click "Record Expense" to register operational costs.
                   </td>
                 </tr>
@@ -361,6 +377,29 @@ export function ExpensesView({ initialOpenModal = false, onModalClose }: Props) 
                         >
                           {exp.approvalStatus}
                         </span>
+                      </td>
+                      <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteExpense(exp)}
+                          disabled={deletingId === exp._id}
+                          title="Delete expense"
+                          style={{
+                            border: "none",
+                            background: "transparent",
+                            cursor: "pointer",
+                            color: "#ef4444",
+                            padding: "6px",
+                            borderRadius: "6px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "all 0.2s",
+                          }}
+                          className="hover:bg-red-50"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </td>
                     </tr>
                   );

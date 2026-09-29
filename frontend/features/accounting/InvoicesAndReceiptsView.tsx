@@ -94,6 +94,8 @@ export function InvoicesAndReceiptsView({
   const [recReference, setRecReference] = useState("");
   const [recNotes, setRecNotes] = useState("");
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   useEffect(() => {
     if (initialOpenInvoice) setShowInvoiceModal(true);
     if (initialOpenReceipt) setShowReceiptModal(true);
@@ -129,6 +131,44 @@ export function InvoicesAndReceiptsView({
       toast.error(err.message || "Failed to load invoices");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteInvoice = async (inv: AccountingInvoice) => {
+    if (inv.amountPaid > 0) {
+      toast.error("Cannot delete an invoice that has payments recorded. Please delete the associated receipts first.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete invoice ${inv.invoiceNumber}? This will revert journal entries and balance records.`)) {
+      return;
+    }
+    try {
+      setDeletingId(inv._id);
+      await api(`/accounting/invoices/${inv._id}`, { method: "DELETE" });
+      toast.success(`Invoice ${inv.invoiceNumber} deleted successfully.`);
+      fetchData();
+    } catch (err: any) {
+      console.error("Failed to delete invoice:", err);
+      toast.error(err.message || "Failed to delete invoice");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDeleteReceipt = async (rec: CustomerReceipt) => {
+    if (!confirm(`Are you sure you want to delete receipt ${rec.receiptNumber}? This will unallocate payments from invoices and reverse ledger entries.`)) {
+      return;
+    }
+    try {
+      setDeletingId(rec._id);
+      await api(`/accounting/receipts/${rec._id}`, { method: "DELETE" });
+      toast.success(`Receipt ${rec.receiptNumber} deleted successfully.`);
+      fetchData();
+    } catch (err: any) {
+      console.error("Failed to delete receipt:", err);
+      toast.error(err.message || "Failed to delete receipt");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -623,19 +663,20 @@ export function InvoicesAndReceiptsView({
                   <th style={{ padding: "12px 16px", textAlign: "right" }}>Total</th>
                   <th style={{ padding: "12px 16px", textAlign: "right" }}>Balance Due</th>
                   <th style={{ padding: "12px 16px", textAlign: "center" }}>Status</th>
+                  <th style={{ padding: "12px 16px", textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
+                    <td colSpan={10} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
                       <RefreshCw size={20} className="animate-spin" style={{ display: "inline", marginRight: "8px" }} />
                       Loading sales invoices...
                     </td>
                   </tr>
                 ) : filteredInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
+                    <td colSpan={10} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
                       No sales invoices found. Click "Create Invoice" to issue a client invoice.
                     </td>
                   </tr>
@@ -700,6 +741,29 @@ export function InvoicesAndReceiptsView({
                             {inv.status}
                           </span>
                         </td>
+                        <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteInvoice(inv)}
+                            disabled={deletingId === inv._id}
+                            title={inv.amountPaid > 0 ? "Cannot delete invoice with payments received" : "Delete invoice"}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              cursor: inv.amountPaid > 0 ? "not-allowed" : "pointer",
+                              color: inv.amountPaid > 0 ? "#cbd5e1" : "#ef4444",
+                              padding: "6px",
+                              borderRadius: "6px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "all 0.2s",
+                            }}
+                            className={inv.amountPaid > 0 ? "" : "hover:bg-red-50"}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -733,19 +797,20 @@ export function InvoicesAndReceiptsView({
                   <th style={{ padding: "12px 16px", textAlign: "right" }}>Amount Received</th>
                   <th style={{ padding: "12px 16px", textAlign: "right" }}>Unallocated</th>
                   <th style={{ padding: "12px 16px", textAlign: "center" }}>Status</th>
+                  <th style={{ padding: "12px 16px", textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
+                    <td colSpan={9} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
                       <RefreshCw size={20} className="animate-spin" style={{ display: "inline", marginRight: "8px" }} />
                       Loading customer receipts...
                     </td>
                   </tr>
                 ) : filteredReceipts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
+                    <td colSpan={9} style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary, #64748b)" }}>
                       No receipts recorded yet. Click "Record Receipt" to register client payments.
                     </td>
                   </tr>
@@ -804,6 +869,29 @@ export function InvoicesAndReceiptsView({
                           >
                             {rec.status}
                           </span>
+                        </td>
+                        <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteReceipt(rec)}
+                            disabled={deletingId === rec._id}
+                            title="Delete receipt"
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              color: "#ef4444",
+                              padding: "6px",
+                              borderRadius: "6px",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "all 0.2s",
+                            }}
+                            className="hover:bg-red-50"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </td>
                       </tr>
                     );

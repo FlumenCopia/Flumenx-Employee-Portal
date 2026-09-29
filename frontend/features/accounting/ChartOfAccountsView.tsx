@@ -7,6 +7,7 @@ import {
   RefreshCw,
   BookOpen,
   Download,
+  Pencil,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
@@ -74,6 +75,13 @@ export function ChartOfAccountsView({ onSelectAccountForLedger }: Props) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Edit Account State
+  const [editingAccount, setEditingAccount] = useState<ChartOfAccount | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
   // Form State
   const [formData, setFormData] = useState({
     code: "",
@@ -85,6 +93,41 @@ export function ChartOfAccountsView({ onSelectAccountForLedger }: Props) {
     description: "",
     openingBalance: 0,
   });
+
+  const handleOpenEditAccount = (acc: ChartOfAccount) => {
+    setEditingAccount(acc);
+    setEditName(acc.name || "");
+    setEditDescription(acc.description || "");
+    setEditIsActive(acc.isActive !== false);
+  };
+
+  const handleUpdateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAccount) return;
+    if (!editName.trim()) {
+      toast.error("Account name is required");
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      await api(`/accounting/accounts/${editingAccount._id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: editName.trim(),
+          description: editDescription.trim(),
+          isActive: editIsActive,
+        }),
+      });
+      toast.success(`Account ${editingAccount.code} updated successfully`);
+      setEditingAccount(null);
+      fetchAccounts();
+    } catch (err: any) {
+      console.error("Failed to update account:", err);
+      toast.error(err.message || "Failed to update account");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -377,15 +420,26 @@ export function ChartOfAccountsView({ onSelectAccountForLedger }: Props) {
                         )}
                       </td>
                       <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-xs"
-                          onClick={() => onSelectAccountForLedger?.(acc.code)}
-                          title="View Account Ledger"
-                          style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "11px" }}
-                        >
-                          <BookOpen size={12} /> Ledger
-                        </button>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => onSelectAccountForLedger?.(acc.code)}
+                            title="View Account Ledger"
+                            style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "11px" }}
+                          >
+                            <BookOpen size={12} /> Ledger
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => handleOpenEditAccount(acc)}
+                            title="Edit Account"
+                            style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "11px" }}
+                          >
+                            <Pencil size={12} /> Edit
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -563,6 +617,79 @@ export function ChartOfAccountsView({ onSelectAccountForLedger }: Props) {
                 disabled={submitting}
               >
                 {submitting ? "Creating Account..." : "Create Account"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Account Modal */}
+      {editingAccount && (
+        <Modal
+          title={`Edit Account: ${editingAccount.code}`}
+          eyebrow="CHART OF ACCOUNTS CONFIGURATION"
+          size="md"
+          onClose={() => setEditingAccount(null)}
+        >
+          <form onSubmit={handleUpdateAccount} style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "12px 0" }}>
+            <div>
+              <label className="label" style={{ fontSize: "12px", fontWeight: 600 }}>
+                Account Name *
+              </label>
+              <input
+                type="text"
+                className="input"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="label" style={{ fontSize: "12px", fontWeight: 600 }}>
+                Description / Purpose
+              </label>
+              <textarea
+                className="input"
+                rows={2}
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Optional description"
+              />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <input
+                type="checkbox"
+                id="editIsActive"
+                checked={editIsActive}
+                disabled={editingAccount.isSystemAccount}
+                onChange={(e) => setEditIsActive(e.target.checked)}
+                style={{ width: "16px", height: "16px", cursor: editingAccount.isSystemAccount ? "not-allowed" : "pointer" }}
+              />
+              <label htmlFor="editIsActive" style={{ fontSize: "12.5px", cursor: editingAccount.isSystemAccount ? "not-allowed" : "pointer" }}>
+                Active in General Ledger
+                {editingAccount.isSystemAccount && (
+                  <span style={{ fontSize: "11px", color: "#64748b", marginLeft: "6px" }}>(System accounts cannot be deactivated)</span>
+                )}
+              </label>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "16px", paddingTop: "14px", borderTop: "1px solid var(--border-light, #e2e8f0)" }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setEditingAccount(null)}
+                disabled={editSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={editSubmitting}
+              >
+                {editSubmitting ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </form>

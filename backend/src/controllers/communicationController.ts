@@ -245,6 +245,26 @@ export async function endMeeting(req: Request, res: Response): Promise<void> {
   res.json({ message: 'Meeting ended successfully.' });
 }
 
+export async function updateMeeting(req: Request, res: Response): Promise<void> {
+  const { title, date, time, description, location, department, status } = req.body;
+  const meeting = await Meeting.findById(req.params.id);
+  if (!meeting) {
+    res.status(404).json({ detail: 'Meeting not found.' });
+    return;
+  }
+  if (title !== undefined) meeting.title = title.trim();
+  if (date !== undefined) meeting.date = new Date(date);
+  if (time !== undefined) meeting.time = time;
+  if (description !== undefined) meeting.description = description;
+  if (location !== undefined) meeting.location = location;
+  if (department !== undefined) meeting.department = department;
+  if (status !== undefined && ['SCHEDULED', 'LIVE', 'ENDED', 'CANCELLED'].includes(status)) {
+    meeting.status = status as any;
+  }
+  await meeting.save();
+  res.json(meeting);
+}
+
 export async function deleteMeeting(req: Request, res: Response): Promise<void> {
   await Meeting.findByIdAndDelete(req.params.id);
   res.status(204).send();
@@ -300,6 +320,22 @@ export async function createAnnouncement(req: Request, res: Response): Promise<v
   }
 
   res.status(201).json(announcement);
+}
+
+export async function updateAnnouncement(req: Request, res: Response): Promise<void> {
+  const { title, message, priority } = req.body;
+  const announcement = await Announcement.findById(req.params.id);
+  if (!announcement) {
+    res.status(404).json({ detail: 'Announcement not found.' });
+    return;
+  }
+  if (title !== undefined) announcement.title = title.trim();
+  if (message !== undefined) announcement.message = message.trim();
+  if (priority !== undefined && ['Normal', 'Important', 'Urgent'].includes(priority)) {
+    announcement.priority = priority as any;
+  }
+  await announcement.save();
+  res.json(announcement);
 }
 
 export async function deleteAnnouncement(req: Request, res: Response): Promise<void> {

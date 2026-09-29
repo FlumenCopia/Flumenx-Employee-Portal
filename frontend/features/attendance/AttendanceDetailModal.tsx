@@ -5,7 +5,7 @@ import { AttendanceRecord } from "@/lib/types";
 import { Avatar } from "@/components/icons";
 import { Badge } from "@/components/ui";
 import { displayTime, statusTone } from "./helpers";
-import { Calendar, CheckCircle2, Clock3, Edit3, MapPin, RotateCcw, Save, ShieldAlert, Sparkles, User, X } from "lucide-react";
+import { Calendar, CheckCircle2, Clock3, Edit3, MapPin, RotateCcw, Save, ShieldAlert, Sparkles, Trash2, User, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
 
@@ -23,6 +23,7 @@ export function AttendanceDetailModal({ record, onClose, onUpdated }: Attendance
   const [attendanceStatus, setAttendanceStatus] = useState(record.attendance_status || "Present");
   const [adminNote, setAdminNote] = useState(record.notes || "");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const photoUrl = record.photo ? (record.photo.startsWith("http") ? record.photo : record.photo) : null;
 
@@ -50,6 +51,32 @@ export function AttendanceDetailModal({ record, onClose, onUpdated }: Attendance
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleDeleteRecord = async () => {
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete this attendance record for ${record.employee_name} on ${record.attendance_date}? This action will be recorded in the audit log.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      await api(`/attendance/${record.id}/`, {
+        method: "DELETE",
+      });
+      toast.success("Attendance record deleted successfully!");
+      if (onUpdated) onUpdated();
+      onClose();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete attendance record.");
+    } finally {
+      setDeleting(false);
+    }
+
+
+
+
+
   };
 
   return (
@@ -129,6 +156,28 @@ export function AttendanceDetailModal({ record, onClose, onUpdated }: Attendance
             >
               <Edit3 size={13} />
               {isEditing ? "View Details" : "Quick Correct"}
+            </button>
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={handleDeleteRecord}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                padding: "5px 10px",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: 700,
+                background: "rgba(239, 68, 68, 0.12)",
+                color: "#ef4444",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                cursor: "pointer",
+              }}
+              title="Permanently delete this attendance record"
+            >
+              <Trash2 size={13} />
+              {deleting ? "Deleting..." : "Delete"}
             </button>
             <button
               onClick={onClose}
