@@ -50,6 +50,9 @@ export function hasPermission(
   }
 
   // 3. Sensible fallbacks for backward compatibility
+  if (actionOrFeature === "bulk_create" || actionOrFeature === "create_task") {
+    return Boolean(perm.canCreate ?? perm.can_create);
+  }
   if (actionOrFeature === "manual_entry") return Boolean(perm.canCreate ?? perm.can_create);
   if (actionOrFeature === "policy_settings") return Boolean(perm.canEdit ?? perm.can_edit);
   if (actionOrFeature === "reports_export") {

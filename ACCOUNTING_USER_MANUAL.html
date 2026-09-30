@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FLUMENX OS — Comprehensive Accounting SOP & Standard User Manual</title>
+<style>
+  @page {
+    size: A4;
+    margin: 10mm 12mm 12mm 12mm;
+    @bottom-right {
+      content: counter(page);
+    }
+  }
+  
+  *, *:before, *:after {
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #0f172a;
+    background-color: #ffffff;
+    line-height: 1.45;
+    font-size: 11px;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Cover / Header Banner */
+  .cover-banner {
+    background: linear-gradient(135deg, #064E3B 0%, #087A5B 100%);
+    color: #ffffff;
+    padding: 20px 22px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 10px rgba(8, 122, 91, 0.15);
+  }
+  .cover-title {
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    margin: 0 0 4px 0;
+    color: #ffffff;
+  }
+  .cover-subtitle {
+    font-size: 12px;
+    font-weight: 600;
+    color: #A7F3D0;
+    margin: 0 0 10px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .cover-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.25);
+    padding-top: 8px;
+    font-size: 10.5px;
+    color: #E2E8F0;
+  }
+  .cover-meta-item strong {
+    color: #ffffff;
+  }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .badge-primary { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+  .badge-debit   { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+  .badge-credit  { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .badge-danger  { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+  .badge-neutral { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+  /* Headings */
+  h2 {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #064E3B;
+    border-bottom: 2px solid #E2E8F0;
+    padding-bottom: 3px;
+    margin-top: 14px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    page-break-after: avoid;
+  }
+  h2 .section-num {
+    background: #087A5B;
+    color: #ffffff;
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-top: 10px;
+    margin-bottom: 4px;
+    page-break-after: avoid;
+  }
+  p {
+    margin: 0 0 5px 0;
+    color: #334155;
+  }
+
+  /* Callouts & Notes */
+  .callout {
+    background: #F8FAFC;
+    border-left: 4px solid #087A5B;
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+    margin: 8px 0 10px 0;
+    font-size: 10.5px;
+  }
+  .callout-warning {
+    border-left-color: #D97706;
+    background: #FFFBEB;
+  }
+  .callout-title {
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 2px;
+    font-size: 11px;
+  }
+
+  /* Visual Flow Box / Process Pipeline */
+  .process-pipeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 8px 0 10px 0;
+    gap: 5px;
+    page-break-inside: avoid;
+  }
+  .pipe-step {
+    flex: 1;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 6px 8px;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  }
+  .pipe-step-num {
+    font-size: 8.5px;
+    font-weight: 800;
+    color: #087A5B;
+    text-transform: uppercase;
+    margin-bottom: 1px;
+  }
+  .pipe-step-name {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .pipe-step-sub {
+    font-size: 9px;
+    color: #64748b;
+    margin-top: 1px;
+  }
+  .pipe-arrow {
+    font-size: 13px;
+    color: #087A5B;
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+
+  /* Workflow Card */
+  .sop-card {
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    page-break-inside: avoid;
+  }
+  .sop-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1.5px solid #e2e8f0;
+    padding-bottom: 5px;
+    margin-bottom: 8px;
+  }
+  .sop-title {
+    font-size: 12.5px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6px 0 10px 0;
+    font-size: 10px;
+    page-break-inside: avoid;
+  }
+  th {
+    background-color: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    text-align: left;
+    padding: 5px 8px;
+    border: 1px solid #cbd5e1;
+  }
+  td {
+    padding: 4.5px 8px;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    vertical-align: middle;
+  }
+  tr:nth-child(even) td {
+    background-color: #f8fafc;
+  }
+  .table-summary-row td {
+    background-color: #f1f5f9 !important;
+    font-weight: 800;
+    color: #0f172a;
+    border-top: 2px solid #94a3b8;
+  }
+
+  .text-right { text-align: right; }
+  .text-center { text-align: center; }
+  .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  .fw-bold { font-weight: 700; }
+  .color-green { color: #087A5B; font-weight: 700; }
+  .color-blue { color: #0369a1; font-weight: 700; }
+  .color-amber { color: #b45309; font-weight: 700; }
+
+  /* UI Mockup Form Card */
+  .form-mockup {
+    background: #F8FAFC;
+    border: 1px dashed #94a3b8;
+    border-radius: 5px;
+    padding: 8px 10px;
+    margin: 6px 0 8px 0;
+    font-size: 10px;
+  }
+  .form-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 5px;
+  }
+  .form-row:last-child {
+    margin-bottom: 0;
+  }
+  .form-col {
+    flex: 1;
+  }
+  .form-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+    display: block;
+  }
+  .form-val {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  ol, ul {
+    margin: 0 0 6px 0;
+    padding-left: 16px;
+  }
+  li {
+    margin-bottom: 2px;
+    color: #334155;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+
+  .footer {
+    border-top: 1px solid #cbd5e1;
+    padding-top: 5px;
+    margin-top: 10px;
+    font-size: 9px;
+    color: #64748b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- PAGE 1: SYSTEM OVERVIEW & ARCHITECTURE -->
+<div class="cover-banner">
+  <div class="cover-subtitle">Enterprise Double-Entry General Ledger & Treasury</div>
+  <h1 class="cover-title">FLUMENX OS — Accounting Standard Operating Procedures</h1>
+  <div class="cover-meta">
+    <div class="cover-meta-item"><strong>Module:</strong> Finance & Accounting (/accounting)</div>
+    <div class="cover-meta-item"><strong>Compliance:</strong> Ind AS & GAAP Strict Double-Entry</div>
+    <div class="cover-meta-item"><strong>Audience:</strong> Accountants, Finance Officers, Auditors</div>
+    <div class="cover-meta-item"><strong>Version:</strong> 2.4.0 (2026 Production)</div>
+  </div>
+</div>
+
+<h2><span class="section-num">1</span> Core System Architecture & Financial Data Flow</h2>
+<p>FLUMENX OS operates on a strict, synchronized double-entry accounting engine. Money entering or leaving the agency is tracked through dedicated sub-ledgers and automatically posted to the general ledger.</p>
+
+<div class="process-pipeline">
+  <div class="pipe-step">
+    <div class="pipe-step-num">Step 1 · Inflow</div>
+    <div class="pipe-step-name">Sales & Capital</div>
+    <div class="pipe-step-sub">Invoices, Receipts, Owner Equity</div>
+  </div>
+  <div class="pipe-arrow">➔</div>
+  <div class="pipe-step">
+    <div class="pipe-step-num">Step 2 · Treasury</div>
+    <div class="pipe-step-name">Banking & Cash</div>
+    <div class="pipe-step-sub">Bank (1130), Petty Cash (1120)</div>
+  </div>
+  <div class="pipe-arrow">➔</div>
+  <div class="pipe-step">
+    <div class="pipe-step-num">Step 3 · Outflow</div>
+    <div class="pipe-step-name">Bills, Spend & Payroll</div>
+    <div class="pipe-step-sub">Vendors (A/P), Expenses, Salaries</div>
+  </div>
+  <div class="pipe-arrow">➔</div>
+  <div class="pipe-step">
+    <div class="pipe-step-num">Step 4 · Core Ledger</div>
+    <div class="pipe-step-name">Journal Vouchers</div>
+    <div class="pipe-step-sub">Strict Balanced Posting (Dr = Cr)</div>
+  </div>
+  <div class="pipe-arrow">➔</div>
+  <div class="pipe-step">
+    <div class="pipe-step-num">Step 5 · Reporting</div>
+    <div class="pipe-step-name">Financial Reports</div>
+    <div class="pipe-step-sub">Balance Sheet, P&L, Trial Balance</div>
+  </div>
+</div>
+
+<div class="callout">
+  <div class="callout-title">Three Inviolable Principles Enforced by the System</div>
+  <ol>
+    <li><strong>Zero Discrepancy Invariant:</strong> No journal voucher or transaction can be posted unless <strong>Total Debits = Total Credits</strong> down to the exact cent (difference &lt; ₹0.01).</li>
+    <li><strong>Audit Immutability & Reversals:</strong> Posted journals cannot be edited or silently deleted. If a mistake occurs, the accountant clicks <strong>Reverse</strong> to generate an exact counter-entry with mandatory audit notes.</li>
+    <li><strong>Sub-Ledger Integration:</strong> Customer invoices and vendor bills must be created inside their respective modules (not as loose journal vouchers) to ensure Trade Debtors, Trade Creditors, and Aging schedules remain accurate.</li>
+  </ol>
+</div>
+
+<h2><span class="section-num">2</span> Navigation & Tab Functionality Guide</h2>
+<p>Open the portal and select <strong>Accounting & Finance</strong> from the sidebar menu, or access URL <code>/accounting</code>. The page contains 9 dedicated modules:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 20%;">Tab Name</th>
+      <th style="width: 32%;">Primary Purpose</th>
+      <th style="width: 48%;">Action Items for the Accountant</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Dashboard</strong></td>
+      <td>Executive financial overview</td>
+      <td>Check cash in hand, operating bank balances, outstanding client receivables, pending vendor payables, and quick action shortcuts.</td>
+    </tr>
+    <tr>
+      <td><strong>2. Chart of Accounts</strong></td>
+      <td>Master ledger tree & account directory</td>
+      <td>Create and inspect Asset (1xxx), Liability (2xxx), Equity (3xxx), Revenue (4xxx), and Expense (5xxx) ledger accounts.</td>
+    </tr>
+    <tr>
+      <td><strong>3. General Ledger</strong></td>
+      <td>Chronological ledger book</td>
+      <td>Select any specific account to inspect opening balances, debits, credits, running balances, and export CSV ledger sheets.</td>
+    </tr>
+    <tr>
+      <td><strong>4. Journal Vouchers</strong></td>
+      <td>Manual double-entry postings</td>
+      <td>Record multi-line capital contributions, month-end adjustments, depreciation write-offs, and perform audited voucher reversals.</td>
+    </tr>
+    <tr>
+      <td><strong>5. Sales & Invoicing</strong></td>
+      <td>Client receivables (A/R)</td>
+      <td>Issue GST invoices, monitor unpaid bills, record customer NEFT/RTGS/UPI receipts, and allocate payments to invoices.</td>
+    </tr>
+    <tr>
+      <td><strong>6. Purchases & Bills</strong></td>
+      <td>Vendor payables (A/P)</td>
+      <td>Log vendor supplier bills, claim GST Input Tax Credit (ITC), process payments from company bank, and settle vendor dues.</td>
+    </tr>
+    <tr>
+      <td><strong>7. Expenses</strong></td>
+      <td>Direct spend & petty cash</td>
+      <td>Quick entry for operational disbursements (team refreshments, travel, stationery, SaaS software) without creating full vendor bills.</td>
+    </tr>
+    <tr>
+      <td><strong>8. Banking & Treasury</strong></td>
+      <td>Bank accounts & reconciliation</td>
+      <td>Track bank accounts, log netbanking transactions, and perform weekly bank reconciliations against bank statement balances.</td>
+    </tr>
+    <tr>
+      <td><strong>9. Financial Reports</strong></td>
+      <td>Statutory statements & analytics</td>
+      <td>Generate real-time Balance Sheet, Profit & Loss (P&L), Trial Balance, and Accounts Receivable / Payable Aging schedules.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- PAGE 2: CHART OF ACCOUNTS ARCHITECTURE -->
+<h2><span class="section-num">3</span> Chart of Accounts (COA) Architecture</h2>
+<p>Every account code is assigned a 4-digit number indicating its financial category, natural balance side, and reporting behavior:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 14%;">Code Range</th>
+      <th style="width: 14%;">Category</th>
+      <th style="width: 16%;">Normal Nature</th>
+      <th style="width: 26%;">Allowed Subtypes</th>
+      <th style="width: 30%;">Pre-Seeded Control Accounts</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1000 – 1999</strong></td>
+      <td><strong>ASSETS</strong></td>
+      <td><span class="badge badge-debit">DEBIT (Dr)</span></td>
+      <td>CASH, BANK, ACCOUNTS_RECEIVABLE, CURRENT_ASSET, FIXED_ASSET</td>
+      <td><code>1110 Cash in Hand</code><br><code>1120 Petty Cash</code><br><code>1130 HDFC Bank - Main Operating</code><br><code>1140 Trade Debtors (A/R)</code><br><code>1210 Computer Hardware</code></td>
+    </tr>
+    <tr>
+      <td><strong>2000 – 2999</strong></td>
+      <td><strong>LIABILITIES</strong></td>
+      <td><span class="badge badge-credit">CREDIT (Cr)</span></td>
+      <td>ACCOUNTS_PAYABLE, CURRENT_LIABILITY, PAYROLL_PAYABLE, TAX_PAYABLE, LOAN</td>
+      <td><code>2110 Trade Creditors (A/P)</code><br><code>2120 Net Salaries Payable</code><br><code>2130 PF Payable</code><br><code>2145 TDS Payable</code><br><code>2150 GST Output Tax Payable (18%)</code></td>
+    </tr>
+    <tr>
+      <td><strong>3000 – 3999</strong></td>
+      <td><strong>EQUITY</strong></td>
+      <td><span class="badge badge-credit">CREDIT (Cr)</span></td>
+      <td>CAPITAL, RETAINED_EARNINGS, EQUITY</td>
+      <td><code>3010 Owner's / Paid-up Capital</code><br><code>3020 Retained Earnings</code><br><code>3030 Current Year Net P&L</code></td>
+    </tr>
+    <tr>
+      <td><strong>4000 – 4999</strong></td>
+      <td><strong>REVENUE</strong></td>
+      <td><span class="badge badge-credit">CREDIT (Cr)</span></td>
+      <td>SERVICE_REVENUE, DIRECT_REVENUE, OTHER_INCOME</td>
+      <td><code>4010 Web Development Revenue</code><br><code>4020 Video Production Revenue</code><br><code>4030 Digital Marketing Revenue</code><br><code>4090 Other Operating Income / Interest</code></td>
+    </tr>
+    <tr>
+      <td><strong>5000 – 5999</strong></td>
+      <td><strong>EXPENSES</strong></td>
+      <td><span class="badge badge-debit">DEBIT (Dr)</span></td>
+      <td>DIRECT_EXPENSE, EMPLOYEE_EXPENSE, OFFICE_EXPENSE, TECH_EXPENSE</td>
+      <td><code>5110 Freelancer & Contractor Fees</code><br><code>5210 Salaries & Wages</code><br><code>5310 Office Commercial Rent</code><br><code>5410 Cloud Infrastructure & Hosting</code><br><code>5420 SaaS Software Subscriptions</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout callout-warning">
+  <div class="callout-title">Protected System Accounts vs. Custom Accounts</div>
+  Accounts with <code>isSystemAccount = true</code> (like 1130 Bank, 1140 Debtors, 2110 Creditors, 2120 Payroll, 2150 GST) are locked from deletion because the billing and payroll engines post to them automatically. You can add as many custom accounts as needed (e.g., individual partner capital accounts, specific project expense codes, secondary bank accounts) by clicking <strong>"+ Add New Account"</strong>.
+</div>
+
+<div class="callout">
+  <div class="callout-title">Special Balance Rule: Contra Accounts</div>
+  Accounts such as <code>1215 Accumulated Depreciation - Computers</code> and <code>1225 Accumulated Depreciation - Furniture</code> reside in the 1000s (Assets) but carry a natural <strong>CREDIT</strong> balance. This reduces the net carrying value of fixed assets directly on the Balance Sheet.
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 3: SOP 1 - CAPITAL INJECTIONS FOR 4 OWNERS -->
+<h2><span class="section-num">4</span> Detailed Standard Operating Procedures (SOP)</h2>
+
+<div class="sop-card">
+  <div class="sop-header">
+    <span class="sop-title">SOP 1: Recording Capital Injections for Four Owners / Partners</span>
+    <span class="badge badge-primary">Equity Transaction</span>
+  </div>
+  
+  <p>To record capital introduced by the four owners into the business bank account with clean, independent tracking on the Balance Sheet:</p>
+
+  <div class="process-pipeline">
+    <div class="pipe-step">
+      <div class="pipe-step-num">Step 1</div>
+      <div class="pipe-step-name">Create 4 Accounts</div>
+      <div class="pipe-step-sub">In Chart of Accounts (3011-3014)</div>
+    </div>
+    <div class="pipe-arrow">➔</div>
+    <div class="pipe-step">
+      <div class="pipe-step-num">Step 2</div>
+      <div class="pipe-step-name">Open Journal Voucher</div>
+      <div class="pipe-step-sub">Journal Vouchers > + New Voucher</div>
+    </div>
+    <div class="pipe-arrow">➔</div>
+    <div class="pipe-step">
+      <div class="pipe-step-num">Step 3</div>
+      <div class="pipe-step-name">Add 5 Lines</div>
+      <div class="pipe-step-sub">1 Debit (Bank) + 4 Credits (Owners)</div>
+    </div>
+    <div class="pipe-arrow">➔</div>
+    <div class="pipe-step">
+      <div class="pipe-step-num">Step 4</div>
+      <div class="pipe-step-name">Post & Verify</div>
+      <div class="pipe-step-sub">Check Balance Sheet Equity Items</div>
+    </div>
+  </div>
+
+  <p><strong>Step 1: Set up dedicated capital accounts in Chart of Accounts</strong></p>
+  <ul>
+    <li>Go to <strong>Chart of Accounts</strong> > click <strong>"+ Add New Account"</strong>.</li>
+    <li>Create <code>3011</code>: Name <code>Owner 1 - Capital Account</code> | Type: <code>EQUITY</code> | Subtype: <code>CAPITAL</code> | Nature: <code>CREDIT</code></li>
+    <li>Create <code>3012</code>: Name <code>Owner 2 - Capital Account</code> | Type: <code>EQUITY</code> | Subtype: <code>CAPITAL</code> | Nature: <code>CREDIT</code></li>
+    <li>Create <code>3013</code>: Name <code>Owner 3 - Capital Account</code> | Type: <code>EQUITY</code> | Subtype: <code>CAPITAL</code> | Nature: <code>CREDIT</code></li>
+    <li>Create <code>3014</code>: Name <code>Owner 4 - Capital Account</code> | Type: <code>EQUITY</code> | Subtype: <code>CAPITAL</code> | Nature: <code>CREDIT</code></li>
+  </ul>
+
+  <p><strong>Step 2: Post the Compound Balanced Journal Voucher</strong></p>
+  <div class="form-mockup">
+    <div class="form-row">
+      <div class="form-col"><span class="form-label">Voucher Date</span><div class="form-val">2026-09-30 (or actual bank receipt date)</div></div>
+      <div class="form-col"><span class="form-label">Voucher Type</span><div class="form-val">Manual Journal (JOURNAL)</div></div>
+      <div class="form-col"><span class="form-label">Reference #</span><div class="form-val">UTR-CAP-2026-01 / Wire Reference</div></div>
+    </div>
+    <div class="form-row">
+      <div class="form-col"><span class="form-label">Narration / Description</span><div class="form-val">Initial equity capital contribution injected by the four founding owners into HDFC Operating Bank</div></div>
+    </div>
+  </div>
+
+  <p><strong>Step 3: Line Item Allocations (Debits & Credits Table)</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 32%;">Account</th>
+        <th style="width: 38%;">Line Description</th>
+        <th style="width: 15%;" class="text-right">Debit (Dr)</th>
+        <th style="width: 15%;" class="text-right">Credit (Cr)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>1130 HDFC Bank - Main Operating</code></td>
+        <td>Total capital funds deposited into bank account</td>
+        <td class="text-right color-blue">₹ 20,00,000.00</td>
+        <td class="text-right">₹ 0.00</td>
+      </tr>
+      <tr>
+        <td><code>3011 Owner 1 - Capital Account</code></td>
+        <td>Equity capital contribution - Owner 1 (25% share)</td>
+        <td class="text-right">₹ 0.00</td>
+        <td class="text-right color-amber">₹ 5,00,000.00</td>
+      </tr>
+      <tr>
+        <td><code>3012 Owner 2 - Capital Account</code></td>
+        <td>Equity capital contribution - Owner 2 (25% share)</td>
+        <td class="text-right">₹ 0.00</td>
+        <td class="text-right color-amber">₹ 5,00,000.00</td>
+      </tr>
+      <tr>
+        <td><code>3013 Owner 3 - Capital Account</code></td>
+        <td>Equity capital contribution - Owner 3 (25% share)</td>
+        <td class="text-right">₹ 0.00</td>
+        <td class="text-right color-amber">₹ 5,00,000.00</td>
+      </tr>
+      <tr>
+        <td><code>3014 Owner 4 - Capital Account</code></td>
+        <td>Equity capital contribution - Owner 4 (25% share)</td>
+        <td class="text-right">₹ 0.00</td>
+        <td class="text-right color-amber">₹ 5,00,000.00</td>
+      </tr>
+      <tr class="table-summary-row">
+        <td colspan="2">TOTAL POSTING (STATUS: BALANCED · ZERO DISCREPANCY)</td>
+        <td class="text-right color-blue">₹ 20,00,000.00</td>
+        <td class="text-right color-amber">₹ 20,00,000.00</td>
+      </tr>
+    </tbody>
+  </table>
+  <p><em>* Note: If each owner wires funds on different dates, create 4 separate vouchers (1 Debit to Bank & 1 Credit to that owner's capital account for each transfer).</em></p>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 4: SOP 2 & SOP 3 - SALES & PURCHASES -->
+<div class="sop-card">
+  <div class="sop-header">
+    <span class="sop-title">SOP 2: Client Invoicing & Payment Collection (Sales / Trade Debtors)</span>
+    <span class="badge badge-debit">Receivables Lifecycle</span>
+  </div>
+  
+  <p><strong>Phase A: Issuing Client Invoice (Billing)</strong></p>
+  <ol>
+    <li>Navigate to <strong>Sales & Invoicing</strong> tab > click <strong>"+ New Invoice"</strong>.</li>
+    <li>Select Client from dropdown, set <strong>Invoice Date</strong>, <strong>Due Date</strong>, and PO Reference.</li>
+    <li>Add line item: Item Description, select Revenue Account (<code>4010 Web Development Revenue</code>), Quantity: <code>1</code>, Unit Price: <code>₹ 1,00,000.00</code>, Tax: <code>GST 18%</code>.</li>
+    <li>Click <strong>Create & Post Invoice</strong>.</li>
+  </ol>
+
+  <p><strong>System Double-Entry Posted Automatically:</strong></p>
+  <table>
+    <thead>
+      <tr><th>Account</th><th>Nature & Role</th><th class="text-right">Debit (Dr)</th><th class="text-right">Credit (Cr)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>1140 Accounts Receivable (Trade Debtors)</code></td><td>Asset (Client owes full invoice amount)</td><td class="text-right color-blue">₹ 1,18,000.00</td><td class="text-right">₹ 0.00</td></tr>
+      <tr><td><code>4010 Web Development Services Revenue</code></td><td>Revenue (Income earned before taxes)</td><td class="text-right">₹ 0.00</td><td class="text-right color-amber">₹ 1,00,000.00</td></tr>
+      <tr><td><code>2150 GST Output Tax Payable (18%)</code></td><td>Liability (Tax collected on behalf of Government)</td><td class="text-right">₹ 0.00</td><td class="text-right color-amber">₹ 18,000.00</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>Phase B: Recording Customer Receipt (Payment Collection)</strong></p>
+  <ol>
+    <li>When client remits payment, go to <strong>Sales & Invoicing</strong> > click <strong>"+ Record Receipt"</strong>.</li>
+    <li>Select Client, Deposit Account (<code>1130 HDFC Bank</code>), Payment Mode (<code>BANK_TRANSFER</code> / <code>UPI</code>), Amount (<code>₹ 1,18,000.00</code>), and UTR Reference.</li>
+    <li>Allocate payment to the pending invoice number. Click <strong>Record Receipt</strong>.</li>
+  </ol>
+  <p><strong>System Double-Entry Posted Automatically:</strong></p>
+  <table>
+    <thead>
+      <tr><th>Account</th><th>Nature & Role</th><th class="text-right">Debit (Dr)</th><th class="text-right">Credit (Cr)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>1130 HDFC Bank - Main Operating</code></td><td>Asset (Bank balance increased)</td><td class="text-right color-blue">₹ 1,18,000.00</td><td class="text-right">₹ 0.00</td></tr>
+      <tr><td><code>1140 Accounts Receivable (Trade Debtors)</code></td><td>Asset (Client receivable cleared to zero)</td><td class="text-right">₹ 0.00</td><td class="text-right color-amber">₹ 1,18,000.00</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="sop-card">
+  <div class="sop-header">
+    <span class="sop-title">SOP 3: Vendor Bills & Payments with GST Input Credit (Purchases / A/P)</span>
+    <span class="badge badge-credit">Payables Lifecycle</span>
+  </div>
+
+  <p><strong>Phase A: Booking a Vendor Bill (e.g., AWS Cloud Hosting ₹50,000 + 18% GST ₹9,000)</strong></p>
+  <ol>
+    <li>Navigate to <strong>Purchases & Bills</strong> > click <strong>"+ New Vendor Bill"</strong>.</li>
+    <li>Select Vendor (or add new vendor with GSTIN), enter <strong>Vendor Bill #</strong>, <strong>Bill Date</strong>, and <strong>Due Date</strong>.</li>
+    <li>Add line item: select Expense Account <code>5410 Cloud Infrastructure & Web Hosting</code>, Amount: <code>₹ 50,000.00</code>, Tax: <code>GST 18%</code>. Click <strong>Save & Post Bill</strong>.</li>
+  </ol>
+
+  <p><strong>System Double-Entry Posted Automatically:</strong></p>
+  <table>
+    <thead>
+      <tr><th>Account</th><th>Nature & Role</th><th class="text-right">Debit (Dr)</th><th class="text-right">Credit (Cr)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>5410 Cloud Infrastructure & Web Hosting</code></td><td>Expense (Operating Cost on P&L)</td><td class="text-right color-blue">₹ 50,000.00</td><td class="text-right">₹ 0.00</td></tr>
+      <tr><td><code>2155 GST Input Tax Credit (ITC)</code></td><td>Asset (Tax paid to vendor, eligible for tax offset)</td><td class="text-right color-blue">₹ 9,000.00</td><td class="text-right">₹ 0.00</td></tr>
+      <tr><td><code>2110 Accounts Payable (Trade Creditors)</code></td><td>Liability (Total money owed to vendor)</td><td class="text-right">₹ 0.00</td><td class="text-right color-amber">₹ 59,000.00</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>Phase B: Processing Vendor Payment via Netbanking</strong></p>
+  <ol>
+    <li>In <strong>Purchases & Bills</strong>, click <strong>"+ Record Payment"</strong>.</li>
+    <li>Select Vendor, Paying Account (<code>1130 HDFC Bank</code>), Amount: <code>₹ 59,000.00</code>, Reference: Cheque / UTR #. Match to bill.</li>
+    <li>Click <strong>Record Payment</strong>.</li>
+  </ol>
+  <p><em>Auto-posting:</em> <span class="color-blue">Dr. 2110 Trade Creditors (₹59,000.00)</span> | <span class="color-amber">Cr. 1130 Bank Account (₹59,000.00)</span>. Bill status updates to <strong>PAID</strong>.</p>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 5: SOP 4 & SOP 5 - EXPENSES & PAYROLL -->
+<div class="sop-card">
+  <div class="sop-header">
+    <span class="sop-title">SOP 4: Direct Operational Expenses & Petty Cash Disbursements</span>
+    <span class="badge badge-neutral">Quick Spend</span>
+  </div>
+  <p>For minor routine expenses that do not require full vendor bills (courier, tea/coffee pantry, software licenses, travel):</p>
+  <ol>
+    <li>Navigate to <strong>Expenses</strong> tab > click <strong>"+ Record Expense"</strong>.</li>
+    <li>Select <strong>Category</strong>: e.g. <code>OFFICE_EXPENSE</code>, <code>TECH_EXPENSE</code>, <code>SALES_EXPENSE</code>.</li>
+    <li>Select <strong>Expense Account</strong>: e.g. <code>5230 Employee Welfare & Refreshments</code> or <code>5420 SaaS Software Subscriptions</code>.</li>
+    <li>Select <strong>Paid From (Source Account)</strong>:
+      <ul>
+        <li><code>1120 Petty Cash</code> — If paid using cash from the office cash box.</li>
+        <li><code>1130 HDFC Bank</code> — If paid using corporate debit/credit card or UPI.</li>
+      </ul>
+    </li>
+    <li>Enter Amount, Tax Amount (if GST receipt available), Title, and Merchant note. Click <strong>Save Expense</strong>.</li>
+  </ol>
+  <p><em>Auto-posting:</em> <span class="color-blue">Dr. Relevant Expense Account (5xxx)</span> | <span class="color-amber">Cr. Paid From Account (1120 or 1130)</span>.</p>
+</div>
+
+<div class="sop-card">
+  <div class="sop-header">
+    <span class="sop-title">SOP 5: Monthly Salary Accrual & Payout with Statutory Deductions</span>
+    <span class="badge badge-primary">Payroll Accounting</span>
+  </div>
+  <p>Salaries must be accrued on the last day of the month via a balanced Journal Voucher, reflecting gross salary and statutory deductions:</p>
+
+  <p><strong>Entry 1: Month-End Payroll Accrual (Last Day of Month)</strong></p>
+  <div class="form-mockup">
+    <div class="form-row">
+      <div class="form-col"><span class="form-label">Voucher Type</span><div class="form-val">ADJUSTMENT or JOURNAL</div></div>
+      <div class="form-col"><span class="form-label">Date</span><div class="form-val">Month-End (e.g. 2026-09-30)</div></div>
+      <div class="form-col"><span class="form-label">Narration</span><div class="form-val">Monthly agency employee payroll accrual and statutory withholdings</div></div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 32%;">Account</th>
+        <th style="width: 38%;">Line Description</th>
+        <th style="width: 15%;" class="text-right">Debit (Dr)</th>
+        <th style="width: 15%;" class="text-right">Credit (Cr)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>5210 Salaries & Wages</code></td>
+        <td>Gross total base salaries and allowances for the month</td>
+        <td class="text-right color-blue">₹ 5,00,000.00</td>
+        <td class="text-right">₹ 0.00</td>
+      </tr>
+      <tr>
+        <td><code>2130 Provident Fund (PF) Payable</code></td>
+        <td>Employee statutory PF deductions withheld</td>
+        <td class="text-right">₹ 0.00</td>
+        <td class="text-right color-amber">₹ 24,000.00</td>
+      </tr>
+      <tr>
+        <td><code>2145 TDS Payable</code></td>
+        <td>Income tax withheld under Section 192B</td>
+        <td class="text-right">₹ 0.00</td>
+        <td class="text-right color-amber">₹ 15,000.00</td>
+      </tr>
+      <tr>
+        <td><code>2140 Professional Tax (PT) Payable</code></td>
+        <td>State professional tax deduction</td>
+        <td class="text-right">₹ 0.00</td>
+        <td class="text-right color-amber">₹ 2,500.00</td>
+      </tr>
+      <tr>
+        <td><code>2120 Payroll Payable (Net Salaries)</code></td>
+        <td>Net take-home salaries owed to employee bank accounts</td>
+        <td class="text-right">₹ 0.00</td>
+        <td class="text-right color-amber">₹ 4,58,500.00</td>
+      </tr>
+      <tr class="table-summary-row">
+        <td colspan="2">TOTAL ACCRUAL (BALANCED: ZERO DISCREPANCY)</td>
+        <td class="text-right color-blue">₹ 5,00,000.00</td>
+        <td class="text-right color-amber">₹ 5,00,000.00</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p><strong>Entry 2: Salary Disbursement on Salary Day (1st of Next Month)</strong></p>
+  <p>When the salary batch is transferred via corporate netbanking:</p>
+  <table>
+    <thead>
+      <tr><th>Account</th><th>Line Narration</th><th class="text-right">Debit (Dr)</th><th class="text-right">Credit (Cr)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>2120 Payroll Payable (Net Salaries)</code></td><td>Discharge of net salary obligations to employees</td><td class="text-right color-blue">₹ 4,58,500.00</td><td class="text-right">₹ 0.00</td></tr>
+      <tr><td><code>1130 HDFC Bank - Main Operating</code></td><td>Corporate netbanking batch salary disbursement</td><td class="text-right">₹ 0.00</td><td class="text-right color-amber">₹ 4,58,500.00</td></tr>
+    </tbody>
+  </table>
+  <p><em>* Statutory deductions (PF, TDS, PT) remain in liabilities (2130, 2145, 2140) until paid to the government challan portals by the 7th/15th of the month.</em></p>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 6: SOP 6, 7, 8 - CONTRA, RECONCILIATION & REVERSALS -->
+<div class="sop-card">
+  <div class="sop-header">
+    <span class="sop-title">SOP 6: Banking & Cash Contra Transfers</span>
+    <span class="badge badge-neutral">Treasury</span>
+  </div>
+  <p>To transfer funds between company liquid accounts, post a <code>JOURNAL</code> voucher:</p>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Transaction Type</th>
+        <th style="width: 35%;">Debit Entry (Dr)</th>
+        <th style="width: 35%;">Credit Entry (Cr)</th>
+        <th style="width: 5%;">Nature</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Petty Cash Withdrawal</strong></td>
+        <td><code>1120 Petty Cash</code> (Cash box increases)</td>
+        <td><code>1130 HDFC Bank</code> (Bank balance decreases)</td>
+        <td>Contra</td>
+      </tr>
+      <tr>
+        <td><strong>Cash Deposit to Bank</strong></td>
+        <td><code>1130 HDFC Bank</code> (Bank balance increases)</td>
+        <td><code>1110 Cash in Hand</code> (Cash balance decreases)</td>
+        <td>Contra</td>
+      </tr>
+      <tr>
+        <td><strong>Inter-Bank Transfer</strong></td>
+        <td><code>1131 Secondary Bank</code> (Receiving bank increases)</td>
+        <td><code>1130 HDFC Bank</code> (Source bank decreases)</td>
+        <td>Contra</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="sop-card">
+  <div class="sop-header">
+    <span class="sop-title">SOP 7: Weekly Bank Reconciliation</span>
+    <span class="badge badge-primary">Internal Control</span>
+  </div>
+  <p>At the end of every week or month, reconcile the general ledger bank balance with the official bank statement:</p>
+  <ol>
+    <li>Navigate to <strong>Banking & Treasury</strong> tab > select the bank account (<code>HDFC Bank</code>).</li>
+    <li>Click <strong>"Reconcile Account"</strong>.</li>
+    <li>Enter the <strong>Statement Date</strong> and the <strong>Statement Ending Balance</strong> directly from the bank's netbanking portal/PDF statement.</li>
+    <li>Review the list of unreconciled transactions. Check off each transaction that appears on the bank statement.</li>
+    <li>Check the real-time <strong>Discrepancy</strong> counter. When it reaches <strong>₹ 0.00</strong>, click <strong>"Finalize Reconciliation"</strong>.</li>
+  </ol>
+</div>
+
+<div class="sop-card">
+  <div class="sop-header">
+    <span class="sop-title">SOP 8: Error Corrections & Audited Reversals</span>
+    <span class="badge badge-danger">Audit Trail</span>
+  </div>
+  <p>FLUMENX OS strictly forbids silent manual deletion of posted vouchers to prevent accounting fraud. If a voucher was posted with incorrect accounts or amounts:</p>
+  <ol>
+    <li>Go to <strong>Journal Vouchers</strong> tab and locate the erroneous voucher.</li>
+    <li>Click the <strong>Reverse (Undo arrow)</strong> icon.</li>
+    <li>Enter the mandatory <strong>Reversal Reason</strong> (e.g. <em>"Duplicate bank charge entry - Ref UTR-9021"</em>).</li>
+    <li>Confirm. The engine posts an exact counter-journal voucher, updates account balances, and logs the action into the permanent audit trail.</li>
+  </ol>
+</div>
+
+<div class="page-break"></div>
+
+<!-- PAGE 7: STATUTORY FINANCIAL REPORTS & CLOSING CHECKLIST -->
+<h2><span class="section-num">5</span> Statutory Financial Reports & Closing Checklists</h2>
+<p>Reports in the <strong>Financial Reports</strong> tab update in real time from posted journals without requiring manual month-end closing routines:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 22%;">Report</th>
+      <th style="width: 38%;">What It Calculates</th>
+      <th style="width: 40%;">Accounting Proof / Inspection Check</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Balance Sheet</strong></td>
+      <td>Cumulative Assets, Liabilities, and Equity as of any selected date.</td>
+      <td>Verifies fundamental invariant: Assets = Liabilities + Equity. Automatically computes live Net Working Capital (Current Assets - Current Liabilities).</td>
+    </tr>
+    <tr>
+      <td><strong>2. Profit & Loss (P&L)</strong></td>
+      <td>Operational revenue vs direct costs and operating expenses over any period.</td>
+      <td>Calculates Gross Margin, Operating Profit, and Net Profit. Profit automatically flows into Current Year Net P&L (3030) in Equity.</td>
+    </tr>
+    <tr>
+      <td><strong>3. Trial Balance</strong></td>
+      <td>Master listing of all active account codes with opening, period debits/credits, and closing balances.</td>
+      <td>Mathematical proof of double-entry integrity. Total Debit column must equal Total Credit column exactly.</td>
+    </tr>
+    <tr>
+      <td><strong>4. AR & AP Aging</strong></td>
+      <td>Breakdown of unpaid invoices and supplier bills into 0-30, 31-60, 61-90, and 90+ day overdue buckets.</td>
+      <td>Controls debtor collection timelines and avoids vendor supply holds.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout callout-warning">
+  <div class="callout-title">Monthly Accounting Closing Checklist</div>
+  <ol>
+    <li><strong>Verify Trial Balance:</strong> Ensure Total Dr = Total Cr and inspect any unexpected debit/credit balances.</li>
+    <li><strong>Finalize Bank Reconciliation:</strong> Reconcile all bank and cash drawers to zero discrepancy.</li>
+    <li><strong>Post Month-End Adjustments:</strong> Accrue monthly employee salaries, office rent, and fixed asset depreciation.</li>
+    <li><strong>Reconcile GST Accounts:</strong> Offset <code>2155 GST Input Credit (ITC)</code> against <code>2150 GST Output Payable</code> before filing GSTR-3B.</li>
+    <li><strong>Export Audit CSVs:</strong> Download monthly General Ledger and Trial Balance CSVs for company records and tax filing.</li>
+  </ol>
+</div>
+
+<div class="callout">
+  <div class="callout-title">Accountant Golden Rules</div>
+  <ol>
+    <li><strong>Never post client invoices or vendor bills via manual journals</strong> — always use <em>Sales & Invoicing</em> and <em>Purchases & Bills</em> to ensure sub-ledgers, GST registers, and aging reports stay synchronized.</li>
+    <li><strong>Always include external reference numbers</strong> (UTR, Cheque #, Vendor Bill #) and comprehensive narrations for audit trails.</li>
+    <li><strong>Perform weekly bank reconciliations</strong> every Friday in the <em>Banking & Treasury</em> tab to match netbanking statement closing balances with the general ledger.</li>
+  </ol>
+</div>
+
+<div class="footer">
+  <div>FLUMENX OS Enterprise Business Operating System · Finance & Treasury Division</div>
+  <div>Confidential & Proprietary · Standard Operating Procedures Manual</div>
+</div>
+
+</body>
+</html>

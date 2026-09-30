@@ -20,6 +20,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import type { AuthUser, WorkspaceRole } from "@/lib/types";
+import { hasPermission } from "@/lib/permissions";
 
 interface MobileBottomNavProps {
   workspaceRole: WorkspaceRole;
@@ -65,10 +66,7 @@ export function MobileBottomNav({
   const canCreateTask = (() => {
     if (!user) return false;
     if ((user as any).is_superuser || (user as any).isSuperuser || (user as any).isSuperadminWildcard) return true;
-    if (user.permissions?.WORK?.canCreate || (user as any).permissions?.WORK_BOARD?.can_create || (user as any).permissions?.TASKS?.can_create) return true;
-    const r = (user.portal_role || (user as any).role || "").toUpperCase();
-    const creatorRoles = ["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS"];
-    return creatorRoles.includes(r) || r.includes("TEAM_LEAD") || r.includes("LEAD");
+    return hasPermission(user, "TASKS", "canCreate") || hasPermission(user, "WORK", "canCreate") || hasPermission(user, "WORK_BOARD", "canCreate");
   })();
 
   return (

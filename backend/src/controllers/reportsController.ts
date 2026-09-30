@@ -8,6 +8,7 @@ import { LeaveRequest } from '../models/LeaveRequest.js';
 import { Client } from '../models/Client.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
+import { getRoleDataScope } from '../services/scopeResolver.js';
 
 export async function getReportsData(req: Request, res: Response): Promise<void> {
   const user = (req as any).user;
@@ -16,31 +17,27 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
     return;
   }
 
+  const isSuperadmin = Boolean(user.isSuperuser || user.role === 'SUPER_ADMIN' || (user as any)?.dynamicRole?.isSuperadminWildcard);
   const permissions = await resolveUserPermissions(user);
-  const role = (user.role || '').toUpperCase();
-  const isSuperadmin = user.isSuperuser || role === 'SUPER_ADMIN' || role === 'ADMIN';
-  const isHR = role === 'HR';
-  const isAccountant = role === 'ACCOUNTANT';
-  const isTeamLead = role === 'TEAM_LEAD';
-  const isOperations = role === 'OPERATIONS' || role === 'OPERATIONS_HEAD';
-  const isCompanyManager = isSuperadmin || isHR || isAccountant || isOperations;
+  const reportsScope = await getRoleDataScope(user, 'REPORTS');
+  const isAllScope = isSuperadmin || reportsScope === 'ALL';
 
   const { type = 'attendance', startDate, endDate, month, year, department, clientId, format } = req.query as Record<string, string>;
 
-  // Strict Report Type Access Enforcement
-  if (type === 'payroll' && !isSuperadmin && !isHR && !isAccountant && !permissions.SALARY_SLIPS?.canView) {
-    res.status(403).json({ detail: 'Access denied. Only Payroll & Finance can access Salary reports.' });
+  // Strict Report Type Access Enforcement based on permissions (NO hardcoded roles!)
+  if (type === 'payroll' && !isSuperadmin && !permissions.SALARY_SLIPS?.canView) {
+    res.status(403).json({ detail: 'Access denied. You do not have permission to access Payroll & Salary reports.' });
     return;
   }
   if (type === 'audit' && !isSuperadmin && !permissions.AUDIT_LOGS?.canView) {
-    res.status(403).json({ detail: 'Access denied. Only Administrators can access Security & Audit logs.' });
+    res.status(403).json({ detail: 'Access denied. You do not have permission to access Security & Audit logs.' });
     return;
   }
-  if (type === 'employees' && !isCompanyManager && !isTeamLead && !permissions.EMPLOYEES?.canView) {
-    res.status(403).json({ detail: 'Access denied. Employee directory reports are restricted to management.' });
+  if (type === 'employees' && !isSuperadmin && !permissions.EMPLOYEES?.canView) {
+    res.status(403).json({ detail: 'Access denied. Employee directory reports are restricted.' });
     return;
   }
-  if (type === 'client_summary' && !isCompanyManager && !isTeamLead && !['BDE', 'BDO'].includes(role) && !permissions.CLIENTS?.canView) {
+  if (type === 'client_summary' && !isSuperadmin && !permissions.CLIENTS?.canView) {
     res.status(403).json({ detail: 'Access denied to Client Utilization reports.' });
     return;
   }
@@ -48,8 +45,8 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
   const ownEmployee = await Employee.findOne({ user: user._id });
   let targetEmpFilter: any = null;
 
-  if (!isCompanyManager) {
-    if (isTeamLead && ownEmployee?.department) {
+  if (!isAllScope) {
+    if ((reportsScope === 'TEAM' || reportsScope === 'DEPARTMENT') && ownEmployee?.department) {
       const deptRegex = new RegExp(`^${ownEmployee.department.trim()}$`, 'i');
       const teamEmployees = await Employee.find({ department: deptRegex }).select('_id');
       const teamEmpIds = teamEmployees.map((e) => e._id.toString());
@@ -58,7 +55,7 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
       } else if (!req.query.employeeId) {
         targetEmpFilter = { $in: teamEmpIds };
       } else {
-        res.status(403).json({ detail: 'Permission denied. Team leads can only view reports for their department.' });
+        res.status(403).json({ detail: 'Permission denied. You can only view reports for your assigned department/team.' });
         return;
       }
     } else if (ownEmployee) {
@@ -384,8 +381,8 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
 
     // 4. PAYROLL & SALARY SLIPS REPORT
     else if (type === 'payroll') {
-      if (!isSuperadmin && !isHR && !isAccountant) {
-        res.status(403).json({ detail: 'Only Finance & HR can access Payroll reports.' });
+      if (!isSuperadmin && !permissions.SALARY_SLIPS?.canView) {
+        res.status(403).json({ detail: 'Only authorized users can access Payroll reports.' });
         return;
       }
 

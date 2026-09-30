@@ -5,6 +5,7 @@ import { EmployeeSalaryStructure } from '../models/EmployeeSalaryStructure.js';
 import { Employee } from '../models/Employee.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { validateFormulaSyntax } from '../utils/formulaEvaluator.js';
+import { getRoleDataScope } from '../services/scopeResolver.js';
 
 // --- Salary Heads Management ---
 
@@ -210,10 +211,11 @@ export async function getSalaryStructures(req: Request, res: Response): Promise<
   const { department, search } = req.query;
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isAccountantOrHR = ['ADMIN', 'HR', 'ACCOUNTANT'].includes(req.user?.role || '');
+  const salaryScope = await getRoleDataScope(req.user, 'SALARY_SLIPS');
+  const hasGlobalScope = isSuper || salaryScope === 'ALL';
 
   const employeeFilter: any = { status: { $ne: 'Inactive' } };
-  if (department && isAccountantOrHR) {
+  if (department && hasGlobalScope) {
     employeeFilter.department = department;
   }
   if (search) {
@@ -224,7 +226,7 @@ export async function getSalaryStructures(req: Request, res: Response): Promise<
   }
 
   // If normal employee, only return their own structure
-  if (!isSuper && !isAccountantOrHR) {
+  if (!hasGlobalScope) {
     const ownEmp = await Employee.findOne({ user: req.user?._id });
     if (!ownEmp) {
       res.json({ count: 0, results: [] });
@@ -255,9 +257,10 @@ export async function getEmployeeSalaryStructure(req: Request, res: Response): P
   }
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isAccountantOrHR = ['ADMIN', 'HR', 'ACCOUNTANT'].includes(req.user?.role || '');
+  const salaryScope = await getRoleDataScope(req.user, 'SALARY_SLIPS');
+  const hasGlobalScope = isSuper || salaryScope === 'ALL';
 
-  if (!isSuper && !isAccountantOrHR) {
+  if (!hasGlobalScope) {
     const ownEmp = await Employee.findOne({ user: req.user?._id });
     if (!ownEmp || ownEmp._id.toString() !== employeeId) {
       res.status(403).json({ detail: 'You do not have permission to view this employee salary structure.' });

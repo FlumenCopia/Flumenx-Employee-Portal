@@ -4,6 +4,7 @@ import { LeaveRequest } from '../models/LeaveRequest.js';
 import { Employee } from '../models/Employee.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { getRoleDataScope } from '../services/scopeResolver.js';
+import { resolveUserPermissions } from '../services/permissionResolver.js';
 
 export async function getLeaves(req: Request, res: Response): Promise<void> {
   const { employee_id, status } = req.query;
@@ -162,14 +163,16 @@ export async function updateLeave(req: Request, res: Response): Promise<void> {
   }
 
   const leaveScope = await getRoleDataScope(req.user, 'LEAVES');
-  const userFeatures = (req.user as any)?.roleRef?.features || [];
+  const userPerms = req.user ? await resolveUserPermissions(req.user) : {};
+  const leavePerm = userPerms.LEAVES;
+  const userFeatures = leavePerm?.features || [];
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
   const isManagement = isSuper || leaveScope === 'ALL';
-  const isTeamLead = leaveScope === 'TEAM' || leaveScope === 'DEPARTMENT';
-  const canReview = isManagement || userFeatures.includes('review_leave') || userFeatures.includes('*');
+  const isScopedReviewer = leaveScope === 'TEAM' || leaveScope === 'DEPARTMENT';
+  const canReview = isManagement || userFeatures.includes('review_leave') || userFeatures.includes('*') || leavePerm?.canEdit;
 
   if (!isManagement) {
-    if (isTeamLead || canReview) {
+    if (isScopedReviewer || canReview) {
       const ownEmp = await getEmployeeForUser(req.user);
       const targetEmp = leave.employee as any;
       if (!ownEmp || !targetEmp || targetEmp.department !== ownEmp.department) {

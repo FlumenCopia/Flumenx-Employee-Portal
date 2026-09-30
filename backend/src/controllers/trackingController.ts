@@ -18,13 +18,20 @@ async function canAccessEmployee(
     return { allowed: false, employee: null };
   }
 
-  const role = (reqUser.role || '').toUpperCase();
-  const isSuper = role === 'SUPER_ADMIN' || Boolean(reqUser.isSuperuser);
+  const isSuper = (reqUser.role || '').toUpperCase() === 'SUPER_ADMIN' || Boolean(reqUser.isSuperuser);
+  if (isSuper) {
+    return { allowed: true, employee: targetEmployee };
+  }
+
   const permissions = await resolveUserPermissions(reqUser);
   const trackPerm = permissions.EMPLOYEE_TRACKING || permissions.TRACKING;
   const canViewTracking = trackPerm ? Boolean(trackPerm.canView) : false;
+  if (!canViewTracking) {
+    return { allowed: false, employee: null };
+  }
 
-  if (isSuper || canViewTracking || ['ADMIN', 'HR', 'OPERATIONS', 'OPERATIONS_HEAD', 'BDE', 'BDO'].includes(role)) {
+  const trackScope = trackPerm?.dataScope || (await getRoleDataScope(reqUser, 'TRACKING'));
+  if (trackScope === 'ALL') {
     return { allowed: true, employee: targetEmployee };
   }
 
@@ -38,9 +45,18 @@ async function canAccessEmployee(
     return { allowed: true, employee: targetEmployee };
   }
 
-  // Team Lead access
-  if (targetEmployee.teamLead?.toString() === ownEmployee._id.toString()) {
-    return { allowed: true, employee: targetEmployee };
+  // Department scope
+  if (trackScope === 'DEPARTMENT' && ownEmployee.department && targetEmployee.department) {
+    if (ownEmployee.department.trim().toLowerCase() === targetEmployee.department.trim().toLowerCase()) {
+      return { allowed: true, employee: targetEmployee };
+    }
+  }
+
+  // Team Lead scope
+  if (trackScope === 'TEAM' || trackScope === 'DEPARTMENT') {
+    if (targetEmployee.teamLead?.toString() === ownEmployee._id.toString()) {
+      return { allowed: true, employee: targetEmployee };
+    }
   }
 
   return { allowed: false, employee: null };
@@ -243,13 +259,13 @@ export async function getLiveTracking(req: Request, res: Response): Promise<void
       return;
     }
 
-    const role = (req.user.role || '').toUpperCase();
     const ownEmployee = await getEmployeeForUser(req.user);
-
     const trackingScope = await getRoleDataScope(req.user, 'TRACKING');
     const filter: any = {};
-    if ((trackingScope === 'TEAM' || trackingScope === 'DEPARTMENT' || role === 'TEAM_LEAD') && ownEmployee) {
+    if (trackingScope === 'TEAM' && ownEmployee) {
       filter.teamLeadId = ownEmployee._id;
+    } else if (trackingScope === 'DEPARTMENT' && ownEmployee?.department) {
+      filter.department = ownEmployee.department;
     } else if (trackingScope === 'OWN' && ownEmployee) {
       filter._id = ownEmployee._id;
     }

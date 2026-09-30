@@ -3,6 +3,7 @@ import { PortalPage } from '../models/PortalPage.js';
 import { DynamicRole } from '../models/DynamicRole.js';
 import { User } from '../models/User.js';
 import { defaultRoleActionMatrix } from '../middleware/rbac.js';
+import { CANONICAL_PAGE_FEATURES } from '../controllers/portalController.js';
 
 interface PageDefinition {
   moduleCode: string;
@@ -72,6 +73,7 @@ export async function seedPagesAndRoles() {
 
   for (const pageDef of CANONICAL_PAGES) {
     let pageDoc = await PortalPage.findOne({ moduleCode: pageDef.moduleCode });
+    const canonicalFeatures = CANONICAL_PAGE_FEATURES[pageDef.moduleCode] || [];
 
     if (pageDoc) {
       pageDoc.title = pageDef.title;
@@ -79,11 +81,17 @@ export async function seedPagesAndRoles() {
       pageDoc.icon = pageDef.icon;
       pageDoc.sidebarOrder = pageDef.sidebarOrder;
       pageDoc.isActive = true;
+      const existingKeys = new Set((pageDoc.features || []).map((f: any) => f.key));
+      const missingFeatures = canonicalFeatures.filter((f) => !existingKeys.has(f.key));
+      if (missingFeatures.length > 0) {
+        pageDoc.features = [...(pageDoc.features || []), ...missingFeatures] as any;
+      }
       await pageDoc.save();
       console.log(`  ✓ Updated page: ${pageDef.title} [${pageDef.moduleCode}]`);
     } else {
       pageDoc = await PortalPage.create({
         ...pageDef,
+        features: canonicalFeatures as any,
         isActive: true,
       });
       console.log(`  + Created page: ${pageDef.title} [${pageDef.moduleCode}]`);
@@ -107,10 +115,16 @@ export async function seedPagesAndRoles() {
   for (const roleDef of CANONICAL_ROLES) {
     const roleMatrix = defaultRoleActionMatrix[roleDef.code] || {};
     const isSuper = roleDef.isSuperadminWildcard || roleDef.code === 'SUPER_ADMIN';
+    let existingRole = await DynamicRole.findOne({ code: roleDef.code });
 
-    // Build permissions array for all canonical pages
+    // Build permissions array for all canonical pages, preserving existing features and data scopes
     const permissions = CANONICAL_PAGES.map((pageDef) => {
       const pageDoc = pageDocMap[pageDef.moduleCode];
+      const existingPerm = existingRole?.permissions?.find(
+        (p: any) => p.page && p.page.toString() === pageDoc._id.toString()
+      );
+      const availableFeatureKeys = (pageDoc.features || []).map((f: any) => f.key);
+
       if (isSuper) {
         return {
           page: pageDoc._id,
@@ -118,6 +132,8 @@ export async function seedPagesAndRoles() {
           canCreate: true,
           canEdit: true,
           canDelete: true,
+          dataScope: 'ALL',
+          features: availableFeatureKeys,
         };
       }
 
@@ -134,10 +150,10 @@ export async function seedPagesAndRoles() {
         canCreate: Boolean(perms.canCreate),
         canEdit: Boolean(perms.canEdit),
         canDelete: Boolean(perms.canDelete),
+        dataScope: existingPerm?.dataScope || 'OWN',
+        features: existingPerm?.features || (perms.canCreate ? availableFeatureKeys : []),
       };
     });
-
-    let existingRole = await DynamicRole.findOne({ code: roleDef.code });
 
     if (existingRole) {
       // IN-PLACE UPDATE: Update role definition without changing _id

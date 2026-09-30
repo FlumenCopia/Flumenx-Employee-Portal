@@ -12,6 +12,7 @@ import { ClientWorkShareLink } from '../models/ClientWorkShareLink.js';
 import { syncQuantityState, syncFromDeliverables, syncParentTaskProgression, calculateClientKPIHealth } from '../services/workSyncEngine.js';
 import { createShareLink, generateShareToken, getValidShareLink } from '../services/shareLinkService.js';
 import { getRoleDataScope } from '../services/scopeResolver.js';
+import { resolveUserPermissions } from '../services/permissionResolver.js';
 
 // --- Client Endpoints ---
 export function formatClient(c: any) {
@@ -1119,14 +1120,19 @@ export async function getWorkAssignmentById(req: Request, res: Response): Promis
 export async function createWorkAssignment(req: Request, res: Response): Promise<void> {
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
   const taskScope = await getRoleDataScope(req.user, 'TASKS');
-  const userFeatures = (req.user as any)?.roleRef?.features || [];
+  const userPerms = req.user ? await resolveUserPermissions(req.user) : {};
+  const taskPerm = userPerms.TASKS || userPerms.WORK_BOARD || userPerms.WORK;
+  const userFeatures = taskPerm?.features || [];
+
   const canCreate = Boolean(
     isSuper ||
+    taskPerm?.canCreate ||
     taskScope === 'ALL' ||
+    taskScope === 'TEAM' ||
+    taskScope === 'DEPARTMENT' ||
     userFeatures.includes('create_task') ||
-    userFeatures.includes('*') ||
-    (req.user as any)?.permissions?.WORK_BOARD?.can_create ||
-    (req.user as any)?.permissions?.TASKS?.can_create
+    userFeatures.includes('bulk_create') ||
+    userFeatures.includes('*')
   );
 
   if (!canCreate) {
@@ -1168,13 +1174,13 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
   const rawEmp = employee ?? employee_id ?? employeeId ?? assigned_to ?? assignedTo;
   const resolvedEmpId = await resolveEmployeeDoc(rawEmp);
 
-  if (!isSuper && (taskScope === 'TEAM' || taskScope === 'DEPARTMENT' || req.user?.role === 'TEAM_LEAD') && resolvedEmpId && req.user) {
+  if (!isSuper && (taskScope === 'TEAM' || taskScope === 'DEPARTMENT') && resolvedEmpId && req.user) {
     const ownEmp = await getEmployeeForUser(req.user);
     if (ownEmp && ownEmp.department) {
       const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
       const targetEmp = await Employee.findById(resolvedEmpId);
       if (targetEmp && targetEmp.department && !deptRegex.test(targetEmp.department) && String(targetEmp._id) !== String(ownEmp._id)) {
-        res.status(403).json({ detail: 'Permission denied. Team Leads can only assign tasks to members in their own department.' });
+        res.status(403).json({ detail: 'Permission denied. You can only assign tasks to members in your own department.' });
         return;
       }
     }
@@ -1315,15 +1321,19 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
 export async function bulkCreateWorkAssignments(req: Request, res: Response): Promise<void> {
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
   const taskScope = await getRoleDataScope(req.user, 'TASKS');
-  const userFeatures = (req.user as any)?.roleRef?.features || [];
+  const userPerms = req.user ? await resolveUserPermissions(req.user) : {};
+  const taskPerm = userPerms.TASKS || userPerms.WORK_BOARD || userPerms.WORK;
+  const userFeatures = taskPerm?.features || [];
+
   const canCreate = Boolean(
     isSuper ||
+    taskPerm?.canCreate ||
     taskScope === 'ALL' ||
-    userFeatures.includes('create_task') ||
+    taskScope === 'TEAM' ||
+    taskScope === 'DEPARTMENT' ||
     userFeatures.includes('bulk_create') ||
-    userFeatures.includes('*') ||
-    (req.user as any)?.permissions?.WORK_BOARD?.can_create ||
-    (req.user as any)?.permissions?.TASKS?.can_create
+    userFeatures.includes('create_task') ||
+    userFeatures.includes('*')
   );
 
   if (!canCreate) {
@@ -1606,9 +1616,13 @@ export async function reviewWorkAssignment(req: Request, res: Response): Promise
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
   const taskScope = await getRoleDataScope(req.user, 'TASKS');
-  const userFeatures = (req.user as any)?.roleRef?.features || [];
   const isManagement = isSuper || taskScope === 'ALL';
-  const hasReviewPerm = userFeatures.includes('review_tasks') || userFeatures.includes('*') || (req.user as any)?.permissions?.WORK_BOARD?.can_edit;
+  const isScopedReviewer = taskScope === 'TEAM' || taskScope === 'DEPARTMENT';
+
+  const userPerms = req.user ? await resolveUserPermissions(req.user) : {};
+  const taskPerm = userPerms.TASKS || userPerms.WORK_BOARD || userPerms.WORK;
+  const userFeatures = taskPerm?.features || [];
+  const hasReviewPerm = userFeatures.includes('review_tasks') || userFeatures.includes('*') || taskPerm?.canEdit || isScopedReviewer;
   const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
 
   const isReviewer = (assignment.reviewer && ownEmp && String(assignment.reviewer) === String(ownEmp._id)) ||
@@ -1855,7 +1869,7 @@ export async function getWorkEmployeeOptions(req: Request, res: Response): Promi
 
     if (!leadUserId && e.department) {
       const deptRegex = new RegExp(`^${e.department.trim()}$`, 'i');
-      const deptLead = employees.find((emp) => emp.department && deptRegex.test(emp.department) && (emp as any).user && (((emp as any).user.role || '').toUpperCase().includes('LEAD') || (emp as any).user.role === 'TEAM_LEAD'));
+      const deptLead = employees.find((emp) => emp.department && deptRegex.test(emp.department) && (((emp as any).user?.role || '').toUpperCase().includes('LEAD') || ((emp as any).designation || '').toUpperCase().includes('LEAD')));
       if (deptLead) {
         leadId = deptLead._id.toString();
         leadName = deptLead.name;

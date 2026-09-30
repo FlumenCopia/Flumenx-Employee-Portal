@@ -270,7 +270,7 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
           role: roleToAssign as any,
           dynamicRole: dynRole ? dynRole._id : null,
           isActive: (status || 'Active') === 'Active',
-          isStaff: ['TEAM_LEAD', 'HR', 'ACCOUNTANT', 'SUPER_ADMIN'].includes(roleToAssign),
+          isStaff: roleToAssign === 'SUPER_ADMIN' || Boolean(dynRole?.isSuperadminWildcard) || Boolean(dynRole?.permissions?.some((p: any) => p.canCreate || p.canEdit)),
         });
         await newUser.setPassword(password || 'password123');
         await newUser.save();
@@ -551,8 +551,10 @@ export async function getEmployeeDocuments(req: Request, res: Response): Promise
       return;
     }
 
-    // IDOR Protection: Non-HR/Admin users can only view their own employee documents
-    if (req.user && ['EMPLOYEE', 'TEAM_LEAD', 'BDE', 'OPERATIONS'].includes(req.user.role) && !req.user.isSuperuser) {
+    // IDOR Protection: Scoped users can only view their own employee documents
+    const isSuper = req.user?.role === 'SUPER_ADMIN' || Boolean(req.user?.isSuperuser) || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+    const empScope = await getRoleDataScope(req.user, 'EMPLOYEES');
+    if (req.user && !isSuper && empScope !== 'ALL') {
       const ownEmployee = await Employee.findOne({ user: req.user._id });
       if (!ownEmployee || ownEmployee._id.toString() !== String(employeeId)) {
         res.status(403).json({ detail: 'You are not authorized to view documents for another employee.' });

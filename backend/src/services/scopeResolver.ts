@@ -9,42 +9,32 @@ export async function getRoleDataScope(user: any, moduleCode: string): Promise<D
 
   const normalizedCode = moduleCode.trim().toUpperCase();
 
-  // 1. Dynamic Role lookup
-  if (user.dynamicRole) {
-    let dynamicRoleDoc = user.dynamicRole;
-    if (typeof dynamicRoleDoc !== 'object' || !dynamicRoleDoc.permissions) {
+  // 1. Dynamic Role lookup (by reference or role code)
+  let dynamicRoleDoc = user.dynamicRole;
+  if (!dynamicRoleDoc || typeof dynamicRoleDoc !== 'object' || !dynamicRoleDoc.permissions) {
+    if (user.dynamicRole) {
       dynamicRoleDoc = await DynamicRole.findById(user.dynamicRole).populate('permissions.page');
+    } else {
+      dynamicRoleDoc = await DynamicRole.findOne({ code: userRole }).populate('permissions.page');
     }
+  }
 
-    if (dynamicRoleDoc) {
-      if (dynamicRoleDoc.isSuperadminWildcard) return 'ALL';
+  if (dynamicRoleDoc) {
+    if (dynamicRoleDoc.isSuperadminWildcard) return 'ALL';
 
-      const searchCodes = normalizedCode === 'WORK' ? ['WORK', 'TASKS'] : normalizedCode === 'TASKS' ? ['TASKS', 'WORK'] : [normalizedCode];
-      const targetPage = await PortalPage.findOne({ moduleCode: { $in: searchCodes } });
-      if (targetPage) {
-        const perm = dynamicRoleDoc.permissions?.find((p: any) => {
-          if (!p.page) return false;
-          const pId = p.page._id ? p.page._id.toString() : p.page.toString();
-          return pId === targetPage._id.toString();
-        });
+    const searchCodes = normalizedCode === 'WORK' ? ['WORK', 'TASKS'] : normalizedCode === 'TASKS' ? ['TASKS', 'WORK'] : [normalizedCode];
+    const targetPage = await PortalPage.findOne({ moduleCode: { $in: searchCodes } });
+    if (targetPage) {
+      const perm = dynamicRoleDoc.permissions?.find((p: any) => {
+        if (!p.page) return false;
+        const pId = p.page._id ? p.page._id.toString() : p.page.toString();
+        return pId === targetPage._id.toString();
+      });
 
-        if (perm && perm.dataScope) {
-          return perm.dataScope as DataScope;
-        }
+      if (perm && perm.dataScope) {
+        return perm.dataScope as DataScope;
       }
     }
-  }
-
-  // 2. Fallbacks for system roles
-  if (userRole === 'ADMIN' || userRole === 'OPERATIONS' || userRole === 'OPERATIONS_HEAD') return 'ALL';
-  if (userRole === 'HR') {
-    return ['ATTENDANCE', 'LEAVES', 'EMPLOYEES', 'TASKS', 'REPORTS'].includes(normalizedCode) ? 'ALL' : 'OWN';
-  }
-  if (userRole === 'ACCOUNTANT' || userRole === 'CFO') {
-    return ['ACCOUNTING', 'SALARY_SLIPS', 'ATTENDANCE', 'REPORTS'].includes(normalizedCode) ? 'ALL' : 'OWN';
-  }
-  if (userRole === 'TEAM_LEAD' || userRole.includes('LEAD')) {
-    return ['TASKS', 'ATTENDANCE', 'LEAVES', 'TRACKING', 'EMPLOYEE_TRACKING'].includes(normalizedCode) ? 'TEAM' : 'OWN';
   }
 
   return 'OWN';

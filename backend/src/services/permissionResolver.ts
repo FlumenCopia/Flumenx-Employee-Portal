@@ -48,7 +48,7 @@ export async function resolveUserPermissions(user: any): Promise<UserPermissions
     return normalizeAliases(result);
   }
 
-  // 2. Handle Custom Dynamic Role
+  // 2. Handle Dynamic Role (by reference or role code)
   let dynamicRoleDoc: any = null;
   if (user.dynamicRole) {
     if (typeof user.dynamicRole === 'object' && user.dynamicRole.permissions) {
@@ -56,6 +56,9 @@ export async function resolveUserPermissions(user: any): Promise<UserPermissions
     } else {
       dynamicRoleDoc = await DynamicRole.findById(user.dynamicRole).populate('permissions.page');
     }
+  }
+  if (!dynamicRoleDoc && userRole) {
+    dynamicRoleDoc = await DynamicRole.findOne({ code: userRole }).populate('permissions.page');
   }
 
   if (dynamicRoleDoc) {

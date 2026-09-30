@@ -262,7 +262,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
   const canEditTask = isSuperUser || hasPermission(currentShellUser, "TASKS", "can_edit") || hasTaskEditPerm;
   const canReviewTasks = isSuperUser || hasPermission(currentShellUser, "TASKS", "review_tasks");
   const canDeleteTask = isSuperUser || hasPermission(currentShellUser, "TASKS", "delete_task") || (tasksPerms ? Boolean(tasksPerms.canDelete ?? tasksPerms.can_delete) : false);
-  const canBulkCreate = isSuperUser || hasPermission(currentShellUser, "TASKS", "bulk_create");
+  const canBulkCreate = isSuperUser || hasPermission(currentShellUser, "TASKS", "bulk_create") || hasTaskCreatePerm;
   const canManageAll = canCreateTask || canEditTask;
 
   const hasClientCreatePerm = clientsPerms ? Boolean(clientsPerms.canCreate ?? clientsPerms.can_create) : false;

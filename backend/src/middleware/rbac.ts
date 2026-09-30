@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { DynamicRole } from '../models/DynamicRole.js';
 import { PortalPage } from '../models/PortalPage.js';
+import { resolveUserPermissions } from '../services/permissionResolver.js';
 
 export type PermissionAction = 'canView' | 'canCreate' | 'canEdit' | 'canDelete';
 
@@ -283,79 +284,44 @@ export function requirePermission(moduleCode: string, action: PermissionAction |
       }
 
       const normalizedCode = moduleCode.trim().toUpperCase();
+      const userPerms = await resolveUserPermissions(req.user);
+      const modulePerm = userPerms[normalizedCode];
 
-      // 1. Dynamic Role Evaluation (Custom role assigned to user)
-      if (req.user.dynamicRole) {
-        const dynamicRole = await DynamicRole.findById(req.user.dynamicRole).populate('permissions.page');
+      if (modulePerm) {
+        // 1. Direct CRUD flag match
+        if ((modulePerm as any)[action] === true) {
+          return next();
+        }
 
-        if (dynamicRole) {
-          if (dynamicRole.isSuperadminWildcard) {
-            return next();
-          }
+        // 2. Granular feature key match
+        if (modulePerm.features && (modulePerm.features.includes(action) || modulePerm.features.includes('*'))) {
+          return next();
+        }
 
-          const targetPage = await PortalPage.findOne({
-            $or: [
-              { moduleCode: normalizedCode },
-              { moduleCode: moduleCode.trim() },
-            ],
-          });
+        // 3. Dynamic semantic action mappings (NO hardcoded role names)
+        const actLower = action.toLowerCase();
+        if (
+          ['create', 'apply', 'add', 'record', 'bulk_create', 'create_task', 'manual_entry', 'create_invoice', 'record_expense', 'add_employee'].some((k) => actLower.includes(k))
+        ) {
+          if (modulePerm.canCreate) return next();
+        }
 
-          if (targetPage) {
-            const permissionEntry = dynamicRole.permissions.find((p) => {
-              if (!p.page) return false;
-              const pageIdStr = (p.page as any)._id ? (p.page as any)._id.toString() : p.page.toString();
-              return pageIdStr === targetPage._id.toString();
-            });
+        if (
+          ['edit', 'update', 'manage', 'review', 'policy_settings', 'adjust_balance', 'reconcile_bank', 'can_edit'].some((k) => actLower.includes(k))
+        ) {
+          if (modulePerm.canEdit) return next();
+        }
 
-            if (permissionEntry) {
-              // Check direct CRUD property
-              if ((permissionEntry as any)[action] === true) {
-                return next();
-              }
-              // Check granular feature key
-              if (permissionEntry.features && permissionEntry.features.includes(action)) {
-                return next();
-              }
-              if ((dynamicRole as any).features && (dynamicRole as any).features.includes(action)) {
-                return next();
-              }
-            }
-          }
+        if (['delete', 'remove'].some((k) => actLower.includes(k))) {
+          if (modulePerm.canDelete) return next();
+        }
+
+        if (['view', 'read', 'export', 'download', 'report', 'live_map', 'history_playback', 'view_register'].some((k) => actLower.includes(k))) {
+          if (modulePerm.canView) return next();
         }
       }
 
-      // 2. Standard System Role Action Matrix Evaluation
       const userRole = (req.user.role || 'EMPLOYEE').toUpperCase();
-      const rolePerms = defaultRoleActionMatrix[userRole];
-
-      if (rolePerms) {
-        const modulePerm = rolePerms[normalizedCode];
-        if (modulePerm) {
-          if ((modulePerm as any)[action] === true) {
-            return next();
-          }
-          // Fallback feature approximations for legacy system roles
-          if (action === 'manual_entry' && modulePerm.canCreate) return next();
-          if (action === 'policy_settings' && modulePerm.canEdit) return next();
-          if (action === 'reports_export' && modulePerm.canView) return next();
-          if (action === 'view_register' && (userRole === 'HR' || userRole === 'ACCOUNTANT' || userRole === 'ADMIN')) return next();
-          if (action === 'live_map' && (modulePerm.canView || modulePerm.canCreate)) return next();
-          if (action === 'apply_leave' && modulePerm.canCreate) return next();
-          if (action === 'review_leave' && (modulePerm.canEdit || userRole === 'HR' || userRole === 'ADMIN' || userRole === 'TEAM_LEAD')) return next();
-          if (action === 'create_task' && (modulePerm.canCreate || userRole === 'ADMIN' || userRole === 'HR' || userRole === 'TEAM_LEAD')) return next();
-          if (action === 'can_edit' && (modulePerm.canEdit || userRole === 'ADMIN' || userRole === 'HR' || userRole === 'TEAM_LEAD')) return next();
-          if (action === 'review_tasks' && (modulePerm.canEdit || userRole === 'ADMIN' || userRole === 'HR' || userRole === 'TEAM_LEAD')) return next();
-          if (action === 'delete_task' && (modulePerm.canDelete || userRole === 'ADMIN')) return next();
-          if (action === 'create_invoice' && (modulePerm.canCreate || userRole === 'ACCOUNTANT' || userRole === 'ADMIN')) return next();
-          if (action === 'record_expense' && (modulePerm.canCreate || userRole === 'ACCOUNTANT' || userRole === 'ADMIN')) return next();
-          if (action === 'export_reports' && modulePerm.canView) return next();
-          if (action === 'view_payroll_reports' && (userRole === 'HR' || userRole === 'ACCOUNTANT' || userRole === 'ADMIN')) return next();
-          if (action === 'add_employee' && (modulePerm.canCreate || userRole === 'HR' || userRole === 'ADMIN')) return next();
-          if (action === 'edit_employee' && (modulePerm.canEdit || userRole === 'HR' || userRole === 'ADMIN')) return next();
-          if (action === 'manage_documents' && (modulePerm.canEdit || userRole === 'HR' || userRole === 'ADMIN')) return next();
-        }
-      }
-
       res.status(403).json({
         detail: `Access denied. Your role '${userRole}' does not have '${action}' permission for module '${normalizedCode}'.`,
         code: 'permission_denied',

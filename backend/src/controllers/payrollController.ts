@@ -8,6 +8,7 @@ import { AuditLog } from '../models/AuditLog.js';
 import { getAttendanceCycleForMonth, getAttendanceCycleForDate, getISTParts } from '../utils/tzUtils.js';
 import { calculateAttendanceForCycle, computePayroll } from '../services/payrollEngine.js';
 import { postPayrollAccrualJournal, postPayrollDisbursementJournal } from '../services/accounting/payrollAccountingService.js';
+import { getRoleDataScope } from '../services/scopeResolver.js';
 
 export async function getPayrollRecords(req: Request, res: Response): Promise<void> {
   const { month, year, department, employee_id, status } = req.query;
@@ -18,10 +19,11 @@ export async function getPayrollRecords(req: Request, res: Response): Promise<vo
   if (status) filter.status = status;
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isAccountantOrHR = ['ADMIN', 'HR', 'ACCOUNTANT'].includes(req.user?.role || '');
+  const payrollScope = await getRoleDataScope(req.user, 'SALARY_SLIPS');
+  const hasGlobalScope = isSuper || payrollScope === 'ALL';
 
   // Scope check for regular employees
-  if (!isSuper && !isAccountantOrHR) {
+  if (!hasGlobalScope) {
     const ownEmp = await Employee.findOne({ user: req.user?._id });
     if (!ownEmp) {
       res.json({ count: 0, results: [] });
@@ -32,7 +34,7 @@ export async function getPayrollRecords(req: Request, res: Response): Promise<vo
     filter.employee = employee_id;
   }
 
-  if (department && isAccountantOrHR) {
+  if (department && hasGlobalScope) {
     const deptEmployees = await Employee.find({ department }).select('_id');
     filter.employee = { $in: deptEmployees.map((e) => e._id) };
   }
@@ -68,9 +70,10 @@ export async function getPayrollRecordById(req: Request, res: Response): Promise
   }
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isAccountantOrHR = ['ADMIN', 'HR', 'ACCOUNTANT'].includes(req.user?.role || '');
+  const payrollScope = await getRoleDataScope(req.user, 'SALARY_SLIPS');
+  const hasGlobalScope = isSuper || payrollScope === 'ALL';
 
-  if (!isSuper && !isAccountantOrHR) {
+  if (!hasGlobalScope) {
     const ownEmp = await Employee.findOne({ user: req.user?._id });
     if (!ownEmp || ownEmp._id.toString() !== (record.employee as any)._id?.toString()) {
       res.status(403).json({ detail: 'You do not have permission to view this payroll record.' });

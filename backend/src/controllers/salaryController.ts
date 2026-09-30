@@ -222,8 +222,10 @@ export async function downloadSalarySlip(req: Request, res: Response): Promise<v
     return;
   }
 
-  // IDOR Protection: Non-admin/HR/Accountant users can only download their own salary slip
-  if (req.user && ['EMPLOYEE', 'TEAM_LEAD', 'BDE', 'OPERATIONS'].includes(req.user.role) && !req.user.isSuperuser) {
+  // IDOR Protection: Scoped users can only download their own salary slip
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || Boolean(req.user?.isSuperuser) || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+  const salaryScope = await getRoleDataScope(req.user, 'SALARY_SLIPS');
+  if (req.user && !isSuper && salaryScope !== 'ALL') {
     const ownEmployee = await getEmployeeForUser(req.user);
     const slipEmpId = slip.employee && typeof slip.employee === 'object' && '_id' in slip.employee
       ? (slip.employee as any)._id.toString()
