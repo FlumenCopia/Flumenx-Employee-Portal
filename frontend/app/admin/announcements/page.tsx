@@ -1,1 +1,5 @@
-import { AnnouncementsPage } from "@/components/resource-pages"; export default function Page(){return <AnnouncementsPage/>}
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/announcements");
+}

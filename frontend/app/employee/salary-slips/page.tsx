@@ -1,5 +1,5 @@
-import { SalaryPage } from "@/features/salary/SalaryPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <SalaryPage employee={true} />;
+  redirect("/salary-slips");
 }

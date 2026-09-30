@@ -1,5 +1,5 @@
-import { EmployeeKPIDetailPage } from "@/features/kpi/EmployeeKPIDetailPage";
+import { redirect } from "next/navigation";
 
-export default function EmployeeSelfKPIPage() {
-  return <EmployeeKPIDetailPage isSelf={true} canUpdateRating={false} />;
+export default function Page() {
+  redirect("/kpi");
 }

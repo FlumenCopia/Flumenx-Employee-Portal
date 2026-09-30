@@ -6,6 +6,8 @@ import { AdminAttendancePage, EmployeeAttendancePage } from "@/components/attend
 import { getCachedAuthUser } from "@/lib/auth-cache";
 import { Clock3, Users } from "lucide-react";
 
+import { hasPermission } from "@/lib/permissions";
+
 export default function SharedAttendanceRoute() {
   const [activeTab, setActiveTab] = useState<"personal" | "company">("company");
   const [canViewRegister, setCanViewRegister] = useState(false);
@@ -14,14 +16,13 @@ export default function SharedAttendanceRoute() {
   useEffect(() => {
     const user = getCachedAuthUser();
     if (user) {
-      const role = (user.portal_role || "").toUpperCase();
-      const adminRole = role === "ADMIN" || role === "SUPER_ADMIN";
-      const registerRole = role === "HR" || role === "ACCOUNTANT";
+      const isSuperadmin = (user.portal_role || user.role || "").toUpperCase() === "SUPER_ADMIN" || user.is_superuser;
+      const canSeeRegister = hasPermission(user, "ATTENDANCE", "view_register");
 
-      setIsAdmin(adminRole);
-      setCanViewRegister(adminRole || registerRole);
+      setIsAdmin(Boolean(isSuperadmin));
+      setCanViewRegister(canSeeRegister);
 
-      if (adminRole || registerRole) {
+      if (canSeeRegister) {
         setActiveTab("company");
       } else {
         setActiveTab("personal");

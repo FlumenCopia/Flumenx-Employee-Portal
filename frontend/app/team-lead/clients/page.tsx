@@ -1,5 +1,5 @@
-import { ClientMasterPage } from "@/features/clients/ClientMasterPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <ClientMasterPage role="team-lead" />;
+  redirect("/clients");
 }

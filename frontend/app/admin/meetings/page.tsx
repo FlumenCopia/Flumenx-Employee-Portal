@@ -1,1 +1,5 @@
-import { MeetingsPage } from "@/components/resource-pages"; export default function Page(){return <MeetingsPage/>}
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/meetings");
+}

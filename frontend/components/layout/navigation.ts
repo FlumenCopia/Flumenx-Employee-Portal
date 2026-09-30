@@ -82,10 +82,10 @@ export type DynamicApiNavItem = {
 
 const adminNav = [
   // Workspace
-  ["Command Center", "/admin/work?view=command-center", Sparkles],
-  ["Task Board", "/admin/work?view=kanban", Kanban],
-  ["Approvals Queue", "/admin/work?view=approvals", CheckSquare],
-  ["Timeline & Phases", "/admin/work?view=timeline", Layers],
+  ["Command Center", "/work?view=command-center", Sparkles],
+  ["Task Board", "/work?view=kanban", Kanban],
+  ["Approvals Queue", "/work?view=approvals", CheckSquare],
+  ["Timeline & Phases", "/work?view=timeline", Layers],
   ["Time Tracker", "/timer", Clock3],
 
   // Tools & Apps
@@ -99,31 +99,31 @@ const adminNav = [
 
   // People & HR
   ["Employees Directory", "/employees", Users],
-  ["Attendance", "/admin/attendance", CalendarCheck],
+  ["Attendance", "/attendance", CalendarCheck],
   ["Employee Tracking", "/tracking", MapPin],
-  ["Leave Requests", "/admin/leaves", CalendarDays],
-  ["Meetings", "/admin/meetings", UserRound],
-  ["KPI Performance", "/admin/kpi", TrendingUp],
-  ["Salary & Payroll", "/admin/salary-slips", FileSpreadsheet],
-  ["Reports Center", "/admin/reports", FileSpreadsheet],
-  ["Announcements", "/admin/announcements", Megaphone],
+  ["Leave Requests", "/leaves", CalendarDays],
+  ["Meetings", "/meetings", UserRound],
+  ["KPI Performance", "/kpi", TrendingUp],
+  ["Salary & Payroll", "/salary-slips", FileSpreadsheet],
+  ["Reports Center", "/reports", FileSpreadsheet],
+  ["Announcements", "/announcements", Megaphone],
 
   // Finance & Accounts
   ["Accounting & Finance", "/accounting", Landmark],
 
   // Administration
-  ["Dynamic Roles", "/admin/roles", Shield],
-  ["User Management", "/admin/users", UserCheck],
+  ["Dynamic Roles", "/roles", Shield],
+  ["User Management", "/users", UserCheck],
   ["Page Management", "/pages", FileCode],
-  ["Audit Logs", "/admin/audit-logs", BarChart3],
+  ["Audit Logs", "/audit-logs", BarChart3],
   ["Settings & Access", "/settings", Settings],
 ] as const satisfies readonly NavigationItem[];
 
 const employeeNav = [
   // Workspace
-  ["Task Board", "/employee/work?view=kanban", Kanban],
-  ["Approvals Queue", "/employee/work?view=approvals", CheckSquare],
-  ["Timeline", "/employee/work?view=timeline", Layers],
+  ["Task Board", "/work?view=kanban", Kanban],
+  ["Approvals Queue", "/work?view=approvals", CheckSquare],
+  ["Timeline", "/work?view=timeline", Layers],
   ["Time Tracker", "/timer", Clock3],
 
   // Tools & Apps
@@ -132,20 +132,20 @@ const employeeNav = [
 
   // People & HR
   ["Employees Directory", "/employees", Users],
-  ["My Attendance", "/employee/attendance", CalendarCheck],
+  ["My Attendance", "/attendance", CalendarCheck],
   ["Location Tracking", "/tracking", MapPin],
-  ["My Leave", "/employee/leaves", CalendarDays],
-  ["Meetings", "/employee/meetings", Users],
-  ["My Performance", "/employee/profile", TrendingUp],
-  ["My Salary Slips", "/employee/salary-slips", FileSpreadsheet],
-  ["Reports Center", "/employee/reports", FileSpreadsheet],
-  ["Announcements", "/employee/announcements", Megaphone],
+  ["My Leave", "/leaves", CalendarDays],
+  ["Meetings", "/meetings", Users],
+  ["My Performance", "/profile", TrendingUp],
+  ["My Salary Slips", "/salary-slips", FileSpreadsheet],
+  ["Reports Center", "/reports", FileSpreadsheet],
+  ["Announcements", "/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 const hrNav = [
   // Workspace
-  ["Task Board", "/hr/work?view=kanban", Kanban],
-  ["Approvals Queue", "/hr/work?view=approvals", CheckSquare],
+  ["Task Board", "/work?view=kanban", Kanban],
+  ["Approvals Queue", "/work?view=approvals", CheckSquare],
   ["Time Tracker", "/timer", Clock3],
 
   // Tools & Apps
@@ -158,20 +158,20 @@ const hrNav = [
 
   // People & HR
   ["Employees Directory", "/employees", Users],
-  ["Attendance", "/hr/attendance", CalendarCheck],
+  ["Attendance", "/attendance", CalendarCheck],
   ["Employee Tracking", "/tracking", MapPin],
-  ["Leave Requests", "/hr/leaves", CalendarDays],
-  ["Meetings", "/hr/meetings", Users],
-  ["KPI Performance", "/hr/kpi", TrendingUp],
-  ["Salary & Payroll", "/hr/salary-slips", FileSpreadsheet],
-  ["Reports Center", "/hr/reports", FileSpreadsheet],
-  ["Announcements", "/hr/announcements", Megaphone],
+  ["Leave Requests", "/leaves", CalendarDays],
+  ["Meetings", "/meetings", Users],
+  ["KPI Performance", "/kpi", TrendingUp],
+  ["Salary & Payroll", "/salary-slips", FileSpreadsheet],
+  ["Reports Center", "/reports", FileSpreadsheet],
+  ["Announcements", "/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 const accountantNav = [
   // Workspace
-  ["Financial Overview", "/accountant/dashboard", Landmark],
-  ["Task Board", "/accountant/work?view=kanban", Kanban],
+  ["Financial Overview", "/dashboard", Landmark],
+  ["Task Board", "/work?view=kanban", Kanban],
   ["Time Tracker", "/timer", Clock3],
 
   // Tools & Apps
@@ -188,19 +188,19 @@ const accountantNav = [
 
   // People & HR
   ["Employees Directory", "/employees", Users],
-  ["Attendance", "/accountant/attendance", CalendarCheck],
+  ["Attendance", "/attendance", CalendarCheck],
   ["Employee Tracking", "/tracking", MapPin],
-  ["Leave Requests", "/accountant/leaves", CalendarDays],
-  ["Meetings", "/accountant/meetings", Users],
-  ["Salary Slips Hub", "/accountant/salary-slips", FileSpreadsheet],
-  ["Reports Center", "/accountant/reports", FileSpreadsheet],
-  ["Announcements", "/accountant/announcements", Megaphone],
+  ["Leave Requests", "/leaves", CalendarDays],
+  ["Meetings", "/meetings", Users],
+  ["Salary Slips Hub", "/salary-slips", FileSpreadsheet],
+  ["Reports Center", "/reports", FileSpreadsheet],
+  ["Announcements", "/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 const bdoNav = [
   // Workspace
-  ["Task Board", "/bdo/work?view=kanban", Kanban],
-  ["Approvals Queue", "/bdo/work?view=approvals", CheckSquare],
+  ["Task Board", "/work?view=kanban", Kanban],
+  ["Approvals Queue", "/work?view=approvals", CheckSquare],
   ["Time Tracker", "/timer", Clock3],
 
   // Tools & Apps
@@ -212,19 +212,19 @@ const bdoNav = [
   ["Client Tasks & Calendar", "/clients/tasks", Calendar],
 
   // People & HR
-  ["My Attendance", "/bdo/attendance", CalendarCheck],
+  ["My Attendance", "/attendance", CalendarCheck],
   ["Location Tracking", "/tracking", MapPin],
-  ["My Leave", "/bdo/leaves", CalendarDays],
-  ["Meetings", "/bdo/meetings", Users],
-  ["Salary & Payslips", "/bdo/salary-slips", FileSpreadsheet],
-  ["Reports Center", "/bdo/reports", FileSpreadsheet],
-  ["Announcements", "/bdo/announcements", Megaphone],
+  ["My Leave", "/leaves", CalendarDays],
+  ["Meetings", "/meetings", Users],
+  ["Salary & Payslips", "/salary-slips", FileSpreadsheet],
+  ["Reports Center", "/reports", FileSpreadsheet],
+  ["Announcements", "/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 const teamLeadNav = [
   // Workspace
-  ["Task Board", "/team-lead/work?view=kanban", Kanban],
-  ["Approvals Queue", "/team-lead/work?view=approvals", CheckSquare],
+  ["Task Board", "/work?view=kanban", Kanban],
+  ["Approvals Queue", "/work?view=approvals", CheckSquare],
   ["Time Tracker", "/timer", Clock3],
 
   // Tools & Apps
@@ -233,18 +233,18 @@ const teamLeadNav = [
 
   // Clients & Projects
   ["Client Tasks & Calendar", "/clients/tasks", Calendar],
-  ["Team Work", "/team-lead/team-work", Users],
+  ["Team Work", "/team-work", Users],
 
   // People & HR
   ["Employees Directory", "/employees", Users],
-  ["Attendance", "/team-lead/attendance", CalendarCheck],
+  ["Attendance", "/attendance", CalendarCheck],
   ["Employee Tracking", "/tracking", MapPin],
-  ["Leave Requests", "/team-lead/leaves", CalendarDays],
-  ["Meetings", "/team-lead/meetings", Users],
-  ["KPI Performance", "/team-lead/kpi", TrendingUp],
-  ["Salary & Payslips", "/team-lead/salary-slips", FileSpreadsheet],
-  ["Reports Center", "/team-lead/reports", FileSpreadsheet],
-  ["Announcements", "/team-lead/announcements", Megaphone],
+  ["Leave Requests", "/leaves", CalendarDays],
+  ["Meetings", "/meetings", Users],
+  ["KPI Performance", "/kpi", TrendingUp],
+  ["Salary & Payslips", "/salary-slips", FileSpreadsheet],
+  ["Reports Center", "/reports", FileSpreadsheet],
+  ["Announcements", "/announcements", Megaphone],
 ] as const satisfies readonly NavigationItem[];
 
 export const workspaceNavigation: Record<WorkspaceRole, readonly NavigationItem[]> = {
@@ -469,16 +469,19 @@ export function getWorkspaceRole(portalRole?: string): WorkspaceRole {
 }
 
 export function getWorkspaceDestination(portalRole?: string): string {
-  const ws = getWorkspaceRole(portalRole);
-  return `/${ws}/dashboard`;
+  return "/dashboard";
 }
 
-export function isRoleAllowedInWorkspace(portalRole: string | undefined, workspaceRole: WorkspaceRole): boolean {
+export function isRoleAllowedInWorkspace(portalRole: string | undefined, workspaceRole: WorkspaceRole, user?: any): boolean {
+  if (!portalRole) return true;
+  const role = portalRole.trim().toUpperCase();
+  if (role === "SUPER_ADMIN" || role === "ADMIN") return true;
+  if (user?.dynamicRole || user?.dynamic_role || user?.is_superuser || user?.isSuperuser || user?.isSuperadminWildcard) return true;
   return getWorkspaceRole(portalRole) === workspaceRole;
 }
 
 export function normalizeWorkspaceRoute(routePath: string, workspaceRole: WorkspaceRole): string {
-  if (!routePath) return `/${workspaceRole}/dashboard`;
+  if (!routePath || routePath === "/dashboard" || routePath.endsWith("/dashboard")) return "/dashboard";
 
   const [pathname, search] = routePath.split("?");
   const query = search ? `?${search}` : "";
@@ -490,13 +493,13 @@ export function normalizeWorkspaceRoute(routePath: string, workspaceRole: Worksp
     return "/settings";
   }
   if (pathname === "/roles" || pathname === "/admin/roles") {
-    return "/admin/roles";
+    return "/roles";
   }
   if (pathname === "/users" || pathname === "/admin/users" || pathname === "/super-admin/users") {
-    return "/admin/users";
+    return "/users";
   }
   if (pathname === "/audit-logs" || pathname === "/admin/audit-logs" || pathname === "/admin/audit_logs") {
-    return "/admin/audit-logs";
+    return "/audit-logs";
   }
   if (
     pathname === "/salary-slips" ||
@@ -505,31 +508,31 @@ export function normalizeWorkspaceRoute(routePath: string, workspaceRole: Worksp
     pathname.endsWith("/salary-slips") ||
     pathname.endsWith("/salary")
   ) {
-    return `/${workspaceRole}/salary-slips`;
+    return `/salary-slips`;
   }
   if (pathname === "/announcements" || pathname === "/admin/announcements" || pathname.endsWith("/announcements")) {
-    return `/${workspaceRole}/announcements`;
+    return `/announcements`;
   }
   if (pathname === "/reports" || pathname === "/admin/reports" || pathname.endsWith("/reports")) {
-    return `/${workspaceRole}/reports`;
+    return `/reports`;
   }
   if (pathname === "/attendance" || pathname === "/admin/attendance" || pathname.endsWith("/attendance")) {
-    return `/${workspaceRole}/attendance`;
+    return `/attendance`;
   }
   if (pathname === "/tracking" || pathname === "/admin/tracking" || pathname.endsWith("/tracking")) {
     return "/tracking";
   }
   if (pathname === "/leaves" || pathname === "/admin/leaves" || pathname.endsWith("/leaves")) {
-    return `/${workspaceRole}/leaves`;
+    return `/leaves`;
   }
   if (pathname === "/meetings" || pathname === "/admin/meetings" || pathname.endsWith("/meetings")) {
-    return `/${workspaceRole}/meetings`;
+    return `/meetings`;
   }
   if (pathname === "/kpi" || pathname === "/admin/kpi" || pathname.endsWith("/kpi")) {
-    return `/${workspaceRole}/kpi`;
+    return `/kpi`;
   }
   if (pathname === "/work" || pathname === "/admin/work" || pathname.endsWith("/work")) {
-    return `/${workspaceRole}/work${query}`;
+    return `/work${query}`;
   }
   if (pathname === "/team-work" || pathname === "/admin/team-work" || pathname === "/team-lead/team-work") {
     return "/team-work";

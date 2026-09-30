@@ -11,6 +11,7 @@ import { Badge, EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
 import { getCachedAuthUser } from "@/lib/auth-cache";
 import { EmployeeDocumentsModal } from "./EmployeeDocumentsModal";
+import { hasPermission } from "@/lib/permissions";
 
 
 export type EmployeeWorkspaceRole = "admin" | "hr" | "employee" | "team-lead" | "bdo" | "accountant";
@@ -93,14 +94,14 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
 
   const currentUser = getCachedAuthUser();
   const empPerms = currentUser?.permissions?.EMPLOYEES || currentUser?.permissions?.["*"];
-  const hasEmpManagePerm = empPerms ? Boolean(empPerms.canCreate ?? empPerms.can_create ?? empPerms.canEdit ?? empPerms.can_edit) : false;
   const userRoleStr = (currentUser?.portal_role || currentUser?.role || "").toUpperCase();
-  const canManageEmployees =
-    role === "admin" ||
-    role === "hr" ||
-    hasEmpManagePerm ||
-    ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS", "OPERATIONS_HEAD"].includes(userRoleStr) ||
-    Boolean(currentUser?.is_superuser || (currentUser as any)?.isSuperuser);
+  const isSuperUser = Boolean(currentUser?.is_superuser || (currentUser as any)?.isSuperuser || userRoleStr === "SUPER_ADMIN" || userRoleStr === "ADMIN");
+
+  const canAddEmployee = isSuperUser || hasPermission(currentUser, "EMPLOYEES", "add_employee") || Boolean(empPerms?.canCreate ?? empPerms?.can_create);
+  const canEditEmployee = isSuperUser || hasPermission(currentUser, "EMPLOYEES", "edit_employee") || Boolean(empPerms?.canEdit ?? empPerms?.can_edit);
+  const canManageDocs = isSuperUser || hasPermission(currentUser, "EMPLOYEES", "manage_documents");
+  const canDeleteEmployee = isSuperUser || Boolean(empPerms?.canDelete ?? empPerms?.can_delete);
+  const canManageEmployees = canAddEmployee || canEditEmployee || canManageDocs || canDeleteEmployee;
 
   const isSelf = Boolean(
     selectedEmployee &&
@@ -167,7 +168,7 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
         title="Your people."
         subtitle="A clear view of everyone building FLUMENX."
         action={
-          canManageEmployees ? (
+          canAddEmployee ? (
             <button
               type="button"
               className="primary-button"
@@ -347,45 +348,47 @@ export function EmployeesPage({ role }: { role?: EmployeeWorkspaceRole }) {
                 <Video size={15} />
               </Link>
 
-              {canManageEmployees && (
-                <>
-                  <button
-                    type="button"
-                    title="Employee documents"
-                    onClick={(evt) => {
-                      evt.stopPropagation();
-                      setSelectedEmployee(e);
-                      setDocumentsModalOpen(true);
-                    }}
-                  >
-                    <FileText size={16} />
-                  </button>
+              {canManageDocs && (
+                <button
+                  type="button"
+                  title="Employee documents"
+                  onClick={(evt) => {
+                    evt.stopPropagation();
+                    setSelectedEmployee(e);
+                    setDocumentsModalOpen(true);
+                  }}
+                >
+                  <FileText size={16} />
+                </button>
+              )}
 
-                  <button
-                    type="button"
-                    title="Edit employee"
-                    onClick={(evt) => {
-                      evt.stopPropagation();
-                      setSelectedEmployee(e);
-                      setEditModalOpen(true);
-                    }}
-                  >
-                    <Pencil size={16} />
-                  </button>
+              {canEditEmployee && (
+                <button
+                  type="button"
+                  title="Edit employee"
+                  onClick={(evt) => {
+                    evt.stopPropagation();
+                    setSelectedEmployee(e);
+                    setEditModalOpen(true);
+                  }}
+                >
+                  <Pencil size={16} />
+                </button>
+              )}
 
-                  <button
-                    type="button"
-                    title="Delete employee"
-                    onClick={(evt) => {
-                      evt.stopPropagation();
-                      setSelectedEmployee(e);
-                      setDeleteError("");
-                      setDeleteModalOpen(true);
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </>
+              {canDeleteEmployee && (
+                <button
+                  type="button"
+                  title="Delete employee"
+                  onClick={(evt) => {
+                    evt.stopPropagation();
+                    setSelectedEmployee(e);
+                    setDeleteError("");
+                    setDeleteModalOpen(true);
+                  }}
+                >
+                  <Trash2 size={16} />
+                </button>
               )}
             </div>
           </div>

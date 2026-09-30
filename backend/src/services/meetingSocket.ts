@@ -63,7 +63,7 @@ export function setupMeetingSockets(io: SocketIOServer) {
           (socket.user?.first_name ? `${socket.user.first_name} ${socket.user.last_name || ''}`.trim() : null) ||
           socket.user?.username ||
           name ||
-          'Team Member';
+          'Participant';
 
         const participantRole = isHost ? 'HOST' : socket.user?.role || 'PARTICIPANT';
 

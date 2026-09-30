@@ -45,6 +45,7 @@ import type { WorkAssignment, Client, WorkEmployeeOption, WorkPriority, WorkStat
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
 import { Modal } from "@/features/common/Modal";
+import { hasPermission } from "@/lib/permissions";
 
 function isDateStrictlyPast(dateStr?: string): boolean {
   if (!dateStr) return false;
@@ -336,13 +337,13 @@ export function CommandCenterView({
     ph5: true,
   });
 
-  const canManageAll = ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "TEAM_LEAD"].includes((userRole || "").toUpperCase());
+  const isSuperUser = Boolean((currentUser as any)?.is_superuser || (currentUser as any)?.isSuperuser || (userRole || "").toUpperCase() === "SUPER_ADMIN");
+  const canManageAll = isSuperUser || hasPermission(currentUser as any, "WORK", "can_edit") || hasPermission(currentUser as any, "WORK", "create_task") || hasPermission(currentUser as any, "WORK", "review_tasks");
 
   const isReviewerOrManager = (task: TaskItem | null): boolean => {
     if (!task) return false;
-    if ((currentUser as any)?.is_superuser) return true;
-    const roleUpper = (currentUser?.role || userRole || "").toUpperCase();
-    if (["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "TEAM_LEAD", "BDE"].includes(roleUpper) || roleUpper.endsWith("_TEAM_LEAD") || roleUpper.endsWith("TEAM_LEAD") || roleUpper.includes("LEAD")) {
+    if (isSuperUser) return true;
+    if (hasPermission(currentUser as any, "WORK", "review_tasks") || hasPermission(currentUser as any, "WORK", "can_edit")) {
       return true;
     }
     const workPerms = (currentUser as any)?.permissions?.WORK_BOARD || (currentUser as any)?.permissions?.["*"];
@@ -363,12 +364,12 @@ export function CommandCenterView({
   };
 
   const canDeleteSelectedTask = useMemo(() => {
-    return isReviewerOrManager(selectedTask);
-  }, [userRole, currentUser, selectedTask]);
+    return isSuperUser || hasPermission(currentUser as any, "WORK", "delete_task") || isReviewerOrManager(selectedTask);
+  }, [userRole, currentUser, selectedTask, isSuperUser]);
 
   const canEditSelectedTask = useMemo(() => {
-    return isReviewerOrManager(selectedTask);
-  }, [userRole, currentUser, selectedTask]);
+    return isSuperUser || hasPermission(currentUser as any, "WORK", "can_edit") || isReviewerOrManager(selectedTask);
+  }, [userRole, currentUser, selectedTask, isSuperUser]);
 
   const canUserChangeTaskStatus = (task: TaskItem | null): boolean => {
     if (!task) return false;
@@ -392,6 +393,12 @@ export function CommandCenterView({
   }, []);
 
   const dynamicDeptPills = useMemo(() => {
+    if (departments && departments.length > 0) {
+      return departments.map((d) => ({
+        id: (d.code || d.name).toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+        name: d.name,
+      }));
+    }
     return [
       { id: "operations", name: "Operations" },
       { id: "web_development", name: "Web Development" },
@@ -402,7 +409,7 @@ export function CommandCenterView({
       { id: "hr", name: "HR" },
       { id: "business_development", name: "Business Development" },
     ];
-  }, []);
+  }, [departments]);
 
   useEffect(() => {
     setActiveTab(initialTab === "overview" || initialTab === "command-center" ? "kanban" : initialTab);
@@ -1969,21 +1976,28 @@ export function CommandCenterView({
       {/* 6. TEAM CAPACITY */}
       {activeTab === "team" && (
         <div className="grid g3">
-          {DEFAULT_MEMBERS.map((m) => {
-            const own = tasks.filter((t) => t.assignee === m.id || t.assigneeName === m.name);
+          {(members && members.length > 0 ? members : []).map((m) => {
+            const own = tasks.filter((t) => String(t.assignee) === String(m.id) || t.assigneeName === m.display_name || t.assigneeName === (m as any).name);
             const load = own.reduce((a, b) => a + (b.hours || 8), 0);
-            const pct = Math.min(100, Math.round((load / m.cap) * 100));
+            const cap = 40;
+            const pct = Math.min(100, Math.round((load / cap) * 100));
+            const initials = m.display_name ? m.display_name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "EM";
             return (
-              <div key={m.id} className="tm">
+              <div key={String(m.id)} className="tm">
                 <div className="tm-top">
-                  <div className="tm-av" style={{ background: m.color }}>{m.short}</div>
-                  <div><div className="tm-n">{m.name}</div><div className="tm-r">{m.department}</div></div>
+                  <div className="tm-av" style={{ background: "var(--amber)", color: "#fff" }}>{initials}</div>
+                  <div><div className="tm-n">{m.display_name || (m as any).name || "Employee"}</div><div className="tm-r">{m.department || "General"}</div></div>
                 </div>
-                <div className="tm-cap"><span>Workload</span><span className="mono">{load}h / {m.cap}h</span></div>
+                <div className="tm-cap"><span>Workload</span><span className="mono">{load}h / {cap}h</span></div>
                 <div className="pbar"><div className="pfill g" style={{ width: `${pct}%` }} /></div>
               </div>
             );
           })}
+          {(!members || members.length === 0) && (
+            <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "40px", color: "var(--muted)" }}>
+              No team members found for this view.
+            </div>
+          )}
         </div>
       )}
 
@@ -2867,7 +2881,7 @@ export function CommandCenterView({
                       )}
 
                       {/* Delete Task Button */}
-                      {canManageAll && onDeleteWork && (
+                      {(canDeleteSelectedTask || hasPermission(currentUser as any, "WORK", "delete_task")) && onDeleteWork && (
                         <button
                           type="button"
                           onClick={async () => {

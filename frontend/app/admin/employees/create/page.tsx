@@ -1,2 +1,5 @@
-import { EmployeeForm } from "@/components/resource-pages";
-export default function Page(){return <EmployeeForm role="admin"/>}
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/employees/create");
+}

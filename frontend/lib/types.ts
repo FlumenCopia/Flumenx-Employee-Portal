@@ -40,6 +40,14 @@ export type DynamicRole = {
   updated_at?: string;
 };
 
+export type DataScope = "OWN" | "TEAM" | "DEPARTMENT" | "ALL";
+
+export type RolePermissionFeature = {
+  key: string;
+  label: string;
+  description?: string;
+};
+
 export type RolePermissionItem = {
   page_id: number;
   page_title: string;
@@ -49,6 +57,10 @@ export type RolePermissionItem = {
   can_create: boolean;
   can_edit: boolean;
   can_delete: boolean;
+  data_scope?: DataScope;
+  dataScope?: DataScope;
+  available_features?: RolePermissionFeature[];
+  features?: string[];
 };
 
 export type RolePermissionMatrixResponse = {
@@ -177,6 +189,9 @@ export type ActionPerms = {
   can_create?: boolean;
   can_edit?: boolean;
   can_delete?: boolean;
+  data_scope?: DataScope;
+  dataScope?: DataScope;
+  features?: string[];
 };
 
 export type AuthUser = {

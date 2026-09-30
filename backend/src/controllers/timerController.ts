@@ -5,6 +5,7 @@ import { WorkAssignment } from '../models/WorkAssignment.js';
 import { Employee } from '../models/Employee.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { AuditLog } from '../models/AuditLog.js';
+import { getRoleDataScope, buildDataScopeFilter } from '../services/scopeResolver.js';
 
 function getTodayDateString(d: Date = new Date()): string {
   return d.toISOString().split('T')[0];
@@ -424,16 +425,31 @@ export async function getTimeEntries(req: Request, res: Response): Promise<void>
     const { client_id, project_id, task_id, employee_id, start_date, end_date, is_billable, status } = req.query;
     const filter: any = {};
 
-    const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-    const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
+    const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+    const timerScope = await getRoleDataScope(req.user, 'TIMER');
 
-    if (!isSuper && !isManagement) {
+    if (!isSuper && timerScope !== 'ALL') {
       const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
       if (!ownEmp) {
         res.json({ count: 0, results: [] });
         return;
       }
-      filter.employee = ownEmp._id;
+      if (timerScope === 'DEPARTMENT' && ownEmp.department) {
+        const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
+        const deptEmps = await Employee.find({ department: deptRegex }).select('_id');
+        filter.employee = { $in: [ownEmp._id, ...deptEmps.map((e) => e._id)] };
+      } else if (timerScope === 'TEAM') {
+        const deptRegex = ownEmp.department ? new RegExp(`^${ownEmp.department.trim()}$`, 'i') : null;
+        const teamEmps = await Employee.find({
+          $or: [
+            { teamLead: ownEmp._id },
+            ...(deptRegex ? [{ department: deptRegex }] : []),
+          ],
+        }).select('_id');
+        filter.employee = { $in: [ownEmp._id, ...teamEmps.map((e) => e._id)] };
+      } else {
+        filter.employee = ownEmp._id;
+      }
     } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
       filter.employee = employee_id;
     }
@@ -595,14 +611,23 @@ export async function updateTimeEntry(req: Request, res: Response): Promise<void
       return;
     }
 
-    const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-    const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
+    const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+    const timerScope = await getRoleDataScope(req.user, 'TIMER');
     const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
 
-    if (!isSuper && !isManagement) {
-      if (!ownEmp || String(timeEntry.employee) !== String(ownEmp._id)) {
-        res.status(403).json({ detail: 'You do not have permission to edit this time entry.' });
-        return;
+    if (!isSuper && timerScope !== 'ALL') {
+      if (timerScope === 'OWN') {
+        if (!ownEmp || String(timeEntry.employee) !== String(ownEmp._id)) {
+          res.status(403).json({ detail: 'You do not have permission to edit this time entry.' });
+          return;
+        }
+      } else {
+        const allowed = await buildDataScopeFilter(req.user, 'TIMER', '_id');
+        const isAllowed = await Employee.findOne({ _id: timeEntry.employee, ...allowed });
+        if (!isAllowed) {
+          res.status(403).json({ detail: 'You do not have permission to edit time entries outside your team.' });
+          return;
+        }
       }
     }
 

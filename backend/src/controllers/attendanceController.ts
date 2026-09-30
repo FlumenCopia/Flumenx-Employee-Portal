@@ -10,6 +10,7 @@ import { CompanyHoliday } from '../models/CompanyHoliday.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { calculateAttendanceRecordState, calculateHaversineDistanceMeters } from '../services/attendanceEngine.js';
 import { timeStringToMinutes, getAttendanceCycleForMonth, getISTDateString, AttendanceCycleInfo } from '../utils/tzUtils.js';
+import { getRoleDataScope } from '../services/scopeResolver.js';
 
 export async function getAttendancePolicy(): Promise<IAttendancePolicy> {
   let policy = await AttendancePolicy.findOne();
@@ -143,9 +144,10 @@ export async function getAttendanceRecords(req: Request, res: Response): Promise
   const { employee_id, date, month, year, status, my_attendance } = req.query;
 
   const filter: any = {};
-  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagement = ['ADMIN', 'HR', 'OPERATIONS', 'OPERATIONS_HEAD', 'ACCOUNTANT'].includes(req.user?.role || '');
-  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+  const attScope = await getRoleDataScope(req.user, 'ATTENDANCE');
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+  const isManagement = isSuper || attScope === 'ALL';
+  const isTeamLead = attScope === 'TEAM' || attScope === 'DEPARTMENT';
 
   if (!isSuper && !isManagement) {
     const ownEmp = await getEmployeeForUser(req.user);
@@ -154,9 +156,31 @@ export async function getAttendanceRecords(req: Request, res: Response): Promise
       return;
     }
 
-    if (isTeamLead) {
+    if (attScope === 'DEPARTMENT' && ownEmp.department) {
+      const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
+      const deptEmployees = await Employee.find({ department: deptRegex }).select('_id');
+      const deptEmpIds = [ownEmp._id, ...deptEmployees.map((e) => e._id)];
+
+      if (my_attendance === 'true') {
+        filter.employee = ownEmp._id;
+      } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
+        if (deptEmpIds.some((id) => id.toString() === String(employee_id))) {
+          filter.employee = employee_id;
+        } else {
+          res.json({ count: 0, next: null, previous: null, results: [] });
+          return;
+        }
+      } else {
+        filter.employee = { $in: deptEmpIds };
+      }
+    } else if (attScope === 'TEAM') {
       const deptRegex = ownEmp.department ? new RegExp(`^${ownEmp.department.trim()}$`, 'i') : null;
-      const teamEmployees = deptRegex ? await Employee.find({ department: deptRegex }).select('_id') : [];
+      const teamEmployees = await Employee.find({
+        $or: [
+          { teamLead: ownEmp._id },
+          ...(deptRegex ? [{ department: deptRegex }] : []),
+        ],
+      }).select('_id');
       const teamEmpIds = [ownEmp._id, ...teamEmployees.map((e) => e._id)];
 
       if (my_attendance === 'true') {
@@ -236,13 +260,35 @@ export async function getAttendanceSummary(req: Request, res: Response): Promise
 
   const filter: any = {};
   let isSingleEmployee = false;
+  const attScope = await getRoleDataScope(req.user, 'ATTENDANCE');
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+  const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
 
-  if (my_attendance === 'true' && req.user) {
-    const emp = await getEmployeeForUser(req.user);
-    if (emp) {
-      filter.employee = emp._id;
-      isSingleEmployee = true;
+  if (!isSuper && attScope !== 'ALL') {
+    if (attScope === 'OWN' || my_attendance === 'true') {
+      if (ownEmp) {
+        filter.employee = ownEmp._id;
+        isSingleEmployee = true;
+      }
+    } else if (attScope === 'DEPARTMENT' && ownEmp?.department) {
+      const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
+      const deptEmployees = await Employee.find({ department: deptRegex }).select('_id');
+      const deptEmpIds = [ownEmp._id, ...deptEmployees.map((e) => e._id)];
+      filter.employee = { $in: deptEmpIds };
+    } else if (attScope === 'TEAM' && ownEmp) {
+      const deptRegex = ownEmp.department ? new RegExp(`^${ownEmp.department.trim()}$`, 'i') : null;
+      const teamEmployees = await Employee.find({
+        $or: [
+          { teamLead: ownEmp._id },
+          ...(deptRegex ? [{ department: deptRegex }] : []),
+        ],
+      }).select('_id');
+      const teamEmpIds = [ownEmp._id, ...teamEmployees.map((e) => e._id)];
+      filter.employee = { $in: teamEmpIds };
     }
+  } else if (my_attendance === 'true' && ownEmp) {
+    filter.employee = ownEmp._id;
+    isSingleEmployee = true;
   } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
     filter.employee = employee_id;
     isSingleEmployee = true;
@@ -310,13 +356,35 @@ export async function getMonthlyStatistics(req: Request, res: Response): Promise
 
   const filter: any = {};
   let isSingleEmployee = false;
+  const attScope = await getRoleDataScope(req.user, 'ATTENDANCE');
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+  const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
 
-  if (my_attendance === 'true' && req.user) {
-    const emp = await getEmployeeForUser(req.user);
-    if (emp) {
-      filter.employee = emp._id;
-      isSingleEmployee = true;
+  if (!isSuper && attScope !== 'ALL') {
+    if (attScope === 'OWN' || my_attendance === 'true') {
+      if (ownEmp) {
+        filter.employee = ownEmp._id;
+        isSingleEmployee = true;
+      }
+    } else if (attScope === 'DEPARTMENT' && ownEmp?.department) {
+      const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
+      const deptEmployees = await Employee.find({ department: deptRegex }).select('_id');
+      const deptEmpIds = [ownEmp._id, ...deptEmployees.map((e) => e._id)];
+      filter.employee = { $in: deptEmpIds };
+    } else if (attScope === 'TEAM' && ownEmp) {
+      const deptRegex = ownEmp.department ? new RegExp(`^${ownEmp.department.trim()}$`, 'i') : null;
+      const teamEmployees = await Employee.find({
+        $or: [
+          { teamLead: ownEmp._id },
+          ...(deptRegex ? [{ department: deptRegex }] : []),
+        ],
+      }).select('_id');
+      const teamEmpIds = [ownEmp._id, ...teamEmployees.map((e) => e._id)];
+      filter.employee = { $in: teamEmpIds };
     }
+  } else if (my_attendance === 'true' && ownEmp) {
+    filter.employee = ownEmp._id;
+    isSingleEmployee = true;
   } else if (employee_id && mongoose.Types.ObjectId.isValid(employee_id as string)) {
     filter.employee = employee_id;
     isSingleEmployee = true;
@@ -432,8 +500,9 @@ export async function buildAttendanceMatrixData(options: {
   cycleType?: 'salary' | 'calendar';
   department?: string;
   employeeId?: string;
+  allowedEmployeeIds?: (string | mongoose.Types.ObjectId)[];
 }) {
-  const { year, month, cycleType = 'salary', department, employeeId } = options;
+  const { year, month, cycleType = 'salary', department, employeeId, allowedEmployeeIds } = options;
 
   let cycleInfo: AttendanceCycleInfo;
   if (cycleType === 'calendar') {
@@ -496,21 +565,33 @@ export async function buildAttendanceMatrixData(options: {
   if (department && department !== 'All' && department !== 'all') {
     empFilter.department = department;
   }
-  if (employeeId) {
+  if (allowedEmployeeIds && allowedEmployeeIds.length > 0) {
+    if (employeeId) {
+      if (allowedEmployeeIds.some((id) => id.toString() === String(employeeId))) {
+        empFilter._id = employeeId;
+      } else {
+        empFilter._id = new mongoose.Types.ObjectId();
+      }
+    } else {
+      empFilter._id = { $in: allowedEmployeeIds };
+    }
+  } else if (employeeId) {
     empFilter._id = employeeId;
   }
+
+  const attendanceEmployeeFilter = empFilter._id ? { employee: empFilter._id } : employeeId ? { employee: employeeId } : {};
 
   const [employees, records, leaves, holidays] = await Promise.all([
     Employee.find(empFilter).sort({ employeeCode: 1, name: 1 }),
     AttendanceRecord.find({
       attendanceDate: { $gte: cycleInfo.cycleStart, $lte: cycleInfo.cycleEnd },
-      ...(employeeId ? { employee: employeeId } : {}),
+      ...attendanceEmployeeFilter,
     }),
     LeaveRequest.find({
       status: 'Approved',
       startDate: { $lte: cycleInfo.cycleEnd },
       endDate: { $gte: cycleInfo.cycleStart },
-      ...(employeeId ? { employee: employeeId } : {}),
+      ...attendanceEmployeeFilter,
     }),
     CompanyHoliday.find({
       isActive: { $ne: false },
@@ -788,12 +869,41 @@ export async function getAttendanceMatrixReport(req: Request, res: Response): Pr
       m = cm;
     }
 
+    const attScope = await getRoleDataScope(req.user, 'ATTENDANCE');
+    const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+    let allowedEmployeeIds: (string | mongoose.Types.ObjectId)[] | undefined = undefined;
+
+    if (!isSuper && attScope !== 'ALL') {
+      const ownEmp = await getEmployeeForUser(req.user);
+      if (!ownEmp) {
+        res.json({ success: true, cycle: {}, employees: [] });
+        return;
+      }
+      if (attScope === 'OWN') {
+        allowedEmployeeIds = [ownEmp._id];
+      } else if (attScope === 'DEPARTMENT' && ownEmp.department) {
+        const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
+        const deptEmployees = await Employee.find({ department: deptRegex }).select('_id');
+        allowedEmployeeIds = [ownEmp._id, ...deptEmployees.map((e) => e._id)];
+      } else if (attScope === 'TEAM') {
+        const deptRegex = ownEmp.department ? new RegExp(`^${ownEmp.department.trim()}$`, 'i') : null;
+        const teamEmployees = await Employee.find({
+          $or: [
+            { teamLead: ownEmp._id },
+            ...(deptRegex ? [{ department: deptRegex }] : []),
+          ],
+        }).select('_id');
+        allowedEmployeeIds = [ownEmp._id, ...teamEmployees.map((e) => e._id)];
+      }
+    }
+
     const data = await buildAttendanceMatrixData({
       year: y,
       month: m,
       cycleType,
       department,
       employeeId,
+      allowedEmployeeIds,
     });
 
     res.json({ success: true, ...data });
@@ -833,6 +943,34 @@ export async function exportAttendanceCSV(req: Request, res: Response): Promise<
       m = cm;
     }
 
+    const attScope = await getRoleDataScope(req.user, 'ATTENDANCE');
+    const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+    let allowedEmployeeIds: (string | mongoose.Types.ObjectId)[] | undefined = undefined;
+
+    if (!isSuper && attScope !== 'ALL') {
+      const ownEmp = await getEmployeeForUser(req.user);
+      if (!ownEmp) {
+        res.status(403).json({ detail: 'No employee record linked to account.' });
+        return;
+      }
+      if (attScope === 'OWN') {
+        allowedEmployeeIds = [ownEmp._id];
+      } else if (attScope === 'DEPARTMENT' && ownEmp.department) {
+        const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
+        const deptEmployees = await Employee.find({ department: deptRegex }).select('_id');
+        allowedEmployeeIds = [ownEmp._id, ...deptEmployees.map((e) => e._id)];
+      } else if (attScope === 'TEAM') {
+        const deptRegex = ownEmp.department ? new RegExp(`^${ownEmp.department.trim()}$`, 'i') : null;
+        const teamEmployees = await Employee.find({
+          $or: [
+            { teamLead: ownEmp._id },
+            ...(deptRegex ? [{ department: deptRegex }] : []),
+          ],
+        }).select('_id');
+        allowedEmployeeIds = [ownEmp._id, ...teamEmployees.map((e) => e._id)];
+      }
+    }
+
     // Legacy flat log export
     if (layout === 'flat') {
       const filter: any = {};
@@ -845,6 +983,14 @@ export async function exportAttendanceCSV(req: Request, res: Response): Promise<
       if (department && department !== 'All') {
         const emps = await Employee.find({ department }).select('_id');
         filter.employee = { $in: emps.map((e) => e._id) };
+      }
+      if (allowedEmployeeIds && allowedEmployeeIds.length > 0) {
+        if (filter.employee && filter.employee.$in) {
+          const allowedStrs = new Set(allowedEmployeeIds.map((id) => id.toString()));
+          filter.employee.$in = filter.employee.$in.filter((id: any) => allowedStrs.has(id.toString()));
+        } else {
+          filter.employee = { $in: allowedEmployeeIds };
+        }
       }
       const records = await AttendanceRecord.find(filter).populate('employee').sort({ attendanceDate: -1 });
 
@@ -879,6 +1025,7 @@ export async function exportAttendanceCSV(req: Request, res: Response): Promise<
       cycleType,
       department,
       employeeId,
+      allowedEmployeeIds,
     });
 
     if (layout === 'daily') {
@@ -1133,9 +1280,31 @@ export async function getAttendanceCorrections(req: Request, res: Response): Pro
     query.status = status;
   }
 
-  const empId = (req.user as any)?.employee || (req.user as any)?.employeeId;
+  const attScope = await getRoleDataScope(req.user, 'ATTENDANCE');
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+  const ownEmp = await getEmployeeForUser(req.user);
+  const empId = ownEmp?._id || (req.user as any)?.employee || (req.user as any)?.employeeId;
+
   if (my_corrections === 'true' && empId) {
     query.employee = empId;
+  } else if (!isSuper && attScope !== 'ALL') {
+    if (attScope === 'OWN') {
+      if (empId) query.employee = empId;
+      else { res.json([]); return; }
+    } else if (attScope === 'DEPARTMENT' && ownEmp?.department) {
+      const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
+      const deptEmployees = await Employee.find({ department: deptRegex }).select('_id');
+      query.employee = { $in: [ownEmp._id, ...deptEmployees.map((e) => e._id)] };
+    } else if (attScope === 'TEAM' && ownEmp) {
+      const deptRegex = ownEmp.department ? new RegExp(`^${ownEmp.department.trim()}$`, 'i') : null;
+      const teamEmployees = await Employee.find({
+        $or: [
+          { teamLead: ownEmp._id },
+          ...(deptRegex ? [{ department: deptRegex }] : []),
+        ],
+      }).select('_id');
+      query.employee = { $in: [ownEmp._id, ...teamEmployees.map((e) => e._id)] };
+    }
   }
 
   const corrections = await AttendanceCorrection.find(query)
@@ -1184,6 +1353,14 @@ export async function updateAttendanceCorrection(req: Request, res: Response): P
   const correction = await AttendanceCorrection.findById(req.params.id);
   if (!correction) {
     res.status(404).json({ detail: 'Attendance correction request not found.' });
+    return;
+  }
+
+  const attScope = await getRoleDataScope(req.user, 'ATTENDANCE');
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+
+  if (!isSuper && attScope === 'OWN') {
+    res.status(403).json({ detail: 'Permission denied. You cannot review or approve attendance corrections.' });
     return;
   }
 

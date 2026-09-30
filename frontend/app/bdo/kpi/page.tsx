@@ -1,4 +1,5 @@
-import { KPIDashboardPage } from "@/features/kpi/KPIDashboardPage";
+import { redirect } from "next/navigation";
+
 export default function Page() {
-  return <KPIDashboardPage basePath="/bdo/kpi" />;
+  redirect("/kpi");
 }

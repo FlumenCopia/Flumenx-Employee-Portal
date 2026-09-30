@@ -1,5 +1,5 @@
-import { KPIDashboardPage } from "@/features/kpi/KPIDashboardPage";
+import { redirect } from "next/navigation";
 
-export default function AdminKPIPage() {
-  return <KPIDashboardPage basePath="/admin" />;
+export default function Page() {
+  redirect("/kpi");
 }

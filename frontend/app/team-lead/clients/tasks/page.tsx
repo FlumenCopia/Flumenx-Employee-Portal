@@ -1,5 +1,5 @@
-import { ClientTasksPage } from "@/features/clients/ClientTasksPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <ClientTasksPage role="team-lead" />;
+  redirect("/clients/tasks");
 }

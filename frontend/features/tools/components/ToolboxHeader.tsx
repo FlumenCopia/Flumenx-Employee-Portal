@@ -79,7 +79,7 @@ export function ToolboxHeader({
             {theme === "dark" ? <Sun size={17} className="text-amber-400" /> : <Moon size={17} />}
           </button>
 
-          <Link href="/" className="tools-back-portal-link" title="Return to main portal">
+          <Link href="/dashboard" className="tools-back-portal-link" title="Return to main portal">
             <ArrowLeft size={15} />
             <span className="tools-back-portal-text">Back to Portal</span>
           </Link>

@@ -36,13 +36,25 @@ import { Avatar } from "@/components/icons";
 import { EmptyState, PageHeader, PrimaryButton, Section } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
 import { getAttendanceCycleForMonth, getISTDateString } from "@/lib/tzUtils";
+import { getCachedAuthUser } from "@/lib/auth-cache";
+import { hasPermission } from "@/lib/permissions";
 
 const monthNames = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
 
-export function SalaryPage({ employee = false }: { employee?: boolean }) {
+export function SalaryPage({ employee: propEmployee = false }: { employee?: boolean }) {
+  const currentUser = getCachedAuthUser();
+  const isSuperUser = Boolean(
+    currentUser?.role === "SUPER_ADMIN" ||
+    (currentUser as any)?.portal_role === "SUPER_ADMIN" ||
+    (currentUser as any)?.is_superuser ||
+    (currentUser as any)?.isSuperuser ||
+    (currentUser as any)?.isSuperadminWildcard
+  );
+  const canManagePayroll = isSuperUser || hasPermission(currentUser, "SALARY_SLIPS", "canEdit") || hasPermission(currentUser, "ACCOUNTING", "canView");
+  const employee = !canManagePayroll;
   const [activeTab, setActiveTab] = useState<"slips" | "payroll" | "structures" | "heads" | "holidays" | "reports">("slips");
 
   // --- Slips State ---

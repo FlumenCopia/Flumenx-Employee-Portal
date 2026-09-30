@@ -13,6 +13,7 @@ import { Modal } from "@/features/common/Modal";
 import { useShellUser } from "@/components/shell";
 import { toast } from "@/components/ToastContext";
 import { ShareLinkModal } from "./ShareLinkModal";
+import { hasPermission } from "@/lib/permissions";
 
 type ManagementWorkspace = WorkspaceRole;
 type WorkFormState = {
@@ -245,19 +246,27 @@ function ProgressMeter({ value }: { value: number }) {
 
 export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole; defaultTab?: string } = {}) {
   const currentShellUser = useShellUser();
-  const effectiveRole = role || (currentShellUser ? (["SUPER_ADMIN", "ADMIN", "OPERATIONS", "OPERATIONS_HEAD"].includes((currentShellUser.portal_role || "").toUpperCase()) ? "admin" : (currentShellUser.portal_role || "").toLowerCase() as WorkspaceRole) : "admin");
-  const isEmployeeWorkspace = effectiveRole === "employee";
   const userRoleStr = (currentShellUser?.portal_role || "").toUpperCase();
-  const isSuperUser = Boolean((currentShellUser as any)?.is_superuser || currentShellUser?.is_superuser || userRoleStr === "SUPER_ADMIN" || userRoleStr === "ADMIN");
-  const tasksPerms = currentShellUser?.permissions?.TASKS || currentShellUser?.permissions?.WORK_BOARD || currentShellUser?.permissions?.["*"];
+  const isSuperUser = Boolean(
+    (currentShellUser as any)?.is_superuser ||
+    currentShellUser?.is_superuser ||
+    userRoleStr === "SUPER_ADMIN" ||
+    (currentShellUser as any)?.isSuperadminWildcard
+  );
+  const tasksPerms = currentShellUser?.permissions?.TASKS || currentShellUser?.permissions?.WORK || currentShellUser?.permissions?.WORK_BOARD || currentShellUser?.permissions?.["*"];
   const clientsPerms = currentShellUser?.permissions?.CLIENTS || currentShellUser?.permissions?.["*"];
 
   const hasTaskCreatePerm = tasksPerms ? Boolean(tasksPerms.canCreate ?? tasksPerms.can_create) : false;
-  const isCreatorRoleFallback = userRoleStr.includes("LEAD") || ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS", "OPERATIONS_HEAD", "BDE", "BDO", "ACCOUNTANT"].includes(userRoleStr);
-  const canManageAll = isSuperUser || hasTaskCreatePerm || isCreatorRoleFallback;
+  const hasTaskEditPerm = tasksPerms ? Boolean(tasksPerms.canEdit ?? tasksPerms.can_edit) : false;
+  const canCreateTask = isSuperUser || hasPermission(currentShellUser, "TASKS", "create_task") || hasTaskCreatePerm;
+  const canEditTask = isSuperUser || hasPermission(currentShellUser, "TASKS", "can_edit") || hasTaskEditPerm;
+  const canReviewTasks = isSuperUser || hasPermission(currentShellUser, "TASKS", "review_tasks");
+  const canDeleteTask = isSuperUser || hasPermission(currentShellUser, "TASKS", "delete_task") || (tasksPerms ? Boolean(tasksPerms.canDelete ?? tasksPerms.can_delete) : false);
+  const canBulkCreate = isSuperUser || hasPermission(currentShellUser, "TASKS", "bulk_create");
+  const canManageAll = canCreateTask || canEditTask;
 
   const hasClientCreatePerm = clientsPerms ? Boolean(clientsPerms.canCreate ?? clientsPerms.can_create) : false;
-  const canAddClient = (isSuperUser || hasClientCreatePerm || ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "BDE", "BDO"].includes(userRoleStr)) && !isEmployeeWorkspace;
+  const canAddClient = isSuperUser || hasClientCreatePerm || hasPermission(currentShellUser, "CLIENTS", "canCreate");
   const searchParams = useSearchParams();
   const rawViewParam = (searchParams.get("view") || defaultTab || "").toLowerCase();
   const initialViewMode: "KANBAN" | "LIST" | "APPROVALS" =
@@ -1395,41 +1404,43 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
         >
           <List size={15} /> Table List
         </button>
-        <button
-          type="button"
-          onClick={() => switchViewMode("APPROVALS")}
-          style={{
-            padding: "6px 14px",
-            borderRadius: "6px",
-            border: "none",
-            background: activeViewMode === "APPROVALS" ? "#087A5B" : "transparent",
-            color: activeViewMode === "APPROVALS" ? "#FFFFFF" : "var(--muted)",
-            fontWeight: 700,
-            fontSize: "12px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            transition: "background 0.15s ease",
-          }}
-        >
-          <CheckSquare size={15} /> Approvals Queue
-          {(summary.review_pending || 0) > 0 && (
-            <span
-              style={{
-                background: activeViewMode === "APPROVALS" ? "#FFFFFF" : "#087A5B",
-                color: activeViewMode === "APPROVALS" ? "#087A5B" : "#FFFFFF",
-                fontSize: "10.5px",
-                fontWeight: 800,
-                borderRadius: "10px",
-                padding: "1px 6px",
-                marginLeft: "2px",
-              }}
-            >
-              {summary.review_pending}
-            </span>
-          )}
-        </button>
+        {canReviewTasks && (
+          <button
+            type="button"
+            onClick={() => switchViewMode("APPROVALS")}
+            style={{
+              padding: "6px 14px",
+              borderRadius: "6px",
+              border: "none",
+              background: activeViewMode === "APPROVALS" ? "#087A5B" : "transparent",
+              color: activeViewMode === "APPROVALS" ? "#FFFFFF" : "var(--muted)",
+              fontWeight: 700,
+              fontSize: "12px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              transition: "background 0.15s ease",
+            }}
+          >
+            <CheckSquare size={15} /> Approvals Queue
+            {(summary.review_pending || 0) > 0 && (
+              <span
+                style={{
+                  background: activeViewMode === "APPROVALS" ? "#FFFFFF" : "#087A5B",
+                  color: activeViewMode === "APPROVALS" ? "#087A5B" : "#FFFFFF",
+                  fontSize: "10.5px",
+                  fontWeight: 800,
+                  borderRadius: "10px",
+                  padding: "1px 6px",
+                  marginLeft: "2px",
+                }}
+              >
+                {summary.review_pending}
+              </span>
+            )}
+          </button>
+        )}
       </div>
     </div>
 
@@ -1993,8 +2004,8 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                           ))}
                         </select>
 
-                        {canManageAll && (
-                          <div style={{ display: "flex", gap: "4px" }}>
+                        <div style={{ display: "flex", gap: "4px" }}>
+                          {canManageAll && (
                             <button
                               type="button"
                               onClick={() => openEdit(t)}
@@ -2009,6 +2020,8 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                             >
                               <Pencil size={14} />
                             </button>
+                          )}
+                          {canDeleteTask && (
                             <button
                               type="button"
                               onClick={() => deleteAssignment(t)}
@@ -2023,8 +2036,8 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                             >
                               <Trash2 size={14} />
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))
@@ -2088,7 +2101,7 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
                 >
                   {canManageAll ? <><Pencil size={13} /> Edit</> : "View"}
                 </button>
-                {canManageAll && (
+                {canDeleteTask && (
                   <button type="button" disabled={deletingId !== null} onClick={() => deleteAssignment(item)} aria-label={`Delete ${item.title}`}><Trash2 size={16} /></button>
                 )}
               </div>
@@ -2724,14 +2737,16 @@ export function WorkManagementPage({ role, defaultTab }: { role?: WorkspaceRole;
 
                 {/* Add Another Task Button & Quick Add Client */}
                 <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "4px", flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={addTaskRow}
-                    style={{ flex: 1, justifyContent: "center", gap: "6px", padding: "8px 14px", fontWeight: 700 }}
-                  >
-                    <Plus size={14} /> + Add Task for Another Client
-                  </button>
+                  {canBulkCreate && (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={addTaskRow}
+                      style={{ flex: 1, justifyContent: "center", gap: "6px", padding: "8px 14px", fontWeight: 700 }}
+                    >
+                      <Plus size={14} /> + Add Task for Another Client
+                    </button>
+                  )}
 
                   {canAddClient && (
                     <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>

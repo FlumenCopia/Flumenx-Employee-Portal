@@ -1,4 +1,5 @@
-import { LeavesPage } from "@/components/resource-pages";
+import { redirect } from "next/navigation";
+
 export default function Page() {
-  return <LeavesPage employee />;
+  redirect("/leaves");
 }

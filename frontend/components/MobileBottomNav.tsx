@@ -57,8 +57,6 @@ export function MobileBottomNav({
     };
   }, [expanded]);
 
-  const rolePrefix = workspaceRole === "admin" ? "/admin" : workspaceRole === "hr" ? "/hr" : workspaceRole === "bdo" ? "/bdo" : workspaceRole === "team-lead" ? "/team-lead" : "/employee";
-
   const isWorkActive = path.includes("/work");
   const isTimerActive = path.includes("/timer");
   const isAttendanceActive = path.includes("/attendance");
@@ -66,7 +64,8 @@ export function MobileBottomNav({
 
   const canCreateTask = (() => {
     if (!user) return false;
-    if ((user as any).is_superuser || (user as any).isSuperuser) return true;
+    if ((user as any).is_superuser || (user as any).isSuperuser || (user as any).isSuperadminWildcard) return true;
+    if (user.permissions?.WORK?.canCreate || (user as any).permissions?.WORK_BOARD?.can_create || (user as any).permissions?.TASKS?.can_create) return true;
     const r = (user.portal_role || (user as any).role || "").toUpperCase();
     const creatorRoles = ["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD", "OPERATIONS"];
     return creatorRoles.includes(r) || r.includes("TEAM_LEAD") || r.includes("LEAD");
@@ -154,7 +153,7 @@ export function MobileBottomNav({
               type="button"
               onClick={() => {
                 setExpanded(false);
-                router.push(`${rolePrefix}/attendance`);
+                router.push("/attendance");
               }}
               style={{
                 display: "flex",
@@ -178,7 +177,7 @@ export function MobileBottomNav({
               type="button"
               onClick={() => {
                 setExpanded(false);
-                router.push(workspaceRole === "admin" ? "/admin/employees" : "/employees");
+                router.push("/employees");
               }}
               style={{
                 display: "flex",
@@ -202,7 +201,7 @@ export function MobileBottomNav({
               type="button"
               onClick={() => {
                 setExpanded(false);
-                router.push(workspaceRole === "admin" ? "/admin/salary-slips" : "/employee/salary-slips");
+                router.push("/salary-slips");
               }}
               style={{
                 display: "flex",
@@ -307,7 +306,7 @@ export function MobileBottomNav({
       {/* Persistent Bottom Navigation Bar for Mobile */}
       <nav className="mobile-bottom-nav">
         <Link
-          href={`${rolePrefix}/work?view=kanban`}
+          href="/work?view=kanban"
           className={`mobile-nav-item ${isWorkActive ? "active" : ""}`}
         >
           <Briefcase size={18} />
@@ -315,7 +314,7 @@ export function MobileBottomNav({
         </Link>
 
         <Link
-          href={`${rolePrefix}/timer`}
+          href="/timer"
           className={`mobile-nav-item ${isTimerActive ? "active" : ""}`}
         >
           <Clock size={18} />
@@ -340,7 +339,7 @@ export function MobileBottomNav({
         </div>
 
         <Link
-          href={`${rolePrefix}/attendance`}
+          href="/attendance"
           className={`mobile-nav-item ${isAttendanceActive ? "active" : ""}`}
         >
           <CalendarCheck size={18} />

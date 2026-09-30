@@ -141,7 +141,7 @@ async function fetchAllWorkAssignments(): Promise<WorkAssignment[]> {
   return allItems;
 }
 
-export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
+export function TeamWorkPage({ role }: { role?: string } = {}) {
   const user = useShellUser();
   const [assignments, setAssignments] = useState<WorkAssignment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -274,7 +274,7 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
         employeeId: idStr,
         name: m.display_name,
         department: m.department || "General",
-        designation: "Team Member",
+        designation: (m as any).designation || (m as any).role || "Member",
         avatar: (m as any).avatar || "",
         tasks: [],
         activeCount: 0,
@@ -302,7 +302,7 @@ export function TeamWorkPage({ role = "TEAM_LEAD" }: { role?: string }) {
           employeeId: empIdStr,
           name: a.employee_name || `Employee #${empIdStr}`,
           department: a.employee_department || "General",
-          designation: "Team Member",
+          designation: (a as any).employee_designation || (a as any).designation || "Member",
           avatar: (a as any).employee_avatar || "",
           tasks: [],
           activeCount: 0,

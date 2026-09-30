@@ -20,6 +20,8 @@ function normalizeAliases(result: UserPermissionsMap): UserPermissionsMap {
   return result;
 }
 
+import { getRoleDataScope } from './scopeResolver.js';
+
 export async function resolveUserPermissions(user: any): Promise<UserPermissionsMap> {
   const result: UserPermissionsMap = {};
 
@@ -34,7 +36,14 @@ export async function resolveUserPermissions(user: any): Promise<UserPermissions
   // 1. Handle Super Admin Wildcard
   if (isSuperadmin) {
     for (const page of pages) {
-      result[page.moduleCode] = FULL_ACCESS;
+      result[page.moduleCode] = {
+        canView: true,
+        canCreate: true,
+        canEdit: true,
+        canDelete: true,
+        dataScope: 'ALL',
+        features: (page.features || []).map((f) => f.key),
+      };
     }
     return normalizeAliases(result);
   }
@@ -52,7 +61,14 @@ export async function resolveUserPermissions(user: any): Promise<UserPermissions
   if (dynamicRoleDoc) {
     if (dynamicRoleDoc.isSuperadminWildcard) {
       for (const page of pages) {
-        result[page.moduleCode] = FULL_ACCESS;
+        result[page.moduleCode] = {
+          canView: true,
+          canCreate: true,
+          canEdit: true,
+          canDelete: true,
+          dataScope: 'ALL',
+          features: (page.features || []).map((f) => f.key),
+        };
       }
       return normalizeAliases(result);
     }
@@ -74,9 +90,16 @@ export async function resolveUserPermissions(user: any): Promise<UserPermissions
           canCreate: Boolean(permEntry.canCreate),
           canEdit: Boolean(permEntry.canEdit),
           canDelete: Boolean(permEntry.canDelete),
+          dataScope: permEntry.dataScope || (await getRoleDataScope(user, page.moduleCode)),
+          features: permEntry.features || [],
         };
       } else if (systemRolePerms[page.moduleCode]) {
-        result[page.moduleCode] = systemRolePerms[page.moduleCode];
+        const defaultScope = await getRoleDataScope(user, page.moduleCode);
+        result[page.moduleCode] = {
+          ...systemRolePerms[page.moduleCode],
+          dataScope: defaultScope,
+          features: (page.features || []).map((f) => f.key),
+        };
       } else {
         result[page.moduleCode] = NO_ACCESS;
       }
@@ -91,7 +114,12 @@ export async function resolveUserPermissions(user: any): Promise<UserPermissions
   for (const page of pages) {
     const perm = rolePerms[page.moduleCode];
     if (perm) {
-      result[page.moduleCode] = perm;
+      const defaultScope = await getRoleDataScope(user, page.moduleCode);
+      result[page.moduleCode] = {
+        ...perm,
+        dataScope: defaultScope,
+        features: (page.features || []).map((f) => f.key),
+      };
     } else {
       result[page.moduleCode] = NO_ACCESS;
     }

@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { LeaveRequest } from '../models/LeaveRequest.js';
 import { Employee } from '../models/Employee.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
+import { getRoleDataScope } from '../services/scopeResolver.js';
 
 export async function getLeaves(req: Request, res: Response): Promise<void> {
   const { employee_id, status } = req.query;
@@ -10,9 +11,10 @@ export async function getLeaves(req: Request, res: Response): Promise<void> {
   const filter: any = {};
   if (status) filter.status = status;
 
+  const leaveScope = await getRoleDataScope(req.user, 'LEAVES');
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagement = ['ADMIN', 'HR', 'OPERATIONS', 'OPERATIONS_HEAD'].includes(req.user?.role || '');
-  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+  const isManagement = isSuper || leaveScope === 'ALL';
+  const isTeamLead = leaveScope === 'TEAM' || leaveScope === 'DEPARTMENT';
 
   if (!isSuper && !isManagement) {
     const ownEmployee = await getEmployeeForUser(req.user);
@@ -75,9 +77,11 @@ export async function createLeave(req: Request, res: Response): Promise<void> {
   const { employee_id, leave_type, start_date, end_date, reason } = req.body;
 
   let empId = employee_id;
-  const isSuperOrHR = ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(req.user?.role || '') || req.user?.isSuperuser;
+  const leaveScope = await getRoleDataScope(req.user, 'LEAVES');
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const canApplyForOthers = isSuper || leaveScope === 'ALL' || leaveScope === 'DEPARTMENT';
 
-  if (!isSuperOrHR || !empId) {
+  if (!canApplyForOthers || !empId) {
     const emp = await getEmployeeForUser(req.user);
     if (emp) empId = emp._id;
   }
@@ -157,20 +161,23 @@ export async function updateLeave(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  const leaveScope = await getRoleDataScope(req.user, 'LEAVES');
+  const userFeatures = (req.user as any)?.roleRef?.features || [];
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isHRorAdmin = ['ADMIN', 'HR', 'OPERATIONS', 'OPERATIONS_HEAD'].includes(req.user?.role || '');
-  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+  const isManagement = isSuper || leaveScope === 'ALL';
+  const isTeamLead = leaveScope === 'TEAM' || leaveScope === 'DEPARTMENT';
+  const canReview = isManagement || userFeatures.includes('review_leave') || userFeatures.includes('*');
 
-  if (!isSuper && !isHRorAdmin) {
-    if (isTeamLead) {
+  if (!isManagement) {
+    if (isTeamLead || canReview) {
       const ownEmp = await getEmployeeForUser(req.user);
       const targetEmp = leave.employee as any;
       if (!ownEmp || !targetEmp || targetEmp.department !== ownEmp.department) {
-        res.status(403).json({ detail: 'Permission denied. Team leads can only decide leaves for their department.' });
+        res.status(403).json({ detail: 'Permission denied. You can only decide leaves for your department or team.' });
         return;
       }
     } else {
-      res.status(403).json({ detail: 'Permission denied. Only HR, Administrators, or Team Leads can decide leave requests.' });
+      res.status(403).json({ detail: 'Permission denied. You do not have permission to decide leave requests.' });
       return;
     }
   }
@@ -207,7 +214,9 @@ export async function deleteLeave(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const isSuperOrAdmin = ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(req.user?.role || '') || req.user?.isSuperuser;
+  const leaveScope = await getRoleDataScope(req.user, 'LEAVES');
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  const isSuperOrAdmin = isSuper || leaveScope === 'ALL';
   if (!isSuperOrAdmin) {
     const ownEmp = await getEmployeeForUser(req.user);
     if (!ownEmp || String(leave.employee) !== String(ownEmp._id) || leave.status !== 'Pending') {

@@ -11,6 +11,7 @@ import { Project } from '../models/Project.js';
 import { ClientWorkShareLink } from '../models/ClientWorkShareLink.js';
 import { syncQuantityState, syncFromDeliverables, syncParentTaskProgression, calculateClientKPIHealth } from '../services/workSyncEngine.js';
 import { createShareLink, generateShareToken, getValidShareLink } from '../services/shareLinkService.js';
+import { getRoleDataScope } from '../services/scopeResolver.js';
 
 // --- Client Endpoints ---
 export function formatClient(c: any) {
@@ -351,8 +352,8 @@ export async function resolveEmployeeDoc(raw: any): Promise<mongoose.Types.Objec
         name: fullName,
         email: userDoc.email,
         phone: '',
-        department: userDoc.role === 'HR' ? 'HR' : userDoc.role === 'ACCOUNTANT' ? 'Accounts' : userDoc.role === 'BDE' ? 'Sales' : 'Operations',
-        designation: userDoc.role,
+        department: (userDoc as any).department || 'Operations',
+        designation: userDoc.role ? userDoc.role.replace(/_/g, ' ') : 'Employee',
         joiningDate: new Date(),
         status: 'Active',
         employmentStatus: 'Permanent',
@@ -533,9 +534,10 @@ export async function getWorkAssignments(req: Request, res: Response): Promise<v
   const { client_id, status, priority, assigned_to_me, review_queue } = req.query;
 
   const filter: any = {};
+  const taskScope = await getRoleDataScope(req.user, 'TASKS');
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
-  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+  const isManagement = isSuper || taskScope === 'ALL';
+  const isTeamLead = taskScope === 'TEAM' || taskScope === 'DEPARTMENT';
 
   if (review_queue === 'true') {
     // Dedicated Review Center queue
@@ -942,9 +944,10 @@ export async function getWorkAssignmentsSummary(req: Request, res: Response): Pr
   const { employee, client, priority, is_master_client_task, department, department_category, work_type, due_date, assigned_date } = req.query;
 
   const filter: any = {};
+  const taskScope = await getRoleDataScope(req.user, 'TASKS');
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
-  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+  const isManagement = isSuper || taskScope === 'ALL';
+  const isTeamLead = taskScope === 'TEAM' || taskScope === 'DEPARTMENT';
 
   if (!isSuper && !isManagement) {
     const ownEmployee = req.user ? await getEmployeeForUser(req.user) : null;
@@ -1115,10 +1118,19 @@ export async function getWorkAssignmentById(req: Request, res: Response): Promis
 
 export async function createWorkAssignment(req: Request, res: Response): Promise<void> {
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagementOrLead = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD'].includes(req.user?.role || '');
+  const taskScope = await getRoleDataScope(req.user, 'TASKS');
+  const userFeatures = (req.user as any)?.roleRef?.features || [];
+  const canCreate = Boolean(
+    isSuper ||
+    taskScope === 'ALL' ||
+    userFeatures.includes('create_task') ||
+    userFeatures.includes('*') ||
+    (req.user as any)?.permissions?.WORK_BOARD?.can_create ||
+    (req.user as any)?.permissions?.TASKS?.can_create
+  );
 
-  if (!isSuper && !isManagementOrLead) {
-    res.status(403).json({ detail: 'Permission denied. Only HR, Team Leads, and Management can create work assignments.' });
+  if (!canCreate) {
+    res.status(403).json({ detail: 'Permission denied. You do not have permission to create work assignments.' });
     return;
   }
 
@@ -1156,7 +1168,7 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
   const rawEmp = employee ?? employee_id ?? employeeId ?? assigned_to ?? assignedTo;
   const resolvedEmpId = await resolveEmployeeDoc(rawEmp);
 
-  if (!isSuper && req.user?.role === 'TEAM_LEAD' && resolvedEmpId && req.user) {
+  if (!isSuper && (taskScope === 'TEAM' || taskScope === 'DEPARTMENT' || req.user?.role === 'TEAM_LEAD') && resolvedEmpId && req.user) {
     const ownEmp = await getEmployeeForUser(req.user);
     if (ownEmp && ownEmp.department) {
       const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
@@ -1302,10 +1314,20 @@ export async function createWorkAssignment(req: Request, res: Response): Promise
 
 export async function bulkCreateWorkAssignments(req: Request, res: Response): Promise<void> {
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagementOrLead = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD'].includes(req.user?.role || '');
+  const taskScope = await getRoleDataScope(req.user, 'TASKS');
+  const userFeatures = (req.user as any)?.roleRef?.features || [];
+  const canCreate = Boolean(
+    isSuper ||
+    taskScope === 'ALL' ||
+    userFeatures.includes('create_task') ||
+    userFeatures.includes('bulk_create') ||
+    userFeatures.includes('*') ||
+    (req.user as any)?.permissions?.WORK_BOARD?.can_create ||
+    (req.user as any)?.permissions?.TASKS?.can_create
+  );
 
-  if (!isSuper && !isManagementOrLead) {
-    res.status(403).json({ detail: 'Permission denied. Only HR, Team Leads, and Management can create work assignments.' });
+  if (!canCreate) {
+    res.status(403).json({ detail: 'Permission denied. You do not have permission to create work assignments.' });
     return;
   }
 
@@ -1402,8 +1424,9 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
   }
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
-  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+  const taskScope = await getRoleDataScope(req.user, 'TASKS');
+  const isManagement = isSuper || taskScope === 'ALL';
+  const isTeamLead = taskScope === 'TEAM' || taskScope === 'DEPARTMENT';
 
   if (!isSuper && !isManagement) {
     const ownEmp = await Employee.findOne({ user: req.user?._id });
@@ -1582,13 +1605,16 @@ export async function reviewWorkAssignment(req: Request, res: Response): Promise
   }
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD'].includes(req.user?.role || '');
+  const taskScope = await getRoleDataScope(req.user, 'TASKS');
+  const userFeatures = (req.user as any)?.roleRef?.features || [];
+  const isManagement = isSuper || taskScope === 'ALL';
+  const hasReviewPerm = userFeatures.includes('review_tasks') || userFeatures.includes('*') || (req.user as any)?.permissions?.WORK_BOARD?.can_edit;
   const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
 
   const isReviewer = (assignment.reviewer && ownEmp && String(assignment.reviewer) === String(ownEmp._id)) ||
     (assignment.reviewer && req.user && String(assignment.reviewer) === String(req.user._id));
 
-  if (!isSuper && !isManagement && !isReviewer) {
+  if (!isSuper && !isManagement && !hasReviewPerm && !isReviewer) {
     res.status(403).json({ detail: 'Permission denied. You are not authorized as reviewer for this task.' });
     return;
   }
@@ -1718,7 +1744,8 @@ export async function adjustTaskTime(req: Request, res: Response): Promise<void>
   }
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagementOrLead = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'TEAM_LEAD'].includes(req.user?.role || '');
+  const taskScope = await getRoleDataScope(req.user, 'TASKS');
+  const isManagementOrLead = isSuper || taskScope === 'ALL' || taskScope === 'TEAM' || taskScope === 'DEPARTMENT';
   const ownEmp = req.user ? await getEmployeeForUser(req.user) : null;
   const isAssignee = assignment.employee && ownEmp && String(assignment.employee) === String(ownEmp._id);
 
@@ -1776,8 +1803,9 @@ export async function adjustTaskTime(req: Request, res: Response): Promise<void>
 // --- Work Options & Share Links ---
 export async function getWorkEmployeeOptions(req: Request, res: Response): Promise<void> {
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isManagement = ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR'].includes(req.user?.role || '');
-  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+  const taskScope = await getRoleDataScope(req.user, 'TASKS');
+  const isManagement = isSuper || taskScope === 'ALL';
+  const isTeamLead = taskScope === 'TEAM' || taskScope === 'DEPARTMENT';
 
   const empFilter: any = { status: { $ne: 'Inactive' } };
 
@@ -1795,7 +1823,7 @@ export async function getWorkEmployeeOptions(req: Request, res: Response): Promi
   const employees = await Employee.find(empFilter, '_id name employeeCode department teamLead user').populate('teamLead user').sort({ name: 1 });
   const userFilter: any = { isActive: true };
   if (isTeamLead && !isSuper && !isManagement) {
-    userFilter.role = { $in: ['TEAM_LEAD', 'EMPLOYEE'] };
+    userFilter.isSuperuser = { $ne: true };
   }
   const users = await User.find(userFilter, '_id email firstName lastName username role').sort({ firstName: 1 });
 
@@ -1827,7 +1855,7 @@ export async function getWorkEmployeeOptions(req: Request, res: Response): Promi
 
     if (!leadUserId && e.department) {
       const deptRegex = new RegExp(`^${e.department.trim()}$`, 'i');
-      const deptLead = employees.find((emp) => emp.department && deptRegex.test(emp.department) && (emp as any).user && (emp as any).user.role === 'TEAM_LEAD');
+      const deptLead = employees.find((emp) => emp.department && deptRegex.test(emp.department) && (emp as any).user && (((emp as any).user.role || '').toUpperCase().includes('LEAD') || (emp as any).user.role === 'TEAM_LEAD'));
       if (deptLead) {
         leadId = deptLead._id.toString();
         leadName = deptLead.name;
@@ -1861,8 +1889,8 @@ export async function getWorkEmployeeOptions(req: Request, res: Response): Promi
           name: fullName,
           email: u.email,
           phone: '',
-          department: u.role === 'HR' ? 'HR' : u.role === 'ACCOUNTANT' ? 'Accounts' : u.role === 'BDE' ? 'Sales' : 'Operations',
-          designation: u.role,
+          department: (u as any).department || 'Operations',
+          designation: u.role ? u.role.replace(/_/g, ' ') : 'Employee',
           joiningDate: new Date(),
           status: 'Active',
           employmentStatus: 'Permanent',

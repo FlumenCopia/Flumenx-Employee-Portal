@@ -1,5 +1,5 @@
-import { ChatHubPage } from "@/features/chat/ChatHubPage";
+import { redirect } from "next/navigation";
 
-export default function AdminChatPage() {
-  return <ChatHubPage role="admin" />;
+export default function Page() {
+  redirect("/chat");
 }

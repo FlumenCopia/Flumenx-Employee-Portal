@@ -3,6 +3,7 @@ import { Employee } from '../models/Employee.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { EmployeeKPIRating } from '../models/EmployeeKPIRating.js';
 import { KPIService, getKPIGrade } from '../services/kpiEngine.js';
+import { getRoleDataScope } from '../services/scopeResolver.js';
 
 function formatEmployeeKPI(emp: any, kpiData: any) {
   const isEvaluated = kpiData.grade !== 'Not Evaluated' && ((kpiData.metrics.totalWorkAssignments || 0) > 0 || kpiData.totalKpiScore > 0);
@@ -74,24 +75,30 @@ export async function getKPIDashboard(req: Request, res: Response): Promise<void
   const targetYear = year ? parseInt(year as string, 10) : now.getFullYear();
 
   const filter: any = { status: 'Active' };
-  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
-  const isHRorAdmin = ['ADMIN', 'HR', 'OPERATIONS', 'OPERATIONS_HEAD'].includes(req.user?.role || '');
-  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+  const kpiScope = await getRoleDataScope(req.user, 'KPI');
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
 
-  if (!isSuper && !isHRorAdmin) {
+  if (!isSuper && kpiScope !== 'ALL') {
     const ownEmp = await getEmployeeForUser(req.user);
     if (!ownEmp) {
       res.json({ selected_month: targetMonth, selected_year: targetYear, total_employees: 0, evaluated_employees: 0, average_kpi: 0, average_kpi_out_of_10: 0, top_performer: null, critical_performers_count: 0, critical_performers: [], department_averages: [], leaderboard: [] });
       return;
     }
 
-    if (isTeamLead) {
+    if (kpiScope === 'DEPARTMENT' && ownEmp.department) {
       filter.department = ownEmp.department;
+    } else if (kpiScope === 'TEAM') {
+      const deptRegex = ownEmp.department ? new RegExp(`^${ownEmp.department.trim()}$`, 'i') : null;
+      filter.$or = [
+        { teamLead: ownEmp._id },
+        { _id: ownEmp._id },
+        ...(deptRegex ? [{ department: deptRegex }] : []),
+      ];
     } else {
       // Standard employee strictly gets only their own KPI
       filter._id = ownEmp._id;
     }
-  } else if (department) {
+  } else if (department && department !== 'All' && department !== 'all') {
     filter.department = department;
   }
   if (search) {

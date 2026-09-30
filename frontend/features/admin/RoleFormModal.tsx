@@ -2,10 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Modal } from "@/features/common/Modal";
-import { PrimaryButton } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { triggerNavigationRefresh } from "@/lib/navigation";
-import type { DynamicRole, PortalPage, RolePermissionItem, RolePermissionMatrixResponse } from "@/lib/types";
+import type { DynamicRole, PortalPage, RolePermissionItem, RolePermissionMatrixResponse, DataScope } from "@/lib/types";
 import {
   Kanban,
   TrendingUp,
@@ -132,6 +131,9 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
               can_create: false,
               can_edit: false,
               can_delete: false,
+              data_scope: "OWN",
+              available_features: (p as any).features || [],
+              features: [],
             }));
           setMatrixItems(items);
         })
@@ -139,6 +141,29 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
         .finally(() => setMatrixLoading(false));
     }
   }, [open, isEdit, role]);
+
+  function updateDataScope(pageId: number, scope: DataScope) {
+    setMatrixItems((current) =>
+      current.map((item) => {
+        if (item.page_id !== pageId) return item;
+        return { ...item, data_scope: scope, dataScope: scope };
+      })
+    );
+  }
+
+  function toggleFeature(pageId: number, featureKey: string) {
+    setMatrixItems((current) =>
+      current.map((item) => {
+        if (item.page_id !== pageId) return item;
+        const currentFeats = item.features || [];
+        const has = currentFeats.includes(featureKey);
+        const nextFeats = has
+          ? currentFeats.filter((f) => f !== featureKey)
+          : [...currentFeats, featureKey];
+        return { ...item, features: nextFeats };
+      })
+    );
+  }
 
   if (!open) return null;
 
@@ -228,6 +253,8 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
               can_create: item.can_create,
               can_edit: item.can_edit,
               can_delete: item.can_delete,
+              data_scope: item.data_scope || item.dataScope || "OWN",
+              features: item.features || [],
             })),
           }),
         });
@@ -561,6 +588,25 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
                           </th>
                         );
                       })}
+                      <th
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          background: "#f9fafb",
+                          zIndex: 10,
+                          padding: "12px 10px",
+                          textAlign: "center",
+                          color: "#374151",
+                          fontWeight: 700,
+                          fontSize: "11px",
+                          userSelect: "none",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                          minWidth: "140px",
+                        }}
+                      >
+                        <div style={{ textTransform: "uppercase" }}>DATA SCOPE</div>
+                        <div style={{ fontSize: "9px", fontWeight: 500, color: "#9ca3af", marginTop: "2px" }}>Visibility level</div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -575,7 +621,7 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
                         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                       >
                         <td style={{ padding: "14px 16px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
                             <div
                               style={{
                                 width: "28px",
@@ -586,6 +632,7 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
                                 alignItems: "center",
                                 justifyContent: "center",
                                 flexShrink: 0,
+                                marginTop: "2px",
                               }}
                             >
                               {getPageIcon(item.page_title, item.route_path)}
@@ -617,6 +664,40 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
                               >
                                 {item.route_path}
                               </div>
+
+                              {/* Granular In-Page Buttons / Features */}
+                              {item.available_features && item.available_features.length > 0 && (
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginTop: "8px" }}>
+                                  {item.available_features.map((feat) => {
+                                    const isFeatureActive = (item.features || []).includes(feat.key);
+                                    return (
+                                      <button
+                                        key={feat.key}
+                                        type="button"
+                                        onClick={() => toggleFeature(item.page_id, feat.key)}
+                                        style={{
+                                          fontSize: "10.5px",
+                                          fontWeight: 600,
+                                          padding: "2px 7px",
+                                          borderRadius: "5px",
+                                          border: isFeatureActive ? "1px solid #087a5b" : "1px solid #e5e7eb",
+                                          background: isFeatureActive ? "rgba(8, 122, 91, 0.08)" : "#f9fafb",
+                                          color: isFeatureActive ? "#087a5b" : "#6b7280",
+                                          cursor: "pointer",
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: "4px",
+                                          transition: "all 0.15s ease",
+                                        }}
+                                        title={feat.description || feat.label}
+                                      >
+                                        {isFeatureActive ? <Check size={11} /> : <span style={{ opacity: 0.4 }}>•</span>}
+                                        {feat.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -650,6 +731,34 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
                             </td>
                           );
                         })}
+                        <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                          <select
+                            value={item.data_scope || item.dataScope || "OWN"}
+                            onChange={(e) => updateDataScope(item.page_id, e.target.value as DataScope)}
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              padding: "5px 8px",
+                              borderRadius: "6px",
+                              border: "1px solid #d1d5db",
+                              background: "#ffffff",
+                              color:
+                                (item.data_scope || item.dataScope) === "ALL"
+                                  ? "#a8874e"
+                                  : (item.data_scope || item.dataScope) === "TEAM"
+                                  ? "#087a5b"
+                                  : (item.data_scope || item.dataScope) === "DEPARTMENT"
+                                  ? "#0284c7"
+                                  : "#374151",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <option value="OWN">Own (Self Only)</option>
+                            <option value="TEAM">Team (Subordinates)</option>
+                            <option value="DEPARTMENT">My Department</option>
+                            <option value="ALL">All (Entire Company)</option>
+                          </select>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -683,9 +792,9 @@ export function RoleFormModal({ role, open, onClose, onSuccess }: Props) {
           <button type="button" className="secondary-button" onClick={onClose} disabled={loading}>
             Cancel
           </button>
-          <PrimaryButton type="submit" disabled={loading}>
+          <button type="submit" className="primary-button" disabled={loading}>
             {loading ? "Saving..." : isEdit ? "Save Role & Matrix" : "Create Role"}
-          </PrimaryButton>
+          </button>
         </div>
       </form>
     </Modal>

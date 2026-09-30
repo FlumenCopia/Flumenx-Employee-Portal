@@ -1,5 +1,11 @@
+import { Shell } from "@/components/shell";
 import { ClientTasksPage } from "@/features/clients/ClientTasksPage";
 
 export default function Page() {
-  return <ClientTasksPage />;
+  return (
+    <Shell>
+      <ClientTasksPage />
+    </Shell>
+  );
 }
+

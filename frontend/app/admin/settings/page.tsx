@@ -1,5 +1,5 @@
-import { SettingsAccessPage } from "@/features/admin/SettingsAccessPage";
+import { redirect } from "next/navigation";
 
-export default function AdminSettingsRoute() {
-  return <SettingsAccessPage />;
+export default function Page() {
+  redirect("/settings");
 }

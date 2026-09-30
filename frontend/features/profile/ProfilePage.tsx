@@ -401,7 +401,7 @@ export function ProfilePage() {
   const e = user.employee;
   const name = e?.name || user.first_name || user.email || user.username;
   const code = e?.employee_code || "FLX-EMP";
-  const designation = e?.designation || user.portal_role || "Team Member";
+  const designation = e?.designation || (user as any)?.dynamic_role?.name || user.portal_role?.replace(/_/g, " ") || "Member";
   const department = e?.department || "General";
 
   const hasActiveFilters =

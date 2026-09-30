@@ -14,6 +14,7 @@ import { MobileBottomNav } from "./MobileBottomNav";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { getGlobalSocket } from "@/lib/socket";
 import { toast } from "@/components/ToastContext";
+import { hasPermission } from "@/lib/permissions";
 
 const dynamicNavCache: Record<string, readonly (readonly [string, string, any])[]> = {};
 
@@ -312,7 +313,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   const [mounted, setMounted] = useState(false);
   const cachedUser = getCachedAuthUser();
   const workspaceRole = role || getWorkspaceRole(cachedUser?.portal_role);
-  const cachedUserMatchesRole = Boolean(cachedUser && isRoleAllowedInWorkspace(cachedUser.portal_role, workspaceRole));
+  const cachedUserMatchesRole = Boolean(cachedUser && isRoleAllowedInWorkspace(cachedUser.portal_role, workspaceRole, cachedUser));
   const path = usePathname(); const router = useRouter(); const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(Boolean(cachedUserMatchesRole));
   const [user, setUser] = useState<AuthUser | null>(cachedUserMatchesRole ? cachedUser : null);
@@ -411,7 +412,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
       .then(current => {
         if (!active) return;
         const destination = getWorkspaceDestination(current.portal_role);
-        if (!isRoleAllowedInWorkspace(current.portal_role, workspaceRole)) {
+        if (!isRoleAllowedInWorkspace(current.portal_role, workspaceRole, current)) {
           router.replace(destination);
           return;
         }
@@ -493,7 +494,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
         api<AuthUser>("/auth/me/")
           .then(current => {
             if (!active) return;
-            if (!isRoleAllowedInWorkspace(current.portal_role, workspaceRole)) {
+            if (!isRoleAllowedInWorkspace(current.portal_role, workspaceRole, current)) {
               clearCachedAuthUser();
               window.location.replace("/login");
               return;
@@ -593,12 +594,26 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
     }
   };
 
+  const isSuperadmin = (user?.portal_role || user?.role || "").toUpperCase() === "SUPER_ADMIN" || Boolean((user as any)?.is_superuser || (user as any)?.isSuperuser || (user as any)?.isSuperadminWildcard);
+
   const baseNav: readonly (readonly [string, string, any])[] = dynamicNav !== null ? dynamicNav : getFilteredNavigation(workspaceRole);
-  const filteredNav = baseNav.filter(([label, href]) => {
-    if (workspaceRole !== "admin") {
-      if (href.startsWith("/admin/") || href === "/pages" || href === "/settings") {
-        return false;
-      }
+  const filteredNav = baseNav.filter(([label, rawHref]) => {
+    const href = typeof rawHref === "string" ? rawHref : "";
+    if (isSuperadmin) return true;
+    if (href === "/pages" && !hasPermission(user, "PAGE_MANAGEMENT", "can_view") && !(user as any)?.permissions?.PAGE_MANAGEMENT?.canView) {
+      return false;
+    }
+    if ((href.startsWith("/admin/roles") || href === "/roles") && !hasPermission(user, "ROLES", "can_view") && !(user as any)?.permissions?.ROLES?.canView) {
+      return false;
+    }
+    if ((href.startsWith("/admin/users") || href === "/users") && !hasPermission(user, "SUPER_ADMIN_USERS", "can_view") && !(user as any)?.permissions?.SUPER_ADMIN_USERS?.canView && !(user as any)?.permissions?.USERS?.canView) {
+      return false;
+    }
+    if ((href.startsWith("/admin/audit-logs") || href === "/audit-logs") && !hasPermission(user, "AUDIT_LOGS", "can_view") && !(user as any)?.permissions?.AUDIT_LOGS?.canView) {
+      return false;
+    }
+    if ((href === "/settings" || href.startsWith("/admin/settings")) && !hasPermission(user, "SETTINGS_ACCESS", "can_view") && !(user as any)?.permissions?.SETTINGS_ACCESS?.canView) {
+      return false;
     }
     return true;
   });
@@ -613,7 +628,8 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   if (!hasLeaves) {
     fixedItems.push(["Leave Requests", "/leaves", CalendarDays]);
   }
-  if (workspaceRole === "accountant") {
+  const hasAccountingPerm = Boolean(isSuperadmin || hasPermission(user, "ACCOUNTING", "can_view") || (user as any)?.permissions?.ACCOUNTING?.canView || (user as any)?.permissions?.["*"]?.canView);
+  if (hasAccountingPerm) {
     const hasAccounting = filteredNav.some(
       ([label, href]) =>
         label.toLowerCase().includes("accounting") ||
@@ -631,19 +647,18 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   }, [nav]);
 
   const name = user?.first_name || workspaceFallbackNames[workspaceRole];
-  const roleLabel = workspaceLabels[workspaceRole];
+  const dynamicRoleName =
+    (user as any)?.dynamic_role?.name ||
+    (user as any)?.dynamicRole?.name ||
+    (user?.portal_role ? user.portal_role.replace(/_/g, " ") : "") ||
+    workspaceLabels[workspaceRole];
+  const roleLabel = dynamicRoleName || workspaceLabels[workspaceRole] || "PORTAL";
   if (!mounted || (!ready && !user)) return <div className="route-loader"><span>F</span><p>Verifying workspace session</p></div>;
 
   const canCreateTask = (() => {
     if (!user) return false;
-    if ((user as any).is_superuser) return true;
-    const role = (user.portal_role || "").toUpperCase();
-    const creatorRoles = ["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEAD", "OPERATIONS_HEAD"];
-    const isCreatorRole = creatorRoles.includes(role) || role.endsWith("_TEAM_LEAD") || role.endsWith("TEAM_LEAD") || role.includes("LEAD");
-    const workPerms = (user as any)?.permissions?.WORK_BOARD || (user as any)?.permissions?.["*"];
-    const hasDynamicCreate = workPerms ? Boolean(workPerms.can_create) : false;
-
-    return isCreatorRole || hasDynamicCreate;
+    if (isSuperadmin) return true;
+    return hasPermission(user, "WORK", "create_task") || Boolean((user as any)?.permissions?.WORK_BOARD?.can_create || (user as any)?.permissions?.TASKS?.can_create);
   })();
 
   const handleNewTaskClick = () => {
@@ -651,7 +666,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
       if (path.includes("/work")) {
         window.dispatchEvent(new CustomEvent("flumenx:open_new_task_modal"));
       } else {
-        router.push(`/${workspaceRole}/work?createTask=true`);
+        router.push("/work?createTask=true");
       }
     }
   };
@@ -674,7 +689,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
             const hasActiveItem = group.items.some(
               ([, href]) =>
                 path === href ||
-                (href !== `/${workspaceRole}/dashboard` && path.startsWith(href))
+                (href !== "/dashboard" && path.startsWith(href))
             );
             const isCollapsed =
               Boolean(collapsedCategories[group.category.id]) && !hasActiveItem;
@@ -696,10 +711,11 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
                 </button>
                 {!isCollapsed && (
                   <div className="sidebar-category-items">
-                    {group.items.map(([label, href, Icon]) => {
+                    {group.items.map(([label, rawHref, Icon]) => {
+                      const href = normalizeWorkspaceRoute(rawHref, workspaceRole);
                       const isActive =
                         path === href ||
-                        (href !== `/${workspaceRole}/dashboard` && path.startsWith(href));
+                        (href !== "/dashboard" && path.startsWith(href));
                       return (
                         <Link
                           key={href}
@@ -727,7 +743,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
             className="mini-profile cursor-pointer transition-colors p-2 mb-2"
             onClick={() => {
               setOpen(false);
-              router.push(`/${workspaceRole}/profile`);
+              router.push("/profile");
             }}
             title="View Profile & Settings"
           >
@@ -748,7 +764,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
           <div className="top-actions">
             <NotificationBell user={user} />
             <Link
-              href={`/${workspaceRole}/profile`}
+              href="/profile"
               className="topbar-user-pill"
               title="View Profile & Settings"
             >

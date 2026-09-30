@@ -1,5 +1,5 @@
-import SharedAttendanceRoute from "@/app/attendance/page";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <SharedAttendanceRoute />;
+  redirect("/attendance");
 }

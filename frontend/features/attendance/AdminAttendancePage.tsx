@@ -12,6 +12,8 @@ import { defaultSummary, displayTime, statusTone, getTodayISTDateString } from "
 import { AttendanceSummary } from "./types";
 import { AttendanceDetailModal } from "./AttendanceDetailModal";
 import { ManualAttendanceModal } from "./ManualAttendanceModal";
+import { useShellUser } from "@/components/shell";
+import { hasPermission } from "@/lib/permissions";
 
 export interface AttendanceCorrectionItem {
   id: string;
@@ -48,6 +50,11 @@ export interface AttendanceCorrectionItem {
 }
 
 export function AdminAttendancePage() {
+  const user = useShellUser();
+  const canManualEntry = hasPermission(user, "ATTENDANCE", "manual_entry");
+  const canPolicySettings = hasPermission(user, "ATTENDANCE", "policy_settings");
+  const canReportsExport = hasPermission(user, "ATTENDANCE", "reports_export");
+
   const [filter, setFilter] = useState("All");
   const [date, setDate] = useState(() => getTodayISTDateString());
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -180,32 +187,38 @@ export function AdminAttendancePage() {
         subtitle="Today's workforce rhythm, attendance correction approvals, and live register across all departments."
         action={
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-            <button
-              type="button"
-              onClick={() => setIsManualModalOpen(true)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                background: "#10b981",
-                color: "#ffffff",
-                border: 0,
-                padding: "8px 14px",
-                borderRadius: "8px",
-                fontSize: "12px",
-                fontWeight: 700,
-                cursor: "pointer",
-                boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
-              }}
-            >
-              <PlusCircle size={15} /> + Manual Attendance Entry
-            </button>
-            <Link className="secondary-button" href="/admin/attendance/settings">
-              <MapPin size={16} /> GPS &amp; Policy Settings
-            </Link>
-            <Link className="secondary-button" href="/admin/attendance/reports">
-              <FileBarChart size={16} /> Reports &amp; Export
-            </Link>
+            {canManualEntry && (
+              <button
+                type="button"
+                onClick={() => setIsManualModalOpen(true)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  background: "#10b981",
+                  color: "#ffffff",
+                  border: 0,
+                  padding: "8px 14px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
+                }}
+              >
+                <PlusCircle size={15} /> + Manual Attendance Entry
+              </button>
+            )}
+            {canPolicySettings && (
+              <Link className="secondary-button" href="/attendance/settings">
+                <MapPin size={16} /> GPS &amp; Policy Settings
+              </Link>
+            )}
+            {canReportsExport && (
+              <Link className="secondary-button" href="/attendance/reports">
+                <FileBarChart size={16} /> Reports &amp; Export
+              </Link>
+            )}
           </div>
         }
       />

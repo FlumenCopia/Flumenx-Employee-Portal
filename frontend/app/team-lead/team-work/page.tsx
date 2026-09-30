@@ -1,5 +1,5 @@
-import { TeamWorkPage } from "@/features/work/TeamWorkPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <TeamWorkPage role="TEAM_LEAD" />;
+  redirect("/team-work");
 }

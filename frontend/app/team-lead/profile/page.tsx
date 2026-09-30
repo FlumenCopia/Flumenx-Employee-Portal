@@ -1,5 +1,5 @@
-import { ProfilePage } from "@/components/resource-pages";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <ProfilePage />;
+  redirect("/profile");
 }

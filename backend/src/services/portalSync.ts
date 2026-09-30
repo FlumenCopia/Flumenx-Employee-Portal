@@ -24,12 +24,12 @@ export async function syncDefaultPortalPages(): Promise<void> {
       { moduleCode: 'MEETINGS', title: 'Meetings', routePath: '/meetings', icon: 'UserRound', sidebarOrder: 15 },
       { moduleCode: 'REPORTS', title: 'Reports Center', routePath: '/reports', icon: 'FileSpreadsheet', sidebarOrder: 16 },
       { moduleCode: 'ACCOUNTING', title: 'Accounting & Finance', routePath: '/accounting', icon: 'Landmark', sidebarOrder: 17 },
-      { moduleCode: 'ROLES', title: 'Dynamic Roles', routePath: '/admin/roles', icon: 'ShieldAlert', sidebarOrder: 18 },
-      { moduleCode: 'SUPER_ADMIN_USERS', title: 'User Management', routePath: '/admin/users', icon: 'UserCheck', sidebarOrder: 19 },
+      { moduleCode: 'ROLES', title: 'Dynamic Roles', routePath: '/roles', icon: 'ShieldAlert', sidebarOrder: 18 },
+      { moduleCode: 'SUPER_ADMIN_USERS', title: 'User Management', routePath: '/users', icon: 'UserCheck', sidebarOrder: 19 },
       { moduleCode: 'PAGE_MANAGEMENT', title: 'Page Management', routePath: '/pages', icon: 'FileCode', sidebarOrder: 20 },
-      { moduleCode: 'SALARY_SLIPS', title: 'Salary & Payroll', routePath: '/admin/salary-slips', icon: 'Receipt', sidebarOrder: 21 },
-      { moduleCode: 'ANNOUNCEMENTS', title: 'Announcements', routePath: '/admin/announcements', icon: 'Megaphone', sidebarOrder: 22 },
-      { moduleCode: 'AUDIT_LOGS', title: 'Audit Logs', routePath: '/admin/audit-logs', icon: 'History', sidebarOrder: 23 },
+      { moduleCode: 'SALARY_SLIPS', title: 'Salary & Payroll', routePath: '/salary-slips', icon: 'Receipt', sidebarOrder: 21 },
+      { moduleCode: 'ANNOUNCEMENTS', title: 'Announcements', routePath: '/announcements', icon: 'Megaphone', sidebarOrder: 22 },
+      { moduleCode: 'AUDIT_LOGS', title: 'Audit Logs', routePath: '/audit-logs', icon: 'History', sidebarOrder: 23 },
       { moduleCode: 'SETTINGS_ACCESS', title: 'Settings & Access', routePath: '/settings', icon: 'Settings', sidebarOrder: 24 },
     ];
 

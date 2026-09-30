@@ -9,6 +9,8 @@ export interface ActionPerms {
   canCreate: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  dataScope?: string;
+  features?: string[];
 }
 
 const READ_ONLY: ActionPerms = { canView: true, canCreate: false, canEdit: false, canDelete: false };
@@ -267,7 +269,7 @@ export function requireRole(allowedRoles: string[]) {
   };
 }
 
-export function requirePermission(moduleCode: string, action: PermissionAction = 'canView') {
+export function requirePermission(moduleCode: string, action: PermissionAction | string = 'canView') {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.user) {
@@ -305,8 +307,18 @@ export function requirePermission(moduleCode: string, action: PermissionAction =
               return pageIdStr === targetPage._id.toString();
             });
 
-            if (permissionEntry && permissionEntry[action]) {
-              return next();
+            if (permissionEntry) {
+              // Check direct CRUD property
+              if ((permissionEntry as any)[action] === true) {
+                return next();
+              }
+              // Check granular feature key
+              if (permissionEntry.features && permissionEntry.features.includes(action)) {
+                return next();
+              }
+              if ((dynamicRole as any).features && (dynamicRole as any).features.includes(action)) {
+                return next();
+              }
             }
           }
         }
@@ -318,8 +330,29 @@ export function requirePermission(moduleCode: string, action: PermissionAction =
 
       if (rolePerms) {
         const modulePerm = rolePerms[normalizedCode];
-        if (modulePerm && modulePerm[action]) {
-          return next();
+        if (modulePerm) {
+          if ((modulePerm as any)[action] === true) {
+            return next();
+          }
+          // Fallback feature approximations for legacy system roles
+          if (action === 'manual_entry' && modulePerm.canCreate) return next();
+          if (action === 'policy_settings' && modulePerm.canEdit) return next();
+          if (action === 'reports_export' && modulePerm.canView) return next();
+          if (action === 'view_register' && (userRole === 'HR' || userRole === 'ACCOUNTANT' || userRole === 'ADMIN')) return next();
+          if (action === 'live_map' && (modulePerm.canView || modulePerm.canCreate)) return next();
+          if (action === 'apply_leave' && modulePerm.canCreate) return next();
+          if (action === 'review_leave' && (modulePerm.canEdit || userRole === 'HR' || userRole === 'ADMIN' || userRole === 'TEAM_LEAD')) return next();
+          if (action === 'create_task' && (modulePerm.canCreate || userRole === 'ADMIN' || userRole === 'HR' || userRole === 'TEAM_LEAD')) return next();
+          if (action === 'can_edit' && (modulePerm.canEdit || userRole === 'ADMIN' || userRole === 'HR' || userRole === 'TEAM_LEAD')) return next();
+          if (action === 'review_tasks' && (modulePerm.canEdit || userRole === 'ADMIN' || userRole === 'HR' || userRole === 'TEAM_LEAD')) return next();
+          if (action === 'delete_task' && (modulePerm.canDelete || userRole === 'ADMIN')) return next();
+          if (action === 'create_invoice' && (modulePerm.canCreate || userRole === 'ACCOUNTANT' || userRole === 'ADMIN')) return next();
+          if (action === 'record_expense' && (modulePerm.canCreate || userRole === 'ACCOUNTANT' || userRole === 'ADMIN')) return next();
+          if (action === 'export_reports' && modulePerm.canView) return next();
+          if (action === 'view_payroll_reports' && (userRole === 'HR' || userRole === 'ACCOUNTANT' || userRole === 'ADMIN')) return next();
+          if (action === 'add_employee' && (modulePerm.canCreate || userRole === 'HR' || userRole === 'ADMIN')) return next();
+          if (action === 'edit_employee' && (modulePerm.canEdit || userRole === 'HR' || userRole === 'ADMIN')) return next();
+          if (action === 'manage_documents' && (modulePerm.canEdit || userRole === 'HR' || userRole === 'ADMIN')) return next();
         }
       }
 

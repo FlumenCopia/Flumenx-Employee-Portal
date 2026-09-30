@@ -1,4 +1,5 @@
-import { AnnouncementsPage } from "@/features/announcements/AnnouncementsPage";
+import { redirect } from "next/navigation";
+
 export default function Page() {
-  return <AnnouncementsPage />;
+  redirect("/announcements");
 }

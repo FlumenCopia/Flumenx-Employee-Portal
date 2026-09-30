@@ -817,7 +817,9 @@ export async function deleteMessage(req: Request, res: Response): Promise<void> 
 
     // Security Check: Only the sender or an admin can delete the message
     const isSender = String(message.sender?._id || message.sender) === String(currentUserId);
+    const isSuper = req.user?.role === 'SUPER_ADMIN' || Boolean(req.user?.isSuperuser) || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
     const isAdmin =
+      isSuper ||
       (req.user as any)?.portalRole === 'ADMIN' ||
       req.user?.role === 'ADMIN' ||
       (conversation.participants || []).some(

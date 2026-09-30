@@ -295,6 +295,8 @@ export async function updateDynamicRole(req: Request, res: Response): Promise<vo
       canCreate: p.can_create ?? p.canCreate ?? false,
       canEdit: p.can_edit ?? p.canEdit ?? false,
       canDelete: p.can_delete ?? p.canDelete ?? false,
+      dataScope: p.data_scope || p.dataScope || 'OWN',
+      features: Array.isArray(p.features) ? p.features : [],
     }));
   }
 
@@ -353,10 +355,13 @@ export async function getRolePermissionMatrix(req: Request, res: Response): Prom
       page_title: page.title,
       route_path: page.routePath,
       module_code: page.moduleCode,
+      available_features: page.features || [],
       can_view: role.isSuperadminWildcard ? true : perm ? perm.canView : false,
       can_create: role.isSuperadminWildcard ? true : perm ? perm.canCreate : false,
       can_edit: role.isSuperadminWildcard ? true : perm ? perm.canEdit : false,
       can_delete: role.isSuperadminWildcard ? true : perm ? perm.canDelete : false,
+      data_scope: role.isSuperadminWildcard ? 'ALL' : perm?.dataScope || 'OWN',
+      features: role.isSuperadminWildcard ? (page.features || []).map((f) => f.key) : perm?.features || [],
     };
   });
 
@@ -395,6 +400,8 @@ export async function updateRolePermissionMatrix(req: Request, res: Response): P
       canCreate: p.can_create ?? p.canCreate ?? false,
       canEdit: p.can_edit ?? p.canEdit ?? false,
       canDelete: p.can_delete ?? p.canDelete ?? false,
+      dataScope: p.data_scope || p.dataScope || 'OWN',
+      features: Array.isArray(p.features) ? p.features : [],
     }));
   }
 

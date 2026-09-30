@@ -1,5 +1,5 @@
-import { WorkManagementPage } from "@/features/work/WorkManagementPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <WorkManagementPage role="admin" />;
+  redirect("/work");
 }

@@ -1,5 +1,5 @@
-import { ChatHubPage } from "@/features/chat/ChatHubPage";
+import { redirect } from "next/navigation";
 
-export default function TeamLeadChatPage() {
-  return <ChatHubPage role="team-lead" />;
+export default function Page() {
+  redirect("/chat");
 }

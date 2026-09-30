@@ -6,6 +6,7 @@ import { AdminTrackingPage, EmployeeTrackingPage } from "@/components/tracking-p
 import { getCachedAuthUser } from "@/lib/auth-cache";
 import { MapPin, Users } from "lucide-react";
 import { TOKENS } from "@/components/design-system/tokens";
+import { hasPermission } from "@/lib/permissions";
 
 export default function SharedTrackingRoute() {
   const [activeTab, setActiveTab] = useState<"company" | "personal">("company");
@@ -16,17 +17,13 @@ export default function SharedTrackingRoute() {
     const user = getCachedAuthUser();
     if (user) {
       const role = (user.portal_role || "").toUpperCase();
-      const adminRole =
-        role === "ADMIN" ||
-        role === "SUPER_ADMIN" ||
-        role === "OPERATIONS" ||
-        role === "OPERATIONS_HEAD";
-      const managerRole = role === "HR" || role === "TEAM_LEAD";
+      const isSuper = role === "SUPER_ADMIN" || Boolean(user.is_superuser);
+      const canSeeLiveMap = isSuper || hasPermission(user, "TRACKING", "live_map") || hasPermission(user, "EMPLOYEE_TRACKING", "live_map");
 
-      setIsAdmin(adminRole);
-      setCanViewCompanyLiveMap(adminRole || managerRole);
+      setIsAdmin(isSuper);
+      setCanViewCompanyLiveMap(canSeeLiveMap);
 
-      if (adminRole || managerRole) {
+      if (canSeeLiveMap) {
         setActiveTab("company");
       } else {
         setActiveTab("personal");

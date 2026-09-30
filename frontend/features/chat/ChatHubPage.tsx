@@ -302,6 +302,15 @@ export function ChatHubPage({ role }: Props) {
       .catch(() => {});
   }, []);
 
+  const isSuperOrAdmin = Boolean(
+    currentUser?.is_superuser ||
+    (currentUser as any)?.isSuperuser ||
+    (currentUser as any)?.isSuperadminWildcard ||
+    (currentUser?.portal_role || "").toUpperCase() === "SUPER_ADMIN" ||
+    (currentUser?.portal_role || "").toUpperCase() === "ADMIN" ||
+    role === "admin"
+  );
+
   useEffect(() => {
     loadConversations();
     loadOptionsData();
@@ -841,7 +850,7 @@ export function ChatHubPage({ role }: Props) {
   }, [messages]);
 
   return (
-    <Shell role={role}>
+    <Shell>
       <div style={{ padding: "0 2px 8px 2px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <MessageSquare size={19} color="var(--color-primary, #087A5B)" />
@@ -1735,7 +1744,7 @@ export function ChatHubPage({ role }: Props) {
                             </button>
 
                             {/* Delete Button (Self or Admin) */}
-                            {(isSelf || activeConversation?.is_admin || role === "admin") && (
+                            {(isSelf || activeConversation?.is_admin || isSuperOrAdmin) && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteMessage(msg.id)}
@@ -2420,7 +2429,7 @@ export function ChatHubPage({ role }: Props) {
                     <div>
                       <b style={{ fontSize: "13px", color: "var(--color-text, #18231F)", display: "block" }}>{t.title}</b>
                       <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
-                        Assignee: {t.employee_name || "Team Member"} • Client: {t.client_name || "General"}
+                        Assignee: {t.employee_name || "Unassigned"} • Client: {t.client_name || "General"}
                       </span>
                     </div>
                     <Badge tone={t.priority === "Urgent" ? "danger" : "info"}>{t.priority}</Badge>
@@ -2633,7 +2642,7 @@ export function ChatHubPage({ role }: Props) {
                               </span>
                             </div>
                             <span style={{ fontSize: "11px", color: "var(--color-text-muted, #718096)" }}>
-                              {p.department || p.role || "Team Member"}
+                              {p.department || (p.role ? p.role.replace(/_/g, " ") : "Member")}
                             </span>
                           </div>
                         </div>

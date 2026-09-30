@@ -1,4 +1,5 @@
-import { EmployeeAttendancePage } from "@/components/attendance-pages";
+import { redirect } from "next/navigation";
+
 export default function Page() {
-  return <EmployeeAttendancePage />;
+  redirect("/attendance");
 }

@@ -1,10 +1,5 @@
-import { Shell } from "@/components/shell";
-import { AttendancePolicySettings } from "@/features/attendance/AttendancePolicySettings";
+import { redirect } from "next/navigation";
 
-export default function AttendanceSettingsPage() {
-  return (
-    <Shell>
-      <AttendancePolicySettings />
-    </Shell>
-  );
+export default function Page() {
+  redirect("/attendance/settings");
 }

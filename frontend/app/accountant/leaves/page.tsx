@@ -1,5 +1,5 @@
-import { LeavesPage } from "@/components/resource-pages";
+import { redirect } from "next/navigation";
 
-export default function AccountantLeavesPage() {
-  return <LeavesPage />;
+export default function Page() {
+  redirect("/leaves");
 }

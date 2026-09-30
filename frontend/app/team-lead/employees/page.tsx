@@ -1,4 +1,5 @@
-import { EmployeesPage } from "@/features/employees/EmployeesPage";
+import { redirect } from "next/navigation";
+
 export default function Page() {
-  return <EmployeesPage />;
+  redirect("/employees");
 }

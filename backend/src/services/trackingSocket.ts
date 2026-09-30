@@ -4,6 +4,7 @@ import { config } from '../config/env.js';
 import { User } from '../models/User.js';
 import { Employee } from '../models/Employee.js';
 import { TrackingService, LocationInput } from './trackingService.js';
+import { getRoleDataScope } from './scopeResolver.js';
 
 interface AuthenticatedTrackingSocket extends Socket {
   user?: any;
@@ -19,22 +20,18 @@ export function setupTrackingSockets(io: SocketIOServer) {
           return socket.emit('tracking:error', { message: 'Authentication required for live tracking.' });
         }
 
-        const role = (socket.user.role || '').toUpperCase();
-        const isManager =
-          role === 'SUPER_ADMIN' ||
-          role === 'ADMIN' ||
-          role === 'HR' ||
-          role === 'OPERATIONS' ||
-          role === 'OPERATIONS_HEAD' ||
-          role === 'TEAM_LEAD' ||
-          socket.user.isSuperuser;
+        const trackingScope = await getRoleDataScope(socket.user, 'TRACKING');
+        const isSuper = socket.user.role === 'SUPER_ADMIN' || socket.user.isSuperuser;
+        const canViewLive = isSuper || trackingScope !== 'OWN';
 
-        if (isManager) {
+        if (canViewLive) {
           socket.join('tracking:managers');
           // Send initial snapshot of live employees
-          const employees = await TrackingService.getLiveEmployees(
-            role === 'TEAM_LEAD' && socket.employee ? { teamLeadId: socket.employee._id } : {}
-          );
+          const filter: any = {};
+          if ((trackingScope === 'TEAM' || trackingScope === 'DEPARTMENT') && socket.employee) {
+            filter.teamLeadId = socket.employee._id;
+          }
+          const employees = await TrackingService.getLiveEmployees(filter);
           socket.emit('tracking:initial-state', { employees });
         }
       } catch (err: any) {

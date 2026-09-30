@@ -1,5 +1,5 @@
-import { AccountingMainPage } from "@/features/accounting/AccountingMainPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <AccountingMainPage role="accountant" withoutShell />;
+  redirect("/dashboard");
 }

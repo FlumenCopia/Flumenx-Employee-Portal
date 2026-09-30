@@ -16,6 +16,8 @@ import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
 import type { ExecutiveFinancialSummary, JournalEntry } from "@/lib/types";
 import { formatCurrency, formatDate, STATUS_COLORS } from "./accountingUtils";
+import { useShellUser } from "@/components/shell";
+import { hasPermission } from "@/lib/permissions";
 
 interface Props {
   onNavigateTab: (tabId: string) => void;
@@ -34,6 +36,12 @@ export function AccountingDashboardView({
   onOpenNewPayment,
   onOpenNewJournal,
 }: Props) {
+  const user = useShellUser();
+  const userRole = (((user as any)?.portal_role || (user as any)?.role || "") as string).toUpperCase();
+  const isSuperUser = userRole === "SUPER_ADMIN" || Boolean((user as any)?.is_superuser || (user as any)?.isSuperuser);
+  const canCreateInvoice = isSuperUser || hasPermission(user, "ACCOUNTING", "create_invoice") || Boolean((user as any)?.permissions?.ACCOUNTING?.canCreate);
+  const canRecordExpense = isSuperUser || hasPermission(user, "ACCOUNTING", "record_expense") || Boolean((user as any)?.permissions?.ACCOUNTING?.canCreate);
+
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<ExecutiveFinancialSummary | null>(null);
   const [recentJournals, setRecentJournals] = useState<JournalEntry[]>([]);
@@ -118,30 +126,36 @@ export function AccountingDashboardView({
           >
             <FileSpreadsheet size={14} /> Journal Voucher
           </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={onOpenNewReceipt}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}
-          >
-            <ArrowDownRight size={14} color="#059669" /> Customer Receipt
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={onOpenNewPayment}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}
-          >
-            <ArrowUpRight size={14} color="#dc2626" /> Vendor Payment
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={onOpenNewInvoice}
-            style={{ display: "flex", alignItems: "center", gap: "6px" }}
-          >
-            <Plus size={14} /> New Invoice
-          </button>
+          {canRecordExpense && (
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={onOpenNewReceipt}
+                style={{ display: "flex", alignItems: "center", gap: "6px" }}
+              >
+                <ArrowDownRight size={14} color="#059669" /> Customer Receipt
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={onOpenNewPayment}
+                style={{ display: "flex", alignItems: "center", gap: "6px" }}
+              >
+                <ArrowUpRight size={14} color="#dc2626" /> Vendor Payment
+              </button>
+            </>
+          )}
+          {canCreateInvoice && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={onOpenNewInvoice}
+              style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              <Plus size={14} /> New Invoice
+            </button>
+          )}
         </div>
       </div>
 

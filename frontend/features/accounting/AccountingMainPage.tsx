@@ -60,11 +60,9 @@ export function AccountingMainPage({ role = "admin", withoutShell = false }: Pro
   const hasAccess = Boolean(
     user && (
       userRole === "SUPER_ADMIN" ||
-      userRole === "ADMIN" ||
-      userRole === "ACCOUNTANT" ||
-      userRole === "CFO" ||
-      Boolean((user as any)?.is_superuser || (user as any)?.isSuperuser) ||
-      Boolean((user as any)?.permissions?.ACCOUNTING?.canView)
+      Boolean((user as any)?.is_superuser || (user as any)?.isSuperuser || (user as any)?.isSuperadminWildcard) ||
+      Boolean((user as any)?.permissions?.ACCOUNTING?.canView ?? (user as any)?.permissions?.ACCOUNTING?.can_view) ||
+      Boolean((user as any)?.permissions?.["*"]?.canView)
     )
   );
 

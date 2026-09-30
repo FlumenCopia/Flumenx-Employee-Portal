@@ -38,6 +38,7 @@ import { EmployeeForm } from "./EmployeesPage";
 import { getCachedAuthUser } from "@/lib/auth-cache";
 import { getISTDateString } from "@/lib/tzUtils";
 import { WorkspaceRole } from "@/lib/types";
+import { hasPermission } from "@/lib/permissions";
 
 interface EmployeeProfileDetail {
   id: string;
@@ -111,13 +112,20 @@ export function EmployeeDetailPage({ id, role }: { id: string; role?: "admin" | 
   const [savingSalary, setSavingSalary] = useState(false);
 
   const currentUser = getCachedAuthUser();
-  const canManage =
-    role === "admin" ||
-    role === "hr" ||
+  const isSuperUser = Boolean(
     currentUser?.role === "SUPER_ADMIN" ||
-    currentUser?.role === "ADMIN" ||
-    currentUser?.role === "HR" ||
-    Boolean((currentUser as any)?.isSuperuser);
+    (currentUser as any)?.is_superuser ||
+    (currentUser as any)?.isSuperuser ||
+    (currentUser as any)?.isSuperadminWildcard
+  );
+  const canManage =
+    isSuperUser ||
+    hasPermission(currentUser, "EMPLOYEES", "edit_employee") ||
+    Boolean((currentUser as any)?.permissions?.EMPLOYEES?.canEdit);
+  const canManageDocs =
+    isSuperUser ||
+    hasPermission(currentUser, "EMPLOYEES", "manage_documents") ||
+    canManage;
 
   const loadProfile = () => {
     setLoading(true);
@@ -205,7 +213,7 @@ export function EmployeeDetailPage({ id, role }: { id: string; role?: "admin" | 
       <div style={{ padding: "30px 20px" }}>
         <EmptyState title="Employee not found" text={error || "Could not retrieve employee details."} />
         <div style={{ marginTop: "16px", textAlign: "center" }}>
-          <Link href={role ? `/${role}/employees` : `/employees`} style={{ color: "#087A5B", fontWeight: 600, textDecoration: "none" }}>
+          <Link href="/employees" style={{ color: "#087A5B", fontWeight: 600, textDecoration: "none" }}>
             ← Back to Employees Directory
           </Link>
         </div>
@@ -220,34 +228,36 @@ export function EmployeeDetailPage({ id, role }: { id: string; role?: "admin" | 
       {/* Top Breadcrumb & Actions */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
         <Link
-          href={`/${role}/employees`}
+          href="/employees"
           style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#64748B", textDecoration: "none", fontSize: "14px", fontWeight: 600 }}
         >
           <ArrowLeft size={16} />
           Back to Directory
         </Link>
 
-        {canManage && (
+        {(canManage || canManageDocs) && (
           <div style={{ display: "flex", gap: "8px" }}>
-            <button
-              onClick={() => setDocsModalOpen(true)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "8px 14px",
-                backgroundColor: "#FFFFFF",
-                border: "1px solid #CBD5E1",
-                borderRadius: "8px",
-                fontSize: "13px",
-                fontWeight: 600,
-                color: "#334155",
-                cursor: "pointer",
-              }}
-            >
-              <FileText size={15} />
-              Document Vault
-            </button>
+            {canManageDocs && (
+              <button
+                onClick={() => setDocsModalOpen(true)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 14px",
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: "8px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#334155",
+                  cursor: "pointer",
+                }}
+              >
+                <FileText size={15} />
+                Document Vault
+              </button>
+            )}
             <button
               onClick={() => setSalaryModalOpen(true)}
               style={{

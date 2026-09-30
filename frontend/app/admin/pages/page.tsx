@@ -1,5 +1,5 @@
-import { PageManagementPage } from "@/features/admin/PageManagementPage";
+import { redirect } from "next/navigation";
 
-export default function AdminPagesRoute() {
-  return <PageManagementPage />;
+export default function Page() {
+  redirect("/pages");
 }

@@ -1,2 +1,5 @@
-import { RoleDashboard } from "@/components/role-dashboard";
-export default function Page(){return <RoleDashboard role="BDE"/>}
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/dashboard");
+}

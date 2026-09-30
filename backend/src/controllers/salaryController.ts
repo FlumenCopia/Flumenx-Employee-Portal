@@ -6,6 +6,7 @@ import { Employee } from '../models/Employee.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { generatePdfSalarySlip } from '../services/pdfGenerator.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
+import { getRoleDataScope } from '../services/scopeResolver.js';
 
 export async function getSalarySlips(req: Request, res: Response): Promise<void> {
   const { employee_id, year, month } = req.query;
@@ -15,20 +16,33 @@ export async function getSalarySlips(req: Request, res: Response): Promise<void>
   if (year) filter.year = parseInt(year as string, 10);
   if (month) filter.month = parseInt(month as string, 10);
 
-  const permissions = req.user ? await resolveUserPermissions(req.user) : {};
-  const salaryPerm = permissions.SALARY_SLIPS;
-  const canManageAllSalaries = salaryPerm ? Boolean(salaryPerm.canEdit || salaryPerm.canCreate) : false;
-  const isSuper = req.user?.role === 'SUPER_ADMIN' || Boolean(req.user?.isSuperuser);
-  const isPayrollRole = ['ADMIN', 'HR', 'ACCOUNTANT'].includes((req.user?.role || '').toUpperCase());
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || Boolean(req.user?.isSuperuser) || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+  const salaryScope = await getRoleDataScope(req.user, 'SALARY_SLIPS');
 
-  // Restrict filter to user's own Employee record if not superuser/payroll role or lacking manage permissions
-  if (req.user && !isSuper && !isPayrollRole && !canManageAllSalaries) {
+  // Restrict filter according to dynamic salaryScope
+  if (req.user && !isSuper && salaryScope !== 'ALL') {
     const ownEmployee = await getEmployeeForUser(req.user);
     if (!ownEmployee) {
       res.json({ count: 0, next: null, previous: null, results: [] });
       return;
     }
-    filter.employee = ownEmployee._id;
+    if (salaryScope === 'DEPARTMENT' && ownEmployee.department) {
+      const deptRegex = new RegExp(`^${ownEmployee.department.trim()}$`, 'i');
+      const deptEmps = await Employee.find({ department: deptRegex }).select('_id');
+      filter.employee = { $in: [ownEmployee._id, ...deptEmps.map((e) => e._id)] };
+    } else if (salaryScope === 'TEAM') {
+      const deptRegex = ownEmployee.department ? new RegExp(`^${ownEmployee.department.trim()}$`, 'i') : null;
+      const teamEmps = await Employee.find({
+        $or: [
+          { teamLead: ownEmployee._id },
+          ...(deptRegex ? [{ department: deptRegex }] : []),
+        ],
+      }).select('_id');
+      filter.employee = { $in: [ownEmployee._id, ...teamEmps.map((e) => e._id)] };
+    } else {
+      // OWN scope: strictly own employee slips
+      filter.employee = ownEmployee._id;
+    }
   }
 
   const slips = await SalarySlip.find(filter).populate('employee').sort({ year: -1, month: -1 });

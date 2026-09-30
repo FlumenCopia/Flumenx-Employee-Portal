@@ -1,2 +1,5 @@
-import { EmployeesPage } from "@/components/resource-pages";
-export default function Page(){return <EmployeesPage role="hr"/>}
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/employees");
+}

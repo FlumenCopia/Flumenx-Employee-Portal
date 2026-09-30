@@ -1,5 +1,11 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export interface IPageFeature {
+  key: string;
+  label: string;
+  description?: string;
+}
+
 export interface IPortalPage extends Document {
   legacyId?: number;
   title: string;
@@ -8,7 +14,17 @@ export interface IPortalPage extends Document {
   icon: string;
   sidebarOrder: number;
   isActive: boolean;
+  features?: IPageFeature[];
 }
+
+const pageFeatureSchema = new Schema<IPageFeature>(
+  {
+    key: { type: String, required: true, trim: true },
+    label: { type: String, required: true, trim: true },
+    description: { type: String, default: '' },
+  },
+  { _id: false }
+);
 
 const portalPageSchema = new Schema<IPortalPage>(
   {
@@ -19,6 +35,7 @@ const portalPageSchema = new Schema<IPortalPage>(
     icon: { type: String, default: 'LayoutDashboard' },
     sidebarOrder: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },
+    features: { type: [pageFeatureSchema], default: [] },
   },
   {
     timestamps: true,

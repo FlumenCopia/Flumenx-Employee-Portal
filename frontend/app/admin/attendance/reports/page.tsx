@@ -1,2 +1,5 @@
-import { AttendanceReportsPage } from "@/components/attendance-pages";
-export default function Page(){return <AttendanceReportsPage/>}
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/attendance/reports");
+}

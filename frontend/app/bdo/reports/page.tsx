@@ -1,5 +1,5 @@
-import { ReportsCenterPage } from "@/features/reports/ReportsCenterPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <ReportsCenterPage />;
+  redirect("/reports");
 }

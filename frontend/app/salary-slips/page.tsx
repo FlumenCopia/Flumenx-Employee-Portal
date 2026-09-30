@@ -1,5 +1,11 @@
+import { Shell } from "@/components/shell";
 import { SalaryPage } from "@/features/salary/SalaryPage";
 
 export default function Page() {
-  return <SalaryPage employee={false} />;
+  return (
+    <Shell>
+      <SalaryPage />
+    </Shell>
+  );
 }
+

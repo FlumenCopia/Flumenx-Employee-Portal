@@ -21,6 +21,7 @@ import { Avatar } from "./icons";
 import { useShellUser } from "./shell";
 import { Badge, EmptyState, PageHeader, Section, StatCard } from "./ui";
 import { EmployeeTrackingCard } from "./tracking-pages";
+import { hasPermission } from "@/lib/permissions";
 
 type EmployeeTask = {
   id: number;
@@ -83,6 +84,12 @@ export function EmployeeDashboard() {
   const workStats = dashboard?.work_stats || { active_tasks: 0, completed_tasks: 0, overdue_tasks: 0 };
   const recentTasks = dashboard?.recent_tasks || [];
 
+  const canTasks = hasPermission(user, "TASKS");
+  const canLeaves = hasPermission(user, "LEAVES");
+  const canAttendance = hasPermission(user, "ATTENDANCE");
+  const canTracking = hasPermission(user, "TRACKING") || hasPermission(user, "EMPLOYEE_TRACKING", "record_location");
+  const canMeetings = hasPermission(user, "MEETINGS");
+
   return (
     <>
       <PageHeader
@@ -125,53 +132,64 @@ export function EmployeeDashboard() {
                   fontFamily: "monospace",
                 }}
               >
-                {employee?.employee_code || "EMP-001"}
+                {employee?.employee_code || ((user?.portal_role || user?.role || "PORTAL USER") as string).replace(/_/g, " ")}
               </span>
-              <span style={{ fontSize: "12px", color: "var(--muted)" }}>
-                {employee?.department || "General"}
-              </span>
+              {employee?.department && (
+                <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                  {employee.department}
+                </span>
+              )}
             </div>
             <h2 style={{ fontSize: "22px", fontWeight: 700, margin: 0, color: "var(--text)" }}>
               {name}
             </h2>
             <p style={{ margin: "2px 0 0", fontSize: "12.5px", color: "var(--muted)" }}>
-              {employee?.designation || "Team Member"} {employee?.location ? `• ${employee.location}` : ""}
+              {employee?.designation ? `${employee.designation} ` : ""}
+              {employee?.location ? `• ${employee.location}` : ""}
             </p>
           </div>
         </div>
 
         {/* QUICK NAVIGATION BUTTONS */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          {canTasks && (
+            <Link
+              href="/work"
+              className="primary-button"
+              style={{ padding: "8px 14px", fontSize: "12px", gap: "6px" }}
+            >
+              <Kanban size={15} /> My Task Board
+            </Link>
+          )}
+          {canLeaves && (
+            <Link
+              href="/leaves"
+              className="secondary-button"
+              style={{ padding: "8px 14px", fontSize: "12px", gap: "6px" }}
+            >
+              <Palmtree size={15} /> Leaves
+            </Link>
+          )}
+          {canAttendance && (
+            <Link
+              href="/attendance"
+              className="secondary-button"
+              style={{ padding: "8px 14px", fontSize: "12px", gap: "6px" }}
+            >
+              <Clock3 size={15} /> Attendance
+            </Link>
+          )}
+          {canTracking && (
+            <Link
+              href="/tracking"
+              className="secondary-button"
+              style={{ padding: "8px 14px", fontSize: "12px", gap: "6px" }}
+            >
+              <MapPin size={15} /> Location Tracking
+            </Link>
+          )}
           <Link
-            href="/employee/work"
-            className="primary-button"
-            style={{ padding: "8px 14px", fontSize: "12px", gap: "6px" }}
-          >
-            <Kanban size={15} /> My Task Board
-          </Link>
-          <Link
-            href="/employee/leaves"
-            className="secondary-button"
-            style={{ padding: "8px 14px", fontSize: "12px", gap: "6px" }}
-          >
-            <Palmtree size={15} /> Leaves
-          </Link>
-          <Link
-            href="/employee/attendance"
-            className="secondary-button"
-            style={{ padding: "8px 14px", fontSize: "12px", gap: "6px" }}
-          >
-            <Clock3 size={15} /> Attendance
-          </Link>
-          <Link
-            href="/tracking"
-            className="secondary-button"
-            style={{ padding: "8px 14px", fontSize: "12px", gap: "6px" }}
-          >
-            <MapPin size={15} /> Location Tracking
-          </Link>
-          <Link
-            href="/employee/profile"
+            href="/profile"
             className="secondary-button"
             style={{ padding: "8px 14px", fontSize: "12px", gap: "6px" }}
           >
@@ -180,239 +198,257 @@ export function EmployeeDashboard() {
         </div>
       </div>
 
-      {/* 4 STATS METRICS GRID */}
-      <div className="stats-grid employee-stats" style={{ marginBottom: "16px" }}>
-        <Link href="/employee/work" style={{ textDecoration: "none", color: "inherit" }}>
-          <StatCard
-            label="Active Tasks"
-            value={workStats.active_tasks}
-            note="Ongoing assigned work"
-            icon={<Kanban />}
-          />
-        </Link>
-        <Link href="/employee/work" style={{ textDecoration: "none", color: "inherit" }}>
-          <StatCard
-            label="Overdue / Backlog"
-            value={workStats.overdue_tasks}
-            note={workStats.overdue_tasks > 0 ? "Requires attention" : "All tasks on schedule"}
-            icon={<AlertTriangle />}
-            accent={workStats.overdue_tasks > 0}
-          />
-        </Link>
-        <StatCard
-          label="Completed Tasks"
-          value={workStats.completed_tasks}
-          note="Finished deliverables"
-          icon={<CheckCircle2 />}
-        />
-        <Link href="/employee/attendance" style={{ textDecoration: "none", color: "inherit" }}>
-          <StatCard
-            label="Today's Check-in"
-            value={displayTime(todayRecord?.check_in_time)}
-            note={todayRecord?.check_in_status || "Clock in via Attendance"}
-            icon={<LogIn />}
-          />
-        </Link>
-      </div>
+      {/* STATS METRICS GRID */}
+      {(canTasks || canAttendance) && (
+        <div className="stats-grid employee-stats" style={{ marginBottom: "16px" }}>
+          {canTasks && (
+            <>
+              <Link href="/work" style={{ textDecoration: "none", color: "inherit" }}>
+                <StatCard
+                  label="Active Tasks"
+                  value={workStats.active_tasks}
+                  note="Ongoing assigned work"
+                  icon={<Kanban />}
+                />
+              </Link>
+              <Link href="/work" style={{ textDecoration: "none", color: "inherit" }}>
+                <StatCard
+                  label="Overdue / Backlog"
+                  value={workStats.overdue_tasks}
+                  note={workStats.overdue_tasks > 0 ? "Requires attention" : "All tasks on schedule"}
+                  icon={<AlertTriangle />}
+                  accent={workStats.overdue_tasks > 0}
+                />
+              </Link>
+              <StatCard
+                label="Completed Tasks"
+                value={workStats.completed_tasks}
+                note="Finished deliverables"
+                icon={<CheckCircle2 />}
+              />
+            </>
+          )}
+          {canAttendance && (
+            <Link href="/attendance" style={{ textDecoration: "none", color: "inherit" }}>
+              <StatCard
+                label="Today's Check-in"
+                value={displayTime(todayRecord?.check_in_time)}
+                note={todayRecord?.check_in_status || "Clock in via Attendance"}
+                icon={<LogIn />}
+              />
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* LIVE LOCATION TRACKING CARD WIDGET */}
-      <div style={{ marginBottom: "16px" }}>
-        <EmployeeTrackingCard />
-      </div>
+      {canTracking && (
+        <div style={{ marginBottom: "16px" }}>
+          <EmployeeTrackingCard />
+        </div>
+      )}
 
       {/* MAIN DASHBOARD CONTENT GRID */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gridTemplateColumns: canTasks && (canAttendance || canMeetings) ? "repeat(auto-fit, minmax(320px, 1fr))" : "1fr",
           gap: "16px",
         }}
       >
         {/* LEFT COLUMN: MY ASSIGNED TASKS */}
-        <Section
-          title="My Active Tasks"
-          kicker="WORK ASSIGNMENTS"
-          action={
-            <Link
-              href="/employee/work"
-              style={{
-                fontSize: "12px",
-                color: "var(--neon)",
-                textDecoration: "none",
-                fontWeight: 700,
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-              }}
-            >
-              Open Work Board <ArrowRight size={14} />
-            </Link>
-          }
-        >
-          {loading && !dashboard && (
-            <EmptyState title="Loading tasks..." text="Fetching your assigned work items." />
-          )}
-
-          {!loading && !recentTasks.length && (
-            <EmptyState
-              title="No active tasks"
-              text="You're all caught up! No active tasks currently assigned to you."
-            />
-          )}
-
-          {!loading && Boolean(recentTasks.length) && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "4px 0" }}>
-              {recentTasks.map((t) => {
-                const isOverdue =
-                  t.status !== "Completed" &&
-                  t.status !== "Approved" &&
-                  t.status !== "Published" &&
-                  t.due_date &&
-                  t.due_date < new Date().toISOString().slice(0, 10);
-                return (
-                  <div
-                    key={t.id}
-                    style={{
-                      background: "var(--panel)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "10px",
-                      padding: "12px 14px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: "12px",
-                    }}
-                  >
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                        <span
-                          style={{
-                            fontSize: "10px",
-                            fontFamily: "monospace",
-                            color: "var(--neon)",
-                            fontWeight: 700,
-                          }}
-                        >
-                          EXP-{String(t.id).padStart(3, "0")}
-                        </span>
-                        <span style={{ fontSize: "11px", color: "var(--muted)" }}>
-                          • {t.client_name}
-                        </span>
-                      </div>
-                      <span
-                        style={{
-                          fontSize: "13px",
-                          fontWeight: 700,
-                          color: "var(--text)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {t.title}
-                      </span>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px" }}>
-                        <span style={{ color: isOverdue ? "#FF6B6B" : "var(--muted)", fontWeight: isOverdue ? 700 : 400, display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                          <CalendarDays size={12} /> {isOverdue ? "Overdue: " : "Due: "}{t.due_date}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
-                      <Badge>{t.status}</Badge>
-                      <Link
-                        href="/employee/work"
-                        style={{
-                          fontSize: "11px",
-                          color: "var(--neon)",
-                          fontWeight: 700,
-                          textDecoration: "none",
-                        }}
-                      >
-                        View task →
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Section>
-
-        {/* RIGHT COLUMN: SCHEDULE & ATTENDANCE STATUS */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {/* ATTENDANCE SUMMARY STRIP */}
-          <div
-            className="dashboard-attendance-link employee"
-            style={{
-              background: "var(--panel)",
-              border: "1px solid var(--border)",
-              borderRadius: "12px",
-              padding: "16px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div>
-              <span style={{ fontSize: "10px", letterSpacing: "1px", color: "var(--neon)" }}>
-                TODAY'S ATTENDANCE
-              </span>
-              <b style={{ display: "block", fontSize: "14px", color: "var(--text)", margin: "4px 0" }}>
-                {todayRecord
-                  ? `${todayRecord.attendance_status} — ${todayRecord.working_hours || 0} hours`
-                  : "No check-in recorded today"}
-              </b>
-              <small style={{ color: "var(--muted)", fontSize: "11px" }}>
-                {monthly ? `${monthly.attendance_percentage}% attendance this month` : "Monthly record active"}
-              </small>
-            </div>
-            <Link href="/employee/attendance" className="secondary-button" style={{ fontSize: "11px", gap: "4px" }}>
-              Log Time <ArrowRight size={14} />
-            </Link>
-          </div>
-
-          {/* UPCOMING SCHEDULE & MEETINGS */}
+        {canTasks && (
           <Section
-            title="Team Meetings"
-            kicker="UPCOMING / SCHEDULE"
-            action={<Link href="/employee/meetings">Full calendar</Link>}
+            title="My Active Tasks"
+            kicker="WORK ASSIGNMENTS"
+            action={
+              <Link
+                href="/work"
+                style={{
+                  fontSize: "12px",
+                  color: "var(--neon)",
+                  textDecoration: "none",
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                Open Work Board <ArrowRight size={14} />
+              </Link>
+            }
           >
             {loading && !dashboard && (
-              <EmptyState title="Loading schedule" text="Fetching upcoming meetings." />
+              <EmptyState title="Loading tasks..." text="Fetching your assigned work items." />
             )}
-            {!loading && !displayMeetings.length && (
+
+            {!loading && !recentTasks.length && (
               <EmptyState
-                title="No meetings scheduled"
-                text="There are no upcoming meetings scheduled for today."
+                title="No active tasks"
+                text="You're all caught up! No active tasks currently assigned to you."
               />
             )}
-            {!loading && Boolean(displayMeetings.length) && (
-              <div className="day-list">
-                {displayMeetings.map((m, i) => (
-                  <div key={m.id}>
-                    <div className="day-date">
-                      <b>{new Date(m.date).getDate()}</b>
-                      <span>
-                        {new Date(m.date).toLocaleDateString("en-US", { month: "short" })}
-                      </span>
+
+            {!loading && Boolean(recentTasks.length) && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "4px 0" }}>
+                {recentTasks.map((t) => {
+                  const isOverdue =
+                    t.status !== "Completed" &&
+                    t.status !== "Approved" &&
+                    t.status !== "Published" &&
+                    t.due_date &&
+                    t.due_date < new Date().toISOString().slice(0, 10);
+                  return (
+                    <div
+                      key={t.id}
+                      style={{
+                        background: "var(--panel)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "10px",
+                        padding: "12px 14px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "12px",
+                      }}
+                    >
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              fontFamily: "monospace",
+                              color: "var(--neon)",
+                              fontWeight: 700,
+                            }}
+                          >
+                            EXP-{String(t.id).padStart(3, "0")}
+                          </span>
+                          <span style={{ fontSize: "11px", color: "var(--muted)" }}>
+                            • {t.client_name}
+                          </span>
+                        </div>
+                        <span
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: 700,
+                            color: "var(--text)",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {t.title}
+                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px" }}>
+                          <span style={{ color: isOverdue ? "#FF6B6B" : "var(--muted)", fontWeight: isOverdue ? 700 : 400, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                            <CalendarDays size={12} /> {isOverdue ? "Overdue: " : "Due: "}{t.due_date}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
+                        <Badge>{t.status}</Badge>
+                        <Link
+                          href="/work"
+                          style={{
+                            fontSize: "11px",
+                            color: "var(--neon)",
+                            fontWeight: 700,
+                            textDecoration: "none",
+                          }}
+                        >
+                          View task →
+                        </Link>
+                      </div>
                     </div>
-                    <div className="day-line">
-                      <i className={i === 0 ? "active" : ""} />
-                    </div>
-                    <div>
-                      <b>{m.title}</b>
-                      <span>
-                        <CalendarDays size={14} /> {m.time.slice(0, 5)} - {m.location || "Online"}
-                      </span>
-                    </div>
-                    <Badge>{m.department || "All Team"}</Badge>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Section>
-        </div>
+        )}
+
+        {/* RIGHT COLUMN: SCHEDULE & ATTENDANCE STATUS */}
+        {(canAttendance || canMeetings) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* ATTENDANCE SUMMARY STRIP */}
+            {canAttendance && (
+              <div
+                className="dashboard-attendance-link employee"
+                style={{
+                  background: "var(--panel)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "12px",
+                  padding: "16px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: "10px", letterSpacing: "1px", color: "var(--neon)" }}>
+                    TODAY'S ATTENDANCE
+                  </span>
+                  <b style={{ display: "block", fontSize: "14px", color: "var(--text)", margin: "4px 0" }}>
+                    {todayRecord
+                      ? `${todayRecord.attendance_status} — ${todayRecord.working_hours || 0} hours`
+                      : "No check-in recorded today"}
+                  </b>
+                  <small style={{ color: "var(--muted)", fontSize: "11px" }}>
+                    {monthly ? `${monthly.attendance_percentage}% attendance this month` : "Monthly record active"}
+                  </small>
+                </div>
+                <Link href="/attendance" className="secondary-button" style={{ fontSize: "11px", gap: "4px" }}>
+                  Log Time <ArrowRight size={14} />
+                </Link>
+              </div>
+            )}
+
+            {/* UPCOMING SCHEDULE & MEETINGS */}
+            {canMeetings && (
+              <Section
+                title="Team Meetings"
+                kicker="UPCOMING / SCHEDULE"
+                action={<Link href="/meetings">Full calendar</Link>}
+              >
+                {loading && !dashboard && (
+                  <EmptyState title="Loading schedule" text="Fetching upcoming meetings." />
+                )}
+                {!loading && !displayMeetings.length && (
+                  <EmptyState
+                    title="No meetings scheduled"
+                    text="There are no upcoming meetings scheduled for today."
+                  />
+                )}
+                {!loading && Boolean(displayMeetings.length) && (
+                  <div className="day-list">
+                    {displayMeetings.map((m, i) => (
+                      <div key={m.id}>
+                        <div className="day-date">
+                          <b>{new Date(m.date).getDate()}</b>
+                          <span>
+                            {new Date(m.date).toLocaleDateString("en-US", { month: "short" })}
+                          </span>
+                        </div>
+                        <div className="day-line">
+                          <i className={i === 0 ? "active" : ""} />
+                        </div>
+                        <div>
+                          <b>{m.title}</b>
+                          <span>
+                            <CalendarDays size={14} /> {m.time.slice(0, 5)} - {m.location || "Online"}
+                          </span>
+                        </div>
+                        <Badge>{m.department || "All Team"}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Section>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

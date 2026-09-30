@@ -1,11 +1,15 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export type DataScope = 'OWN' | 'TEAM' | 'DEPARTMENT' | 'ALL';
+
 export interface IRolePermission {
   page: mongoose.Types.ObjectId;
   canView: boolean;
   canCreate: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  dataScope?: DataScope;
+  features?: string[];
 }
 
 export interface IDynamicRole extends Document {
@@ -25,6 +29,15 @@ const rolePermissionSchema = new Schema<IRolePermission>(
     canCreate: { type: Boolean, default: false },
     canEdit: { type: Boolean, default: false },
     canDelete: { type: Boolean, default: false },
+    dataScope: {
+      type: String,
+      enum: ['OWN', 'TEAM', 'DEPARTMENT', 'ALL'],
+      default: 'OWN',
+    },
+    features: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,

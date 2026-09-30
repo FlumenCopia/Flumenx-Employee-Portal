@@ -11,38 +11,39 @@ import { EmployeeSalaryStructure } from '../models/EmployeeSalaryStructure.js';
 import { LeaveLedger } from '../models/LeaveLedger.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
+import { getRoleDataScope } from '../services/scopeResolver.js';
 
 
 export async function getEmployees(req: Request, res: Response): Promise<void> {
   const { department, status, search } = req.query;
 
   const filter: any = {};
-  const isSuper = req.user?.role === 'SUPER_ADMIN' || Boolean(req.user?.isSuperuser);
-  const permissions = req.user ? await resolveUserPermissions(req.user) : {};
-  const empPerm = permissions.EMPLOYEES;
-  const canViewDirectory = empPerm ? Boolean(empPerm.canView) : false;
-  const isManagement = isSuper || canViewDirectory || ['ADMIN', 'OPERATIONS', 'OPERATIONS_HEAD', 'HR', 'ACCOUNTANT', 'BDE', 'BDO'].includes(req.user?.role || '');
-  const isTeamLead = req.user?.role === 'TEAM_LEAD';
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || Boolean(req.user?.isSuperuser) || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+  const empScope = await getRoleDataScope(req.user, 'EMPLOYEES');
 
-  if (!isSuper && !isManagement) {
+  if (!isSuper && empScope !== 'ALL') {
     const ownEmp = await Employee.findOne({ user: req.user?._id });
     if (!ownEmp) {
       res.json({ count: 0, next: null, previous: null, results: [] });
       return;
     }
 
-    if (isTeamLead && ownEmp.department) {
+    if (empScope === 'DEPARTMENT' && ownEmp.department) {
       const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
       filter.$or = [
         { department: deptRegex },
         { _id: ownEmp._id },
       ];
-    } else if (ownEmp.department) {
-      const deptRegex = new RegExp(`^${ownEmp.department.trim()}$`, 'i');
+    } else if (empScope === 'TEAM') {
+      const deptRegex = ownEmp.department ? new RegExp(`^${ownEmp.department.trim()}$`, 'i') : null;
       filter.$or = [
-        { department: deptRegex },
+        { teamLead: ownEmp._id },
         { _id: ownEmp._id },
+        ...(deptRegex ? [{ department: deptRegex }] : []),
       ];
+    } else {
+      // OWN scope: strictly own employee record
+      filter._id = ownEmp._id;
     }
   }
 
@@ -123,6 +124,11 @@ export async function getEmployeeById(req: Request, res: Response): Promise<void
     if (l.leaveType === 'Casual') casualBalance += qty * mult;
   }
 
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || Boolean(req.user?.isSuperuser) || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
+  const isSelf = req.user && employee.user && String((employee.user as any)._id || employee.user) === String(req.user._id);
+  const permissions = req.user ? await resolveUserPermissions(req.user) : {};
+  const canViewCompensation = isSuper || isSelf || Boolean(permissions.SALARY_SLIPS?.canView || permissions.ACCOUNTING?.canView);
+
   res.json({
     id: employee._id,
     employee_code: employee.employeeCode,
@@ -142,7 +148,7 @@ export async function getEmployeeById(req: Request, res: Response): Promise<void
     avatar: employee.avatar || (employee.user as any)?.avatar || '',
     team_lead: employee.teamLead ? { id: (employee.teamLead as any)._id, name: (employee.teamLead as any).name, code: (employee.teamLead as any).employeeCode } : null,
     user: employee.user ? { id: (employee.user as any)._id, username: (employee.user as any).username, role: (employee.user as any).role } : null,
-    salary_structure: structure ? {
+    salary_structure: (canViewCompensation && structure) ? {
       id: structure._id,
       gross_salary: structure.grossSalary,
       basic_salary: structure.basicSalary,

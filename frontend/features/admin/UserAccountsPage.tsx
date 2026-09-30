@@ -42,7 +42,7 @@ export function UserAccountsPage() {
       Boolean((user as any)?.isSuperuser) ||
       Boolean(user.permissions?.SUPER_ADMIN_USERS?.canView);
     if (!isSuperAdmin) {
-      router.replace("/admin/dashboard");
+      router.replace("/dashboard");
     }
   }, [user, router]);
 

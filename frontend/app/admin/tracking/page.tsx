@@ -1,10 +1,5 @@
-import { Shell } from "@/components/shell";
-import { AdminTrackingPage } from "@/components/tracking-pages";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return (
-    <Shell>
-      <AdminTrackingPage />
-    </Shell>
-  );
+  redirect("/tracking");
 }

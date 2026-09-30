@@ -1,5 +1,5 @@
-import { AuditLogsPage } from "@/features/admin/AuditLogsPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <AuditLogsPage />;
+  redirect("/audit-logs");
 }

@@ -1,5 +1,5 @@
-import { KPIDashboardPage } from "@/features/kpi/KPIDashboardPage";
+import { redirect } from "next/navigation";
 
-export default function HRKPIPage() {
-  return <KPIDashboardPage basePath="/hr" />;
+export default function Page() {
+  redirect("/kpi");
 }

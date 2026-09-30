@@ -1,5 +1,5 @@
-import { ProfilePage } from "@/features/profile/ProfilePage";
+import { redirect } from "next/navigation";
 
-export default function HrProfilePage() {
-  return <ProfilePage />;
+export default function Page() {
+  redirect("/profile");
 }

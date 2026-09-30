@@ -8,20 +8,21 @@ import { Avatar } from "@/components/icons";
 import { Badge, EmptyState, PageHeader, PrimaryButton, Section } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
 import { useShellUser } from "@/components/shell";
+import { hasPermission } from "@/lib/permissions";
 
 export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   const user = useShellUser();
   const userRole = (user?.portal_role || user?.role || "EMPLOYEE").toUpperCase();
   const userPerms = user?.permissions?.LEAVES || (user as any)?.permissions?.["*"];
-  const isSuperUser = Boolean(user?.is_superuser || (user as any)?.isSuperuser || userRole === "SUPER_ADMIN" || userRole === "ADMIN");
+  const isSuperUser = Boolean(user?.is_superuser || (user as any)?.isSuperuser || userRole === "SUPER_ADMIN" || (user as any)?.isSuperadminWildcard);
   const hasLeaveEditPerm = userPerms ? Boolean(userPerms.canEdit ?? userPerms.can_edit) : false;
-  const isManagementRole = isSuperUser || hasLeaveEditPerm || ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT"].includes(userRole);
-  const canDecide = isSuperUser || hasLeaveEditPerm || ["SUPER_ADMIN", "ADMIN", "HR", "OPERATIONS_HEAD", "ACCOUNTANT"].includes(userRole);
-  const isEmployee = propEmployee !== undefined ? propEmployee : (!canDecide && (userRole === "EMPLOYEE" || userRole.includes("MEMBER")));
+  const canReviewLeaves = isSuperUser || hasPermission(user, "LEAVES", "review_leave") || hasLeaveEditPerm;
+  const canDecide = canReviewLeaves;
+  const isEmployee = !canDecide;
 
-  const canCreate = isSuperUser || (userPerms?.canCreate ?? userPerms?.can_create ?? true);
+  const canCreate = isSuperUser || hasPermission(user, "LEAVES", "apply_leave") || (userPerms?.canCreate ?? userPerms?.can_create ?? true);
   const canEdit = canDecide;
-  const canDelete = canDecide && (userPerms?.canDelete ?? userPerms?.can_delete ?? true);
+  const canDelete = isSuperUser || (canDecide && (userPerms?.canDelete ?? userPerms?.can_delete ?? true));
 
   const [items, setItems] = useState<Leave[]>([]);
   const [page, setPage] = useState(1);

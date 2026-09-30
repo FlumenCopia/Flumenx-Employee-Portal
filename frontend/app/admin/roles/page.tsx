@@ -1,5 +1,5 @@
-import { SettingsAccessPage } from "@/features/admin/SettingsAccessPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <SettingsAccessPage />;
+  redirect("/roles");
 }

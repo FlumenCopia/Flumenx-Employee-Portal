@@ -33,7 +33,7 @@ export function PageManagementPage() {
       Boolean((user as any)?.isSuperuser) ||
       Boolean(user.permissions?.PAGE_MANAGEMENT?.canView);
     if (!isSuperAdmin) {
-      router.replace("/admin/dashboard");
+      router.replace("/dashboard");
     }
   }, [user, router]);
 

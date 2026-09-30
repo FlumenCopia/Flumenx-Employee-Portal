@@ -1,5 +1,5 @@
-import { TaskTimerPage } from "@/features/work/TaskTimerPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <TaskTimerPage />;
+  redirect("/timer");
 }

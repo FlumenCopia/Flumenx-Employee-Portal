@@ -8,6 +8,8 @@ import { Badge, EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
 
 import { getGlobalSocket } from "@/lib/socket";
+import { useShellUser } from "@/components/shell";
+import { hasPermission } from "@/lib/permissions";
 
 const MEETING_DEPARTMENTS: string[] = [
   "All Employees",
@@ -22,6 +24,18 @@ const MEETING_DEPARTMENTS: string[] = [
 ];
 
 export function MeetingsPage({ employee = false }: { employee?: boolean }) {
+  const user = useShellUser();
+  const userRole = (user?.portal_role || user?.role || "EMPLOYEE").toUpperCase();
+  const isSuperUser = Boolean(
+    user?.is_superuser ||
+    (user as any)?.isSuperuser ||
+    userRole === "SUPER_ADMIN" ||
+    (user as any)?.isSuperadminWildcard
+  );
+  const userPerms = user?.permissions?.MEETINGS || (user as any)?.permissions?.["*"];
+  const canCreate = isSuperUser || hasPermission(user, "MEETINGS", "schedule_meeting") || Boolean(userPerms?.canCreate ?? userPerms?.can_create);
+  const canDelete = isSuperUser || hasPermission(user, "MEETINGS", "delete_meeting") || Boolean(userPerms?.canDelete ?? userPerms?.can_delete);
+
   const [items, setItems] = useState<Meeting[]>([]);
   const [departmentsList, setDepartmentsList] = useState<string[]>(MEETING_DEPARTMENTS);
   const [page, setPage] = useState(1);
@@ -130,8 +144,8 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
     <PageHeader
       eyebrow="CALENDAR / ALIGNMENT"
       title="Meetings."
-      subtitle={employee ? "The conversations shaping your week." : "Create space for decisions and shared direction."}
-      action={<PrimaryButton onClick={() => setModal(true)}>Schedule meeting</PrimaryButton>}
+      subtitle={canCreate ? "Create space for decisions and shared direction." : "The conversations shaping your week."}
+      action={canCreate ? <PrimaryButton onClick={() => setModal(true)}>Schedule meeting</PrimaryButton> : undefined}
     />
     {message && <div className="toast success">{message}</div>}
     {actionError && <div className="toast error">{actionError}</div>}
@@ -221,7 +235,7 @@ export function MeetingsPage({ employee = false }: { employee?: boolean }) {
                 Copy Link
               </button>
 
-              {!employee && (
+              {canDelete && (
                 <button disabled={deletePendingId !== null} onClick={() => deleteMeeting(m.id as any)} style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", padding: "6px" }} title="Delete Meeting">
                   <Trash2 size={16} />
                 </button>

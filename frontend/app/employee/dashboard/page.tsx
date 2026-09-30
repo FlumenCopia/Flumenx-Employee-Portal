@@ -1,3 +1,5 @@
-import { EmployeeDashboard } from "@/components/employee-dashboard";
-export default function Page() { return <EmployeeDashboard />; }
+import { redirect } from "next/navigation";
 
+export default function Page() {
+  redirect("/dashboard");
+}

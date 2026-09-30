@@ -7,8 +7,20 @@ import { toast } from "@/components/ToastContext";
 import type { Announcement, Paginated } from "@/lib/types";
 import { EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
+import { getCachedAuthUser } from "@/lib/auth-cache";
+import { hasPermission } from "@/lib/permissions";
 
 export function AnnouncementsPage({ employee = false }: { employee?: boolean }) {
+  const currentUser = getCachedAuthUser();
+  const isSuperUser = Boolean(
+    currentUser?.role === "SUPER_ADMIN" ||
+    (currentUser as any)?.portal_role === "SUPER_ADMIN" ||
+    (currentUser as any)?.is_superuser ||
+    (currentUser as any)?.isSuperuser ||
+    (currentUser as any)?.isSuperadminWildcard
+  );
+  const canCreate = !employee && (isSuperUser || hasPermission(currentUser, "ANNOUNCEMENTS", "canCreate"));
+  const canDelete = !employee && (isSuperUser || hasPermission(currentUser, "ANNOUNCEMENTS", "canDelete"));
   const [items, setItems] = useState<Announcement[]>([]);
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(true);

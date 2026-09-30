@@ -6,6 +6,7 @@ import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { TrackingSession } from '../models/TrackingSession.js';
 import { LocationHistory } from '../models/LocationHistory.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
+import { getRoleDataScope } from '../services/scopeResolver.js';
 
 // Helper to determine if user can access target employee's location
 async function canAccessEmployee(
@@ -245,9 +246,12 @@ export async function getLiveTracking(req: Request, res: Response): Promise<void
     const role = (req.user.role || '').toUpperCase();
     const ownEmployee = await getEmployeeForUser(req.user);
 
+    const trackingScope = await getRoleDataScope(req.user, 'TRACKING');
     const filter: any = {};
-    if (role === 'TEAM_LEAD' && ownEmployee) {
+    if ((trackingScope === 'TEAM' || trackingScope === 'DEPARTMENT' || role === 'TEAM_LEAD') && ownEmployee) {
       filter.teamLeadId = ownEmployee._id;
+    } else if (trackingScope === 'OWN' && ownEmployee) {
+      filter._id = ownEmployee._id;
     }
     if (req.query.department) {
       filter.department = String(req.query.department);

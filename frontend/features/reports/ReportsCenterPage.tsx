@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useShellUser } from "@/components/shell";
+import { hasPermission } from "@/lib/permissions";
 
 interface ReportData {
   success: boolean;
@@ -35,11 +36,13 @@ interface ReportData {
 
 export function ReportsCenterPage() {
   const user = useShellUser();
-  const role = user?.role || "EMPLOYEE";
+  const role = (user?.portal_role || user?.role || "EMPLOYEE").toUpperCase();
   const userPerms = user?.permissions || {};
-  const isSuperadmin = role === "SUPER_ADMIN" || Boolean(userPerms.SUPER_ADMIN?.canView);
-  const isFinanceOrHR = isSuperadmin || role === "HR" || role === "ACCOUNTANT";
-  const isManagementOrLead = isSuperadmin || role === "HR" || role === "ACCOUNTANT" || role === "TEAM_LEAD" || role === "OPERATIONS" || role === "OPERATIONS_HEAD";
+  const isSuperadmin = role === "SUPER_ADMIN" || Boolean((user as any)?.is_superuser || (user as any)?.isSuperuser);
+  const canExport = isSuperadmin || hasPermission(user, "REPORTS", "export_reports");
+  const canViewPayroll = isSuperadmin || hasPermission(user, "REPORTS", "view_payroll_reports") || Boolean(userPerms.SALARY_SLIPS?.canView ?? userPerms.SALARY_SLIPS?.can_view);
+  const canViewEmployees = isSuperadmin || Boolean(userPerms.EMPLOYEES?.canView ?? userPerms.EMPLOYEES?.can_view);
+  const canViewClients = isSuperadmin || Boolean(userPerms.CLIENTS?.canView ?? userPerms.CLIENTS?.can_view);
 
   const [activeType, setActiveType] = useState<string>("attendance");
   const [startDate, setStartDate] = useState<string>("");
@@ -65,12 +68,12 @@ export function ReportsCenterPage() {
     { id: "attendance", label: "Attendance & Timesheets", icon: Clock, allowed: isSuperadmin || Boolean(userPerms.ATTENDANCE?.canView ?? userPerms.ATTENDANCE?.can_view ?? true) },
     { id: "work", label: "Work & Deliverables", icon: Briefcase, allowed: isSuperadmin || Boolean(userPerms.TASKS?.canView ?? userPerms.TASKS?.can_view ?? true) },
     { id: "time_entries", label: "Time Tracked Audit", icon: Clock, allowed: isSuperadmin || Boolean(userPerms.TIMER?.canView ?? userPerms.TIMER?.can_view ?? true) },
-    { id: "client_summary", label: "Client & Project Utilization", icon: FileText, allowed: isSuperadmin || isManagementOrLead || ["BDE", "BDO"].includes(role) || Boolean(userPerms.CLIENTS?.canView ?? userPerms.CLIENTS?.can_view) },
+    { id: "client_summary", label: "Client & Project Utilization", icon: FileText, allowed: canViewClients },
     { id: "kpi", label: "KPI & Ratings", icon: TrendingUp, allowed: isSuperadmin || Boolean(userPerms.KPI?.canView ?? userPerms.KPI?.can_view ?? true) },
     { id: "leaves", label: "Leaves & Absenteeism", icon: Calendar, allowed: isSuperadmin || Boolean(userPerms.LEAVES?.canView ?? userPerms.LEAVES?.can_view ?? true) },
-    { id: "employees", label: "Employee Directory", icon: Users, allowed: isSuperadmin || isManagementOrLead || Boolean(userPerms.EMPLOYEES?.canView ?? userPerms.EMPLOYEES?.can_view) },
-    { id: "clients", label: "Clients & Projects", icon: FileText, allowed: isSuperadmin || isManagementOrLead || ["BDE", "BDO"].includes(role) || Boolean(userPerms.CLIENTS?.canView ?? userPerms.CLIENTS?.can_view) },
-    { id: "payroll", label: "Payroll & Salary Slips", icon: DollarSign, allowed: isFinanceOrHR || Boolean(userPerms.SALARY_SLIPS?.canView ?? userPerms.SALARY_SLIPS?.can_view) },
+    { id: "employees", label: "Employee Directory", icon: Users, allowed: canViewEmployees },
+    { id: "clients", label: "Clients & Projects", icon: FileText, allowed: canViewClients },
+    { id: "payroll", label: "Payroll & Salary Slips", icon: DollarSign, allowed: canViewPayroll },
     { id: "audit", label: "Security & Audit Logs", icon: Shield, allowed: isSuperadmin || Boolean(userPerms.AUDIT_LOGS?.canView ?? userPerms.AUDIT_LOGS?.can_view) },
   ].filter((t) => t.allowed);
 
@@ -174,52 +177,56 @@ export function ReportsCenterPage() {
             <span>Refresh</span>
           </button>
 
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            disabled={!report || report.rows.length === 0}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "7px 12px",
-              borderRadius: "8px",
-              background: "#087A5B",
-              border: "none",
-              color: "#FFFFFF",
-              fontSize: "11.5px",
-              fontWeight: 700,
-              cursor: "pointer",
-              boxShadow: "0 2px 8px rgba(8, 122, 91, 0.3)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <Download size={13} />
-            <span>Export Excel (.csv)</span>
-          </button>
+          {canExport && (
+            <>
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                disabled={!report || report.rows.length === 0}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "7px 12px",
+                  borderRadius: "8px",
+                  background: "#087A5B",
+                  border: "none",
+                  color: "#FFFFFF",
+                  fontSize: "11.5px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  boxShadow: "0 2px 8px rgba(8, 122, 91, 0.3)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Download size={13} />
+                <span>Export Excel (.csv)</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={handlePrintPDF}
-            disabled={!report || report.rows.length === 0}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "7px 12px",
-              borderRadius: "8px",
-              background: "var(--panel)",
-              border: "1px solid var(--border)",
-              color: "var(--text)",
-              fontSize: "11.5px",
-              fontWeight: 600,
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <Printer size={13} />
-            <span>Print / PDF</span>
-          </button>
+              <button
+                type="button"
+                onClick={handlePrintPDF}
+                disabled={!report || report.rows.length === 0}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "7px 12px",
+                  borderRadius: "8px",
+                  background: "var(--panel)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text)",
+                  fontSize: "11.5px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Printer size={13} />
+                <span>Print / PDF</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
