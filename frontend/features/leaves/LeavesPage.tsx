@@ -317,7 +317,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
         <div style={{ background: "rgba(59, 130, 246, 0.08)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px", display: "flex", alignItems: "center", gap: "12px" }}>
           <div style={{ fontSize: "20px" }}>💡</div>
           <div style={{ fontSize: "13px", color: "var(--foreground)", lineHeight: "1.5" }}>
-            <strong>Quarterly Leave Encashment Policy:</strong> Unused carried-forward leaves are automatically encashed into payroll every quarter month (<strong>Month 3 [Mar], Month 4 [Apr], Month 6 [Jun], Month 9 [Sep], Month 12 [Dec]</strong>) at daily rate under <code>LEAVE_CONV</code>. You can set or adjust any employee's carry-forward amount below.
+            <strong>Quarterly Leave Encashment Policy:</strong> Unused carried-forward leaves are automatically encashed into payroll every quarter month (<strong>Month 3 [Mar], Month 6 [Jun], Month 9 [Sep], Month 12 [Dec]</strong>) at daily rate under <code>LEAVE_CONV</code>. You can set or adjust any employee's carry-forward amount below.
           </div>
         </div>
 
@@ -835,7 +835,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
           </label>
 
           <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", color: "#166534", padding: "10px 12px", borderRadius: "8px", fontSize: "12px", lineHeight: "1.5" }}>
-            💡 <strong>Quarterly Encashment Schedule:</strong> This carry forward amount will be automatically eligible for salary encashment in every quarter month (<strong>Month 3, 4, 6, 9, 12</strong>) during monthly salary generation.
+            💡 <strong>Quarterly Encashment Schedule:</strong> This carry forward amount will be automatically eligible for salary encashment in every quarter month (<strong>Month 3, 6, 9, 12</strong>) during monthly salary generation.
           </div>
 
           <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "8px" }}>

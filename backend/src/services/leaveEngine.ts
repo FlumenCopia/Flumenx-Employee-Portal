@@ -149,7 +149,7 @@ export async function accrueMonthlyLeave(
 
 /**
  * Checks for eligible unused carry-forward leaves and encashes them in quarterly months.
- * Quarter months: Month 3 (March), Month 4, Month 6 (June), Month 9 (September), Month 12 (December).
+ * Quarter months: Month 3 (March), Month 6 (June), Month 9 (September), Month 12 (December).
  */
 export async function convertThreeMonthUnusedLeaveToSalary(
   employeeId: mongoose.Types.ObjectId,
@@ -162,8 +162,8 @@ export async function convertThreeMonthUnusedLeaveToSalary(
     return { convertedDays: 0, convertedAmount: 0 };
   }
 
-  // Quarterly Encashment: Encashed at every quarter month (Months 3, 4, 6, 9, 12)
-  const isQuarterEncashmentMonth = [3, 4, 6, 9, 12].includes(currentMonth);
+  // Quarterly Encashment: Encashed at every quarter month (Months 3, 6, 9, 12)
+  const isQuarterEncashmentMonth = [3, 6, 9, 12].includes(currentMonth);
   if (!isQuarterEncashmentMonth) {
     return { convertedDays: 0, convertedAmount: 0 };
   }
