@@ -307,7 +307,37 @@ export async function decideLeave(req: Request, res: Response): Promise<void> {
 }
 
 export async function getLeaveBalances(req: Request, res: Response): Promise<void> {
-  const { employee_id } = req.query;
+  const { employee_id, all } = req.query;
+
+  if (all === 'true') {
+    const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+    const leaveScope = await getRoleDataScope(req.user, 'LEAVES');
+    const hasGlobalScope = isSuper || leaveScope === 'ALL';
+
+    const filter: any = { status: { $ne: 'Inactive' } };
+    if (!hasGlobalScope) {
+      const ownEmp = await getEmployeeForUser(req.user);
+      if (ownEmp) filter._id = ownEmp._id;
+    }
+
+    const employees = await Employee.find(filter).sort({ employeeCode: 1, name: 1 });
+    const results = await Promise.all(
+      employees.map(async (emp) => {
+        const bal = await getEmployeeLeaveBalance(emp._id);
+        return {
+          employee_id: emp._id,
+          employee_name: emp.name,
+          employee_code: emp.employeeCode,
+          department: emp.department,
+          designation: emp.designation,
+          ...bal,
+        };
+      })
+    );
+    res.json({ count: results.length, results });
+    return;
+  }
+
   let targetEmpId = employee_id;
 
   if (!targetEmpId) {

@@ -48,15 +48,34 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
     carriedForwardBalance: number;
   } | null>(null);
 
+  const [adminView, setAdminView] = useState<"requests" | "balances">("requests");
+  const [allBalances, setAllBalances] = useState<any[]>([]);
+  const [allBalancesLoading, setAllBalancesLoading] = useState(false);
+  const [balanceSearch, setBalanceSearch] = useState("");
+
   const loadBalances = () => {
     api<any>("/leaves/balances/")
       .then(setBalances)
       .catch(() => {});
   };
 
+  const loadAllBalances = () => {
+    setAllBalancesLoading(true);
+    api<any>("/leaves/balances/?all=true")
+      .then((res) => setAllBalances(res?.results || []))
+      .catch(() => setAllBalances([]))
+      .finally(() => setAllBalancesLoading(false));
+  };
+
   useEffect(() => {
     loadBalances();
   }, []);
+
+  useEffect(() => {
+    if (!isEmployee && adminView === "balances") {
+      loadAllBalances();
+    }
+  }, [adminView, isEmployee]);
 
   useEffect(() => {
     if (!isEmployee) {
@@ -199,7 +218,140 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
         <small>{isEmployee ? "awaiting approval" : "awaiting review"}</small>
       </div>
     </div>
-    <Section title={isEmployee ? "Request history" : "Requests in review"} kicker={isEmployee ? "MY LEAVE / 2026" : "LEAVE REVIEW / 2026"}>
+
+    {!isEmployee && (
+      <div style={{ display: "flex", gap: "10px", margin: "16px 0 24px" }}>
+        <button
+          type="button"
+          onClick={() => setAdminView("requests")}
+          style={{
+            padding: "8px 16px",
+            borderRadius: "8px",
+            fontSize: "13px",
+            fontWeight: 700,
+            border: adminView === "requests" ? "1px solid #087A5B" : "1px solid #CBD5E1",
+            backgroundColor: adminView === "requests" ? "#087A5B" : "#FFFFFF",
+            color: adminView === "requests" ? "#FFFFFF" : "#475569",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          📋 Leave Requests ({count})
+        </button>
+        <button
+          type="button"
+          onClick={() => setAdminView("balances")}
+          style={{
+            padding: "8px 16px",
+            borderRadius: "8px",
+            fontSize: "13px",
+            fontWeight: 700,
+            border: adminView === "balances" ? "1px solid #087A5B" : "1px solid #CBD5E1",
+            backgroundColor: adminView === "balances" ? "#087A5B" : "#FFFFFF",
+            color: adminView === "balances" ? "#FFFFFF" : "#475569",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          📊 Staff Leave Balances &amp; Carry Forward
+        </button>
+      </div>
+    )}
+
+    {!isEmployee && adminView === "balances" ? (
+      <Section title="Staff Leave Balances & 3-Month Carry Forward" kicker="HR & PAYROLL AUDIT / 2026">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", gap: "16px", flexWrap: "wrap" }}>
+          <div style={{ fontSize: "13px", color: "var(--muted)" }}>
+            Policy: Permanent employees accrue <strong>2.0 paid leaves/month</strong> (1 Sick + 1 Casual). Unused leaves carry forward across a <strong>3-month rolling window</strong> before converting to salary addition.
+          </div>
+          <input
+            type="text"
+            placeholder="Search employee or department..."
+            value={balanceSearch}
+            onChange={(e) => setBalanceSearch(e.target.value)}
+            style={{
+              padding: "8px 12px",
+              borderRadius: "6px",
+              border: "1px solid var(--line)",
+              fontSize: "13px",
+              minWidth: "260px",
+            }}
+          />
+        </div>
+
+        {allBalancesLoading ? (
+          <EmptyState title="Loading leave balances" text="Fetching staff leave ledgers." />
+        ) : allBalances.length === 0 ? (
+          <EmptyState title="No balances found" text="No active employee records available." />
+        ) : (
+          <div className="data-table leave-table">
+            <div className="table-head" style={{ gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1fr 1fr 1fr" }}>
+              <span>Employee</span>
+              <span>Status</span>
+              <span>Available Paid</span>
+              <span>Carried Forward (3-Mo)</span>
+              <span>Availed Month</span>
+              <span>Sick / Casual</span>
+              <span>Converted to Salary</span>
+            </div>
+            {allBalances
+              .filter(
+                (b) =>
+                  !balanceSearch ||
+                  b.employee_name?.toLowerCase().includes(balanceSearch.toLowerCase()) ||
+                  b.employee_code?.toLowerCase().includes(balanceSearch.toLowerCase()) ||
+                  b.department?.toLowerCase().includes(balanceSearch.toLowerCase())
+              )
+              .map((b) => (
+                <div
+                  className="table-row"
+                  key={b.employee_id}
+                  style={{ gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1fr 1fr 1fr", alignItems: "center" }}
+                >
+                  <div className="person-cell">
+                    <Avatar name={b.employee_name || ""} />
+                    <div>
+                      <b>{b.employee_name}</b>
+                      <span>{b.employee_code} • {b.department}</span>
+                    </div>
+                  </div>
+                  <span>
+                    <Badge tone={b.employmentStatus === "Permanent" ? "success" : "neutral"}>
+                      {b.employmentStatus || "Permanent"}
+                    </Badge>
+                  </span>
+                  <div>
+                    <strong style={{ color: "#10b981", fontSize: "14px" }}>
+                      {(b.totalPaidLeaveBalance || 0).toFixed(1)} Days
+                    </strong>
+                    <div style={{ fontSize: "10px", color: "var(--muted)" }}>2.0/mo quota</div>
+                  </div>
+                  <div>
+                    <strong style={{ color: "var(--goldD)", fontSize: "14px" }}>
+                      {(b.carriedForwardBalance || 0).toFixed(1)} Days
+                    </strong>
+                    <div style={{ fontSize: "10px", color: "var(--muted)" }}>Rolling 3-Mo</div>
+                  </div>
+                  <span>{(b.availedThisMonth || 0).toFixed(1)} Days</span>
+                  <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                    S: {b.sickLeaveBalance?.toFixed(1) || "0.0"} • C: {b.casualLeaveBalance?.toFixed(1) || "0.0"}
+                  </span>
+                  <span>
+                    {b.convertedToSalary > 0 ? (
+                      <span style={{ color: "#2563EB", fontWeight: 700 }}>
+                        {b.convertedToSalary.toFixed(1)} Days Encashed
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </span>
+                </div>
+              ))}
+          </div>
+        )}
+      </Section>
+    ) : (
+      <Section title={isEmployee ? "Request history" : "Requests in review"} kicker={isEmployee ? "MY LEAVE / 2026" : "LEAVE REVIEW / 2026"}>
       <div className="data-table leave-table">
         <div className="table-head">
           {!isEmployee && <span>Employee</span>}
@@ -369,6 +521,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
         </div>
       )}
     </Section>
+    )}
     {modal && (
       <Modal title="Request time off" onClose={() => setModal(false)}>
         <form onSubmit={requestLeave} className="modal-form">
