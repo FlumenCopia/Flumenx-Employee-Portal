@@ -21,6 +21,7 @@ import {
   getStatutoryReport,
   getAttendanceImpactReport,
   getLeaveConversionReport,
+  exportPayrollCSV,
 } from '../controllers/payrollController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { requirePermission } from '../middleware/rbac.js';
@@ -29,11 +30,12 @@ const router = Router();
 
 router.use(authenticateToken);
 
-// Reports
+// Reports & Excel Export
 router.get('/payroll/reports/summary/?', requirePermission('salary_slips', 'canView'), getPayrollSummaryReport);
 router.get('/payroll/reports/statutory/?', requirePermission('salary_slips', 'canView'), getStatutoryReport);
 router.get('/payroll/reports/attendance-impact/?', requirePermission('salary_slips', 'canView'), getAttendanceImpactReport);
 router.get('/payroll/reports/leave-conversion/?', requirePermission('salary_slips', 'canView'), getLeaveConversionReport);
+router.get('/payroll/export/csv/?', requirePermission('salary_slips', 'canView'), exportPayrollCSV);
 
 // Salary Heads Configuration
 router.get('/salary-heads/?', requirePermission('salary_slips', 'canView'), getSalaryHeads);

@@ -73,6 +73,8 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
   const [payrollError, setPayrollError] = useState("");
   const [payrollSuccess, setPayrollSuccess] = useState("");
+  const [processReportModal, setProcessReportModal] = useState(false);
+  const [batchApproving, setBatchApproving] = useState(false);
   
   // Unlock Modal
   const [unlockModal, setUnlockModal] = useState(false);
@@ -283,6 +285,130 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
     } catch (err: any) {
       toast.error(err.message || "Failed to unlock record");
     }
+  };
+
+  // Actions: Batch Approve All Calculated Records
+  const handleBatchApprove = async () => {
+    const unapproved = payrollRecords.filter((r) => r.status === "Calculated" || r.status === "Draft");
+    if (unapproved.length === 0) {
+      toast.info("All records are already approved or paid.");
+      return;
+    }
+    if (!window.confirm(`Approve all ${unapproved.length} calculated payroll records for ${monthNames[payrollMonth - 1]} ${payrollYear}?`)) {
+      return;
+    }
+    setBatchApproving(true);
+    try {
+      let approvedCount = 0;
+      for (const r of unapproved) {
+        await api(`/payroll/${r._id}/approve/`, { method: "POST" });
+        approvedCount++;
+      }
+      toast.success(`Successfully approved ${approvedCount} payroll records.`);
+      loadPayrollRecords();
+    } catch (err: any) {
+      toast.error(err.message || "Failed during batch approval");
+    } finally {
+      setBatchApproving(false);
+    }
+  };
+
+  // Actions: Export Detailed Salary Process Report to Excel/CSV
+  const handleExportSalaryProcessExcel = () => {
+    if (!payrollRecords || payrollRecords.length === 0) {
+      toast.warning("No payroll records available to export for this cycle.");
+      return;
+    }
+
+    const headers = [
+      "Employee Code",
+      "Employee Name",
+      "Department",
+      "Designation",
+      "Monthly Gross CTC",
+      "Total Calendar Days",
+      "Salary Days",
+      "Present Days",
+      "Half Days",
+      "Paid Leave Days",
+      "Company Holidays",
+      "LOP / Unpaid Days",
+      "Late Arrivals Count",
+      "Late Half Day Deductions",
+      "Net Payable Days",
+      "Earned Basic Salary",
+      "HRA",
+      "Allowances",
+      "Gross Pay",
+      "LOP & Attendance Deductions",
+      "Employee PF",
+      "Employee ESI",
+      "Professional Tax",
+      "TDS / Income Tax",
+      "Total Deductions",
+      "Net Payable Salary",
+      "Payment Status",
+      "Bank Name",
+      "Bank Account Number",
+      "Bank IFSC",
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = payrollRecords.map((r) => {
+      const emp = r.employee || {};
+      const cyc = r.attendanceCycle || {};
+      const snap = r.salarySnapshot || {};
+
+      return [
+        escapeCsv(emp.employeeCode || emp.code || "EMP"),
+        escapeCsv(emp.name || emp.display_name || "Employee"),
+        escapeCsv(emp.department || "General"),
+        escapeCsv(emp.designation || "Staff"),
+        escapeCsv(r.grossSalary || 0),
+        escapeCsv(cyc.totalCalendarDays || cycleInfo.totalCalendarDays || 30),
+        escapeCsv(cyc.salaryDays || cycleInfo.salaryDays || 26),
+        escapeCsv(cyc.presentDays || 0),
+        escapeCsv(cyc.halfDays || 0),
+        escapeCsv(cyc.paidLeaveDays || 0),
+        escapeCsv(cyc.companyHolidays || 0),
+        escapeCsv(cyc.unpaidDays || 0),
+        escapeCsv(cyc.lateArrivalsCount || 0),
+        escapeCsv(cyc.lateHalfDayDeductions || 0),
+        escapeCsv(cyc.payableDays || 0),
+        escapeCsv(snap.basicSalary || 0),
+        escapeCsv(snap.hra || 0),
+        escapeCsv((snap.conveyance || 0) + (snap.specialAllowance || 0) + (snap.otherAllowances || 0)),
+        escapeCsv(r.grossSalary || 0),
+        escapeCsv(r.attendanceDeduction || 0),
+        escapeCsv(r.pfEmployee || 0),
+        escapeCsv(r.esiEmployee || 0),
+        escapeCsv(r.professionalTax || 0),
+        escapeCsv(r.tds || 0),
+        escapeCsv(r.totalDeductions || 0),
+        escapeCsv(r.netSalary || 0),
+        escapeCsv(r.status || "Calculated"),
+        escapeCsv(emp.bankName || emp.bank_name || ""),
+        escapeCsv(emp.bankAccountNumber || emp.bank_account_number || ""),
+        escapeCsv(emp.bankIfsc || emp.bank_ifsc || ""),
+      ].join(",");
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Salary_Process_Report_${monthNames[payrollMonth - 1]}_${payrollYear}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported Salary Process Report for ${monthNames[payrollMonth - 1]} ${payrollYear}`);
   };
 
   // Save Salary Structure
@@ -713,7 +839,7 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                 </p>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                 <select
                   value={payrollMonth}
                   onChange={(e) => setPayrollMonth(Number(e.target.value))}
@@ -736,13 +862,196 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
 
                 <button
                   onClick={loadPayrollRecords}
+                  title="Reload Records"
                   style={{ padding: "8px", borderRadius: "6px", border: "1px solid #CBD5E1", backgroundColor: "#F8FAFC", cursor: "pointer" }}
                 >
                   <RefreshCw style={{ width: "16px", height: "16px", color: "#475569" }} />
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setProcessReportModal(true)}
+                  disabled={payrollRecords.length === 0}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "8px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid #CBD5E1",
+                    backgroundColor: "#FFFFFF",
+                    color: "#0F172A",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: payrollRecords.length === 0 ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <Eye style={{ width: "14px", height: "14px", color: "#087A5B" }} />
+                  View Process Report
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportSalaryProcessExcel}
+                  disabled={payrollRecords.length === 0}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "8px 14px",
+                    borderRadius: "6px",
+                    border: "1px solid #087A5B",
+                    backgroundColor: "#087A5B",
+                    color: "#FFFFFF",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    cursor: payrollRecords.length === 0 ? "not-allowed" : "pointer",
+                    boxShadow: "0 2px 4px rgba(8,122,91,0.2)",
+                  }}
+                >
+                  <Download style={{ width: "14px", height: "14px" }} />
+                  Export Excel (CSV)
+                </button>
               </div>
             </div>
           </div>
+
+          {/* SALARY PROCESS EXECUTIVE REPORT & ANALYTICS BAR */}
+          {(() => {
+            const totalEmployees = payrollRecords.length;
+            const totalGross = payrollRecords.reduce((acc, r) => acc + (r.grossSalary || 0), 0);
+            const totalDeductions = payrollRecords.reduce((acc, r) => acc + (r.totalDeductions || 0), 0);
+            const totalNet = payrollRecords.reduce((acc, r) => acc + (r.netSalary || 0), 0);
+            const totalAttendanceDeductions = payrollRecords.reduce((acc, r) => acc + (r.attendanceDeduction || 0), 0);
+            const totalPF = payrollRecords.reduce((acc, r) => acc + (r.pfEmployee || 0), 0);
+            const totalESI = payrollRecords.reduce((acc, r) => acc + (r.esiEmployee || 0), 0);
+            const totalProfTax = payrollRecords.reduce((acc, r) => acc + (r.professionalTax || 0), 0);
+            const totalTDS = payrollRecords.reduce((acc, r) => acc + (r.tds || 0), 0);
+            const totalStatutory = totalPF + totalESI + totalProfTax + totalTDS;
+
+            const totalPresentDays = payrollRecords.reduce((acc, r) => acc + (r.attendanceCycle?.presentDays || 0), 0);
+            const totalLOPDays = payrollRecords.reduce((acc, r) => acc + (r.attendanceCycle?.unpaidDays || 0), 0);
+            const totalLateCount = payrollRecords.reduce((acc, r) => acc + (r.attendanceCycle?.lateArrivalsCount || 0), 0);
+            const totalLateDaysDeducted = payrollRecords.reduce((acc, r) => acc + (r.attendanceCycle?.lateHalfDayDeductions || 0), 0);
+
+            const calculatedCount = payrollRecords.filter((r) => r.status === "Calculated" || r.status === "Draft").length;
+            const approvedCount = payrollRecords.filter((r) => r.status === "Approved").length;
+            const paidCount = payrollRecords.filter((r) => r.status === "Paid").length;
+
+            return (
+              <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "18px 20px", marginBottom: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid #F1F5F9" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{ width: "36px", height: "36px", borderRadius: "8px", backgroundColor: "#ECFDF5", color: "#087A5B", display: "grid", placeItems: "center" }}>
+                      <FileSpreadsheet style={{ width: "20px", height: "20px" }} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>
+                        Salary Process &amp; Deductions Report
+                      </h4>
+                      <span style={{ fontSize: "12px", color: "#64748B" }}>
+                        Cycle: {monthNames[payrollMonth - 1]} {payrollYear} • {totalEmployees} Staff Processed
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    {calculatedCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleBatchApprove}
+                        disabled={batchApproving}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "6px 12px",
+                          borderRadius: "6px",
+                          border: "1px solid #3B82F6",
+                          backgroundColor: "#EFF6FF",
+                          color: "#1D4ED8",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <CheckCircle2 style={{ width: "13px", height: "13px" }} />
+                        {batchApproving ? "Approving..." : `Approve All Calculated (${calculatedCount})`}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4 Financial & Deduction KPI Blocks */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px" }}>
+                  {/* Gross Payroll */}
+                  <div style={{ padding: "14px", borderRadius: "8px", backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0" }}>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Total Gross Payroll
+                    </div>
+                    <div style={{ fontSize: "20px", fontWeight: 800, color: "#0F172A", marginTop: "4px" }}>
+                      ₹{totalGross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#64748B", marginTop: "4px" }}>
+                      Monthly Base CTC ({totalEmployees} Staff)
+                    </div>
+                  </div>
+
+                  {/* Total Deductions Itemized */}
+                  <div style={{ padding: "14px", borderRadius: "8px", backgroundColor: "#FEF2F2", border: "1px solid #FECACA" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#991B1B", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        Total Deductions
+                      </span>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#DC2626", backgroundColor: "#FEE2E2", padding: "1px 6px", borderRadius: "4px" }}>
+                        {totalGross > 0 ? `${((totalDeductions / totalGross) * 100).toFixed(1)}%` : "0%"}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "20px", fontWeight: 800, color: "#DC2626", marginTop: "4px" }}>
+                      - ₹{totalDeductions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div style={{ fontSize: "11.5px", color: "#7F1D1D", marginTop: "4px" }}>
+                      LOP &amp; Late: <strong>₹{totalAttendanceDeductions.toLocaleString()}</strong> • Stat: <strong>₹{totalStatutory.toLocaleString()}</strong>
+                    </div>
+                  </div>
+
+                  {/* Net Payable Disbursal */}
+                  <div style={{ padding: "14px", borderRadius: "8px", backgroundColor: "#ECFDF5", border: "1px solid #A7F3D0" }}>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "#065F46", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Net Payable Salary
+                    </div>
+                    <div style={{ fontSize: "20px", fontWeight: 800, color: "#087A5B", marginTop: "4px" }}>
+                      ₹{totalNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#047857", marginTop: "4px" }}>
+                      Ready for Bank Disbursal
+                    </div>
+                  </div>
+
+                  {/* Attendance & LOP Impact */}
+                  <div style={{ padding: "14px", borderRadius: "8px", backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0" }}>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Attendance &amp; Status
+                    </div>
+                    <div style={{ display: "flex", gap: "6px", marginTop: "6px", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "10px", backgroundColor: "#FEF3C7", color: "#92400E" }}>
+                        {calculatedCount} Calculated
+                      </span>
+                      <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "10px", backgroundColor: "#DBEAFE", color: "#1E40AF" }}>
+                        {approvedCount} Approved
+                      </span>
+                      <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "10px", backgroundColor: "#D1FAE5", color: "#065F46" }}>
+                        {paidCount} Paid
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#64748B", marginTop: "6px" }}>
+                      Present: {totalPresentDays}d • LOP: {totalLOPDays}d • Late: {totalLateCount} ({totalLateDaysDeducted}d)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Records Table */}
           <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", overflow: "hidden" }}>
@@ -1582,6 +1891,181 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                 </div>
               </div>
             ))}
+          </div>
+        </Modal>
+      )}
+
+      {/* MODAL: Detailed Salary Process Report */}
+      {processReportModal && (
+        <Modal onClose={() => setProcessReportModal(false)} title={`Salary Process Audit & Deductions Report — ${monthNames[payrollMonth - 1]} ${payrollYear}`}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", maxHeight: "75vh", overflowY: "auto" }}>
+            {/* Top Action Header */}
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "12px", padding: "14px", backgroundColor: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>
+                  Cycle Summary ({payrollRecords.length} Staff)
+                </h4>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748B" }}>
+                  {cycleInfo.readablePeriod || `${cycleInfo.startStr} → ${cycleInfo.endStr}`} • Total Net: <strong style={{ color: "#087A5B" }}>₹{payrollRecords.reduce((sum, r) => sum + (r.netSalary || 0), 0).toLocaleString()}</strong>
+                </p>
+              </div>
+
+              <div style={{ display: "flex", gap: "8px" }}>
+                <PrimaryButton onClick={handleExportSalaryProcessExcel}>
+                  <Download style={{ width: "14px", height: "14px", marginRight: "6px" }} />
+                  Download Excel (CSV)
+                </PrimaryButton>
+              </div>
+            </div>
+
+            {/* Department-wise summary breakdown */}
+            {(() => {
+              const deptMap = new Map<string, { count: number; gross: number; deductions: number; net: number }>();
+              payrollRecords.forEach((r) => {
+                const dept = r.employee?.department || "General";
+                const current = deptMap.get(dept) || { count: 0, gross: 0, deductions: 0, net: 0 };
+                current.count += 1;
+                current.gross += r.grossSalary || 0;
+                current.deductions += r.totalDeductions || 0;
+                current.net += r.netSalary || 0;
+                deptMap.set(dept, current);
+              });
+
+              return (
+                <div>
+                  <h5 style={{ margin: "0 0 8px", fontSize: "13px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Department-Wise Cost Distribution
+                  </h5>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "10px" }}>
+                    {Array.from(deptMap.entries()).map(([deptName, stat]) => (
+                      <div key={deptName} style={{ padding: "10px 12px", backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "8px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <strong style={{ fontSize: "13px", color: "#0F172A" }}>{deptName}</strong>
+                          <span style={{ fontSize: "11px", fontWeight: 600, color: "#64748B" }}>{stat.count} staff</span>
+                        </div>
+                        <div style={{ fontSize: "14px", fontWeight: 700, color: "#087A5B", marginTop: "4px" }}>
+                          ₹{stat.net.toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: "11px", color: "#64748B" }}>
+                          Gross: ₹{stat.gross.toLocaleString()} • Ded: -₹{stat.deductions.toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Full Itemized Employee Payroll Table */}
+            <div>
+              <h5 style={{ margin: "0 0 8px", fontSize: "13px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Itemized Employee Deductions &amp; Net Salary
+              </h5>
+              <div style={{ border: "1px solid #E2E8F0", borderRadius: "8px", overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", textAlign: "left" }}>
+                  <thead>
+                    <tr style={{ backgroundColor: "#F1F5F9", borderBottom: "1px solid #E2E8F0", color: "#475569" }}>
+                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>Employee</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>Present / Payable</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>Gross CTC</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 700, color: "#DC2626" }}>LOP &amp; Late Ded.</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>PF / ESI</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>PT / TDS</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 700, color: "#DC2626" }}>Total Ded.</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 800, color: "#087A5B" }}>Net Payable</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payrollRecords.map((r) => {
+                      const cyc = r.attendanceCycle || {};
+                      return (
+                        <tr key={r._id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                          <td style={{ padding: "8px 10px" }}>
+                            <strong style={{ color: "#0F172A" }}>{r.employee?.name}</strong>
+                            <div style={{ fontSize: "10.5px", color: "#64748B" }}>{r.employee?.employeeCode} • {r.employee?.department}</div>
+                          </td>
+                          <td style={{ padding: "8px 10px" }}>
+                            <div>{cyc.payableDays || 0} / {cyc.salaryDays || 26} Days</div>
+                            <div style={{ fontSize: "10.5px", color: cyc.unpaidDays > 0 ? "#DC2626" : "#64748B" }}>
+                              Present: {cyc.presentDays || 0} | LOP: {cyc.unpaidDays || 0}
+                            </div>
+                          </td>
+                          <td style={{ padding: "8px 10px", fontWeight: 600 }}>₹{r.grossSalary?.toLocaleString()}</td>
+                          <td style={{ padding: "8px 10px", color: "#DC2626", fontWeight: 600 }}>
+                            ₹{(r.attendanceDeduction || 0).toLocaleString()}
+                          </td>
+                          <td style={{ padding: "8px 10px", color: "#64748B" }}>
+                            ₹{((r.pfEmployee || 0) + (r.esiEmployee || 0)).toLocaleString()}
+                          </td>
+                          <td style={{ padding: "8px 10px", color: "#64748B" }}>
+                            ₹{((r.professionalTax || 0) + (r.tds || 0)).toLocaleString()}
+                          </td>
+                          <td style={{ padding: "8px 10px", fontWeight: 700, color: "#DC2626" }}>
+                            - ₹{r.totalDeductions?.toLocaleString()}
+                          </td>
+                          <td style={{ padding: "8px 10px", fontWeight: 800, color: "#087A5B", fontSize: "13px" }}>
+                            ₹{r.netSalary?.toLocaleString()}
+                          </td>
+                          <td style={{ padding: "8px 10px" }}>
+                            <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: "10px", backgroundColor: r.status === "Paid" ? "#D1FAE5" : r.status === "Approved" ? "#DBEAFE" : "#FEF3C7", color: r.status === "Paid" ? "#065F46" : r.status === "Approved" ? "#1E40AF" : "#92400E" }}>
+                              {r.status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ backgroundColor: "#F8FAFC", borderTop: "2px solid #CBD5E1", fontWeight: 700 }}>
+                      <td style={{ padding: "10px" }}>Total ({payrollRecords.length} Staff)</td>
+                      <td style={{ padding: "10px" }}>
+                        {payrollRecords.reduce((s, r) => s + (r.attendanceCycle?.presentDays || 0), 0)} Present / {payrollRecords.reduce((s, r) => s + (r.attendanceCycle?.unpaidDays || 0), 0)} LOP
+                      </td>
+                      <td style={{ padding: "10px" }}>₹{payrollRecords.reduce((s, r) => s + (r.grossSalary || 0), 0).toLocaleString()}</td>
+                      <td style={{ padding: "10px", color: "#DC2626" }}>
+                        - ₹{payrollRecords.reduce((s, r) => s + (r.attendanceDeduction || 0), 0).toLocaleString()}
+                      </td>
+                      <td style={{ padding: "10px" }}>
+                        ₹{payrollRecords.reduce((s, r) => s + ((r.pfEmployee || 0) + (r.esiEmployee || 0)), 0).toLocaleString()}
+                      </td>
+                      <td style={{ padding: "10px" }}>
+                        ₹{payrollRecords.reduce((s, r) => s + ((r.professionalTax || 0) + (r.tds || 0)), 0).toLocaleString()}
+                      </td>
+                      <td style={{ padding: "10px", color: "#DC2626" }}>
+                        - ₹{payrollRecords.reduce((s, r) => s + (r.totalDeductions || 0), 0).toLocaleString()}
+                      </td>
+                      <td style={{ padding: "10px", color: "#087A5B", fontWeight: 800, fontSize: "14px" }}>
+                        ₹{payrollRecords.reduce((s, r) => s + (r.netSalary || 0), 0).toLocaleString()}
+                      </td>
+                      <td style={{ padding: "10px" }}>-</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+              <button
+                type="button"
+                onClick={() => setProcessReportModal(false)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "6px",
+                  border: "1px solid #CBD5E1",
+                  backgroundColor: "#FFFFFF",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                }}
+              >
+                Close
+              </button>
+              <PrimaryButton onClick={handleExportSalaryProcessExcel}>
+                <Download style={{ width: "14px", height: "14px", marginRight: "6px" }} />
+                Export Detailed Excel (CSV)
+              </PrimaryButton>
+            </div>
           </div>
         </Modal>
       )}

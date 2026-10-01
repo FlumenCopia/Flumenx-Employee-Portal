@@ -563,3 +563,99 @@ export async function getLeaveConversionReport(req: Request, res: Response): Pro
     }),
   });
 }
+
+export async function exportPayrollCSV(req: Request, res: Response): Promise<void> {
+  try {
+    const { month, year } = req.query;
+    const filter: any = {};
+    if (month) filter.month = parseInt(month as string, 10);
+    if (year) filter.year = parseInt(year as string, 10);
+
+    const records = await PayrollRecord.find(filter)
+      .populate('employee')
+      .sort({ 'employee.name': 1 });
+
+    const headers = [
+      'Employee Code',
+      'Employee Name',
+      'Department',
+      'Designation',
+      'Monthly CTC',
+      'Total Days',
+      'Salary Days',
+      'Present Days',
+      'Half Days',
+      'Paid Leave Days',
+      'Holidays',
+      'LOP Days',
+      'Late Arrivals Count',
+      'Late Deduction Days',
+      'Payable Days',
+      'Basic Salary',
+      'Gross Salary',
+      'LOP & Attendance Deductions',
+      'PF Employee',
+      'ESI Employee',
+      'Professional Tax',
+      'TDS',
+      'Total Deductions',
+      'Net Salary',
+      'Status',
+      'Bank Name',
+      'Bank Account Number',
+      'Bank IFSC',
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = records.map((r) => {
+      const emp = r.employee as any;
+      const cyc = r.attendanceCycle;
+      const snap = r.salarySnapshot;
+
+      return [
+        escapeCsv(emp?.employeeCode || 'N/A'),
+        escapeCsv(emp?.name || 'N/A'),
+        escapeCsv(emp?.department || 'N/A'),
+        escapeCsv(emp?.designation || 'N/A'),
+        escapeCsv(r.grossSalary),
+        escapeCsv(cyc?.totalCalendarDays || 0),
+        escapeCsv(cyc?.salaryDays || 0),
+        escapeCsv(cyc?.presentDays || 0),
+        escapeCsv(cyc?.halfDays || 0),
+        escapeCsv(cyc?.paidLeaveDays || 0),
+        escapeCsv(cyc?.companyHolidays || 0),
+        escapeCsv(cyc?.unpaidDays || 0),
+        escapeCsv(cyc?.lateArrivalsCount || 0),
+        escapeCsv(cyc?.lateHalfDayDeductions || 0),
+        escapeCsv(cyc?.payableDays || 0),
+        escapeCsv(snap?.basicSalary || 0),
+        escapeCsv(r.grossSalary),
+        escapeCsv(r.attendanceDeduction || 0),
+        escapeCsv(r.pfEmployee || 0),
+        escapeCsv(r.esiEmployee || 0),
+        escapeCsv(r.professionalTax || 0),
+        escapeCsv(r.tds || 0),
+        escapeCsv(r.totalDeductions || 0),
+        escapeCsv(r.netSalary || 0),
+        escapeCsv(r.status),
+        escapeCsv(emp?.bankName || emp?.bank_name || ''),
+        escapeCsv(emp?.bankAccountNumber || emp?.bank_account_number || ''),
+        escapeCsv(emp?.bankIfsc || emp?.bank_ifsc || ''),
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=Salary_Process_Report_${month || 'Cycle'}_${year || 'Year'}.csv`);
+    res.status(200).send(csvContent);
+  } catch (error: any) {
+    console.error('[exportPayrollCSV Error]', error);
+    res.status(500).json({ detail: error.message || 'Failed to export payroll report.' });
+  }
+}
+
