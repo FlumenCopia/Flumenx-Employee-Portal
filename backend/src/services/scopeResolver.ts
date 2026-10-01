@@ -1,6 +1,6 @@
 import { DynamicRole, DataScope } from '../models/DynamicRole.js';
-import { PortalPage } from '../models/PortalPage.js';
 import { Employee } from '../models/Employee.js';
+import { getCachedPortalPages } from './permissionResolver.js';
 
 export async function getRoleDataScope(user: any, moduleCode: string): Promise<DataScope> {
   if (!user) return 'OWN';
@@ -23,7 +23,8 @@ export async function getRoleDataScope(user: any, moduleCode: string): Promise<D
     if (dynamicRoleDoc.isSuperadminWildcard) return 'ALL';
 
     const searchCodes = normalizedCode === 'WORK' ? ['WORK', 'TASKS'] : normalizedCode === 'TASKS' ? ['TASKS', 'WORK'] : [normalizedCode];
-    const targetPage = await PortalPage.findOne({ moduleCode: { $in: searchCodes } });
+    const pages = await getCachedPortalPages();
+    const targetPage = pages.find((p: any) => searchCodes.includes(p.moduleCode));
     if (targetPage) {
       const perm = dynamicRoleDoc.permissions?.find((p: any) => {
         if (!p.page) return false;

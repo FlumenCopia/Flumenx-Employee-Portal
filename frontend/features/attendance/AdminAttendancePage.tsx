@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, CheckCircle2, Clock3, FileBarChart, MapPin, PlusCircle, TimerOff, Trash2, UserX, X } from "lucide-react";
+import { Check, CheckCircle2, Clock3, FileBarChart, LogOut, MapPin, PlusCircle, TimerOff, Trash2, UserX, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
 import { AttendanceRecord, Paginated } from "@/lib/types";
@@ -54,6 +54,12 @@ export function AdminAttendancePage() {
   const canManualEntry = hasPermission(user, "ATTENDANCE", "manual_entry");
   const canPolicySettings = hasPermission(user, "ATTENDANCE", "policy_settings");
   const canReportsExport = hasPermission(user, "ATTENDANCE", "reports_export");
+  const canAdminExit =
+    user?.role === "SUPER_ADMIN" ||
+    Boolean(user?.is_superuser) ||
+    user?.role === "ADMIN" ||
+    user?.role === "HR" ||
+    hasPermission(user, "ATTENDANCE", "canEdit");
 
   const [filter, setFilter] = useState("All");
   const [date, setDate] = useState(() => getTodayISTDateString());
@@ -65,6 +71,13 @@ export function AdminAttendancePage() {
   const [summaryError, setSummaryError] = useState("");
   const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+
+  // Super Admin Manual Exit modal state
+  const [adminExitRecord, setAdminExitRecord] = useState<AttendanceRecord | null>(null);
+  const [adminExitTime, setAdminExitTime] = useState("18:30");
+  const [adminExitStatus, setAdminExitStatus] = useState("Present");
+  const [adminExitNotes, setAdminExitNotes] = useState("Manual exit by Super Admin (Shift end 6:30 PM)");
+  const [adminExitLoading, setAdminExitLoading] = useState(false);
 
   // Correction approval workflow state
   const [corrections, setCorrections] = useState<AttendanceCorrectionItem[]>([]);
@@ -173,6 +186,30 @@ export function AdminAttendancePage() {
       loadCorrections();
     } catch (err: any) {
       toast.error(err?.message || "Failed to delete correction request.");
+    }
+  };
+
+  const handleAdminExit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminExitRecord) return;
+    setAdminExitLoading(true);
+    try {
+      await api("/attendance/admin-checkout/", {
+        method: "POST",
+        body: JSON.stringify({
+          attendance_id: adminExitRecord.id,
+          check_out_time: adminExitTime || "18:30",
+          attendance_status: adminExitStatus,
+          notes: adminExitNotes,
+        }),
+      });
+      toast.success(`Successfully exited ${adminExitRecord.employee_name} at ${adminExitTime || "18:30"}.`);
+      setAdminExitRecord(null);
+      reloadAllAttendance();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to manually exit employee");
+    } finally {
+      setAdminExitLoading(false);
     }
   };
 
@@ -467,6 +504,35 @@ export function AdminAttendancePage() {
                 <div className="time-value">
                   <b>{displayTime(r.check_out_time)}</b>
                   {r.is_early_exit && <small className="red">Early Exit ({r.early_exit_minutes}m)</small>}
+                  {!r.check_out_time && r.check_in_time && canAdminExit && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAdminExitRecord(r);
+                        setAdminExitTime("18:30");
+                        setAdminExitStatus("Present");
+                        setAdminExitNotes("Manual exit by Super Admin (Shift end 6:30 PM)");
+                      }}
+                      style={{
+                        marginTop: "4px",
+                        padding: "3px 8px",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        borderRadius: "6px",
+                        border: "1px solid rgba(239, 68, 68, 0.4)",
+                        background: "rgba(239, 68, 68, 0.1)",
+                        color: "#ef4444",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                      title="Super Admin Manual Exit (Shift end 6:30 PM)"
+                    >
+                      <LogOut size={11} /> Admin Exit
+                    </button>
+                  )}
                 </div>
                 <b>{Number(r.working_hours).toFixed(2)}h</b>
                 <Badge tone={statusTone(r)}>{r.check_in_status || (r.is_late ? "Late" : "On Time")}</Badge>
@@ -499,6 +565,184 @@ export function AdminAttendancePage() {
           onClose={() => setIsManualModalOpen(false)}
           onSuccess={reloadAllAttendance}
         />
+      )}
+
+      {/* Super Admin Manual Exit Modal */}
+      {adminExitRecord && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={() => setAdminExitRecord(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.65)",
+            backdropFilter: "blur(4px)",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 1100,
+            padding: "16px",
+          }}
+        >
+          <div
+            className="modal"
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "480px",
+              background: "var(--panel, #1e1e24)",
+              border: "1px solid var(--border2, #2e2e38)",
+              borderRadius: "16px",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+              overflow: "hidden",
+              padding: "24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <span style={{ fontSize: "10px", fontWeight: 800, color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  SUPER ADMIN ACTION • NO AUTO LOGOUT
+                </span>
+                <h3 style={{ fontSize: "18px", fontWeight: 700, margin: "2px 0 0 0" }}>
+                  Manual Exit Employee
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdminExitRecord(null)}
+                style={{ background: "transparent", border: 0, color: "var(--muted)", cursor: "pointer" }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px solid var(--border)", fontSize: "13px" }}>
+              <div><strong>Employee:</strong> {adminExitRecord.employee_name} ({adminExitRecord.employee_code})</div>
+              <div><strong>Date:</strong> {adminExitRecord.attendance_date}</div>
+              <div><strong>Check-in Time:</strong> {displayTime(adminExitRecord.check_in_time)}</div>
+            </div>
+
+            <form onSubmit={handleAdminExit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
+                  Exit Time (24h or HH:MM)
+                </label>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input
+                    type="text"
+                    value={adminExitTime}
+                    onChange={(e) => setAdminExitTime(e.target.value)}
+                    required
+                    style={{
+                      flex: 1,
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--border)",
+                      background: "var(--panel)",
+                      color: "var(--text)",
+                      fontSize: "13px",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAdminExitTime("18:30")}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--border)",
+                      background: "var(--surface)",
+                      color: "var(--text)",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    6:30 PM (Default)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
+                  Daily Attendance Status
+                </label>
+                <select
+                  value={adminExitStatus}
+                  onChange={(e) => setAdminExitStatus(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid var(--border)",
+                    background: "var(--panel)",
+                    color: "var(--text)",
+                    fontSize: "13px",
+                  }}
+                >
+                  <option value="Present">Present (Full Day)</option>
+                  <option value="Half Day">Half Day</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>
+                  Reason / Remarks for Manual Exit
+                </label>
+                <textarea
+                  value={adminExitNotes}
+                  onChange={(e) => setAdminExitNotes(e.target.value)}
+                  rows={2}
+                  required
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid var(--border)",
+                    background: "var(--panel)",
+                    color: "var(--text)",
+                    fontSize: "13px",
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+                <button
+                  type="button"
+                  onClick={() => setAdminExitRecord(null)}
+                  disabled={adminExitLoading}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    border: "1px solid var(--border)",
+                    background: "transparent",
+                    color: "var(--text)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={adminExitLoading}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    border: 0,
+                    background: "#ef4444",
+                    color: "#ffffff",
+                    fontWeight: 700,
+                    fontSize: "13px",
+                    cursor: "pointer",
+                  }}
+                >
+                  {adminExitLoading ? "Exiting..." : "Confirm Manual Exit"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </>
   );

@@ -232,9 +232,20 @@ export type EmployeeDocumentItem = {
 };
 
 export type Leave = {
-  id: number; employee?: number; employee_name?: string; employee_code?: string;
-  leave_type: string; start_date: string; end_date: string; reason: string;
-  status: "Pending" | "Approved" | "Rejected"; days?: number; admin_note?: string;
+  id: number;
+  employee?: number;
+  employee_name?: string;
+  employee_code?: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  is_half_day?: boolean;
+  half_day_period?: "First Half" | "Second Half" | null;
+  days_count?: number;
+  reason: string;
+  status: "Pending" | "Approved" | "Rejected";
+  days?: number;
+  admin_note?: string;
 };
 export type Announcement = { id: number; title: string; message: string; date: string; priority: "Normal" | "Important" | "Urgent" };
 export type SalarySlip = {

@@ -37,6 +37,26 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const [employees, setEmployees] = useState<any[]>([]);
+  const [isHalfDay, setIsHalfDay] = useState(false);
+  const [halfDayPeriod, setHalfDayPeriod] = useState<"First Half" | "Second Half">("First Half");
+  const [balances, setBalances] = useState<{
+    totalPaidLeaveBalance: number;
+    sickLeaveBalance: number;
+    casualLeaveBalance: number;
+    monthlyPaidQuota: number;
+    availedThisMonth: number;
+    carriedForwardBalance: number;
+  } | null>(null);
+
+  const loadBalances = () => {
+    api<any>("/leaves/balances/")
+      .then(setBalances)
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadBalances();
+  }, []);
 
   useEffect(() => {
     if (!isEmployee) {
@@ -79,6 +99,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
       const updated = await api<Leave>(`/leaves/${id}/decide/`, { method: "POST", body: JSON.stringify({ status }) });
       setItems(current => current.map(x => x.id === id ? updated : x));
       setMessage(`Leave request status updated to ${status}.`);
+      loadBalances();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : `Could not update leave request to ${status}.`);
     } finally {
@@ -97,6 +118,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
       setItems(current => current.filter(x => x.id !== id));
       setMessage("Leave request deleted successfully.");
       setCount(c => Math.max(0, c - 1));
+      loadBalances();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Could not delete leave request.");
     } finally {
@@ -112,10 +134,15 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
     setActionError("");
     const data = new FormData(e.currentTarget);
     try {
+      const startDate = data.get("start_date");
+      const endDate = isHalfDay ? startDate : (data.get("end_date") || startDate);
+
       const payload: any = {
         leave_type: data.get("leave_type"),
-        start_date: data.get("start_date"),
-        end_date: data.get("end_date"),
+        start_date: startDate,
+        end_date: endDate,
+        is_half_day: isHalfDay,
+        half_day_period: isHalfDay ? halfDayPeriod : null,
         reason: data.get("reason"),
       };
       const empId = data.get("employee_id");
@@ -126,8 +153,10 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
         body: JSON.stringify(payload),
       });
       setModal(false);
+      setIsHalfDay(false);
       setMessage("Leave request submitted.");
       loadLeaves();
+      loadBalances();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Could not submit leave request.");
     } finally {
@@ -138,7 +167,6 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   const safeItems = items || [];
   const pendingCount = safeItems.filter(x => x.status === "Pending").length;
   const approvedCount = safeItems.filter(x => x.status === "Approved").length;
-  const rejectedCount = safeItems.filter(x => x.status === "Rejected").length;
 
   return <>
     <PageHeader
@@ -151,19 +179,24 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
     {actionError && <div className="toast error">{actionError}</div>}
     <div className="mini-metrics">
       <div>
+        <span>PAID LEAVE BALANCE</span>
+        <strong style={{ color: "#10b981" }}>{balances ? balances.totalPaidLeaveBalance.toFixed(1) : "2.0"}</strong>
+        <small>2.0 / month quota</small>
+      </div>
+      <div>
+        <span>CARRIED FORWARD</span>
+        <strong style={{ color: "var(--goldD)" }}>{balances ? balances.carriedForwardBalance.toFixed(1) : "0.0"}</strong>
+        <small>3-month carry cycle</small>
+      </div>
+      <div>
+        <span>AVAILED THIS MONTH</span>
+        <strong style={{ color: "#3b82f6" }}>{balances ? balances.availedThisMonth.toFixed(1) : "0.0"}</strong>
+        <small>taken this cycle</small>
+      </div>
+      <div>
         <span>{isEmployee ? "PENDING" : "PENDING REVIEW"}</span>
         <strong>{pendingCount}</strong>
         <small>{isEmployee ? "awaiting approval" : "awaiting review"}</small>
-      </div>
-      <div>
-        <span>APPROVED</span>
-        <strong>{approvedCount}</strong>
-        <small>this year</small>
-      </div>
-      <div>
-        <span>REJECTED</span>
-        <strong>{rejectedCount}</strong>
-        <small>this year</small>
       </div>
     </div>
     <Section title={isEmployee ? "Request history" : "Requests in review"} kicker={isEmployee ? "MY LEAVE / 2026" : "LEAVE REVIEW / 2026"}>
@@ -190,9 +223,21 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
             )}
             <b>{l.leave_type}</b>
             <span>
-              {new Date(l.start_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} - {new Date(l.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+              {new Date(l.start_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+              {!l.is_half_day && l.end_date && l.end_date !== l.start_date
+                ? ` - ${new Date(l.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`
+                : ""}
             </span>
-            <span>{l.days} day{l.days === 1 ? "" : "s"}</span>
+            <span>
+              {l.is_half_day ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  <b style={{ color: "#d97706" }}>0.5 Day</b>
+                  <small style={{ color: "var(--muted)", fontWeight: 600 }}>{l.half_day_period || "Half Day"}</small>
+                </div>
+              ) : (
+                `${l.days} day${l.days === 1 ? "" : "s"}`
+              )}
+            </span>
             <span className="truncate">{l.reason}</span>
             <Badge tone={l.status}>{l.status}</Badge>
             {!isEmployee && (canEdit || canDelete) && (
@@ -359,16 +404,112 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
               <option value="Emergency">Emergency Leave</option>
             </select>
           </label>
-          <div className="two-col">
-            <label>
-              From
-              <input name="start_date" type="date" required />
+
+          {/* Duration Selector: Full Day vs Half Day */}
+          <div>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "6px" }}>
+              Leave Duration
             </label>
-            <label>
-              To
-              <input name="end_date" type="date" required />
-            </label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
+              <button
+                type="button"
+                onClick={() => setIsHalfDay(false)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: !isHalfDay ? "2px solid #2563EB" : "1px solid var(--line)",
+                  background: !isHalfDay ? "#EFF6FF" : "var(--surface)",
+                  color: !isHalfDay ? "#1D4ED8" : "inherit",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                }}
+              >
+                Full Day (1.0 Day)
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsHalfDay(true)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: isHalfDay ? "2px solid #2563EB" : "1px solid var(--line)",
+                  background: isHalfDay ? "#EFF6FF" : "var(--surface)",
+                  color: isHalfDay ? "#1D4ED8" : "inherit",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                }}
+              >
+                Half Day (0.5 Day)
+              </button>
+            </div>
           </div>
+
+          {isHalfDay ? (
+            <>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "6px" }}>
+                  Select Half-Day Session
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setHalfDayPeriod("First Half")}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: "6px",
+                      border: halfDayPeriod === "First Half" ? "2px solid #059669" : "1px solid var(--line)",
+                      background: halfDayPeriod === "First Half" ? "#ECFDF5" : "var(--surface)",
+                      color: halfDayPeriod === "First Half" ? "#065F46" : "inherit",
+                      fontWeight: 600,
+                      fontSize: "12px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    🌅 First Half (Morning)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHalfDayPeriod("Second Half")}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: "6px",
+                      border: halfDayPeriod === "Second Half" ? "2px solid #059669" : "1px solid var(--line)",
+                      background: halfDayPeriod === "Second Half" ? "#ECFDF5" : "var(--surface)",
+                      color: halfDayPeriod === "Second Half" ? "#065F46" : "inherit",
+                      fontWeight: 600,
+                      fontSize: "12px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    🌇 Second Half (Afternoon)
+                  </button>
+                </div>
+              </div>
+
+              <label>
+                Leave Date
+                <input name="start_date" type="date" required />
+              </label>
+
+              <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", color: "#166534", padding: "8px 12px", borderRadius: "6px", fontSize: "12px" }}>
+                💡 <strong>Deduction:</strong> Deducts <strong>0.5 day</strong> from your 2 paid monthly leaves.
+              </div>
+            </>
+          ) : (
+            <div className="two-col">
+              <label>
+                From
+                <input name="start_date" type="date" required />
+              </label>
+              <label>
+                To
+                <input name="end_date" type="date" required />
+              </label>
+            </div>
+          )}
+
           <label>
             Reason
             <textarea name="reason" placeholder="A short note for your manager" required />

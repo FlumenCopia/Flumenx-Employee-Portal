@@ -16,6 +16,9 @@ export interface AppConfig {
   smtpUser?: string;
   smtpPass?: string;
   smtpFrom: string;
+  hrEmail: string;
+  ceoEmail: string;
+  leaveCcEmails: string[];
 }
 
 export const config: AppConfig = {
@@ -35,4 +38,9 @@ export const config: AppConfig = {
   smtpUser: process.env.SMTP_USER || '',
   smtpPass: process.env.SMTP_PASS || '',
   smtpFrom: process.env.SMTP_FROM || 'FLUMENX HR Portal <hr@flumenx.com>',
+  hrEmail: process.env.HR_EMAIL || 'hr@flumenx.com',
+  ceoEmail: process.env.CEO_EMAIL || 'ceo@flumenx.com',
+  leaveCcEmails: process.env.LEAVE_CC_EMAILS
+    ? process.env.LEAVE_CC_EMAILS.split(',').map((e) => e.trim()).filter(Boolean)
+    : [],
 };

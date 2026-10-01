@@ -13,6 +13,7 @@ import {
   createAttendanceCorrection,
   updateAttendanceCorrection,
   triggerForcedCheckoutHandler,
+  superAdminCheckoutHandler,
   adjustAttendanceTimeHandler,
   createManualAttendanceRecord,
   deleteAttendanceRecord,
@@ -40,6 +41,7 @@ router.get('/attendance/export/?', requirePermission('attendance', 'canView'), e
 router.post('/attendance/check-in/?', requirePermission('attendance', 'canView'), upload.single('photo'), checkInAttendance);
 router.post('/attendance/check-out/?', requirePermission('attendance', 'canView'), checkOutAttendance);
 router.post('/attendance/forced-checkout/?', requirePermission('attendance', 'canEdit'), triggerForcedCheckoutHandler);
+router.post('/attendance/admin-checkout/?', requirePermission('attendance', 'canEdit'), superAdminCheckoutHandler);
 router.patch('/attendance/:id/adjust-time/?', requirePermission('attendance', 'canEdit'), adjustAttendanceTimeHandler);
 router.put('/attendance/:id/adjust-time/?', requirePermission('attendance', 'canEdit'), adjustAttendanceTimeHandler);
 router.patch('/attendance/:id/adjust/?', requirePermission('attendance', 'canEdit'), adjustAttendanceTimeHandler);

@@ -2,9 +2,12 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { LeaveRequest } from '../models/LeaveRequest.js';
 import { Employee } from '../models/Employee.js';
+import { LeaveLedger } from '../models/LeaveLedger.js';
+import { getEmployeeLeaveBalance } from '../services/leaveEngine.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { getRoleDataScope } from '../services/scopeResolver.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
+import { sendLeaveApplicationEmail, sendLeaveDecisionEmail } from '../utils/mailer.js';
 
 export async function getLeaves(req: Request, res: Response): Promise<void> {
   const { employee_id, status } = req.query;
@@ -51,6 +54,12 @@ export async function getLeaves(req: Request, res: Response): Promise<void> {
 
   const formatted = leaves.map((l) => {
     const emp = l.employee as any;
+    const isHalf = Boolean(l.isHalfDay);
+    const calculatedDays = l.startDate && l.endDate
+      ? Math.ceil((new Date(l.endDate).getTime() - new Date(l.startDate).getTime()) / (1000 * 3600 * 24)) + 1
+      : 1;
+    const effectiveDays = isHalf ? 0.5 : (l.daysCount || calculatedDays);
+
     return {
       id: l._id,
       employee: emp ? emp._id : null,
@@ -59,10 +68,13 @@ export async function getLeaves(req: Request, res: Response): Promise<void> {
       leave_type: l.leaveType,
       start_date: l.startDate ? l.startDate.toISOString().split('T')[0] : '',
       end_date: l.endDate ? l.endDate.toISOString().split('T')[0] : '',
+      is_half_day: isHalf,
+      half_day_period: l.halfDayPeriod || null,
+      days_count: effectiveDays,
+      days: effectiveDays,
       reason: l.reason,
       status: l.status,
       admin_note: l.adminNote,
-      days: l.startDate && l.endDate ? Math.ceil((new Date(l.endDate).getTime() - new Date(l.startDate).getTime()) / (1000 * 3600 * 24)) + 1 : 1,
     };
   });
 
@@ -75,7 +87,7 @@ export async function getLeaves(req: Request, res: Response): Promise<void> {
 }
 
 export async function createLeave(req: Request, res: Response): Promise<void> {
-  const { employee_id, leave_type, start_date, end_date, reason } = req.body;
+  const { employee_id, leave_type, start_date, end_date, reason, is_half_day, half_day_period } = req.body;
 
   let empId = employee_id;
   const leaveScope = await getRoleDataScope(req.user, 'LEAVES');
@@ -87,17 +99,23 @@ export async function createLeave(req: Request, res: Response): Promise<void> {
     if (emp) empId = emp._id;
   }
 
-  if (!leave_type || !start_date || !end_date || !reason) {
-    res.status(400).json({ detail: 'Leave type, start date, end date, and reason are required.' });
+  if (!leave_type || !start_date || !reason) {
+    res.status(400).json({ detail: 'Leave type, start date, and reason are required.' });
     return;
   }
 
+  const isHalfDayBool = Boolean(is_half_day);
   const startDate = new Date(start_date);
-  const endDate = new Date(end_date);
+  const endDate = isHalfDayBool ? new Date(start_date) : new Date(end_date || start_date);
+
   if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
     res.status(400).json({ detail: 'Invalid leave date range. Start date must be on or before end date.' });
     return;
   }
+
+  const daysCount = isHalfDayBool
+    ? 0.5
+    : Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
 
   if (empId) {
     const targetEmp = await Employee.findById(empId);
@@ -124,8 +142,19 @@ export async function createLeave(req: Request, res: Response): Promise<void> {
       endDate: { $gte: startDate },
     });
     if (existingOverlap) {
-      res.status(400).json({ detail: 'An active or pending leave request already overlaps with the requested date range.' });
-      return;
+      // If it's a half-day and overlapping record is also a half-day with different periods (First Half vs Second Half), allow it
+      if (
+        isHalfDayBool &&
+        existingOverlap.isHalfDay &&
+        existingOverlap.halfDayPeriod &&
+        half_day_period &&
+        existingOverlap.halfDayPeriod !== half_day_period
+      ) {
+        // Allowed: one morning half day, one afternoon half day
+      } else {
+        res.status(400).json({ detail: 'An active or pending leave request already overlaps with the requested date range.' });
+        return;
+      }
     }
   }
 
@@ -134,6 +163,9 @@ export async function createLeave(req: Request, res: Response): Promise<void> {
     leaveType: leave_type,
     startDate,
     endDate,
+    isHalfDay: isHalfDayBool,
+    halfDayPeriod: isHalfDayBool ? (half_day_period || 'First Half') : null,
+    daysCount,
     reason: reason.trim(),
     status: 'Pending',
   });
@@ -141,6 +173,22 @@ export async function createLeave(req: Request, res: Response): Promise<void> {
   await leave.save();
 
   const emp = empId ? await Employee.findById(empId) : null;
+
+  // Asynchronously dispatch email notification to HR, CEO, CC, and Employee
+  sendLeaveApplicationEmail({
+    employeeName: emp?.name || 'Employee',
+    employeeCode: emp?.employeeCode || 'EMP',
+    employeeEmail: emp?.email,
+    department: emp?.department,
+    leaveType: leave.leaveType,
+    startDate: leave.startDate.toISOString().split('T')[0],
+    endDate: leave.endDate.toISOString().split('T')[0],
+    isHalfDay: leave.isHalfDay,
+    halfDayPeriod: leave.halfDayPeriod,
+    daysCount: leave.daysCount,
+    reason: leave.reason,
+  }).catch((err) => console.error('[Leave Email Dispatch Error]', err));
+
   res.status(201).json({
     id: leave._id,
     employee: emp ? emp._id : null,
@@ -148,10 +196,13 @@ export async function createLeave(req: Request, res: Response): Promise<void> {
     leave_type: leave.leaveType,
     start_date: leave.startDate ? leave.startDate.toISOString().split('T')[0] : '',
     end_date: leave.endDate ? leave.endDate.toISOString().split('T')[0] : '',
+    is_half_day: leave.isHalfDay,
+    half_day_period: leave.halfDayPeriod,
+    days_count: leave.daysCount,
+    days: leave.daysCount,
     reason: leave.reason,
     status: leave.status,
     admin_note: leave.adminNote,
-    days: Math.ceil((leave.endDate.getTime() - leave.startDate.getTime()) / (1000 * 3600 * 24)) + 1,
   });
 }
 
@@ -185,6 +236,7 @@ export async function updateLeave(req: Request, res: Response): Promise<void> {
     }
   }
 
+  const previousStatus = leave.status;
   const { status, admin_note } = req.body;
   if (status) leave.status = status;
   if (admin_note !== undefined) leave.adminNote = admin_note;
@@ -192,6 +244,47 @@ export async function updateLeave(req: Request, res: Response): Promise<void> {
   await leave.save();
 
   const emp = leave.employee as any;
+
+  // If approved and was not previously approved: deduct days from LeaveLedger
+  if (status === 'Approved' && previousStatus !== 'Approved' && emp) {
+    if (['Sick', 'Casual', 'Annual'].includes(leave.leaveType) && emp.employmentStatus === 'Permanent') {
+      const deductQuantity = leave.daysCount || (leave.isHalfDay ? 0.5 : 1.0);
+      const currentBal = await getEmployeeLeaveBalance(emp._id);
+      const primaryType = leave.leaveType === 'Annual' ? 'Casual' : (leave.leaveType as 'Sick' | 'Casual');
+
+      await new LeaveLedger({
+        employee: emp._id,
+        leaveType: primaryType,
+        transactionType: 'Availed',
+        quantity: -deductQuantity,
+        balanceAfter: Math.max(0, currentBal.totalPaidLeaveBalance - deductQuantity),
+        transactionDate: new Date(),
+        notes: `Leave availed: ${deductQuantity} day(s) ${leave.leaveType} (${leave.startDate.toISOString().split('T')[0]})`,
+        createdBy: req.user?._id || null,
+      }).save();
+    }
+  }
+
+  // Asynchronously dispatch decision email to Employee, HR, CEO, and CC
+  if (status && status !== previousStatus) {
+    sendLeaveDecisionEmail({
+      employeeName: emp?.name || 'Employee',
+      employeeCode: emp?.employeeCode || 'EMP',
+      employeeEmail: emp?.email,
+      department: emp?.department,
+      leaveType: leave.leaveType,
+      startDate: leave.startDate ? leave.startDate.toISOString().split('T')[0] : '',
+      endDate: leave.endDate ? leave.endDate.toISOString().split('T')[0] : '',
+      isHalfDay: Boolean(leave.isHalfDay),
+      halfDayPeriod: leave.halfDayPeriod,
+      daysCount: leave.daysCount || (leave.isHalfDay ? 0.5 : 1),
+      reason: leave.reason,
+      status: leave.status,
+      adminNote: leave.adminNote,
+      reviewerName: (req.user as any)?.username || (req.user as any)?.email,
+    }).catch((err) => console.error('[Leave Decision Email Error]', err));
+  }
+
   res.json({
     id: leave._id,
     employee: emp ? emp._id : null,
@@ -199,15 +292,36 @@ export async function updateLeave(req: Request, res: Response): Promise<void> {
     leave_type: leave.leaveType,
     start_date: leave.startDate ? leave.startDate.toISOString().split('T')[0] : '',
     end_date: leave.endDate ? leave.endDate.toISOString().split('T')[0] : '',
+    is_half_day: Boolean(leave.isHalfDay),
+    half_day_period: leave.halfDayPeriod,
+    days_count: leave.daysCount || (leave.isHalfDay ? 0.5 : 1),
+    days: leave.daysCount || (leave.isHalfDay ? 0.5 : 1),
     reason: leave.reason,
     status: leave.status,
     admin_note: leave.adminNote,
-    days: Math.ceil((leave.endDate.getTime() - leave.startDate.getTime()) / (1000 * 3600 * 24)) + 1,
   });
 }
 
 export async function decideLeave(req: Request, res: Response): Promise<void> {
   return updateLeave(req, res);
+}
+
+export async function getLeaveBalances(req: Request, res: Response): Promise<void> {
+  const { employee_id } = req.query;
+  let targetEmpId = employee_id;
+
+  if (!targetEmpId) {
+    const ownEmp = await getEmployeeForUser(req.user);
+    if (ownEmp) targetEmpId = ownEmp._id.toString();
+  }
+
+  if (!targetEmpId || !mongoose.Types.ObjectId.isValid(targetEmpId as string)) {
+    res.status(400).json({ detail: 'Valid employee ID is required.' });
+    return;
+  }
+
+  const balance = await getEmployeeLeaveBalance(new mongoose.Types.ObjectId(targetEmpId as string));
+  res.json(balance);
 }
 
 export async function deleteLeave(req: Request, res: Response): Promise<void> {

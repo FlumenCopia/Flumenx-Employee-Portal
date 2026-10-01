@@ -18,7 +18,7 @@ const attendancePolicySchema = new Schema<IAttendancePolicy>(
     officeStartTime: { type: String, default: '09:30' },
     gracePeriodMinutes: { type: Number, default: 5 },
     officeEndTime: { type: String, default: '18:30' },
-    earlyCheckoutHalfDayCutoff: { type: String, default: '18:00' },
+    earlyCheckoutHalfDayCutoff: { type: String, default: '16:30' },
     halfDayHours: { type: Number, default: 4 },
     fullDayHours: { type: Number, default: 8 },
     officeLatitude: { type: Number, default: 8.5213442 },

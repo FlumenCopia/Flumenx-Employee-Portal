@@ -8,6 +8,10 @@ export interface EmployeeLeaveBalanceSummary {
   sickLeaveBalance: number;
   casualLeaveBalance: number;
   totalPaidLeaveBalance: number;
+  monthlyPaidQuota: number;
+  availedThisMonth: number;
+  carriedForwardBalance: number;
+  convertedToSalary: number;
 }
 
 /**
@@ -25,6 +29,10 @@ export async function getEmployeeLeaveBalance(
       sickLeaveBalance: 0,
       casualLeaveBalance: 0,
       totalPaidLeaveBalance: 0,
+      monthlyPaidQuota: 0,
+      availedThisMonth: 0,
+      carriedForwardBalance: 0,
+      convertedToSalary: 0,
     };
   }
 
@@ -35,25 +43,53 @@ export async function getEmployeeLeaveBalance(
       sickLeaveBalance: 0,
       casualLeaveBalance: 0,
       totalPaidLeaveBalance: 0,
+      monthlyPaidQuota: 0,
+      availedThisMonth: 0,
+      carriedForwardBalance: 0,
+      convertedToSalary: 0,
     };
   }
 
   const transactions = await LeaveLedger.find({ employee: employeeId }).sort({ transactionDate: 1 });
 
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
   let sick = 0;
   let casual = 0;
+  let availedThisMonth = 0;
+  let convertedToSalary = 0;
 
   transactions.forEach((tx) => {
     if (tx.leaveType === 'Sick') sick += tx.quantity;
     if (tx.leaveType === 'Casual') casual += tx.quantity;
+
+    if (tx.transactionType === 'ConversionToSalary') {
+      convertedToSalary += Math.abs(tx.quantity);
+    }
+
+    if (tx.transactionType === 'Availed') {
+      const txDate = new Date(tx.transactionDate);
+      if (txDate.getMonth() + 1 === currentMonth && txDate.getFullYear() === currentYear) {
+        availedThisMonth += Math.abs(tx.quantity);
+      }
+    }
   });
+
+  const totalPaid = Math.max(0, Math.round((sick + casual) * 10) / 10);
+  const carriedForward = Math.max(0, Math.round((totalPaid - Math.max(0, 2 - availedThisMonth)) * 10) / 10);
 
   return {
     employeeId: employeeId.toString(),
     employmentStatus: emp.employmentStatus,
     sickLeaveBalance: Math.max(0, Math.round(sick * 10) / 10),
     casualLeaveBalance: Math.max(0, Math.round(casual * 10) / 10),
-    totalPaidLeaveBalance: Math.max(0, Math.round((sick + casual) * 10) / 10),
+    totalPaidLeaveBalance: totalPaid,
+    monthlyPaidQuota: 2,
+    availedThisMonth: Math.round(availedThisMonth * 10) / 10,
+    carriedForwardBalance: carriedForward,
+    convertedToSalary: Math.round(convertedToSalary * 10) / 10,
   };
 }
 

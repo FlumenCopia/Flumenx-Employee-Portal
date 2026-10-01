@@ -129,6 +129,19 @@ export async function calculateAttendanceForCycle(
 
       if (rec.attendanceStatus === 'Half Day') {
         halfDays += 1;
+        // Check if employee also has an approved half-day paid leave on this day (0.5 worked + 0.5 leave = 1.0 full pay)
+        const matchingHalfLeave = leaves.find((l) => {
+          const lStart = getISTDateString(l.startDate);
+          return (
+            (l.isHalfDay || (l as any).daysCount === 0.5) &&
+            lStart === dStr &&
+            l.leaveType !== 'Unpaid' &&
+            !isProbation
+          );
+        });
+        if (matchingHalfLeave) {
+          paidLeaveDays += 0.5;
+        }
       } else {
         presentDays += 1;
       }
@@ -142,11 +155,16 @@ export async function calculateAttendanceForCycle(
       });
 
       if (leaveMatch) {
+        const isHalf = leaveMatch.isHalfDay || (leaveMatch as any).daysCount === 0.5;
+        const leaveWeight = isHalf ? 0.5 : 1.0;
         // Probation employees have 0 paid leave -> always unpaid (Loss of Pay)
         if (isProbation || leaveMatch.leaveType === 'Unpaid') {
-          unpaidLeaveDays += 1;
+          unpaidLeaveDays += leaveWeight;
         } else {
-          paidLeaveDays += 1;
+          paidLeaveDays += leaveWeight;
+        }
+        if (isHalf) {
+          absentDays += 0.5;
         }
       } else if (rec && rec.attendanceStatus === 'Leave') {
         if (isProbation) {
@@ -163,9 +181,13 @@ export async function calculateAttendanceForCycle(
     cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
   }
 
-  // Calculate 3-late arrivals half-day deduction rule
-  // Every 3 late arrivals = 0.5 day deduction
-  const lateHalfDayDeductions = Math.floor(lateArrivalsCount / 3) * 0.5;
+  // Calculate progressive late arrivals deduction rule:
+  // 3 late arrivals = 0.5 day deduction.
+  // The 4th late arrival and each subsequent late arrival adds another 0.5 day deduction.
+  let lateHalfDayDeductions = 0;
+  if (lateArrivalsCount >= 3) {
+    lateHalfDayDeductions = 0.5 + (lateArrivalsCount - 3) * 0.5;
+  }
 
   // DYNAMIC RULE: Sundays of salary days are subtracted from month days dynamically every month
   // salaryDays = totalCalendarDays - weekOffs (e.g. 31 - 5 = 26 days, 30 - 4 = 26 days)

@@ -138,9 +138,6 @@ export async function processMidnightForcedCheckout(): Promise<number> {
 }
 
 export async function getAttendanceRecords(req: Request, res: Response): Promise<void> {
-  // Proactively ensure any past forgotten checkouts are processed
-  await processMidnightForcedCheckout().catch(() => {});
-
   const { employee_id, date, month, year, status, my_attendance } = req.query;
 
   const filter: any = {};
@@ -1403,6 +1400,56 @@ export async function updateAttendanceCorrection(req: Request, res: Response): P
 export async function triggerForcedCheckoutHandler(req: Request, res: Response): Promise<void> {
   const processedCount = await processMidnightForcedCheckout();
   res.json({ message: `Successfully processed auto-checkout for ${processedCount} records.`, count: processedCount });
+}
+
+export async function superAdminCheckoutHandler(req: Request, res: Response): Promise<void> {
+  const { attendance_id, employee_id, check_out_time, date, notes, attendance_status } = req.body;
+
+  let record: any = null;
+  if (attendance_id) {
+    record = await AttendanceRecord.findById(attendance_id).populate('employee');
+  } else if (employee_id && date) {
+    const { startOfDay, endOfDay } = getISTDateRange(new Date(date));
+    record = await AttendanceRecord.findOne({
+      employee: employee_id,
+      attendanceDate: { $gte: startOfDay, $lte: endOfDay },
+    }).populate('employee');
+  }
+
+  if (!record) {
+    res.status(404).json({ detail: 'Attendance record not found for manual exit.' });
+    return;
+  }
+
+  const policy = await getAttendancePolicy();
+  record.checkOutTime = check_out_time || policy.officeEndTime || '18:30';
+  record.isAutoCheckout = false;
+  record.autoCheckoutReason = '';
+
+  const adminName = (req.user as any)?.username || (req.user as any)?.email || 'Super Admin';
+  const checkoutReason = notes ? `${notes} (Manual Exit by ${adminName})` : `Manual Exit by ${adminName} at ${record.checkOutTime}`;
+  record.notes = record.notes ? `${record.notes} | ${checkoutReason}` : checkoutReason;
+
+  calculateAttendanceRecordState(record, policy);
+  if (attendance_status) {
+    record.attendanceStatus = attendance_status;
+  }
+
+  await record.save();
+
+  try {
+    await AuditLog.create({
+      user: req.user?._id,
+      action: 'ADMIN_CHECKOUT',
+      module: 'ATTENDANCE',
+      details: `Super Admin manually exited employee ${record.employee?.name || record.employee} at ${record.checkOutTime}. Reason: ${checkoutReason}`,
+    });
+  } catch (err) {}
+
+  res.json({
+    message: `Employee successfully exited at ${record.checkOutTime}.`,
+    record: formatSingleRecord(record, record.employee),
+  });
 }
 
 export async function adjustAttendanceTimeHandler(req: Request, res: Response): Promise<void> {
