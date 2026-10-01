@@ -8,6 +8,7 @@ import { IAttendanceCycleSnapshot, ISalarySnapshot } from '../models/PayrollReco
 import { AttendanceCycleInfo, getISTDateString, getCompanyStartOfDay, getCompanyEndOfDay } from '../utils/tzUtils.js';
 import { convertThreeMonthUnusedLeaveToSalary } from './leaveEngine.js';
 import { evaluateFormula } from '../utils/formulaEvaluator.js';
+import { buildAttendanceMatrixData } from '../controllers/attendanceController.js';
 
 export interface CalculatedPayrollResult {
   attendanceCycle: IAttendanceCycleSnapshot;
@@ -31,12 +32,50 @@ export interface CalculatedPayrollResult {
 /**
  * Summarizes attendance facts for an employee across a specific attendance cycle in Asia/Kolkata.
  * Cycle: 26th of previous month to 25th of current month.
- * Accounts for joining date and exit date proration, probation leave rules, and 3-late half-day deductions.
+ * Uses buildAttendanceMatrixData as the single source of truth so payroll exactly matches the Attendance Muster Roll.
  */
 export async function calculateAttendanceForCycle(
   employeeId: mongoose.Types.ObjectId,
   cycle: AttendanceCycleInfo
 ): Promise<IAttendanceCycleSnapshot> {
+  try {
+    const matrix = await buildAttendanceMatrixData({
+      year: cycle.year,
+      month: cycle.month,
+      cycleType: 'salary',
+      employeeId: employeeId.toString(),
+    });
+
+    const empData = matrix.employees && matrix.employees.length > 0 ? matrix.employees[0] : null;
+    const s = empData?.summary;
+
+    if (s) {
+      return {
+        cycleName: cycle.cycleName,
+        startStr: cycle.startStr,
+        endStr: cycle.endStr,
+        cycleStart: cycle.cycleStart,
+        cycleEnd: cycle.cycleEnd,
+        totalCalendarDays: s.totalCalendarDays,
+        salaryDays: s.salaryDays,
+        workingDays: s.workingDays,
+        weekOffs: s.weekOffs,
+        companyHolidays: s.holidays,
+        presentDays: s.presentDays,
+        halfDays: s.halfDays,
+        paidLeaveDays: s.paidLeaveDays,
+        unpaidLeaveDays: s.unpaidLeaveDays,
+        absentDays: s.absentDays,
+        lateArrivalsCount: s.lateArrivals,
+        lateHalfDayDeductions: s.lateHalfDayDeductions,
+        payableDays: s.payableDays,
+        unpaidDays: s.unpaidDays,
+      };
+    }
+  } catch (err) {
+    console.error('[calculateAttendanceForCycle] Error delegating to buildAttendanceMatrixData, running fallback:', err);
+  }
+
   const emp = await Employee.findById(employeeId);
   const isProbation = emp?.employmentStatus === 'Probation';
   const joiningDateStr = emp?.joiningDate ? getISTDateString(emp.joiningDate) : null;
@@ -181,13 +220,8 @@ export async function calculateAttendanceForCycle(
     cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
   }
 
-  // Calculate progressive late arrivals deduction rule:
-  // 3 late arrivals = 0.5 day deduction.
-  // The 4th late arrival and each subsequent late arrival adds another 0.5 day deduction.
-  let lateHalfDayDeductions = 0;
-  if (lateArrivalsCount >= 3) {
-    lateHalfDayDeductions = 0.5 + (lateArrivalsCount - 3) * 0.5;
-  }
+  // Calculate late arrivals deduction rule (matching attendanceController: 3 late = 0.5 day deduction)
+  const lateHalfDayDeductions = Math.floor(lateArrivalsCount / 3) * 0.5;
 
   // DYNAMIC RULE: Sundays of salary days are subtracted from month days dynamically every month
   // salaryDays = totalCalendarDays - weekOffs (e.g. 31 - 5 = 26 days, 30 - 4 = 26 days)

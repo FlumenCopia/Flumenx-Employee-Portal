@@ -125,7 +125,7 @@ export async function calculateEmployeePayrollPreview(req: Request, res: Respons
 }
 
 export async function processPayrollCycleHandler(req: Request, res: Response): Promise<void> {
-  const { month, year, department } = req.body;
+  const { month, year, department, force } = req.body;
 
   if (!month || !year) {
     res.status(400).json({ detail: 'Month (1-12) and year are required.' });
@@ -136,8 +136,8 @@ export async function processPayrollCycleHandler(req: Request, res: Response): P
   const y = parseInt(year, 10);
   const cycle = getAttendanceCycleForMonth(y, m);
 
-  let empQuery: any = { status: 'Active' };
-  if (department) {
+  let empQuery: any = { status: { $ne: 'Inactive' } };
+  if (department && department !== 'All' && department !== 'all') {
     empQuery.department = department;
   }
 
@@ -158,9 +158,9 @@ export async function processPayrollCycleHandler(req: Request, res: Response): P
         continue;
       }
 
-      // Check if already approved/paid (immutable once approved)
+      // Check if already approved/paid (immutable once approved unless explicitly forced)
       const existing = await PayrollRecord.findOne({ employee: emp._id, month: m, year: y });
-      if (existing && ['Approved', 'Paid'].includes(existing.status)) {
+      if (existing && ['Approved', 'Paid'].includes(existing.status) && !force) {
         processedRecords.push(existing);
         continue;
       }

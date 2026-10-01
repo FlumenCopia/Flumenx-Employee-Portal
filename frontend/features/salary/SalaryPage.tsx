@@ -892,6 +892,30 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
 
                 <button
                   type="button"
+                  onClick={handleProcessCycle}
+                  disabled={processingCycle}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "8px 14px",
+                    borderRadius: "6px",
+                    border: "1px solid #2563EB",
+                    backgroundColor: "#2563EB",
+                    color: "#FFFFFF",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    cursor: processingCycle ? "not-allowed" : "pointer",
+                    boxShadow: "0 2px 4px rgba(37,99,235,0.2)",
+                  }}
+                  title="Recalculate all employee salary slips to perfectly sync with the live Attendance Muster Roll"
+                >
+                  <RefreshCw style={{ width: "14px", height: "14px", animation: processingCycle ? "spin 1s linear infinite" : "none" }} />
+                  {processingCycle ? "Recalculating..." : "⚡ Sync & Reprocess All"}
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleExportSalaryProcessExcel}
                   disabled={payrollRecords.length === 0}
                   style={{
