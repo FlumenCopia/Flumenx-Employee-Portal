@@ -148,7 +148,8 @@ export async function accrueMonthlyLeave(
 }
 
 /**
- * Checks for eligible unused leave older than 3 months and converts them to salary addition.
+ * Checks for eligible unused carry-forward leaves and encashes them in quarterly months.
+ * Quarter months: Month 3 (March), Month 4, Month 6 (June), Month 9 (September), Month 12 (December).
  */
 export async function convertThreeMonthUnusedLeaveToSalary(
   employeeId: mongoose.Types.ObjectId,
@@ -161,43 +162,35 @@ export async function convertThreeMonthUnusedLeaveToSalary(
     return { convertedDays: 0, convertedAmount: 0 };
   }
 
-  // 3 months prior cutoff
-  let cutoffMonth = currentMonth - 3;
-  let cutoffYear = currentYear;
-  if (cutoffMonth <= 0) {
-    cutoffMonth += 12;
-    cutoffYear -= 1;
-  }
-
-  // Find accruals at or before cutoff that haven't been converted
-  const eligibleAccruals = await LeaveLedger.find({
-    employee: employeeId,
-    transactionType: 'MonthlyAccrual',
-    $or: [
-      { earnedYear: { $lt: cutoffYear } },
-      { earnedYear: cutoffYear, earnedMonth: { $lte: cutoffMonth } },
-    ],
-  });
-
-  const convertedRecords = await LeaveLedger.find({
-    employee: employeeId,
-    transactionType: 'ConversionToSalary',
-  });
-
-  const totalAccruedEligible = eligibleAccruals.reduce((sum, a) => sum + a.quantity, 0);
-  const totalAlreadyConverted = convertedRecords.reduce((sum, c) => sum + Math.abs(c.quantity), 0);
-
-  const currentBal = await getEmployeeLeaveBalance(employeeId);
-  const maxAvailableToConvert = Math.min(
-    currentBal.totalPaidLeaveBalance,
-    Math.max(0, totalAccruedEligible - totalAlreadyConverted)
-  );
-
-  if (maxAvailableToConvert <= 0) {
+  // Quarterly Encashment: Encashed at every quarter month (Months 3, 4, 6, 9, 12)
+  const isQuarterEncashmentMonth = [3, 4, 6, 9, 12].includes(currentMonth);
+  if (!isQuarterEncashmentMonth) {
     return { convertedDays: 0, convertedAmount: 0 };
   }
 
-  const convertedDays = maxAvailableToConvert;
+  // Check if already converted for this cycle (idempotency on reprocess)
+  const existingConversion = await LeaveLedger.findOne({
+    employee: employeeId,
+    transactionType: 'ConversionToSalary',
+    earnedMonth: currentMonth,
+    earnedYear: currentYear,
+  });
+
+  if (existingConversion) {
+    return {
+      convertedDays: Math.abs(existingConversion.quantity),
+      convertedAmount: existingConversion.conversionAmount || 0,
+    };
+  }
+
+  const currentBal = await getEmployeeLeaveBalance(employeeId);
+  const encashableDays = Math.min(currentBal.totalPaidLeaveBalance, Math.max(0, currentBal.carriedForwardBalance));
+
+  if (encashableDays <= 0) {
+    return { convertedDays: 0, convertedAmount: 0 };
+  }
+
+  const convertedDays = encashableDays;
   const convertedAmount = Math.round(convertedDays * dailyRate * 100) / 100;
 
   // Record conversion in ledger
@@ -210,7 +203,7 @@ export async function convertThreeMonthUnusedLeaveToSalary(
     earnedMonth: currentMonth,
     earnedYear: currentYear,
     conversionAmount: convertedAmount,
-    notes: `Converted ${convertedDays} unused 3-month leave(s) to salary @ ₹${dailyRate}/day`,
+    notes: `Quarterly leave encashment: ${convertedDays} carried forward day(s) encashed to salary @ ₹${dailyRate}/day (Quarter Month ${currentMonth}/${currentYear})`,
   }).save();
 
   return { convertedDays, convertedAmount };

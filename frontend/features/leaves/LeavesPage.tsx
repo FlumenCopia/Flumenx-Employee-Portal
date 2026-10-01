@@ -53,6 +53,60 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   const [allBalancesLoading, setAllBalancesLoading] = useState(false);
   const [balanceSearch, setBalanceSearch] = useState("");
 
+  const [carryForwardModalOpen, setCarryForwardModalOpen] = useState(false);
+  const [carryForwardEmp, setCarryForwardEmp] = useState<{
+    id: string;
+    name: string;
+    code: string;
+    currentCarryForward: number;
+    currentPaid: number;
+    status: string;
+  } | null>(null);
+  const [carryForwardDays, setCarryForwardDays] = useState<string>("");
+  const [carryForwardNotes, setCarryForwardNotes] = useState("");
+  const [carryForwardPending, setCarryForwardPending] = useState(false);
+  const [carryForwardError, setCarryForwardError] = useState("");
+
+  const openSetCarryForward = (b: any) => {
+    setCarryForwardEmp({
+      id: b.employee_id,
+      name: b.employee_name || "Employee",
+      code: b.employee_code || "",
+      currentCarryForward: b.carriedForwardBalance ?? 0,
+      currentPaid: b.totalPaidLeaveBalance ?? 0,
+      status: b.employmentStatus || "Permanent",
+    });
+    setCarryForwardDays(String(b.carriedForwardBalance ?? 0));
+    setCarryForwardNotes("");
+    setCarryForwardError("");
+    setCarryForwardModalOpen(true);
+  };
+
+  const handleSaveCarryForward = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!carryForwardEmp) return;
+    setCarryForwardPending(true);
+    setCarryForwardError("");
+    try {
+      const res = await api<{ message: string; balance: any }>("/leaves/carry-forward/set/", {
+        method: "POST",
+        body: JSON.stringify({
+          employee_id: carryForwardEmp.id,
+          carry_forward_days: parseFloat(carryForwardDays) || 0,
+          notes: carryForwardNotes.trim(),
+        }),
+      });
+      setMessage(res.message || "Carry forward leave balance updated successfully.");
+      setCarryForwardModalOpen(false);
+      loadAllBalances();
+      loadBalances();
+    } catch (err: any) {
+      setCarryForwardError(err?.message || "Failed to update carry forward balance.");
+    } finally {
+      setCarryForwardPending(false);
+    }
+  };
+
   const loadBalances = () => {
     api<any>("/leaves/balances/")
       .then(setBalances)
@@ -259,10 +313,17 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
     )}
 
     {!isEmployee && adminView === "balances" ? (
-      <Section title="Staff Leave Balances & 3-Month Carry Forward" kicker="HR & PAYROLL AUDIT / 2026">
+      <Section title="Staff Leave Balances & Carry Forward" kicker="HR & PAYROLL AUDIT / 2026">
+        <div style={{ background: "rgba(59, 130, 246, 0.08)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px", display: "flex", alignItems: "center", gap: "12px" }}>
+          <div style={{ fontSize: "20px" }}>💡</div>
+          <div style={{ fontSize: "13px", color: "var(--foreground)", lineHeight: "1.5" }}>
+            <strong>Quarterly Leave Encashment Policy:</strong> Unused carried-forward leaves are automatically encashed into payroll every quarter month (<strong>Month 3 [Mar], Month 4 [Apr], Month 6 [Jun], Month 9 [Sep], Month 12 [Dec]</strong>) at daily rate under <code>LEAVE_CONV</code>. You can set or adjust any employee's carry-forward amount below.
+          </div>
+        </div>
+
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", gap: "16px", flexWrap: "wrap" }}>
           <div style={{ fontSize: "13px", color: "var(--muted)" }}>
-            Policy: Permanent employees accrue <strong>2.0 paid leaves/month</strong> (1 Sick + 1 Casual). Unused leaves carry forward across a <strong>3-month rolling window</strong> before converting to salary addition.
+            Permanent staff accrue <strong>2.0 paid leaves/month</strong> (1 Sick + 1 Casual).
           </div>
           <input
             type="text"
@@ -285,14 +346,15 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
           <EmptyState title="No balances found" text="No active employee records available." />
         ) : (
           <div className="data-table leave-table">
-            <div className="table-head" style={{ gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1fr 1fr 1fr" }}>
+            <div className="table-head" style={{ gridTemplateColumns: "1.4fr 0.8fr 1fr 1.1fr 0.8fr 0.9fr 1.1fr 1fr" }}>
               <span>Employee</span>
               <span>Status</span>
               <span>Available Paid</span>
-              <span>Carried Forward (3-Mo)</span>
+              <span>Carried Forward</span>
               <span>Availed Month</span>
               <span>Sick / Casual</span>
-              <span>Converted to Salary</span>
+              <span>Encashed to Salary</span>
+              <span style={{ textAlign: "right" }}>Actions</span>
             </div>
             {allBalances
               .filter(
@@ -306,7 +368,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
                 <div
                   className="table-row"
                   key={b.employee_id}
-                  style={{ gridTemplateColumns: "1.5fr 1fr 1fr 1fr 1fr 1fr 1fr", alignItems: "center" }}
+                  style={{ gridTemplateColumns: "1.4fr 0.8fr 1fr 1.1fr 0.8fr 0.9fr 1.1fr 1fr", alignItems: "center" }}
                 >
                   <div className="person-cell">
                     <Avatar name={b.employee_name || ""} />
@@ -330,7 +392,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
                     <strong style={{ color: "var(--goldD)", fontSize: "14px" }}>
                       {(b.carriedForwardBalance || 0).toFixed(1)} Days
                     </strong>
-                    <div style={{ fontSize: "10px", color: "var(--muted)" }}>Rolling 3-Mo</div>
+                    <div style={{ fontSize: "10px", color: "var(--muted)" }}>Quarterly Encashment</div>
                   </div>
                   <span>{(b.availedThisMonth || 0).toFixed(1)} Days</span>
                   <span style={{ fontSize: "12px", color: "var(--muted)" }}>
@@ -345,6 +407,30 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
                       "-"
                     )}
                   </span>
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      onClick={() => openSetCarryForward(b)}
+                      disabled={b.employmentStatus === "Probation"}
+                      title={b.employmentStatus === "Probation" ? "Probation employees not eligible for paid carry-forward" : "Set or adjust carry forward balance"}
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        borderRadius: "6px",
+                        border: "1px solid rgba(217, 119, 6, 0.35)",
+                        background: b.employmentStatus === "Probation" ? "rgba(0,0,0,0.04)" : "rgba(217, 119, 6, 0.1)",
+                        color: b.employmentStatus === "Probation" ? "var(--muted)" : "#b45309",
+                        cursor: b.employmentStatus === "Probation" ? "not-allowed" : "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      ✏️ Set Carry Forward
+                    </button>
+                  </div>
                 </div>
               ))}
           </div>
@@ -670,6 +756,107 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
           <PrimaryButton type="submit" disabled={submitPending}>
             {submitPending ? "Submitting..." : "Submit request"}
           </PrimaryButton>
+        </form>
+      </Modal>
+    )}
+
+    {carryForwardModalOpen && carryForwardEmp && (
+      <Modal
+        title={`Set Carry Forward — ${carryForwardEmp.name}`}
+        eyebrow={`${carryForwardEmp.code} • ${carryForwardEmp.status}`}
+        onClose={() => setCarryForwardModalOpen(false)}
+      >
+        <form onSubmit={handleSaveCarryForward} className="form-grid">
+          {carryForwardError && (
+            <div style={{ background: "#FEF2F2", border: "1px solid #F87171", color: "#991B1B", padding: "10px 14px", borderRadius: "8px", fontSize: "13px" }}>
+              {carryForwardError}
+            </div>
+          )}
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", background: "var(--surface)", border: "1px solid var(--line)", padding: "12px", borderRadius: "8px" }}>
+            <div>
+              <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>Current Available Paid</span>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: "#10b981", marginTop: "2px" }}>
+                {carryForwardEmp.currentPaid.toFixed(1)} Days
+              </div>
+            </div>
+            <div>
+              <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>Current Carry Forward</span>
+              <div style={{ fontSize: "16px", fontWeight: 800, color: "#d97706", marginTop: "2px" }}>
+                {carryForwardEmp.currentCarryForward.toFixed(1)} Days
+              </div>
+            </div>
+          </div>
+
+          <label>
+            <span style={{ display: "block", marginBottom: "4px", fontWeight: 600, fontSize: "13px" }}>
+              New Carry Forward Leave Amount (Days) *
+            </span>
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              max="90"
+              required
+              value={carryForwardDays}
+              onChange={(e) => setCarryForwardDays(e.target.value)}
+              placeholder="e.g. 2.0, 3.5, 4.0"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "6px",
+                border: "1px solid var(--line)",
+                fontSize: "14px",
+                fontWeight: 600,
+              }}
+            />
+            <span style={{ fontSize: "11px", color: "var(--muted)", marginTop: "4px", display: "block" }}>
+              Enter the exact number of carried forward leave days for this employee. Supports half days (e.g. 1.5, 2.0).
+            </span>
+          </label>
+
+          <label>
+            <span style={{ display: "block", marginBottom: "4px", fontWeight: 600, fontSize: "13px" }}>
+              Reason / Note (Optional)
+            </span>
+            <textarea
+              value={carryForwardNotes}
+              onChange={(e) => setCarryForwardNotes(e.target.value)}
+              placeholder="e.g. Carried forward from previous quarter / year or manual adjustment"
+              rows={2}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: "6px",
+                border: "1px solid var(--line)",
+                fontSize: "13px",
+              }}
+            />
+          </label>
+
+          <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", color: "#166534", padding: "10px 12px", borderRadius: "8px", fontSize: "12px", lineHeight: "1.5" }}>
+            💡 <strong>Quarterly Encashment Schedule:</strong> This carry forward amount will be automatically eligible for salary encashment in every quarter month (<strong>Month 3, 4, 6, 9, 12</strong>) during monthly salary generation.
+          </div>
+
+          <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "8px" }}>
+            <button
+              type="button"
+              onClick={() => setCarryForwardModalOpen(false)}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "6px",
+                border: "1px solid var(--line)",
+                background: "transparent",
+                color: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <PrimaryButton type="submit" disabled={carryForwardPending}>
+              {carryForwardPending ? "Saving..." : "Save Carry Forward"}
+            </PrimaryButton>
+          </div>
         </form>
       </Modal>
     )}

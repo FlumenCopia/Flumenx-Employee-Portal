@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getLeaves, getLeaveBalances, createLeave, updateLeave, decideLeave, deleteLeave } from '../controllers/leaveController.js';
+import { getLeaves, getLeaveBalances, setCarryForwardBalance, createLeave, updateLeave, decideLeave, deleteLeave } from '../controllers/leaveController.js';
 import { getSalarySlips, createSalarySlip, generateSalarySlip, downloadSalarySlip, deleteSalarySlip } from '../controllers/salaryController.js';
 import {
   getMeetings,
@@ -37,6 +37,7 @@ router.get('/dashboard/?', getDashboardStats);
 // Leaves
 router.get('/leaves/?', requirePermission('leaves', 'canView'), getLeaves);
 router.get('/leaves/balances/?', requirePermission('leaves', 'canView'), getLeaveBalances);
+router.post('/leaves/carry-forward/set/?', requirePermission('leaves', 'canEdit'), setCarryForwardBalance);
 router.post('/leaves/?', requirePermission('leaves', 'canCreate'), createLeave);
 router.put('/leaves/:id/?', requirePermission('leaves', 'canEdit'), updateLeave);
 router.patch('/leaves/:id/?', requirePermission('leaves', 'canEdit'), updateLeave);

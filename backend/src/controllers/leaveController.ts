@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { LeaveRequest } from '../models/LeaveRequest.js';
 import { Employee } from '../models/Employee.js';
 import { LeaveLedger } from '../models/LeaveLedger.js';
+import { AuditLog } from '../models/AuditLog.js';
 import { getEmployeeLeaveBalance } from '../services/leaveEngine.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { getRoleDataScope } from '../services/scopeResolver.js';
@@ -375,3 +376,61 @@ export async function deleteLeave(req: Request, res: Response): Promise<void> {
   await LeaveRequest.findByIdAndDelete(req.params.id);
   res.status(204).send();
 }
+
+export async function setCarryForwardBalance(req: Request, res: Response): Promise<void> {
+  try {
+    const { employee_id, carry_forward_days, notes } = req.body;
+    if (!employee_id || carry_forward_days === undefined) {
+      res.status(400).json({ detail: 'Employee ID and carry_forward_days are required.' });
+      return;
+    }
+
+    const emp = await Employee.findById(employee_id);
+    if (!emp) {
+      res.status(404).json({ detail: 'Employee not found.' });
+      return;
+    }
+
+    if (emp.employmentStatus === 'Probation') {
+      res.status(400).json({ detail: 'Cannot set carry-forward leaves for employees on Probation. Only Permanent employees are eligible.' });
+      return;
+    }
+
+    const targetCarryForward = Math.max(0, Math.round(Number(carry_forward_days) * 10) / 10);
+    const currentBal = await getEmployeeLeaveBalance(emp._id);
+    const remainingMonthQuota = Math.max(0, 2 - currentBal.availedThisMonth);
+    const targetTotalPaid = targetCarryForward + remainingMonthQuota;
+    const delta = Math.round((targetTotalPaid - currentBal.totalPaidLeaveBalance) * 10) / 10;
+
+    if (delta !== 0) {
+      await new LeaveLedger({
+        employee: emp._id,
+        leaveType: 'Casual',
+        transactionType: 'ManualAdjustment',
+        quantity: delta,
+        balanceAfter: Math.max(0, currentBal.totalPaidLeaveBalance + delta),
+        notes: notes ? String(notes).trim() : `Admin set carry forward to ${targetCarryForward} days (delta: ${delta > 0 ? '+' : ''}${delta})`,
+        createdBy: req.user?._id,
+      }).save();
+    }
+
+    const updatedBal = await getEmployeeLeaveBalance(emp._id);
+
+    try {
+      await AuditLog.create({
+        user: req.user?._id,
+        action: 'UPDATE_CARRY_FORWARD',
+        module: 'LEAVES',
+        details: `Updated carry forward for ${emp.name} (${emp.employeeCode}) to ${targetCarryForward} days (prev: ${currentBal.carriedForwardBalance})`,
+      });
+    } catch (err) {}
+
+    res.json({
+      message: `Carry forward balance for ${emp.name} successfully set to ${targetCarryForward} days`,
+      balance: updatedBal,
+    });
+  } catch (error: any) {
+    res.status(500).json({ detail: error.message || 'Failed to update carry forward balance.' });
+  }
+}
+
