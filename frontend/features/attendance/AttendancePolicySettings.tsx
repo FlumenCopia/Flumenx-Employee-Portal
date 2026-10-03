@@ -27,7 +27,7 @@ const DEFAULT_POLICY: AttendancePolicy = {
   officeStartTime: "09:30",
   officeEndTime: "18:30",
   gracePeriodMinutes: 5,
-  earlyCheckoutHalfDayCutoff: "18:00",
+  earlyCheckoutHalfDayCutoff: "16:30",
   halfDayHours: 4,
   fullDayHours: 8,
   officeLatitude: HQ_LATITUDE,

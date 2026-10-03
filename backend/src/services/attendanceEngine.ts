@@ -39,7 +39,7 @@ export function calculateAttendanceRecordState(
   const graceEnd = start + (policy.gracePeriodMinutes ?? 5); // 09:35 AM IST
   const end = timeStringToMinutes(policy.officeEndTime || '18:30');
   // 2-hour early exit consideration: checkout between 16:30 and 18:30 is considered Present (Early Exit), not Half Day
-  const earlyCutoff = policy.earlyCheckoutHalfDayCutoff
+  const earlyCutoff = policy.earlyCheckoutHalfDayCutoff && policy.earlyCheckoutHalfDayCutoff !== '18:00'
     ? timeStringToMinutes(policy.earlyCheckoutHalfDayCutoff)
     : end - 120; // Default 16:30 (2 hours before shift end)
   const noonCutoff = timeStringToMinutes('12:00'); // 12:00 PM IST noon cutoff
@@ -66,13 +66,15 @@ export function calculateAttendanceRecordState(
     const checkOut = timeStringToMinutes(record.checkOutTime);
     record.isEarlyExit = checkOut < end;
     record.earlyExitMinutes = Math.max(0, end - checkOut);
-    isEarlyCheckoutHalfDay = checkOut < earlyCutoff;
 
     if (record.checkInTime) {
       let worked = checkOut - timeStringToMinutes(record.checkInTime);
       if (worked < 0) worked += 24 * 60;
       record.workingHours = Math.round((worked / 60) * 100) / 100;
     }
+
+    // Only early checkout half day if checkout is before earlyCutoff (16:30) and working hours < full day hours
+    isEarlyCheckoutHalfDay = checkOut < earlyCutoff && (record.workingHours ?? 0) < (policy.fullDayHours || 8);
   }
 
   if (record.checkInTime) {

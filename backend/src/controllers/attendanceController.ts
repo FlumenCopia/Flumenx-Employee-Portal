@@ -17,6 +17,9 @@ export async function getAttendancePolicy(): Promise<IAttendancePolicy> {
   if (!policy) {
     policy = new AttendancePolicy({});
     await policy.save();
+  } else if (!policy.earlyCheckoutHalfDayCutoff || policy.earlyCheckoutHalfDayCutoff === '18:00') {
+    policy.earlyCheckoutHalfDayCutoff = '16:30';
+    await policy.save();
   }
   return policy;
 }
@@ -233,12 +236,24 @@ export async function getAttendanceRecords(req: Request, res: Response): Promise
   const graceEndMins = startMins + (policy.gracePeriodMinutes ?? 5);
 
   for (const r of records) {
+    let changed = false;
     if (r.checkInTime && r.checkInStatus === 'On Time') {
       const mins = timeStringToMinutes(r.checkInTime);
       if (mins > graceEndMins && !r.notes?.toLowerCase().includes('waiv')) {
         calculateAttendanceRecordState(r, policy);
-        await r.save().catch(() => {});
+        changed = true;
       }
+    }
+    // Also re-evaluate any record marked Half Day if checkout time was after 16:30 or completed full day hours
+    if (r.checkInTime && r.checkOutTime && r.attendanceStatus === 'Half Day') {
+      const prevStatus = r.attendanceStatus;
+      calculateAttendanceRecordState(r, policy);
+      if (r.attendanceStatus !== prevStatus) {
+        changed = true;
+      }
+    }
+    if (changed) {
+      await r.save().catch(() => {});
     }
   }
 
