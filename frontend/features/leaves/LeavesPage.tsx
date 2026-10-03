@@ -439,17 +439,24 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
     ) : (
       <Section title={isEmployee ? "Request history" : "Requests in review"} kicker={isEmployee ? "MY LEAVE / 2026" : "LEAVE REVIEW / 2026"}>
       <div className="data-table leave-table">
-        <div className="table-head">
+        <div
+          className="table-head"
+          style={isEmployee ? { gridTemplateColumns: "1fr 1.1fr 0.8fr 1.6fr 0.8fr 60px" } : undefined}
+        >
           {!isEmployee && <span>Employee</span>}
           <span>Leave type</span>
           <span>Dates</span>
           <span>Duration</span>
           <span>Reason</span>
           <span>Status</span>
-          {!isEmployee && (canEdit || canDelete) && <span />}
+          {(!isEmployee ? (canEdit || canDelete) : true) && <span style={{ textAlign: "right" }}>Actions</span>}
         </div>
         {!loading && !error && items.map(l => (
-          <div className="table-row" key={l.id}>
+          <div
+            className="table-row"
+            key={l.id}
+            style={isEmployee ? { gridTemplateColumns: "1fr 1.1fr 0.8fr 1.6fr 0.8fr 60px", alignItems: "center" } : undefined}
+          >
             {!isEmployee && (
               <div className="person-cell">
                 <Avatar name={l.employee_name || ""} avatar={(l as any).employee_avatar || (l as any).avatar} />
@@ -478,9 +485,9 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
             </span>
             <span className="truncate">{l.reason}</span>
             <Badge tone={l.status}>{l.status}</Badge>
-            {!isEmployee && (canEdit || canDelete) && (
+            {(!isEmployee ? (canEdit || canDelete) : true) && (
               <div className="decision-buttons" style={{ display: "flex", gap: "5px", alignItems: "center", justifyContent: "flex-end" }}>
-                {canEdit && (
+                {!isEmployee && canEdit && (
                   <>
                     {l.status !== "Approved" && (
                       <button
@@ -552,10 +559,10 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
                   </>
                 )}
 
-                {canDelete && (
+                {((!isEmployee && canDelete) || (isEmployee && l.status === "Pending")) && (
                   <button
                     className="reject"
-                    title="Delete Leave Request"
+                    title={isEmployee ? "Cancel Pending Request" : "Delete Leave Request"}
                     style={{
                       width: "28px",
                       height: "28px",

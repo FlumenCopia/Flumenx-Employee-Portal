@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from "react";
-import { getGlobalSocket } from "@/lib/socket";
+import { getGlobalSocket, subscribeOnlineUsers } from "@/lib/socket";
 import { DirectCallModal } from "./DirectCallModal";
 import { toast } from "@/components/ToastContext";
 import { api } from "@/lib/api";
@@ -105,6 +105,12 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [remotePeers, setRemotePeers] = useState<RemotePeer[]>([]);
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    return subscribeOnlineUsers((ids) => {
+      setOnlineUserIds(ids);
+    });
+  }, []);
 
   // Remote peer in-call state (Mute, Camera toggle, Screen sharing)
   const [remoteMediaState, setRemoteMediaState] = useState<{ isAudioMuted: boolean; isVideoOff: boolean }>({
@@ -815,7 +821,7 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
       socket.off("presence:update", handlePresenceUpdate);
       socket.off("presence:online-users", handlePresenceOnlineUsers);
     };
-  }, [endCallCleanup, createPeerForSocket, localStream]);
+  }, [endCallCleanup, createPeerForSocket]);
 
   // Start outgoing call
   const startCall = async (params: {
@@ -825,13 +831,12 @@ export function WebRTCProvider({ children }: { children: ReactNode }) {
     callType: CallType;
     conversationId?: string;
   }) => {
-    // Only allow calling colleagues if they are online
-    if (onlineUserIds.length > 0 && !onlineUserIds.includes(String(params.toUserId))) {
-      toast.warning(`Cannot call: ${params.partnerName || "Colleague"} is currently offline.`);
+    const socket = getGlobalSocket();
+    if (!socket || !socket.connected) {
+      toast.error("Real-time network connection is offline. Reconnecting...");
+      socket?.connect();
       return;
     }
-
-    const socket = getGlobalSocket();
 
     const roomId = params.conversationId ? `room_${params.conversationId}` : `call_${params.toUserId}_${Date.now()}`;
 

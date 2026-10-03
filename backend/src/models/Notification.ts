@@ -6,6 +6,7 @@ export interface INotification extends Document {
   title: string;
   message: string;
   category: string;
+  link?: string;
   isRead: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -18,6 +19,7 @@ const notificationSchema = new Schema<INotification>(
     title: { type: String, required: true, trim: true },
     message: { type: String, required: true },
     category: { type: String, default: 'General' },
+    link: { type: String, default: '' },
     isRead: { type: Boolean, default: false },
   },
   {

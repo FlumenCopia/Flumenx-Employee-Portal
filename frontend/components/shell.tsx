@@ -15,6 +15,7 @@ import { ChangePasswordModal } from "./ChangePasswordModal";
 import { getGlobalSocket } from "@/lib/socket";
 import { toast } from "@/components/ToastContext";
 import { hasPermission } from "@/lib/permissions";
+import { showDesktopNotification, requestNotificationPermission } from "@/lib/desktopNotification";
 
 const dynamicNavCache: Record<string, readonly (readonly [string, string, any])[]> = {};
 
@@ -47,13 +48,19 @@ function readableTime(value: string) {
   return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 }
 
-function NotificationBell({ user }: { user: AuthUser | null }) {
+function NotificationBell({
+  user,
+  onNavigate,
+}: {
+  user: AuthUser | null;
+  onNavigate?: (url: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<PortalNotification[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [readingId, setReadingId] = useState<number | null>(null);
+  const [readingId, setReadingId] = useState<string | number | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const listRequestRef = useRef(0);
@@ -129,6 +136,32 @@ function NotificationBell({ user }: { user: AuthUser | null }) {
   }, [loadNotifications, open, user]);
 
   useEffect(() => {
+    if (!user) return;
+    const socket = getGlobalSocket();
+    if (!socket) return;
+
+    const handleNewNotification = (data: { notification?: PortalNotification }) => {
+      const notif = data?.notification;
+      if (!notif) return;
+      setCount((prev) => prev + 1);
+      setItems((prev) => [notif, ...prev.filter((i) => i.id !== notif.id)]);
+      toast.info(`🔔 ${notif.title}: ${notif.message}`);
+
+      showDesktopNotification(notif.title, {
+        body: notif.message,
+        url: notif.link || "/dashboard",
+        tag: `notif-${notif.id}`,
+        soundType: "notification",
+      });
+    };
+
+    socket.on("notification:new", handleNewNotification);
+    return () => {
+      socket.off("notification:new", handleNewNotification);
+    };
+  }, [user]);
+
+  useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
       if (!panelRef.current?.contains(event.target as Node)) setOpen(false);
@@ -143,6 +176,35 @@ function NotificationBell({ user }: { user: AuthUser | null }) {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
+
+  async function handleNotificationClick(item: PortalNotification) {
+    if (readingId !== null) return;
+    setOpen(false);
+    if (!item.is_read) {
+      markRead(item);
+    }
+
+    let targetUrl = item.link;
+    if (!targetUrl) {
+      const cat = (item.category || "").toLowerCase();
+      if (cat.includes("meet")) targetUrl = "/meetings";
+      else if (cat.includes("chat") || cat.includes("message")) targetUrl = "/chat";
+      else if (cat.includes("leave")) targetUrl = "/leaves";
+      else if (cat.includes("announce")) targetUrl = "/announcements";
+      else if (cat.includes("attendance")) targetUrl = "/attendance";
+      else if (cat.includes("payroll") || cat.includes("salary")) targetUrl = "/salary-slips";
+      else if (cat.includes("task") || cat.includes("work")) targetUrl = "/work";
+      else targetUrl = "/dashboard";
+    }
+
+    if (targetUrl) {
+      if (onNavigate) {
+        onNavigate(targetUrl);
+      } else if (typeof window !== "undefined") {
+        window.location.href = targetUrl;
+      }
+    }
+  }
 
   async function markRead(notification: PortalNotification) {
     if (notification.is_read || readingId !== null) return;
@@ -202,7 +264,7 @@ function NotificationBell({ user }: { user: AuthUser | null }) {
           {!loading && !error && !items.length && <div className="notification-state">No notifications yet.</div>}
           {items.map(item => {
             const Icon = notificationIcon(item.category);
-            return <button key={item.id} type="button" className={`notification-item ${item.is_read ? "read" : "unread"}`} disabled={readingId === item.id} onClick={() => markRead(item)}>
+            return <button key={item.id} type="button" className={`notification-item ${item.is_read ? "read" : "unread"}`} disabled={readingId === item.id} onClick={() => handleNotificationClick(item)}>
               <span className="notification-icon"><Icon size={15} /></span>
               <span><b>{item.title}</b><small>{item.message}</small><em>{item.category.replaceAll("_", " ")} / {readableTime(item.created_at)}</em></span>
             </button>;
@@ -322,6 +384,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
   const [loggingOut, setLoggingOut] = useState(false);
   const [revalidatingBfCache, setRevalidatingBfCache] = useState(false);
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [dynamicNav, setDynamicNav] = useState<readonly (readonly [string, string, any])[] | null>(() => {
     const key = cachedUser?.id ? `${cachedUser.id}_${workspaceRole}` : workspaceRole;
     return dynamicNavCache[key] || null;
@@ -341,6 +404,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
+    requestNotificationPermission().catch(() => {});
     const handleOpenPw = () => setShowPasswordModal(true);
     window.addEventListener("flumenx:open_change_password_modal", handleOpenPw);
     return () => {
@@ -460,26 +524,38 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
       if (senderId && String(senderId) !== String(currentUserId)) {
         const isOnChat = typeof window !== "undefined" && window.location.pathname.includes("/chat");
         if (!isOnChat) {
+          setUnreadChatCount((prev) => prev + 1);
           const senderName = msg.sender?.name || (msg.sender?.firstName ? `${msg.sender.firstName} ${msg.sender.lastName || ''}`.trim() : "Colleague");
           toast.info(`${senderName}: ${msg.content || (msg.attachments?.length ? 'Sent an attachment' : 'New message')}`);
 
-          if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-            try {
-              new Notification(`New message from ${senderName}`, {
-                body: msg.content || "Sent an attachment",
-                icon: msg.sender?.avatar || "/icon.png",
-                tag: `msg-${data.conversationId}`,
-              });
-            } catch {}
-          }
+          showDesktopNotification(`New message from ${senderName}`, {
+            body: msg.content || (msg.attachments?.length ? "Sent an attachment" : "New message"),
+            url: "/chat",
+            tag: `msg-${data.conversationId}`,
+            soundType: "message",
+          });
         }
       }
     };
 
+    const handleMeetingScheduled = (data: { meeting: any }) => {
+      const m = data?.meeting;
+      if (!m) return;
+      toast.info(`📅 New Meeting: ${m.title || "Meeting"} (${m.date || ""} ${m.time || ""})`);
+      showDesktopNotification(`📅 New Meeting: ${m.title || "Meeting"}`, {
+        body: `Scheduled for ${m.date || ""} at ${m.time || ""} (${m.department || "Company"}). Click to open.`,
+        url: m.meeting_code ? `/meet/${m.meeting_code}` : "/meetings",
+        tag: `meeting-${m.id || m.meeting_code}`,
+        soundType: "notification",
+      });
+    };
+
     socket.on("chat:new-message", handleNewMessage);
+    socket.on("meeting:scheduled", handleMeetingScheduled);
     return () => {
       clearInterval(heartbeat);
       socket.off("chat:new-message", handleNewMessage);
+      socket.off("meeting:scheduled", handleMeetingScheduled);
     };
   }, [user]);
 
@@ -545,6 +621,24 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
       window.clearInterval(timer);
     };
   }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadChatCount(0);
+      return;
+    }
+    const controller = new AbortController();
+    api<{ count: number }>("/chat/unread-count/", { signal: controller.signal })
+      .then((res) => setUnreadChatCount(res.count || 0))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [user]);
+
+  useEffect(() => {
+    if (path.includes("/chat")) {
+      setUnreadChatCount(0);
+    }
+  }, [path]);
 
   useEffect(() => {
     if (open) {
@@ -728,6 +822,9 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
                           {label.toLowerCase().includes("leave") && pendingLeaveCount > 0 && (
                             <em>{pendingLeaveCount > 99 ? "99+" : pendingLeaveCount}</em>
                           )}
+                          {(label.toLowerCase().includes("chat") || label.toLowerCase() === "messages") && unreadChatCount > 0 && (
+                            <em>{unreadChatCount > 99 ? "99+" : unreadChatCount}</em>
+                          )}
                         </Link>
                       );
                     })}
@@ -762,7 +859,7 @@ export function Shell({ children, role }: { children: ReactNode; role?: Workspac
           <button className="menu-button" onClick={() => setOpen(true)} aria-label="Open navigation menu"><Menu /></button>
           <div className="topbar-word">FLUMENX BOS / <span>{roleLabel.toUpperCase()}</span></div>
           <div className="top-actions">
-            <NotificationBell user={user} />
+            <NotificationBell user={user} onNavigate={(url) => router.push(url)} />
             <Link
               href="/profile"
               className="topbar-user-pill"

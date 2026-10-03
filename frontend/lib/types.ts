@@ -205,7 +205,8 @@ export type Paginated<T> = {
   count: number; next: string | null; previous: string | null; results: T[];
 };
 export type PortalNotification = {
-  id: number; user: number; title: string; message: string; category: string;
+  id: number | string; user: number | string; title: string; message: string; category: string;
+  link?: string;
   is_read: boolean; created_at: string;
 };
 export type Employee = {

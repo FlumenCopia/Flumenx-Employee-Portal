@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
+import { resolveSocketUrl } from "@/lib/socket";
 import {
   Mic,
   MicOff,
@@ -553,14 +554,7 @@ export function MeetingRoomPage({ meetingCode }: { meetingCode: string }) {
         ? localStorage.getItem("flumenx_access_token") || localStorage.getItem("access_token") || localStorage.getItem("jwt") || ""
         : "";
 
-    let socketUrl: string | undefined = undefined;
-    if (typeof window !== "undefined") {
-      if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-        socketUrl = "http://127.0.0.1:8000";
-      } else {
-        socketUrl = window.location.origin;
-      }
-    }
+    const socketUrl = resolveSocketUrl();
 
     const socket = io(socketUrl || "", {
       path: "/socket.io",

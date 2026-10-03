@@ -984,3 +984,36 @@ export async function forwardMessage(req: Request, res: Response): Promise<void>
     res.status(500).json({ detail: err?.message || 'Failed to forward message' });
   }
 }
+
+// 19. Get total unread chat conversations count for current user
+export async function getUnreadChatCount(req: Request, res: Response): Promise<void> {
+  try {
+    const currentUserId = req.user ? req.user._id.toString() : '';
+    if (!currentUserId) {
+      res.status(401).json({ detail: 'Unauthorized' });
+      return;
+    }
+
+    const conversations = await ChatConversation.find({
+      'participants.user': currentUserId,
+      isArchived: false,
+    }).select('participants lastMessageAt');
+
+    let unreadCount = 0;
+    for (const doc of conversations) {
+      const myParticipant = (doc.participants || []).find(
+        (p: any) => String(p.user?._id || p.user) === String(currentUserId)
+      );
+      const myLastRead = myParticipant?.lastReadAt ? new Date(myParticipant.lastReadAt).getTime() : 0;
+      const lastMsgTime = doc.lastMessageAt ? new Date(doc.lastMessageAt).getTime() : 0;
+      if (lastMsgTime > myLastRead) {
+        unreadCount++;
+      }
+    }
+
+    res.json({ count: unreadCount });
+  } catch (err: any) {
+    res.status(500).json({ detail: err?.message || 'Failed to get unread chat count' });
+  }
+}
+

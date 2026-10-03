@@ -830,11 +830,6 @@ export function ChatHubPage({ role }: Props) {
       return;
     }
 
-    if (onlineUserIds.length > 0 && !onlineUserIds.includes(targetUserId)) {
-      toast.warning(`Cannot call: ${partnerName} is currently offline.`);
-      return;
-    }
-
     console.log(`[ChatHubPage] Initiating ${type} call to target ${targetUserId} (${partnerName})`);
     startCall({
       toUserId: targetUserId,

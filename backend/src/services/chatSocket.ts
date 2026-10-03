@@ -309,7 +309,7 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
       const activeRoomId = roomId || (conversationId ? `room_${conversationId}` : `call_${uId}_${Date.now()}`);
       socket.join(`call-room:${activeRoomId}`);
 
-      io.to(`user:${resolvedUserId}`).emit('call:incoming', {
+      const incomingPayload = {
         fromUserId: uId,
         fromSocketId: socket.id,
         callerName,
@@ -318,7 +318,13 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
         sdpOffer,
         conversationId,
         roomId: activeRoomId,
-      });
+      };
+
+      io.to(`user:${resolvedUserId}`).emit('call:incoming', incomingPayload);
+      if (String(toUserId) !== String(resolvedUserId)) {
+        io.to(`user:${toUserId}`).emit('call:incoming', incomingPayload);
+        io.to(`employee:${toUserId}`).emit('call:incoming', incomingPayload);
+      }
 
       socket.emit('call:ringing', { toUserId, roomId: activeRoomId });
     });
@@ -352,8 +358,9 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
           if (conv && conv.participants) {
             for (const p of conv.participants) {
               const pUserId = (p as any).user ? (p as any).user.toString() : (p as any).toString();
+              const pEmpId = (p as any).employee ? (p as any).employee.toString() : null;
               if (pUserId && pUserId !== uId) {
-                io.to(`user:${pUserId}`).emit('call:incoming', {
+                const groupCallPayload = {
                   fromUserId: uId,
                   fromSocketId: socket.id,
                   callerName: `${callerName} (${conversationName || conv.name || 'Group'})`,
@@ -363,7 +370,12 @@ export function setupChatAndCallSockets(io: SocketIOServer) {
                   conversationId,
                   roomId,
                   isGroup: true,
-                });
+                };
+                io.to(`user:${pUserId}`).emit('call:incoming', groupCallPayload);
+                if (pEmpId) {
+                  io.to(`employee:${pEmpId}`).emit('call:incoming', groupCallPayload);
+                  io.to(`user:${pEmpId}`).emit('call:incoming', groupCallPayload);
+                }
               }
             }
           }
@@ -695,5 +707,25 @@ export function broadcastMeetingScheduled(meetingPayload: any) {
   if (!ioInstance) return;
   ioInstance.emit('meeting:scheduled', {
     meeting: meetingPayload,
+  });
+}
+
+/**
+ * Broadcasts notification to a specific user in real-time
+ */
+export function broadcastNotificationToUser(userId: string, notificationPayload: any) {
+  if (!ioInstance) return;
+  ioInstance.to(`user:${userId}`).emit('notification:new', {
+    notification: notificationPayload,
+  });
+}
+
+/**
+ * Broadcasts notification to all connected users in real-time
+ */
+export function broadcastNotificationToAll(notificationPayload: any) {
+  if (!ioInstance) return;
+  ioInstance.emit('notification:new', {
+    notification: notificationPayload,
   });
 }

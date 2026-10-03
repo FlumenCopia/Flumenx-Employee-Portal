@@ -7,6 +7,7 @@ import { FlumenxMark } from "@/components/icons";
 import { api, ApiError } from "@/lib/api";
 import { getWorkspaceDestination } from "@/components/layout/navigation";
 import { clearCachedAuthUser, setCachedAuthUser } from "@/lib/auth-cache";
+import { reconnectSocketWithToken } from "@/lib/socket";
 import type { AuthUser } from "@/lib/types";
 
 export default function LoginPage() {
@@ -103,6 +104,7 @@ export default function LoginPage() {
       if (res?.access) {
         localStorage.setItem("flumenx_access_token", res.access);
         localStorage.setItem("access_token", res.access);
+        reconnectSocketWithToken(res.access);
       }
       if (res?.refresh) {
         localStorage.setItem("flumenx_refresh_token", res.refresh);

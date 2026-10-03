@@ -62,7 +62,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/socket.io",
-        destination: `${backendHost}/socket.io/`,
+        destination: `${backendHost}/socket.io`,
       },
       {
         source: "/socket.io/:path*",

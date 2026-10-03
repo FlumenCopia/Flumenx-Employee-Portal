@@ -9,6 +9,8 @@ import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { getRoleDataScope } from '../services/scopeResolver.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
 import { sendLeaveApplicationEmail, sendLeaveDecisionEmail } from '../utils/mailer.js';
+import { Notification } from '../models/Notification.js';
+import { broadcastNotificationToUser } from '../services/chatSocket.js';
 
 export async function getLeaves(req: Request, res: Response): Promise<void> {
   const { employee_id, status } = req.query;
@@ -260,7 +262,27 @@ export async function updateLeave(req: Request, res: Response): Promise<void> {
         quantity: -deductQuantity,
         balanceAfter: Math.max(0, currentBal.totalPaidLeaveBalance - deductQuantity),
         transactionDate: new Date(),
-        notes: `Leave availed: ${deductQuantity} day(s) ${leave.leaveType} (${leave.startDate.toISOString().split('T')[0]})`,
+        notes: `Leave availed: ${deductQuantity} day(s) ${leave.leaveType} (${leave.startDate ? leave.startDate.toISOString().split('T')[0] : ''})`,
+        createdBy: req.user?._id || null,
+      }).save();
+    }
+  }
+
+  // If previously approved and now unapproved/rejected: restore days to LeaveLedger
+  if (previousStatus === 'Approved' && status && status !== 'Approved' && emp) {
+    if (['Sick', 'Casual', 'Annual'].includes(leave.leaveType) && emp.employmentStatus === 'Permanent') {
+      const restoreQuantity = leave.daysCount || (leave.isHalfDay ? 0.5 : 1.0);
+      const currentBal = await getEmployeeLeaveBalance(emp._id);
+      const primaryType = leave.leaveType === 'Annual' ? 'Casual' : (leave.leaveType as 'Sick' | 'Casual');
+
+      await new LeaveLedger({
+        employee: emp._id,
+        leaveType: primaryType,
+        transactionType: 'ManualAdjustment',
+        quantity: restoreQuantity,
+        balanceAfter: currentBal.totalPaidLeaveBalance + restoreQuantity,
+        transactionDate: new Date(),
+        notes: `Leave revoked/unapproved: ${restoreQuantity} day(s) ${leave.leaveType} restored (status changed from Approved to ${status})`,
         createdBy: req.user?._id || null,
       }).save();
     }
@@ -268,6 +290,27 @@ export async function updateLeave(req: Request, res: Response): Promise<void> {
 
   // Asynchronously dispatch decision email to Employee, HR, CEO, and CC
   if (status && status !== previousStatus) {
+    if (emp?.user) {
+      Notification.create({
+        user: emp.user,
+        title: `Leave ${status}: ${leave.leaveType} Leave`,
+        message: `Your leave request for ${leave.startDate ? leave.startDate.toISOString().split('T')[0] : ''} has been ${status.toLowerCase()}.${leave.adminNote ? ` Note: ${leave.adminNote}` : ''}`,
+        category: 'leave',
+        isRead: false,
+        link: '/leaves',
+      }).then((notif) => {
+        broadcastNotificationToUser(emp.user.toString(), {
+          id: notif._id,
+          title: notif.title,
+          message: notif.message,
+          category: notif.category,
+          is_read: false,
+          created_at: notif.createdAt,
+          link: notif.link,
+        });
+      }).catch(() => {});
+    }
+
     sendLeaveDecisionEmail({
       employeeName: emp?.name || 'Employee',
       employeeCode: emp?.employeeCode || 'EMP',
@@ -370,6 +413,26 @@ export async function deleteLeave(req: Request, res: Response): Promise<void> {
     if (!ownEmp || String(leave.employee) !== String(ownEmp._id) || leave.status !== 'Pending') {
       res.status(403).json({ detail: 'You can only cancel your own pending leave requests.' });
       return;
+    }
+  }
+
+  if (leave.status === 'Approved' && leave.employee) {
+    const emp = await Employee.findById(leave.employee);
+    if (emp && ['Sick', 'Casual', 'Annual'].includes(leave.leaveType) && emp.employmentStatus === 'Permanent') {
+      const restoreQuantity = leave.daysCount || (leave.isHalfDay ? 0.5 : 1.0);
+      const currentBal = await getEmployeeLeaveBalance(emp._id);
+      const primaryType = leave.leaveType === 'Annual' ? 'Casual' : (leave.leaveType as 'Sick' | 'Casual');
+
+      await new LeaveLedger({
+        employee: emp._id,
+        leaveType: primaryType,
+        transactionType: 'ManualAdjustment',
+        quantity: restoreQuantity,
+        balanceAfter: currentBal.totalPaidLeaveBalance + restoreQuantity,
+        transactionDate: new Date(),
+        notes: `Leave cancelled/deleted: ${restoreQuantity} day(s) ${leave.leaveType} restored`,
+        createdBy: req.user?._id || null,
+      }).save();
     }
   }
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { api } from "@/lib/api";
+import { resolveSocketUrl } from "@/lib/socket";
 import type { LiveLocationPoint, TrackingStatus, TrackingSession } from "@/lib/types";
 
 interface UseLocationTrackerReturn {
@@ -78,14 +79,15 @@ export function useLocationTracker(): UseLocationTrackerReturn {
     let socketUrl = "";
     let token = "";
     if (typeof window !== "undefined") {
-      socketUrl = window.location.origin;
+      socketUrl = resolveSocketUrl();
       token = localStorage.getItem("flumenx_access_token") || localStorage.getItem("access_token") || "";
     }
 
     const socket = io(socketUrl || "", {
-      path: "/socket.io/",
+      path: "/socket.io",
       auth: { token },
-      transports: ["polling", "websocket"],
+      query: token ? { token } : undefined,
+      transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,

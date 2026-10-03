@@ -15,6 +15,7 @@ import {
   initiateCallApi,
   deleteMessage,
   forwardMessage,
+  getUnreadChatCount,
 } from '../controllers/chatController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
@@ -25,6 +26,9 @@ router.use(authenticateToken);
 
 // Call initiation API fallback
 router.post('/call/initiate/?', initiateCallApi);
+
+// Unread chat badges
+router.get('/unread-count/?', getUnreadChatCount);
 
 // Conversation management
 router.get('/conversations/?', getConversations);

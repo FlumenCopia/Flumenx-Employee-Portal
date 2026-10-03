@@ -5,7 +5,7 @@ import { Announcement } from '../models/Announcement.js';
 import { Notification } from '../models/Notification.js';
 import { User } from '../models/User.js';
 import { AuditLog } from '../models/AuditLog.js';
-import { broadcastMeetingScheduled } from '../services/chatSocket.js';
+import { broadcastMeetingScheduled, broadcastNotificationToUser, broadcastNotificationToAll } from '../services/chatSocket.js';
 
 function generateMeetingCode(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz';
@@ -153,7 +153,18 @@ export async function createMeeting(req: Request, res: Response): Promise<void> 
       link: `/meet/${meeting.meetingCode}`,
     }));
     if (notifications.length > 0) {
-      await Notification.insertMany(notifications);
+      const inserted = await Notification.insertMany(notifications);
+      for (const notif of inserted) {
+        broadcastNotificationToUser(notif.user.toString(), {
+          id: notif._id,
+          title: notif.title,
+          message: notif.message,
+          category: notif.category,
+          is_read: false,
+          created_at: notif.createdAt,
+          link: notif.link,
+        });
+      }
     }
   } catch (err) {
     console.error('Failed to broadcast meeting notifications:', err);
@@ -215,6 +226,15 @@ export async function createInstantMeeting(req: Request, res: Response): Promise
     });
 
     await meeting.save();
+
+    broadcastMeetingScheduled({
+      id: meeting._id,
+      meeting_code: meeting.meetingCode,
+      code: meeting.meetingCode,
+      title: meeting.title,
+      status: meeting.status,
+      started_at: meeting.startedAt,
+    });
 
     res.status(201).json({
       id: meeting._id,
@@ -313,7 +333,18 @@ export async function createAnnouncement(req: Request, res: Response): Promise<v
       link: '/admin/announcements',
     }));
     if (notifications.length > 0) {
-      await Notification.insertMany(notifications);
+      const inserted = await Notification.insertMany(notifications);
+      for (const notif of inserted) {
+        broadcastNotificationToUser(notif.user.toString(), {
+          id: notif._id,
+          title: notif.title,
+          message: notif.message,
+          category: notif.category,
+          is_read: false,
+          created_at: notif.createdAt,
+          link: notif.link,
+        });
+      }
     }
   } catch (err) {
     console.error('Failed to broadcast announcement notifications:', err);
@@ -357,6 +388,7 @@ export async function getNotifications(req: Request, res: Response): Promise<voi
     title: n.title,
     message: n.message,
     category: n.category,
+    link: n.link || '',
     is_read: n.isRead,
     created_at: n.createdAt,
   }));
@@ -383,6 +415,7 @@ export async function markNotificationAsRead(req: Request, res: Response): Promi
     title: notification.title,
     message: notification.message,
     category: notification.category,
+    link: notification.link || '',
     is_read: notification.isRead,
     created_at: notification.createdAt,
   });

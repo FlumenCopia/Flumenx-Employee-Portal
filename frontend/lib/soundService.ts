@@ -119,6 +119,57 @@ class CallSoundService {
   }
 
   /**
+   * Plays a crisp, modern melodic notification chime (587.33Hz (D5) -> 880Hz (A5)).
+   */
+  public playNotificationChime(): void {
+    if (typeof window === "undefined") return;
+    try {
+      const ctx = this.getAudioContext();
+      const now = ctx.currentTime;
+      const notes = [
+        { freq: 587.33, start: 0, duration: 0.12 },
+        { freq: 880.0, start: 0.1, duration: 0.35 },
+      ];
+      notes.forEach((n) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(n.freq, now + n.start);
+        gain.gain.setValueAtTime(0.001, now + n.start);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + n.start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + n.start + n.duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + n.start);
+        osc.stop(now + n.start + n.duration + 0.05);
+      });
+    } catch {}
+  }
+
+  /**
+   * Plays a subtle, snappy message pop chime (640Hz -> 820Hz).
+   */
+  public playMessageChime(): void {
+    if (typeof window === "undefined") return;
+    try {
+      const ctx = this.getAudioContext();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(640, now);
+      osc.frequency.exponentialRampToValueAtTime(820, now + 0.08);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.exponentialRampToValueAtTime(0.14, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } catch {}
+  }
+
+  /**
    * Stop all active ringtones and sounds immediately.
    */
   public stopAll(): void {

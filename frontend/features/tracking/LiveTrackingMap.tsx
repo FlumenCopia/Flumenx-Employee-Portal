@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { io, Socket } from "socket.io-client";
+import { resolveSocketUrl, getStoredToken } from "@/lib/socket";
 import {
   Activity,
   Compass,
@@ -243,13 +244,17 @@ export function LiveTrackingMap({ onViewRoute, onViewHistory, onViewSummary }: L
   // 4. Initialize Socket.IO Live Updates
   useEffect(() => {
     let socketUrl = "";
+    let token = "";
     if (typeof window !== "undefined") {
-      socketUrl = window.location.origin;
+      socketUrl = resolveSocketUrl();
+      token = getStoredToken();
     }
 
     const socket = io(socketUrl || "", {
-      path: "/socket.io/",
-      transports: ["polling", "websocket"],
+      path: "/socket.io",
+      auth: token ? { token } : undefined,
+      query: token ? { token } : undefined,
+      transports: ["websocket", "polling"],
       reconnection: true,
       withCredentials: true,
     });
