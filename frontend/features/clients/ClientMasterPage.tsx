@@ -29,7 +29,6 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Shell } from "@/components/shell";
 import { PageHeader, PrimaryButton, StatCard, Badge } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
 import { api } from "@/lib/api";
@@ -491,7 +490,7 @@ export function ClientMasterPage({ role }: Props) {
   };
 
   return (
-    <Shell role={role}>
+    <>
       <div style={{ padding: "1.5rem", maxWidth: "1400px", margin: "0 auto", color: "#0f172a" }}>
         <PageHeader
           title="Client Master & Contract Retainer Portal"
@@ -2141,6 +2140,6 @@ export function ClientMasterPage({ role }: Props) {
           />
         )}
       </div>
-    </Shell>
+    </>
   );
 }

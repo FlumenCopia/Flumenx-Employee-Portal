@@ -29,7 +29,6 @@ import {
   PlusCircle,
   X,
 } from "lucide-react";
-import { Shell } from "@/components/shell";
 import { api, ApiError } from "@/lib/api";
 import type { WorkAssignment, WorkDeliverable } from "@/lib/types";
 

@@ -30,7 +30,6 @@ import {
   Sparkles,
   CalendarDays,
 } from "lucide-react";
-import { Shell } from "@/components/shell";
 import { PageHeader, PrimaryButton, Badge } from "@/components/ui";
 import { Modal } from "@/features/common/Modal";
 import { api } from "@/lib/api";
@@ -362,7 +361,7 @@ export function ClientTasksPage({ role }: Props) {
   }, [filteredTasks, clients]);
 
   return (
-    <Shell role={role}>
+    <>
       <div style={{ padding: "0 4px" }}>
         <PageHeader
           title="Client Tasks & Calendar Command Center"
@@ -1668,6 +1667,6 @@ export function ClientTasksPage({ role }: Props) {
           </Modal>
         )}
       </div>
-    </Shell>
+    </>
   );
 }
