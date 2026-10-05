@@ -4,6 +4,8 @@ import { Employee } from '../models/Employee.js';
 import { WorkAssignment } from '../models/WorkAssignment.js';
 import { EmployeeKPIRating } from '../models/EmployeeKPIRating.js';
 import { SalarySlip } from '../models/SalarySlip.js';
+import { PayrollRecord } from '../models/PayrollRecord.js';
+import { calculateSalaryRounding } from '../utils/salaryRounding.js';
 import { LeaveRequest } from '../models/LeaveRequest.js';
 import { Client } from '../models/Client.js';
 import { AuditLog } from '../models/AuditLog.js';
@@ -387,40 +389,94 @@ export async function getReportsData(req: Request, res: Response): Promise<void>
       }
 
       reportTitle = 'Payroll & Salary Disbursement Report';
-      headers = ['Employee Code', 'Employee Name', 'Month/Year', 'Basic Salary', 'Allowances', 'Deductions', 'Net Salary', 'Status'];
+      headers = [
+        'Employee Code',
+        'Employee Name',
+        'Department',
+        'Month/Year',
+        'Basic Salary',
+        'Allowances',
+        'Deductions',
+        'Unrounded Net Salary',
+        'Rounding Adjustment',
+        'Final Net Salary (Rounded)',
+        'Status',
+      ];
 
       const query: any = {};
       if (month) query.month = parseInt(month, 10);
       if (year) query.year = parseInt(year, 10);
       if (targetEmpFilter) query.employee = targetEmpFilter;
 
-      const slips = await SalarySlip.find(query)
+      const payrollRecords = await PayrollRecord.find(query)
         .populate('employee', 'name employeeCode department')
         .sort({ year: -1, month: -1 })
         .limit(1000);
 
       let totalDisbursed = 0;
+      let totalRoundingAdj = 0;
 
-      rows = slips.map((s: any) => {
-        const emp = s.employee || {};
-        const net = s.netSalary || s.net_salary || 0;
-        totalDisbursed += net;
+      if (payrollRecords && payrollRecords.length > 0) {
+        rows = payrollRecords.map((r: any) => {
+          const emp = r.employee || {};
+          const unrounded = r.unroundedNetSalary !== undefined && r.unroundedNetSalary > 0
+            ? r.unroundedNetSalary
+            : (r.netSalary || 0);
+          const roundingAdj = r.roundingAdjustment || (r.netSalary ? Math.max(0, r.netSalary - unrounded) : 0);
+          const finalNet = r.netSalary || 0;
+          totalDisbursed += finalNet;
+          totalRoundingAdj += roundingAdj;
 
-        return {
-          employee_code: emp.employeeCode || 'N/A',
-          employee_name: emp.name || 'Unknown',
-          period: `${s.month || 1}/${s.year || 2026}`,
-          basic_salary: `₹${(s.basicSalary || 0).toLocaleString()}`,
-          allowances: `₹${(s.allowances || 0).toLocaleString()}`,
-          deductions: `₹${(s.deductions || 0).toLocaleString()}`,
-          net_salary: `₹${net.toLocaleString()}`,
-          status: (s.status || 'DISBURSED').toUpperCase(),
-        };
-      });
+          const snap = r.salarySnapshot || {};
+          const allowances = (snap.conveyance || 0) + (snap.specialAllowance || 0) + (snap.otherAllowances || 0);
+
+          return {
+            employee_code: emp.employeeCode || 'N/A',
+            employee_name: emp.name || 'Unknown',
+            department: emp.department || 'General',
+            period: `${r.month || 1}/${r.year || 2026}`,
+            basic_salary: `₹${(snap.basicSalary || 0).toLocaleString()}`,
+            allowances: `₹${allowances.toLocaleString()}`,
+            deductions: `₹${(r.totalDeductions || 0).toLocaleString()}`,
+            unrounded_net_salary: `₹${unrounded.toLocaleString()}`,
+            rounding_adjustment: `₹${roundingAdj.toLocaleString()}`,
+            net_salary: `₹${finalNet.toLocaleString()}`,
+            status: (r.status || 'CALCULATED').toUpperCase(),
+          };
+        });
+      } else {
+        const slips = await SalarySlip.find(query)
+          .populate('employee', 'name employeeCode department')
+          .sort({ year: -1, month: -1 })
+          .limit(1000);
+
+        rows = slips.map((s: any) => {
+          const emp = s.employee || {};
+          const rawNet = s.netSalary || s.net_salary || 0;
+          const { unroundedNetSalary, roundedNetSalary, roundingAdjustment } = calculateSalaryRounding(rawNet);
+          totalDisbursed += roundedNetSalary;
+          totalRoundingAdj += roundingAdjustment;
+
+          return {
+            employee_code: emp.employeeCode || 'N/A',
+            employee_name: emp.name || 'Unknown',
+            department: emp.department || 'General',
+            period: `${s.month || 1}/${s.year || 2026}`,
+            basic_salary: `₹${(s.basicSalary || 0).toLocaleString()}`,
+            allowances: `₹${(s.allowances || 0).toLocaleString()}`,
+            deductions: `₹${(s.deductions || 0).toLocaleString()}`,
+            unrounded_net_salary: `₹${unroundedNetSalary.toLocaleString()}`,
+            rounding_adjustment: `₹${roundingAdjustment.toLocaleString()}`,
+            net_salary: `₹${roundedNetSalary.toLocaleString()}`,
+            status: (s.status || 'DISBURSED').toUpperCase(),
+          };
+        });
+      }
 
       summary = {
         totalSlips: rows.length,
         totalNetDisbursed: `₹${totalDisbursed.toLocaleString()}`,
+        totalRoundingAdjustment: `₹${totalRoundingAdj.toLocaleString()}`,
       };
     }
 

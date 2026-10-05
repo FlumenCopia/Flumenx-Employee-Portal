@@ -18,6 +18,7 @@ export interface SalaryBreakdown {
   tax: number;
   deductions: number;
   grossSalary: number;
+  roundingAdjustment?: number;
   netSalary: number;
   bankName?: string;
   accountNo?: string;
@@ -162,6 +163,15 @@ export async function generatePdfSalarySlip(
         { earnLabel: 'Special Allowances', earnVal: data.allowances, dedLabel: '', dedVal: 0 },
       ];
 
+      if (data.roundingAdjustment && data.roundingAdjustment > 0) {
+        rows.push({
+          earnLabel: 'Rounding Up Adjustment',
+          earnVal: data.roundingAdjustment,
+          dedLabel: '',
+          dedVal: 0,
+        });
+      }
+
       rows.forEach((r, idx) => {
         const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
         
@@ -181,7 +191,7 @@ export async function generatePdfSalarySlip(
       });
 
       // Gross / Total Row
-      const totalEarn = data.basicSalary + data.hra + data.conveyance + data.allowances;
+      const totalEarn = data.basicSalary + data.hra + data.conveyance + data.allowances + (data.roundingAdjustment || 0);
       const totalDed = data.pf + data.tax + data.deductions;
 
       doc.rect(40, rowY, colW, 24).fillAndStroke(SLATE_LIGHT, BORDER_DARK);
@@ -195,7 +205,7 @@ export async function generatePdfSalarySlip(
       rowY += 34;
 
       // --- 5. Net Salary Box ---
-      const netSalary = totalEarn - totalDed;
+      const netSalary = data.netSalary !== undefined ? data.netSalary : (totalEarn - totalDed);
       const inWordsStr = numberToWords(netSalary);
 
       doc.rect(40, rowY, 515, 42).fillAndStroke('#FFFFFF', BORDER_DARK);

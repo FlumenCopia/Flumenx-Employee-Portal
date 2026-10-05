@@ -257,6 +257,8 @@ export type SalarySlip = {
   year: number;
   gross_salary: number | string;
   net_salary: number | string;
+  unrounded_net_salary?: number | string;
+  rounding_adjustment?: number | string;
   total_deductions?: number | string;
   cycle_start_date?: string;
   cycle_end_date?: string;

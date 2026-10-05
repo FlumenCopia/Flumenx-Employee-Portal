@@ -196,14 +196,19 @@ POST /api/salary-slips/generate/
   ▼
 `salaryController.ts` -> `generateSalarySlip()`
   1. Computes `grossSalary = basic + hra + conveyance + allowances`
-  2. Computes `netSalary = grossSalary - (pf + tax + deductions)`
-  3. Calls `pdfGenerator.ts` -> `generatePdfSalarySlip()`:
+  2. Computes unrounded net `rawNet = grossSalary - (pf + tax + deductions)`
+  3. Applies Salary Rounding Policy (Round up to nearest ₹50 or ₹100):
+     - If last 2 digits > 0 and <= 50, round up to 50 (e.g., 14040 -> 14050, 14001 -> 14050)
+     - If last 2 digits > 50, round up to 100 (e.g., 16874 -> 16900, 12355 -> 12400)
+     - Already ending in 00 or 50 remain unchanged (e.g., 14050 -> 14050, 14000 -> 14000)
+     - `roundingAdjustment = roundedNetSalary - rawNet`
+  4. Calls `pdfGenerator.ts` -> `generatePdfSalarySlip()`:
      - Initializes PDFKit document with A4 specifications
      - Renders Corporate Logo, FLUMENX Letterhead, and Employee Metadata block
-     - Renders Earnings vs Deductions table
+     - Renders Earnings vs Deductions table (including Rounding Up Adjustment line item)
      - Computes Net Payable amount in words via `numberToWords()`
      - Streams PDF to disk at `media/salary_slips/SalarySlip_EMPCODE_MONTH_YEAR.pdf`
-  4. Creates or updates `SalarySlip` document with file URL (enforces unique employee+month+year index)
+  5. Creates or updates `SalarySlip` document with file URL (enforces unique employee+month+year index)
   │
   ▼
 Employee clicks "Download Payslip"

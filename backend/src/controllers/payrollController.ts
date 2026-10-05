@@ -181,6 +181,8 @@ export async function processPayrollCycleHandler(req: Request, res: Response): P
         existing.professionalTax = calc.professionalTax;
         existing.tds = calc.tds;
         existing.totalDeductions = calc.totalDeductions;
+        existing.unroundedNetSalary = calc.unroundedNetSalary;
+        existing.roundingAdjustment = calc.roundingAdjustment;
         existing.netSalary = calc.netSalary;
         existing.status = 'Calculated';
         existing.calculatedAt = new Date();
@@ -204,6 +206,8 @@ export async function processPayrollCycleHandler(req: Request, res: Response): P
           professionalTax: calc.professionalTax,
           tds: calc.tds,
           totalDeductions: calc.totalDeductions,
+          unroundedNetSalary: calc.unroundedNetSalary,
+          roundingAdjustment: calc.roundingAdjustment,
           netSalary: calc.netSalary,
           status: 'Calculated',
           calculatedAt: new Date(),
@@ -310,6 +314,8 @@ export async function reprocessEmployeePayrollRecord(req: Request, res: Response
   record.professionalTax = calc.professionalTax;
   record.tds = calc.tds;
   record.totalDeductions = calc.totalDeductions;
+  record.unroundedNetSalary = calc.unroundedNetSalary;
+  record.roundingAdjustment = calc.roundingAdjustment;
   record.netSalary = calc.netSalary;
   record.status = 'Calculated';
   record.calculatedAt = new Date();
@@ -599,7 +605,9 @@ export async function exportPayrollCSV(req: Request, res: Response): Promise<voi
       'Professional Tax',
       'TDS',
       'Total Deductions',
-      'Net Salary',
+      'Unrounded Net Salary',
+      'Rounding Adjustment',
+      'Final Net Salary (Rounded)',
       'Status',
       'Bank Name',
       'Bank Account Number',
@@ -641,6 +649,8 @@ export async function exportPayrollCSV(req: Request, res: Response): Promise<voi
         escapeCsv(r.professionalTax || 0),
         escapeCsv(r.tds || 0),
         escapeCsv(r.totalDeductions || 0),
+        escapeCsv(r.unroundedNetSalary !== undefined ? r.unroundedNetSalary : r.netSalary),
+        escapeCsv(r.roundingAdjustment || 0),
         escapeCsv(r.netSalary || 0),
         escapeCsv(r.status),
         escapeCsv(emp?.bankName || emp?.bank_name || ''),

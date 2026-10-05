@@ -7,6 +7,7 @@ import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { generatePdfSalarySlip } from '../services/pdfGenerator.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
 import { getRoleDataScope } from '../services/scopeResolver.js';
+import { calculateSalaryRounding } from '../utils/salaryRounding.js';
 
 export async function getSalarySlips(req: Request, res: Response): Promise<void> {
   const { employee_id, year, month } = req.query;
@@ -99,13 +100,16 @@ export async function createSalarySlip(req: Request, res: Response): Promise<voi
 
   const fileUrl = req.file ? `/media/salary_slips/${req.file.filename}` : '';
 
+  const rawNet = net_salary ? parseFloat(net_salary) : 0;
+  const { roundedNetSalary } = calculateSalaryRounding(rawNet);
+
   const slip = new SalarySlip({
     employee: employee_id,
     month: parseInt(month, 10),
     year: parseInt(year, 10),
     file: fileUrl,
     grossSalary: gross_salary ? parseFloat(gross_salary) : 0,
-    netSalary: net_salary ? parseFloat(net_salary) : 0,
+    netSalary: roundedNetSalary,
   });
 
   await slip.save();
@@ -149,7 +153,9 @@ export async function generateSalarySlip(req: Request, res: Response): Promise<v
   const dedVal = deductions ? parseFloat(deductions) : 0;
 
   const grossSalary = basic + houseRent + conv + allow;
-  const netSalary = grossSalary - (pfVal + taxVal + dedVal);
+  const rawNet = grossSalary - (pfVal + taxVal + dedVal);
+  const { unroundedNetSalary, roundedNetSalary, roundingAdjustment } = calculateSalaryRounding(rawNet);
+  const netSalary = roundedNetSalary;
 
   const fileName = `SalarySlip_${emp.employeeCode || emp._id}_${m}_${y}.pdf`;
   const relativePath = `/media/salary_slips/${fileName}`;
@@ -172,6 +178,7 @@ export async function generateSalarySlip(req: Request, res: Response): Promise<v
       tax: taxVal,
       deductions: dedVal,
       grossSalary,
+      roundingAdjustment,
       netSalary,
     },
     absolutePath

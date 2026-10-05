@@ -9,6 +9,7 @@ import { AttendanceCycleInfo, getISTDateString, getCompanyStartOfDay, getCompany
 import { convertThreeMonthUnusedLeaveToSalary } from './leaveEngine.js';
 import { evaluateFormula } from '../utils/formulaEvaluator.js';
 import { buildAttendanceMatrixData } from '../controllers/attendanceController.js';
+import { calculateSalaryRounding } from '../utils/salaryRounding.js';
 
 export interface CalculatedPayrollResult {
   attendanceCycle: IAttendanceCycleSnapshot;
@@ -23,6 +24,8 @@ export interface CalculatedPayrollResult {
   professionalTax: number;
   tds: number;
   totalDeductions: number;
+  unroundedNetSalary: number;
+  roundingAdjustment: number;
   netSalary: number;
   employerCost: number;
   leaveConversionAmount?: number;
@@ -398,8 +401,26 @@ export async function computePayroll(
   }
 
   const totalDeductions = deductions.reduce((sum, d) => sum + d.amount, 0);
-  const totalEarnings = grossSalary + (conversion.convertedAmount || 0);
-  const netSalary = Math.max(0, Math.round((totalEarnings - totalDeductions) * 100) / 100);
+  const rawEarnings = grossSalary + (conversion.convertedAmount || 0);
+  const rawNet = rawEarnings - totalDeductions;
+
+  // Rounding Rule:
+  // - If last digits <= 50 (and > 0), round up to 50 (e.g. 14040 -> 14050, 14001 -> 14050)
+  // - If last digits > 50, round up to 100 (e.g. 16874 -> 16900, 12355 -> 12400)
+  // - Amounts already ending in 00 or 50 remain unchanged (e.g. 14000 -> 14000, 14050 -> 14050)
+  // - Non-positive values return 0
+  const { unroundedNetSalary, roundedNetSalary, roundingAdjustment } = calculateSalaryRounding(rawNet);
+
+  if (roundingAdjustment > 0) {
+    earnings.push({
+      code: 'ROUNDING_ADJ',
+      name: 'Rounding Up Adjustment (to nearest ₹50/₹100)',
+      amount: roundingAdjustment,
+    });
+  }
+
+  const totalEarnings = Math.round((rawEarnings + roundingAdjustment) * 100) / 100;
+  const netSalary = roundedNetSalary;
   const employerCost = Math.round((totalEarnings + pfEmployer + esiEmployer) * 100) / 100;
 
   const salarySnapshot: ISalarySnapshot = {
@@ -427,6 +448,8 @@ export async function computePayroll(
     professionalTax,
     tds,
     totalDeductions: Math.round(totalDeductions * 100) / 100,
+    unroundedNetSalary,
+    roundingAdjustment,
     netSalary,
     employerCost,
     leaveConversionAmount: conversion.convertedAmount,

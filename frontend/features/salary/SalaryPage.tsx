@@ -346,7 +346,9 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
       "Professional Tax",
       "TDS / Income Tax",
       "Total Deductions",
-      "Net Payable Salary",
+      "Unrounded Net Salary",
+      "Rounding Adjustment",
+      "Final Net Salary (Rounded)",
       "Payment Status",
       "Bank Name",
       "Bank Account Number",
@@ -363,6 +365,8 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
       const emp = r.employee || {};
       const cyc = r.attendanceCycle || {};
       const snap = r.salarySnapshot || {};
+      const unrounded = r.unroundedNetSalary !== undefined && r.unroundedNetSalary > 0 ? r.unroundedNetSalary : (r.netSalary || 0);
+      const roundingAdj = r.roundingAdjustment || (r.netSalary ? Math.max(0, r.netSalary - unrounded) : 0);
 
       return [
         escapeCsv(emp.employeeCode || emp.code || "EMP"),
@@ -390,6 +394,8 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
         escapeCsv(r.professionalTax || 0),
         escapeCsv(r.tds || 0),
         escapeCsv(r.totalDeductions || 0),
+        escapeCsv(unrounded),
+        escapeCsv(roundingAdj),
         escapeCsv(r.netSalary || 0),
         escapeCsv(r.status || "Calculated"),
         escapeCsv(emp.bankName || emp.bank_name || ""),
@@ -946,6 +952,7 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
             const totalGross = payrollRecords.reduce((acc, r) => acc + (r.grossSalary || 0), 0);
             const totalDeductions = payrollRecords.reduce((acc, r) => acc + (r.totalDeductions || 0), 0);
             const totalNet = payrollRecords.reduce((acc, r) => acc + (r.netSalary || 0), 0);
+            const totalRounding = payrollRecords.reduce((acc, r) => acc + (r.roundingAdjustment || 0), 0);
             const totalAttendanceDeductions = payrollRecords.reduce((acc, r) => acc + (r.attendanceDeduction || 0), 0);
             const totalPF = payrollRecords.reduce((acc, r) => acc + (r.pfEmployee || 0), 0);
             const totalESI = payrollRecords.reduce((acc, r) => acc + (r.esiEmployee || 0), 0);
@@ -1048,7 +1055,7 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                       ₹{totalNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div style={{ fontSize: "12px", color: "#047857", marginTop: "4px" }}>
-                      Ready for Bank Disbursal
+                      Ready for Bank Disbursal {totalRounding > 0 && `(incl. ₹${totalRounding.toLocaleString()} round-up)`}
                     </div>
                   </div>
 
@@ -1131,6 +1138,11 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                           <td style={{ padding: "12px 16px", fontWeight: 600, color: "#DC2626" }}>₹{r.totalDeductions?.toLocaleString()}</td>
                           <td style={{ padding: "12px 16px", fontWeight: 800, color: hasZeroAttendance ? "#94A3B8" : "#087A5B", fontSize: "15px" }}>
                             {hasZeroAttendance ? "₹0" : `₹${r.netSalary?.toLocaleString()}`}
+                            {!hasZeroAttendance && (r.roundingAdjustment || 0) > 0 && (
+                              <div style={{ fontSize: "10.5px", fontWeight: 600, color: "#059669" }}>
+                                +₹{r.roundingAdjustment} round-up
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: "12px 16px" }}>
                             <span
@@ -1996,13 +2008,18 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                       <th style={{ padding: "8px 10px", fontWeight: 700 }}>PF / ESI</th>
                       <th style={{ padding: "8px 10px", fontWeight: 700 }}>PT / TDS</th>
                       <th style={{ padding: "8px 10px", fontWeight: 700, color: "#DC2626" }}>Total Ded.</th>
-                      <th style={{ padding: "8px 10px", fontWeight: 800, color: "#087A5B" }}>Net Payable</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>Unrounded Net</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 700, color: "#059669" }}>Rounding Adj.</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 800, color: "#087A5B" }}>Net Payable (Rounded)</th>
                       <th style={{ padding: "8px 10px", fontWeight: 700 }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {payrollRecords.map((r) => {
                       const cyc = r.attendanceCycle || {};
+                      const unrounded = r.unroundedNetSalary !== undefined && r.unroundedNetSalary > 0 ? r.unroundedNetSalary : (r.netSalary || 0);
+                      const roundingAdj = r.roundingAdjustment || (r.netSalary ? Math.max(0, r.netSalary - unrounded) : 0);
+
                       return (
                         <tr key={r._id} style={{ borderBottom: "1px solid #F1F5F9" }}>
                           <td style={{ padding: "8px 10px" }}>
@@ -2027,6 +2044,12 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                           </td>
                           <td style={{ padding: "8px 10px", fontWeight: 700, color: "#DC2626" }}>
                             - ₹{r.totalDeductions?.toLocaleString()}
+                          </td>
+                          <td style={{ padding: "8px 10px", color: "#64748B" }}>
+                            ₹{unrounded.toLocaleString()}
+                          </td>
+                          <td style={{ padding: "8px 10px", color: roundingAdj > 0 ? "#059669" : "#64748B", fontWeight: roundingAdj > 0 ? 700 : 400 }}>
+                            {roundingAdj > 0 ? `+₹${roundingAdj}` : "₹0"}
                           </td>
                           <td style={{ padding: "8px 10px", fontWeight: 800, color: "#087A5B", fontSize: "13px" }}>
                             ₹{r.netSalary?.toLocaleString()}
@@ -2058,6 +2081,12 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                       </td>
                       <td style={{ padding: "10px", color: "#DC2626" }}>
                         - ₹{payrollRecords.reduce((s, r) => s + (r.totalDeductions || 0), 0).toLocaleString()}
+                      </td>
+                      <td style={{ padding: "10px", color: "#64748B" }}>
+                        ₹{payrollRecords.reduce((s, r) => s + (r.unroundedNetSalary !== undefined && r.unroundedNetSalary > 0 ? r.unroundedNetSalary : (r.netSalary || 0)), 0).toLocaleString()}
+                      </td>
+                      <td style={{ padding: "10px", color: "#059669", fontWeight: 700 }}>
+                        +₹{payrollRecords.reduce((s, r) => s + (r.roundingAdjustment || (r.netSalary ? Math.max(0, r.netSalary - (r.unroundedNetSalary || r.netSalary)) : 0)), 0).toLocaleString()}
                       </td>
                       <td style={{ padding: "10px", color: "#087A5B", fontWeight: 800, fontSize: "14px" }}>
                         ₹{payrollRecords.reduce((s, r) => s + (r.netSalary || 0), 0).toLocaleString()}

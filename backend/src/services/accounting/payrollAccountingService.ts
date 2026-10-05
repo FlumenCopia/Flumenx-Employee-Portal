@@ -26,12 +26,13 @@ export async function postPayrollAccrualJournal(
   const lines: CreateJournalLineInput[] = [];
 
   // DEBITS (Expenses)
-  const grossPay = Math.round((payrollRecord.grossSalary - (payrollRecord.attendanceDeduction || 0)) * 100) / 100;
+  const roundingAdj = Math.round((payrollRecord.roundingAdjustment || 0) * 100) / 100;
+  const grossPay = Math.round(((payrollRecord.grossSalary - (payrollRecord.attendanceDeduction || 0)) + roundingAdj) * 100) / 100;
   lines.push({
     accountId: salaryExpenseAcc._id as any,
     debit: grossPay,
     credit: 0,
-    description: `Gross Salary Expense (${payrollRecord.attendanceCycle.cycleName})`,
+    description: `Gross Salary Expense (${payrollRecord.attendanceCycle.cycleName})${roundingAdj > 0 ? ` (incl. ₹${roundingAdj} Round Off)` : ''}`,
     employeeId: payrollRecord.employee,
   });
 

@@ -59,6 +59,8 @@ export interface IPayrollRecord extends Document {
   professionalTax: number;
   tds: number;
   totalDeductions: number;
+  unroundedNetSalary?: number;
+  roundingAdjustment?: number;
   netSalary: number;
 
   status: PayrollStatus;
@@ -137,6 +139,8 @@ const payrollRecordSchema = new Schema<IPayrollRecord>(
     professionalTax: { type: Number, default: 0 },
     tds: { type: Number, default: 0 },
     totalDeductions: { type: Number, required: true, default: 0 },
+    unroundedNetSalary: { type: Number, default: 0 },
+    roundingAdjustment: { type: Number, default: 0 },
     netSalary: { type: Number, required: true, default: 0 },
 
     status: {
