@@ -63,7 +63,7 @@ export default function UniversalDashboardPage() {
               cursor: "pointer",
               transition: "all 0.15s ease",
               background: activeTab === "admin" ? "var(--neon)" : "transparent",
-              color: activeTab === "admin" ? "#000000" : "var(--muted)",
+              color: activeTab === "admin" ? "#ffffff" : "var(--muted)",
             }}
           >
             <LayoutDashboard size={14} /> Management Overview
@@ -84,7 +84,7 @@ export default function UniversalDashboardPage() {
               cursor: "pointer",
               transition: "all 0.15s ease",
               background: activeTab === "workspace" ? "var(--neon)" : "transparent",
-              color: activeTab === "workspace" ? "#000000" : "var(--muted)",
+              color: activeTab === "workspace" ? "#ffffff" : "var(--muted)",
             }}
           >
             <UserCheck size={14} /> My Workspace Hub
