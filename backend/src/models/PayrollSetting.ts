@@ -12,6 +12,11 @@ export interface IPayrollSetting extends Document {
   permanentSickLeaveMonthly: number;
   permanentCasualLeaveMonthly: number;
   leaveConversionMonths: number;
+  leaveEncashmentIntervalMonths: number; // e.g. 3 months gap
+  lastEncashmentMonth: number; // 9 for September
+  lastEncashmentYear: number; // 2026
+  lastEncashmentDate: string; // e.g. '2026-09-07'
+  enableQuarterlyEncashment: boolean; // default true
   leaveConversionRateBase: 'BASIC' | 'GROSS';
   
   pfEnabled: boolean;
@@ -40,6 +45,11 @@ const payrollSettingSchema = new Schema<IPayrollSetting>(
     permanentSickLeaveMonthly: { type: Number, default: 1 },
     permanentCasualLeaveMonthly: { type: Number, default: 1 },
     leaveConversionMonths: { type: Number, default: 3 },
+    leaveEncashmentIntervalMonths: { type: Number, default: 3 },
+    lastEncashmentMonth: { type: Number, default: 9 },
+    lastEncashmentYear: { type: Number, default: 2026 },
+    lastEncashmentDate: { type: String, default: '2026-09-07' },
+    enableQuarterlyEncashment: { type: Boolean, default: true },
     leaveConversionRateBase: { type: String, enum: ['BASIC', 'GROSS'], default: 'BASIC' },
 
     pfEnabled: { type: Boolean, default: true },

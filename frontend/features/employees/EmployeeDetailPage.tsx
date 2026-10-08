@@ -76,9 +76,21 @@ interface EmployeeProfileDetail {
     tds: number;
     salary_history: any[];
   } | null;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_ifsc?: string;
+  bank_branch?: string;
+  pan_number?: string;
+  uan_number?: string;
+  pf_number?: string;
+  esi_number?: string;
   leave_balances?: {
     sick: number;
     casual: number;
+    total_paid?: number;
+    carried_forward?: number;
+    availed_this_month?: number;
+    converted_to_salary?: number;
   };
 }
 
@@ -110,6 +122,44 @@ export function EmployeeDetailPage({ id, role }: { id: string; role?: "admin" | 
   const [structTds, setStructTds] = useState(0);
   const [structNotes, setStructNotes] = useState("");
   const [savingSalary, setSavingSalary] = useState(false);
+
+  // Carry Forward Leaves Edit State
+  const [carryForwardModalOpen, setCarryForwardModalOpen] = useState(false);
+  const [carryForwardDays, setCarryForwardDays] = useState("0");
+  const [carryForwardNotes, setCarryForwardNotes] = useState("");
+  const [carryForwardError, setCarryForwardError] = useState("");
+  const [savingCarryForward, setSavingCarryForward] = useState(false);
+
+  const openCarryForwardModal = () => {
+    setCarryForwardDays(String(profile?.leave_balances?.carried_forward ?? 0));
+    setCarryForwardNotes("");
+    setCarryForwardError("");
+    setCarryForwardModalOpen(true);
+  };
+
+  const handleSaveCarryForward = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    setSavingCarryForward(true);
+    setCarryForwardError("");
+    try {
+      await api<{ message: string }>("/leaves/carry-forward/set/", {
+        method: "POST",
+        body: JSON.stringify({
+          employee_id: profile.id,
+          carry_forward_days: parseFloat(carryForwardDays) || 0,
+          notes: carryForwardNotes.trim(),
+        }),
+      });
+      toast.success("Carry forward leaves updated successfully");
+      setCarryForwardModalOpen(false);
+      loadProfile();
+    } catch (err: any) {
+      setCarryForwardError(err?.message || "Failed to update carry forward leaves");
+    } finally {
+      setSavingCarryForward(false);
+    }
+  };
 
   const currentUser = getCachedAuthUser();
   const isSuperUser = Boolean(
@@ -697,6 +747,132 @@ export function EmployeeDetailPage({ id, role }: { id: string; role?: "admin" | 
               </div>
             </div>
           </div>
+
+          {/* Card 3: Banking & Statutory Details */}
+          <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "14px", padding: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h4 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#0F172A", display: "flex", alignItems: "center", gap: "8px" }}>
+                <CreditCard size={18} color="#087A5B" /> Banking &amp; Statutory Details
+              </h4>
+              <button
+                type="button"
+                onClick={() => setEditModalOpen(true)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#087A5B",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <Pencil size={12} /> Edit
+              </button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #F1F5F9" }}>
+                <span style={{ color: "#64748B" }}>Bank Name</span>
+                <strong style={{ color: "#0F172A" }}>{profile.bank_name || <span style={{ color: "#94A3B8", fontWeight: 400 }}>Not set</span>}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #F1F5F9" }}>
+                <span style={{ color: "#64748B" }}>Account Number</span>
+                <strong style={{ color: "#0F172A", fontFamily: "monospace" }}>{profile.bank_account_number || <span style={{ color: "#94A3B8", fontWeight: 400 }}>Not set</span>}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #F1F5F9" }}>
+                <span style={{ color: "#64748B" }}>IFSC Code</span>
+                <strong style={{ color: "#0F172A", fontFamily: "monospace" }}>{profile.bank_ifsc || <span style={{ color: "#94A3B8", fontWeight: 400 }}>Not set</span>}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #F1F5F9" }}>
+                <span style={{ color: "#64748B" }}>Branch</span>
+                <strong style={{ color: "#0F172A" }}>{profile.bank_branch || <span style={{ color: "#94A3B8", fontWeight: 400 }}>Not set</span>}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #F1F5F9" }}>
+                <span style={{ color: "#64748B" }}>PAN Card</span>
+                <strong style={{ color: "#0F172A", fontFamily: "monospace" }}>{profile.pan_number || <span style={{ color: "#94A3B8", fontWeight: 400 }}>Not set</span>}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #F1F5F9" }}>
+                <span style={{ color: "#64748B" }}>UAN (EPFO)</span>
+                <strong style={{ color: "#0F172A", fontFamily: "monospace" }}>{profile.uan_number || <span style={{ color: "#94A3B8", fontWeight: 400 }}>Not set</span>}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #F1F5F9" }}>
+                <span style={{ color: "#64748B" }}>PF Number</span>
+                <strong style={{ color: "#0F172A" }}>{profile.pf_number || <span style={{ color: "#94A3B8", fontWeight: 400 }}>Not set</span>}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748B" }}>ESI Number</span>
+                <strong style={{ color: "#0F172A" }}>{profile.esi_number || <span style={{ color: "#94A3B8", fontWeight: 400 }}>Not set</span>}</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: Leave Balances & Carry Forward */}
+          <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "14px", padding: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h4 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#0F172A", display: "flex", alignItems: "center", gap: "8px" }}>
+                <Calendar size={18} color="#D97706" /> Leave Balances &amp; Carry Forward
+              </h4>
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={openCarryForwardModal}
+                  disabled={profile.employment_status === "Probation"}
+                  style={{
+                    padding: "5px 10px",
+                    backgroundColor: profile.employment_status === "Probation" ? "#F1F5F9" : "rgba(217, 119, 6, 0.1)",
+                    border: "1px solid rgba(217, 119, 6, 0.3)",
+                    borderRadius: "6px",
+                    color: profile.employment_status === "Probation" ? "#94A3B8" : "#B45309",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    cursor: profile.employment_status === "Probation" ? "not-allowed" : "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                  title={profile.employment_status === "Probation" ? "Probation employees not eligible for paid leave carry forward" : "Adjust carry forward leaves"}
+                >
+                  <Pencil size={12} /> Set Carry Forward
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #F1F5F9" }}>
+                <span style={{ color: "#64748B" }}>Carried Forward Balance</span>
+                <div>
+                  <strong style={{ color: "#D97706", fontSize: "16px" }}>
+                    {(profile.leave_balances?.carried_forward ?? 0).toFixed(1)} Days
+                  </strong>
+                  <div style={{ fontSize: "10.5px", color: "#64748B", textAlign: "right" }}>Quarterly Encashment eligible</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #F1F5F9" }}>
+                <span style={{ color: "#64748B" }}>Total Active Paid Leaves</span>
+                <strong style={{ color: "#059669", fontSize: "15px" }}>
+                  {(profile.leave_balances?.total_paid ?? ((profile.leave_balances?.sick || 0) + (profile.leave_balances?.casual || 0))).toFixed(1)} Days
+                </strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #F1F5F9" }}>
+                <span style={{ color: "#64748B" }}>Sick / Casual Balance</span>
+                <strong style={{ color: "#0F172A" }}>
+                  S: {(profile.leave_balances?.sick ?? 0).toFixed(1)} • C: {(profile.leave_balances?.casual ?? 0).toFixed(1)}
+                </strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #F1F5F9" }}>
+                <span style={{ color: "#64748B" }}>Availed Current Month</span>
+                <strong style={{ color: "#0F172A" }}>{(profile.leave_balances?.availed_this_month ?? 0).toFixed(1)} Days</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748B" }}>Encashed to Salary</span>
+                <strong style={{ color: (profile.leave_balances?.converted_to_salary ?? 0) > 0 ? "#2563EB" : "#64748B" }}>
+                  {(profile.leave_balances?.converted_to_salary ?? 0).toFixed(1)} Days Encashed
+                </strong>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -931,6 +1107,75 @@ export function EmployeeDetailPage({ id, role }: { id: string; role?: "admin" | 
             }}
             onCancel={() => setEditModalOpen(false)}
           />
+        </Modal>
+      )}
+
+      {/* Carry Forward Leaves Modal */}
+      {carryForwardModalOpen && (
+        <Modal title={`Set Carry Forward Leaves: ${profile.name}`} onClose={() => setCarryForwardModalOpen(false)}>
+          <form onSubmit={handleSaveCarryForward} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {carryForwardError && (
+              <div style={{ padding: "10px", backgroundColor: "#FEE2E2", color: "#991B1B", borderRadius: "6px", fontSize: "13px" }}>
+                {carryForwardError}
+              </div>
+            )}
+            <div style={{ backgroundColor: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: "8px", padding: "12px", fontSize: "13px", color: "#166534" }}>
+              <p style={{ margin: 0, fontWeight: 600 }}>ℹ️ Carry Forward Leaves Information</p>
+              <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#15803D" }}>
+                Adjusting carry forward leaves directly modifies the employee's carried-over paid leave pool. These leaves are eligible for 3-month salary encashment in eligible payroll cycles.
+              </p>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>
+                Carry Forward Leaves (Days) <span style={{ color: "#DC2626" }}>*</span>
+              </label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                max="90"
+                value={carryForwardDays}
+                onChange={(e) => setCarryForwardDays(e.target.value)}
+                required
+                placeholder="e.g. 7.0"
+                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "14px" }}
+              />
+              <span style={{ fontSize: "11px", color: "#64748B" }}>
+                Current Carried Forward: {profile.leave_balances?.carried_forward ?? 0} days | Monthly Quota: 2 days
+              </span>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "4px" }}>
+                Adjustment Reason / Notes
+              </label>
+              <textarea
+                value={carryForwardNotes}
+                onChange={(e) => setCarryForwardNotes(e.target.value)}
+                placeholder="Reason for manual carry forward adjustment (e.g. Previous system rollover balance, manual adjustment)..."
+                rows={2}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #CBD5E1", fontSize: "13px" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+              <button
+                type="button"
+                onClick={() => setCarryForwardModalOpen(false)}
+                style={{ padding: "8px 16px", backgroundColor: "#F1F5F9", border: "1px solid #CBD5E1", borderRadius: "6px", cursor: "pointer", fontSize: "13px" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingCarryForward}
+                style={{ padding: "8px 18px", backgroundColor: "#087A5B", color: "#FFFFFF", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
+              >
+                {savingCarryForward ? "Saving..." : "Update Carry Forward"}
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
 

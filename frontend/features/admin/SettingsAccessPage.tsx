@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Key, Shield, Users as UsersIcon, ArrowRight, Trash2, MapPin, Building2, UserCog, Sparkles } from "lucide-react";
+import { Plus, Pencil, Key, Shield, Users as UsersIcon, ArrowRight, Trash2, MapPin, Building2, UserCog, Sparkles, DollarSign } from "lucide-react";
 import { useShellUser } from "@/components/shell";
 import { EmptyState, PageHeader, PrimaryButton } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -14,6 +14,7 @@ import { UserFormModal } from "./UserFormModal";
 import { UserPasswordModal } from "./UserPasswordModal";
 import { Avatar } from "@/components/icons";
 import { AttendancePolicySettings } from "@/features/attendance/AttendancePolicySettings";
+import { PayrollLeaveSettings } from "@/features/salary/PayrollLeaveSettings";
 
 export function SettingsAccessPage() {
   const router = useRouter();
@@ -139,10 +140,11 @@ export function SettingsAccessPage() {
     );
   }
 
-  const [activeTab, setActiveTab] = useState<"all" | "roles" | "users" | "departments" | "attendance_gps">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "roles" | "users" | "departments" | "attendance_gps" | "payroll_leave">("all");
 
   const tabs = [
     { id: "all", label: "All Settings", icon: Shield },
+    { id: "payroll_leave", label: "Payroll & Leave Encashment", icon: DollarSign },
     { id: "attendance_gps", label: "Attendance & Geo-Fence (GPS)", icon: MapPin },
     { id: "roles", label: "Dynamic Roles & RBAC", icon: Shield },
     { id: "users", label: "Super Admin Users", icon: UserCog },
@@ -153,7 +155,7 @@ export function SettingsAccessPage() {
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       <PageHeader
         title="Settings & Access"
-        subtitle="RBAC, Super Admin Users, Department Mapping, and Office Attendance Geo-Fence (GPS) Settings."
+        subtitle="RBAC, Super Admin Users, Department Mapping, Leave Encashment, and Office Attendance Geo-Fence (GPS) Settings."
       />
 
       {/* Tabs Navigation */}
@@ -191,8 +193,10 @@ export function SettingsAccessPage() {
 
       {actionError && <div className="toast error" style={{ background: "rgba(223,125,110,0.15)", border: "1px solid var(--red)", color: "var(--red)", padding: "10px 14px", borderRadius: "6px" }}>{actionError}</div>}
 
-      {/* ATTENDANCE GEOFENCE TAB */}
-      {activeTab === "attendance_gps" ? (
+      {/* PAYROLL & LEAVE ENCASHMENT TAB */}
+      {activeTab === "payroll_leave" ? (
+        <PayrollLeaveSettings />
+      ) : activeTab === "attendance_gps" ? (
         <AttendancePolicySettings />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: "16px", alignItems: "start" }}>

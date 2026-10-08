@@ -34,6 +34,17 @@ export interface IEmployee extends Document {
   avatar: string;
   location: string;
   teamLead?: mongoose.Types.ObjectId | null;
+
+  // Banking & Statutory Details
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIfsc?: string;
+  bankBranch?: string;
+  panNumber?: string;
+  uanNumber?: string;
+  pfNumber?: string;
+  esiNumber?: string;
+
   // Location Tracking State
   trackingStatus: TrackingStatus;
   activeTrackingSession?: mongoose.Types.ObjectId | null;
@@ -85,6 +96,17 @@ const employeeSchema = new Schema<IEmployee>(
     avatar: { type: String, default: '' },
     location: { type: String, default: '' },
     teamLead: { type: Schema.Types.ObjectId, ref: 'Employee', default: null },
+
+    // Banking & Statutory Details
+    bankName: { type: String, default: '', trim: true },
+    bankAccountNumber: { type: String, default: '', trim: true },
+    bankIfsc: { type: String, default: '', trim: true },
+    bankBranch: { type: String, default: '', trim: true },
+    panNumber: { type: String, default: '', trim: true },
+    uanNumber: { type: String, default: '', trim: true },
+    pfNumber: { type: String, default: '', trim: true },
+    esiNumber: { type: String, default: '', trim: true },
+
     // Tracking fields
     trackingStatus: {
       type: String,

@@ -63,6 +63,9 @@ export interface IPayrollRecord extends Document {
   roundingAdjustment?: number;
   netSalary: number;
 
+  leaveConversionDays?: number;
+  leaveConversionAmount?: number;
+
   status: PayrollStatus;
   payslipFile?: string;
   notes?: string;
@@ -142,6 +145,9 @@ const payrollRecordSchema = new Schema<IPayrollRecord>(
     unroundedNetSalary: { type: Number, default: 0 },
     roundingAdjustment: { type: Number, default: 0 },
     netSalary: { type: Number, required: true, default: 0 },
+
+    leaveConversionDays: { type: Number, default: 0 },
+    leaveConversionAmount: { type: Number, default: 0 },
 
     status: {
       type: String,

@@ -219,6 +219,14 @@ export type Employee = {
   exit_date?: string | null;
   location?: string; portal_role?: PortalRole;
   avatar?: string;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_ifsc?: string;
+  bank_branch?: string;
+  pan_number?: string;
+  uan_number?: string;
+  pf_number?: string;
+  esi_number?: string;
 };
 export type EmployeeDocumentItem = {
   id: string | number;

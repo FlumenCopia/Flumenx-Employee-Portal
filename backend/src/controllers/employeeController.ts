@@ -86,6 +86,14 @@ export async function getEmployees(req: Request, res: Response): Promise<void> {
     location: e.location,
     avatar: e.avatar || (e.user as any)?.avatar || '',
     user: e.user ? (e.user as any)._id : null,
+    bank_name: e.bankName || '',
+    bank_account_number: e.bankAccountNumber || '',
+    bank_ifsc: e.bankIfsc || '',
+    bank_branch: e.bankBranch || '',
+    pan_number: e.panNumber || '',
+    uan_number: e.uanNumber || '',
+    pf_number: e.pfNumber || '',
+    esi_number: e.esiNumber || '',
   }));
 
   res.json({
@@ -112,17 +120,9 @@ export async function getEmployeeById(req: Request, res: Response): Promise<void
   const { EmployeeSalaryStructure } = await import('../models/EmployeeSalaryStructure.js');
   const structure = await EmployeeSalaryStructure.findOne({ employee: employee._id, isActive: true });
 
-  // Fetch Leave Balances
-  const { LeaveLedger } = await import('../models/LeaveLedger.js');
-  const ledgers = await LeaveLedger.find({ employee: employee._id });
-  let sickBalance = 0;
-  let casualBalance = 0;
-  for (const l of ledgers) {
-    const qty = l.quantity || 0;
-    const mult = ['OpeningBalance', 'MonthlyAccrual', 'Reversal', 'Credit'].includes(l.transactionType) ? 1 : -1;
-    if (l.leaveType === 'Sick') sickBalance += qty * mult;
-    if (l.leaveType === 'Casual') casualBalance += qty * mult;
-  }
+  // Fetch Leave Balances using leaveEngine
+  const { getEmployeeLeaveBalance } = await import('../services/leaveEngine.js');
+  const leaveBal = await getEmployeeLeaveBalance(employee._id as any);
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || Boolean(req.user?.isSuperuser) || (req.user as any)?.dynamicRole?.isSuperadminWildcard;
   const isSelf = req.user && employee.user && String((employee.user as any)._id || employee.user) === String(req.user._id);
@@ -148,6 +148,17 @@ export async function getEmployeeById(req: Request, res: Response): Promise<void
     avatar: employee.avatar || (employee.user as any)?.avatar || '',
     team_lead: employee.teamLead ? { id: (employee.teamLead as any)._id, name: (employee.teamLead as any).name, code: (employee.teamLead as any).employeeCode } : null,
     user: employee.user ? { id: (employee.user as any)._id, username: (employee.user as any).username, role: (employee.user as any).role } : null,
+
+    // Banking & Statutory Information
+    bank_name: employee.bankName || '',
+    bank_account_number: employee.bankAccountNumber || '',
+    bank_ifsc: employee.bankIfsc || '',
+    bank_branch: employee.bankBranch || '',
+    pan_number: employee.panNumber || '',
+    uan_number: employee.uanNumber || '',
+    pf_number: employee.pfNumber || '',
+    esi_number: employee.esiNumber || '',
+
     salary_structure: (canViewCompensation && structure) ? {
       id: structure._id,
       gross_salary: structure.grossSalary,
@@ -166,8 +177,12 @@ export async function getEmployeeById(req: Request, res: Response): Promise<void
       salary_history: structure.salaryHistory || [],
     } : null,
     leave_balances: {
-      sick: Math.max(0, sickBalance),
-      casual: Math.max(0, casualBalance),
+      sick: leaveBal.sickLeaveBalance,
+      casual: leaveBal.casualLeaveBalance,
+      total_paid: leaveBal.totalPaidLeaveBalance,
+      carried_forward: leaveBal.carriedForwardBalance,
+      availed_this_month: leaveBal.availedThisMonth,
+      converted_to_salary: leaveBal.convertedToSalary,
     },
   });
 }
@@ -194,6 +209,22 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
       user_id,
       password,
       portal_role,
+      bank_name,
+      bankName,
+      bank_account_number,
+      bankAccountNumber,
+      bank_ifsc,
+      bankIfsc,
+      bank_branch,
+      bankBranch,
+      pan_number,
+      panNumber,
+      uan_number,
+      uanNumber,
+      pf_number,
+      pfNumber,
+      esi_number,
+      esiNumber,
     } = body;
 
     let code = employee_code ? String(employee_code).trim() : '';
@@ -296,6 +327,14 @@ export async function createEmployee(req: Request, res: Response): Promise<void>
       location: location || '',
       teamLead: team_lead || null,
       user: linkedUserId,
+      bankName: (bankName || bank_name || '').trim(),
+      bankAccountNumber: (bankAccountNumber || bank_account_number || '').trim(),
+      bankIfsc: (bankIfsc || bank_ifsc || '').trim(),
+      bankBranch: (bankBranch || bank_branch || '').trim(),
+      panNumber: (panNumber || pan_number || '').trim(),
+      uanNumber: (uanNumber || uan_number || '').trim(),
+      pfNumber: (pfNumber || pf_number || '').trim(),
+      esiNumber: (esiNumber || esi_number || '').trim(),
     });
 
     await employee.save();
@@ -401,6 +440,22 @@ export async function updateEmployee(req: Request, res: Response): Promise<void>
       avatar,
       location,
       team_lead,
+      bank_name,
+      bankName,
+      bank_account_number,
+      bankAccountNumber,
+      bank_ifsc,
+      bankIfsc,
+      bank_branch,
+      bankBranch,
+      pan_number,
+      panNumber,
+      uan_number,
+      uanNumber,
+      pf_number,
+      pfNumber,
+      esi_number,
+      esiNumber,
     } = req.body || {};
 
     const rawCode = employee_code !== undefined ? employee_code : employeeCode;
@@ -492,6 +547,15 @@ export async function updateEmployee(req: Request, res: Response): Promise<void>
     if (location !== undefined) employee.location = location;
     if (team_lead !== undefined) employee.teamLead = team_lead || null;
 
+    if (bankName !== undefined || bank_name !== undefined) employee.bankName = String(bankName ?? bank_name ?? '').trim();
+    if (bankAccountNumber !== undefined || bank_account_number !== undefined) employee.bankAccountNumber = String(bankAccountNumber ?? bank_account_number ?? '').trim();
+    if (bankIfsc !== undefined || bank_ifsc !== undefined) employee.bankIfsc = String(bankIfsc ?? bank_ifsc ?? '').trim();
+    if (bankBranch !== undefined || bank_branch !== undefined) employee.bankBranch = String(bankBranch ?? bank_branch ?? '').trim();
+    if (panNumber !== undefined || pan_number !== undefined) employee.panNumber = String(panNumber ?? pan_number ?? '').trim();
+    if (uanNumber !== undefined || uan_number !== undefined) employee.uanNumber = String(uanNumber ?? uan_number ?? '').trim();
+    if (pfNumber !== undefined || pf_number !== undefined) employee.pfNumber = String(pfNumber ?? pf_number ?? '').trim();
+    if (esiNumber !== undefined || esi_number !== undefined) employee.esiNumber = String(esiNumber ?? esi_number ?? '').trim();
+
     await employee.save();
     res.json({
       id: employee._id,
@@ -509,6 +573,14 @@ export async function updateEmployee(req: Request, res: Response): Promise<void>
       confirmation_date: employee.confirmationDate ? employee.confirmationDate.toISOString().split('T')[0] : null,
       location: employee.location || '',
       avatar: employee.avatar || '',
+      bank_name: employee.bankName || '',
+      bank_account_number: employee.bankAccountNumber || '',
+      bank_ifsc: employee.bankIfsc || '',
+      bank_branch: employee.bankBranch || '',
+      pan_number: employee.panNumber || '',
+      uan_number: employee.uanNumber || '',
+      pf_number: employee.pfNumber || '',
+      esi_number: employee.esiNumber || '',
     });
   } catch (error: any) {
     if (error?.code === 11000) {

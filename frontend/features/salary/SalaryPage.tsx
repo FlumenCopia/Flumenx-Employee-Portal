@@ -38,6 +38,7 @@ import { Modal } from "@/features/common/Modal";
 import { getAttendanceCycleForMonth, getISTDateString } from "@/lib/tzUtils";
 import { getCachedAuthUser } from "@/lib/auth-cache";
 import { hasPermission } from "@/lib/permissions";
+import { PayrollLeaveSettings } from "./PayrollLeaveSettings";
 
 const monthNames = [
   "January", "February", "March", "April", "May", "June",
@@ -74,6 +75,7 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
   const [payrollError, setPayrollError] = useState("");
   const [payrollSuccess, setPayrollSuccess] = useState("");
   const [processReportModal, setProcessReportModal] = useState(false);
+  const [payrollSettingsModal, setPayrollSettingsModal] = useState(false);
   const [batchApproving, setBatchApproving] = useState(false);
   
   // Unlock Modal
@@ -341,6 +343,8 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
       "Allowances",
       "Gross Pay",
       "LOP & Attendance Deductions",
+      "Leave Encashed Days",
+      "Leave Encashment Amount",
       "Employee PF",
       "Employee ESI",
       "Professional Tax",
@@ -353,6 +357,11 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
       "Bank Name",
       "Bank Account Number",
       "Bank IFSC",
+      "Bank Branch",
+      "PAN Number",
+      "UAN Number",
+      "PF Number",
+      "ESI Number",
     ];
 
     const escapeCsv = (val: any) => {
@@ -389,6 +398,8 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
         escapeCsv((snap.conveyance || 0) + (snap.specialAllowance || 0) + (snap.otherAllowances || 0)),
         escapeCsv(r.grossSalary || 0),
         escapeCsv(r.attendanceDeduction || 0),
+        escapeCsv(r.leaveConversionDays || 0),
+        escapeCsv(r.leaveConversionAmount || 0),
         escapeCsv(r.pfEmployee || 0),
         escapeCsv(r.esiEmployee || 0),
         escapeCsv(r.professionalTax || 0),
@@ -401,6 +412,11 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
         escapeCsv(emp.bankName || emp.bank_name || ""),
         escapeCsv(emp.bankAccountNumber || emp.bank_account_number || ""),
         escapeCsv(emp.bankIfsc || emp.bank_ifsc || ""),
+        escapeCsv(emp.bankBranch || emp.bank_branch || ""),
+        escapeCsv(emp.panNumber || emp.pan_number || ""),
+        escapeCsv(emp.uanNumber || emp.uan_number || ""),
+        escapeCsv(emp.pfNumber || emp.pf_number || ""),
+        escapeCsv(emp.esiNumber || emp.esi_number || ""),
       ].join(",");
     });
 
@@ -898,6 +914,28 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
 
                 <button
                   type="button"
+                  onClick={() => setPayrollSettingsModal(true)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "8px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid #CBD5E1",
+                    backgroundColor: "#FFFFFF",
+                    color: "#0F172A",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                  title="Configure 3-Month Leave Encashment Interval & Last Encashed Date"
+                >
+                  <Sliders style={{ width: "14px", height: "14px", color: "#087A5B" }} />
+                  Encashment Settings
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleProcessCycle}
                   disabled={processingCycle}
                   style={{
@@ -1134,13 +1172,25 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                               </div>
                             )}
                           </td>
-                          <td style={{ padding: "12px 16px", fontWeight: 600 }}>₹{r.grossSalary?.toLocaleString()}</td>
+                          <td style={{ padding: "12px 16px", fontWeight: 600 }}>
+                            <div>₹{r.grossSalary?.toLocaleString()}</div>
+                            {(r.leaveConversionAmount || 0) > 0 && (
+                              <div style={{ fontSize: "11px", fontWeight: 700, color: "#2563EB", marginTop: "3px" }}>
+                                +₹{Number(r.leaveConversionAmount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ({r.leaveConversionDays}d encashed)
+                              </div>
+                            )}
+                          </td>
                           <td style={{ padding: "12px 16px", fontWeight: 600, color: "#DC2626" }}>₹{r.totalDeductions?.toLocaleString()}</td>
                           <td style={{ padding: "12px 16px", fontWeight: 800, color: hasZeroAttendance ? "#94A3B8" : "#087A5B", fontSize: "15px" }}>
                             {hasZeroAttendance ? "₹0" : `₹${r.netSalary?.toLocaleString()}`}
                             {!hasZeroAttendance && (r.roundingAdjustment || 0) > 0 && (
                               <div style={{ fontSize: "10.5px", fontWeight: 600, color: "#059669" }}>
                                 +₹{r.roundingAdjustment} round-up
+                              </div>
+                            )}
+                            {!hasZeroAttendance && (r.leaveConversionAmount || 0) > 0 && (
+                              <div style={{ fontSize: "10px", fontWeight: 600, color: "#1D4ED8", marginTop: "2px" }}>
+                                incl. {r.leaveConversionDays}d leave pay
                               </div>
                             )}
                           </td>
@@ -1160,6 +1210,25 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                           </td>
                           <td style={{ padding: "12px 16px", textAlign: "right" }}>
                             <div style={{ display: "inline-flex", gap: "6px" }}>
+                              {/* View Payslip Breakdown */}
+                              <button
+                                onClick={() => setSelectedPreview(r)}
+                                title="View Detailed Payslip & Salary Breakdown"
+                                style={{
+                                  padding: "6px 10px",
+                                  backgroundColor: "#F1F5F9",
+                                  border: "1px solid #CBD5E1",
+                                  borderRadius: "6px",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
+                                  color: "#087A5B",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <Eye style={{ width: "12px", height: "12px", marginRight: "4px" }} />
+                                View
+                              </button>
+
                               {/* Reprocess Single Employee */}
                               <button
                                 onClick={() => handleReprocessSingle(r._id)}
@@ -1588,6 +1657,195 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
 
           {reportLoading ? (
             <div style={{ padding: "32px", textAlign: "center", color: "#64748B" }}>Loading report data...</div>
+          ) : reportType === "leave" ? (
+            <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "20px" }}>
+              {/* Leave Conversion KPI Summary */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "24px" }}>
+                <div style={{ padding: "16px", backgroundColor: "#EFF6FF", borderRadius: "8px", border: "1px solid #BFDBFE" }}>
+                  <div style={{ fontSize: "12px", color: "#1E40AF", fontWeight: 600 }}>Total Leave Encashment Payout</div>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#1D4ED8", marginTop: "4px" }}>
+                    ₹{(reportData?.summary?.total_conversion_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#3B82F6", marginTop: "2px" }}>Converted Unused Paid Leaves</div>
+                </div>
+
+                <div style={{ padding: "16px", backgroundColor: "#F0FDF4", borderRadius: "8px", border: "1px solid #BBF7D0" }}>
+                  <div style={{ fontSize: "12px", color: "#166534", fontWeight: 600 }}>Total Encashed Days</div>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#15803D", marginTop: "4px" }}>
+                    {reportData?.summary?.total_converted_days || 0} Days
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#16A34A", marginTop: "2px" }}>Across Eligible Employees</div>
+                </div>
+
+                <div style={{ padding: "16px", backgroundColor: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
+                  <div style={{ fontSize: "12px", color: "#64748B", fontWeight: 600 }}>Benefited Employees</div>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#0F172A", marginTop: "4px" }}>
+                    {reportData?.summary?.total_employees || 0}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#64748B", marginTop: "2px" }}>In this 3-Month Cycle</div>
+                </div>
+              </div>
+
+              {/* Transactions Table */}
+              <h4 style={{ margin: "0 0 12px", fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>
+                Carry Forward Leave Conversion Ledger Records
+              </h4>
+              {(!reportData?.results || reportData.results.length === 0) ? (
+                <div style={{ padding: "32px", textAlign: "center", color: "#64748B", backgroundColor: "#F8FAFC", borderRadius: "8px" }}>
+                  No leave conversion transactions recorded for this period. Carry forward leaves encash every 3 months from baseline.
+                </div>
+              ) : (
+                <div style={{ border: "1px solid #E2E8F0", borderRadius: "8px", overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
+                    <thead>
+                      <tr style={{ backgroundColor: "#F8FAFC", borderBottom: "1px solid #E2E8F0", color: "#475569" }}>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>Employee</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>Department</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700, color: "#15803D" }}>Encashed Days</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700, color: "#1D4ED8" }}>Encashment Payout (₹)</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>Cycle Period</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>Transaction Date</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>Description / Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportData.results.map((t: any) => (
+                        <tr key={t.id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                          <td style={{ padding: "10px 14px" }}>
+                            <div style={{ fontWeight: 700, color: "#0F172A" }}>{t.employee_name}</div>
+                            <div style={{ fontSize: "11px", color: "#64748B" }}>{t.employee_code}</div>
+                          </td>
+                          <td style={{ padding: "10px 14px", color: "#475569" }}>{t.department || "General"}</td>
+                          <td style={{ padding: "10px 14px", fontWeight: 700, color: "#15803D" }}>
+                            {t.converted_days} Days
+                          </td>
+                          <td style={{ padding: "10px 14px", fontWeight: 700, color: "#1D4ED8", fontSize: "14px" }}>
+                            ₹{Number(t.conversion_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td style={{ padding: "10px 14px", color: "#475569" }}>
+                            {t.earned_month ? `${monthNames[t.earned_month - 1]} ${t.earned_year || payrollYear}` : "3-Month Cycle"}
+                          </td>
+                          <td style={{ padding: "10px 14px", color: "#64748B", fontSize: "12px" }}>
+                            {t.transaction_date ? new Date(t.transaction_date).toLocaleDateString() : "—"}
+                          </td>
+                          <td style={{ padding: "10px 14px", color: "#475569", fontSize: "12px" }}>
+                            {t.notes || "3-Month unused leave conversion to salary"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ backgroundColor: "#F8FAFC", borderTop: "2px solid #CBD5E1", fontWeight: 700 }}>
+                        <td style={{ padding: "12px 14px" }} colSpan={2}>
+                          Total ({reportData.results.length} Entries)
+                        </td>
+                        <td style={{ padding: "12px 14px", color: "#15803D" }}>
+                          {reportData.summary?.total_converted_days || 0} Days
+                        </td>
+                        <td style={{ padding: "12px 14px", color: "#1D4ED8", fontSize: "15px" }}>
+                          ₹{(reportData.summary?.total_conversion_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td style={{ padding: "12px 14px" }} colSpan={3}>—</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : reportType === "statutory" ? (
+            <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "20px" }}>
+              <h4 style={{ margin: "0 0 12px", fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>
+                Statutory Deductions & Contributions (PF, ESI, PT, TDS)
+              </h4>
+              {(!reportData?.results || reportData.results.length === 0) ? (
+                <div style={{ padding: "32px", textAlign: "center", color: "#64748B", backgroundColor: "#F8FAFC", borderRadius: "8px" }}>
+                  No statutory records found for this cycle.
+                </div>
+              ) : (
+                <div style={{ border: "1px solid #E2E8F0", borderRadius: "8px", overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
+                    <thead>
+                      <tr style={{ backgroundColor: "#F8FAFC", borderBottom: "1px solid #E2E8F0", color: "#475569" }}>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>Employee</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>Gross Pay</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>Basic Pay</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700, color: "#DC2626" }}>PF (Emp)</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700, color: "#2563EB" }}>PF (Employer)</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700, color: "#DC2626" }}>ESI (Emp)</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700, color: "#2563EB" }}>ESI (Employer)</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>PT (₹)</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>TDS (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportData.results.map((s: any) => (
+                        <tr key={s.employee_id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                          <td style={{ padding: "10px 14px" }}>
+                            <div style={{ fontWeight: 700, color: "#0F172A" }}>{s.employee_name}</div>
+                            <div style={{ fontSize: "11px", color: "#64748B" }}>{s.employee_code} • {s.department}</div>
+                          </td>
+                          <td style={{ padding: "10px 14px" }}>₹{s.gross_salary?.toLocaleString()}</td>
+                          <td style={{ padding: "10px 14px" }}>₹{s.basic_salary?.toLocaleString()}</td>
+                          <td style={{ padding: "10px 14px", color: "#DC2626", fontWeight: 600 }}>₹{s.pf_employee?.toLocaleString()}</td>
+                          <td style={{ padding: "10px 14px", color: "#2563EB" }}>₹{s.pf_employer?.toLocaleString()}</td>
+                          <td style={{ padding: "10px 14px", color: "#DC2626", fontWeight: 600 }}>₹{s.esi_employee?.toLocaleString()}</td>
+                          <td style={{ padding: "10px 14px", color: "#2563EB" }}>₹{s.esi_employer?.toLocaleString()}</td>
+                          <td style={{ padding: "10px 14px" }}>₹{s.professional_tax?.toLocaleString()}</td>
+                          <td style={{ padding: "10px 14px" }}>₹{s.tds?.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : reportType === "attendance" ? (
+            <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "20px" }}>
+              <h4 style={{ margin: "0 0 12px", fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>
+                Attendance Impact, Working Days &amp; LOP Deductions
+              </h4>
+              {(!reportData?.results || reportData.results.length === 0) ? (
+                <div style={{ padding: "32px", textAlign: "center", color: "#64748B", backgroundColor: "#F8FAFC", borderRadius: "8px" }}>
+                  No attendance records found for this cycle.
+                </div>
+              ) : (
+                <div style={{ border: "1px solid #E2E8F0", borderRadius: "8px", overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
+                    <thead>
+                      <tr style={{ backgroundColor: "#F8FAFC", borderBottom: "1px solid #E2E8F0", color: "#475569" }}>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>Employee</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>Working Days</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700, color: "#087A5B" }}>Present Days</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>Paid Leaves</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700, color: "#DC2626" }}>LOP / Unpaid Days</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700 }}>Late Punches</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700, color: "#087A5B" }}>Payable Days</th>
+                        <th style={{ padding: "10px 14px", fontWeight: 700, color: "#DC2626" }}>Attendance Ded. (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportData.results.map((a: any) => (
+                        <tr key={a.employee_id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                          <td style={{ padding: "10px 14px" }}>
+                            <div style={{ fontWeight: 700, color: "#0F172A" }}>{a.employee_name}</div>
+                            <div style={{ fontSize: "11px", color: "#64748B" }}>{a.employee_code} • {a.department}</div>
+                          </td>
+                          <td style={{ padding: "10px 14px" }}>{a.working_days || 0}</td>
+                          <td style={{ padding: "10px 14px", fontWeight: 600, color: "#087A5B" }}>{a.present_days || 0}</td>
+                          <td style={{ padding: "10px 14px" }}>{a.paid_leave_days || 0}</td>
+                          <td style={{ padding: "10px 14px", fontWeight: 600, color: a.unpaid_days > 0 ? "#DC2626" : "#64748B" }}>{a.unpaid_days || 0}</td>
+                          <td style={{ padding: "10px 14px" }}>{a.late_arrivals_count || 0} ({a.late_half_day_deductions || 0}d ded)</td>
+                          <td style={{ padding: "10px 14px", fontWeight: 700, color: "#087A5B" }}>{a.payable_days || 0}</td>
+                          <td style={{ padding: "10px 14px", fontWeight: 700, color: a.attendance_deduction_amount > 0 ? "#DC2626" : "#64748B" }}>
+                            ₹{(a.attendance_deduction_amount || 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           ) : reportData?.summary ? (
             <div style={{ backgroundColor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "20px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "24px" }}>
@@ -1607,6 +1865,17 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                   <div style={{ fontSize: "12px", color: "#065F46" }}>Total Net Payout</div>
                   <div style={{ fontSize: "20px", fontWeight: 800, color: "#087A5B" }}>₹{reportData.summary.total_net_payroll?.toLocaleString()}</div>
                 </div>
+                {(reportData.summary.total_leave_conversion_amount || 0) > 0 && (
+                  <div style={{ padding: "16px", backgroundColor: "#EFF6FF", borderRadius: "8px", border: "1px solid #BFDBFE" }}>
+                    <div style={{ fontSize: "12px", color: "#1E40AF" }}>Leave Encashment Payout</div>
+                    <div style={{ fontSize: "20px", fontWeight: 800, color: "#1D4ED8" }}>
+                      ₹{reportData.summary.total_leave_conversion_amount?.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#3B82F6", marginTop: "2px" }}>
+                      ({reportData.summary.total_leave_conversion_days || 0} days encashed)
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -2004,6 +2273,7 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                       <th style={{ padding: "8px 10px", fontWeight: 700 }}>Employee</th>
                       <th style={{ padding: "8px 10px", fontWeight: 700 }}>Present / Payable</th>
                       <th style={{ padding: "8px 10px", fontWeight: 700 }}>Gross CTC</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 700, color: "#2563EB" }}>Leave Encashment</th>
                       <th style={{ padding: "8px 10px", fontWeight: 700, color: "#DC2626" }}>LOP &amp; Late Ded.</th>
                       <th style={{ padding: "8px 10px", fontWeight: 700 }}>PF / ESI</th>
                       <th style={{ padding: "8px 10px", fontWeight: 700 }}>PT / TDS</th>
@@ -2033,6 +2303,11 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                             </div>
                           </td>
                           <td style={{ padding: "8px 10px", fontWeight: 600 }}>₹{r.grossSalary?.toLocaleString()}</td>
+                          <td style={{ padding: "8px 10px", color: (r.leaveConversionAmount || 0) > 0 ? "#2563EB" : "#64748B", fontWeight: (r.leaveConversionAmount || 0) > 0 ? 700 : 400 }}>
+                            {(r.leaveConversionAmount || 0) > 0
+                              ? `+₹${Number(r.leaveConversionAmount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} (${r.leaveConversionDays}d)`
+                              : "—"}
+                          </td>
                           <td style={{ padding: "8px 10px", color: "#DC2626", fontWeight: 600 }}>
                             ₹{(r.attendanceDeduction || 0).toLocaleString()}
                           </td>
@@ -2070,6 +2345,9 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
                         {payrollRecords.reduce((s, r) => s + (r.attendanceCycle?.presentDays || 0), 0)} Present / {payrollRecords.reduce((s, r) => s + (r.attendanceCycle?.unpaidDays || 0), 0)} LOP
                       </td>
                       <td style={{ padding: "10px" }}>₹{payrollRecords.reduce((s, r) => s + (r.grossSalary || 0), 0).toLocaleString()}</td>
+                      <td style={{ padding: "10px", color: "#2563EB", fontWeight: 700 }}>
+                        +₹{payrollRecords.reduce((s, r) => s + (r.leaveConversionAmount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ({payrollRecords.reduce((s, r) => s + (r.leaveConversionDays || 0), 0)}d)
+                      </td>
                       <td style={{ padding: "10px", color: "#DC2626" }}>
                         - ₹{payrollRecords.reduce((s, r) => s + (r.attendanceDeduction || 0), 0).toLocaleString()}
                       </td>
@@ -2120,6 +2398,227 @@ export function SalaryPage({ employee: propEmployee = false }: { employee?: bool
               </PrimaryButton>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {/* MODAL: Payroll & Leave Encashment Settings */}
+      {payrollSettingsModal && (
+        <Modal onClose={() => setPayrollSettingsModal(false)} title="Payroll & Leave Encashment Rules">
+          <PayrollLeaveSettings />
+        </Modal>
+      )}
+
+      {/* MODAL: Payroll Record Breakdown / Payslip Viewer */}
+      {(selectedPreview || selectedSlipDetail) && (
+        <Modal
+          onClose={() => {
+            setSelectedPreview(null);
+            setSelectedSlipDetail(null);
+          }}
+          title={`Salary Breakdown & Payslip Statement — ${
+            selectedPreview?.employee?.name || selectedSlipDetail?.employee_name || "Employee"
+          }`}
+        >
+          {(() => {
+            const r =
+              selectedPreview ||
+              payrollRecords.find(
+                (p) =>
+                  String(p._id) === String(selectedSlipDetail?.id) ||
+                  String(p.employee?._id) === String(selectedSlipDetail?.employee)
+              ) ||
+              {};
+            const emp = r.employee || {};
+            const cyc = r.attendanceCycle || {};
+            const snap = r.salarySnapshot || {};
+            const m = r.month || selectedSlipDetail?.month || payrollMonth;
+            const y = r.year || selectedSlipDetail?.year || payrollYear;
+
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px", maxHeight: "80vh", overflowY: "auto" }}>
+                {/* Header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "16px", backgroundColor: "#064E3B", color: "#FFFFFF", borderRadius: "10px" }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 800 }}>FLUMENX DIGITAL</h3>
+                    <p style={{ margin: "2px 0 0", fontSize: "12px", opacity: 0.85 }}>Payslip Statement for {monthNames[m - 1]} {y}</p>
+                    <p style={{ margin: "2px 0 0", fontSize: "11px", opacity: 0.75 }}>
+                      Period: {r.cycleStartDate || "26th"} → {r.cycleEndDate || "25th"}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, padding: "3px 8px", borderRadius: "4px", backgroundColor: "rgba(255,255,255,0.2)" }}>
+                      {r.status || selectedSlipDetail?.status || "Finalized"}
+                    </span>
+                    <div style={{ fontSize: "20px", fontWeight: 800, marginTop: "6px" }}>
+                      ₹{Number(r.netSalary || selectedSlipDetail?.net_salary || 0).toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: "11px", opacity: 0.85 }}>Net Payable</div>
+                  </div>
+                </div>
+
+                {/* Employee & Bank Info Grid */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "14px", backgroundColor: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748B", textTransform: "uppercase", fontWeight: 700 }}>Employee Details</div>
+                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>{emp.name || selectedSlipDetail?.employee_name || "Employee"}</div>
+                    <div style={{ fontSize: "12px", color: "#475569" }}>Code: {emp.employeeCode || "—"} | Dept: {emp.department || "General"}</div>
+                    <div style={{ fontSize: "12px", color: "#475569" }}>Role: {emp.designation || "Staff"}</div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748B", textTransform: "uppercase", fontWeight: 700 }}>Banking & Statutory</div>
+                    <div style={{ fontSize: "12px", color: "#0F172A", marginTop: "2px" }}>
+                      Bank: <strong>{emp.bankName || emp.bank_name || "Not Configured"}</strong>
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#475569" }}>
+                      A/C: <strong>{emp.bankAccountNumber || emp.bank_account_number || "—"}</strong>
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#475569" }}>
+                      IFSC: {emp.bankIfsc || emp.bank_ifsc || "—"} • PAN: {emp.panNumber || emp.pan_number || "—"}
+                    </div>
+                    {(emp.uanNumber || emp.uan_number) && (
+                      <div style={{ fontSize: "11px", color: "#64748B" }}>UAN: {emp.uanNumber || emp.uan_number}</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Attendance Summary */}
+                <div style={{ padding: "12px 14px", backgroundColor: "#F1F5F9", borderRadius: "8px", fontSize: "12px", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                  <span>Calendar Days: <strong>{cyc.totalCalendarDays || 30}</strong></span>
+                  <span>Salary Days: <strong>{cyc.salaryDays || 26}</strong></span>
+                  <span>Present Days: <strong style={{ color: "#087A5B" }}>{cyc.presentDays || 0}</strong></span>
+                  <span>Paid Leaves: <strong>{cyc.paidLeaveDays || 0}</strong></span>
+                  <span>LOP / Unpaid: <strong style={{ color: "#DC2626" }}>{cyc.unpaidDays || 0}</strong></span>
+                  <span>Net Payable Days: <strong style={{ color: "#087A5B" }}>{cyc.payableDays || 0}</strong></span>
+                </div>
+
+                {/* Earnings & Deductions Columns */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                  {/* Earnings */}
+                  <div style={{ border: "1px solid #E2E8F0", borderRadius: "8px", overflow: "hidden" }}>
+                    <div style={{ padding: "8px 12px", backgroundColor: "#F0FDF4", fontWeight: 700, fontSize: "13px", color: "#166534", borderBottom: "1px solid #BBF7D0" }}>
+                      Earnings & Allowances
+                    </div>
+                    <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>Basic Salary</span>
+                        <strong>₹{Number(snap.basicSalary || 0).toLocaleString()}</strong>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>HRA</span>
+                        <strong>₹{Number(snap.hra || 0).toLocaleString()}</strong>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>Conveyance & Special</span>
+                        <strong>₹{Number((snap.conveyance || 0) + (snap.specialAllowance || 0) + (snap.otherAllowances || 0)).toLocaleString()}</strong>
+                      </div>
+                      {(r.leaveConversionAmount || 0) > 0 && (
+                        <div style={{ display: "flex", justifyContent: "space-between", backgroundColor: "#EFF6FF", padding: "6px 8px", borderRadius: "4px", color: "#1D4ED8", fontWeight: 700 }}>
+                          <span>Leave Encashment ({r.leaveConversionDays}d)</span>
+                          <strong>+₹{Number(r.leaveConversionAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                        </div>
+                      )}
+                      <div style={{ borderTop: "1px solid #E2E8F0", paddingTop: "8px", marginTop: "4px", display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "14px", color: "#0F172A" }}>
+                        <span>Total Gross Pay</span>
+                        <strong>₹{Number(r.grossSalary || selectedSlipDetail?.gross_salary || 0).toLocaleString()}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Deductions */}
+                  <div style={{ border: "1px solid #E2E8F0", borderRadius: "8px", overflow: "hidden" }}>
+                    <div style={{ padding: "8px 12px", backgroundColor: "#FEF2F2", fontWeight: 700, fontSize: "13px", color: "#991B1B", borderBottom: "1px solid #FECACA" }}>
+                      Deductions & Statutory
+                    </div>
+                    <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>LOP & Attendance</span>
+                        <strong style={{ color: "#DC2626" }}>₹{Number(r.attendanceDeduction || 0).toLocaleString()}</strong>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>Provident Fund (PF)</span>
+                        <strong>₹{Number(r.pfEmployee || 0).toLocaleString()}</strong>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>Employee State Ins. (ESI)</span>
+                        <strong>₹{Number(r.esiEmployee || 0).toLocaleString()}</strong>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>Professional Tax (PT)</span>
+                        <strong>₹{Number(r.professionalTax || 0).toLocaleString()}</strong>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span>TDS (Income Tax)</span>
+                        <strong>₹{Number(r.tds || 0).toLocaleString()}</strong>
+                      </div>
+                      <div style={{ borderTop: "1px solid #E2E8F0", paddingTop: "8px", marginTop: "4px", display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "14px", color: "#DC2626" }}>
+                        <span>Total Deductions</span>
+                        <strong>-₹{Number(r.totalDeductions || selectedSlipDetail?.total_deductions || 0).toLocaleString()}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Net Payout Summary Footer */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", backgroundColor: "#ECFDF5", borderRadius: "8px", border: "1px solid #A7F3D0" }}>
+                  <div>
+                    <span style={{ fontSize: "12px", color: "#065F46", fontWeight: 600 }}>Final Net Disbursal Amount</span>
+                    <div style={{ fontSize: "20px", fontWeight: 800, color: "#087A5B" }}>
+                      ₹{Number(r.netSalary || selectedSlipDetail?.net_salary || 0).toLocaleString()}
+                    </div>
+                    {(r.roundingAdjustment || 0) > 0 && (
+                      <div style={{ fontSize: "11px", color: "#059669" }}>
+                        Includes +₹{r.roundingAdjustment} round-up to nearest whole rupee
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    {selectedSlipDetail?.pdf_url && (
+                      <a
+                        href={selectedSlipDetail.pdf_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "8px 14px",
+                          backgroundColor: "#087A5B",
+                          color: "#FFFFFF",
+                          borderRadius: "6px",
+                          fontSize: "13px",
+                          fontWeight: 600,
+                          textDecoration: "none",
+                        }}
+                      >
+                        <Download style={{ width: "14px", height: "14px" }} />
+                        Download PDF
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPreview(null);
+                        setSelectedSlipDetail(null);
+                      }}
+                      style={{
+                        padding: "8px 14px",
+                        backgroundColor: "#FFFFFF",
+                        border: "1px solid #CBD5E1",
+                        borderRadius: "6px",
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </Modal>
       )}
     </div>

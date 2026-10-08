@@ -4,6 +4,7 @@ import { PayrollRecord } from '../models/PayrollRecord.js';
 import { EmployeeSalaryStructure } from '../models/EmployeeSalaryStructure.js';
 import { Employee } from '../models/Employee.js';
 import { LeaveLedger } from '../models/LeaveLedger.js';
+import { PayrollSetting } from '../models/PayrollSetting.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { getAttendanceCycleForMonth, getAttendanceCycleForDate, getISTParts } from '../utils/tzUtils.js';
 import { calculateAttendanceForCycle, computePayroll } from '../services/payrollEngine.js';
@@ -184,6 +185,8 @@ export async function processPayrollCycleHandler(req: Request, res: Response): P
         existing.unroundedNetSalary = calc.unroundedNetSalary;
         existing.roundingAdjustment = calc.roundingAdjustment;
         existing.netSalary = calc.netSalary;
+        existing.leaveConversionDays = calc.leaveConversionDays || 0;
+        existing.leaveConversionAmount = calc.leaveConversionAmount || 0;
         existing.status = 'Calculated';
         existing.calculatedAt = new Date();
         existing.calculatedBy = req.user?._id;
@@ -209,6 +212,8 @@ export async function processPayrollCycleHandler(req: Request, res: Response): P
           unroundedNetSalary: calc.unroundedNetSalary,
           roundingAdjustment: calc.roundingAdjustment,
           netSalary: calc.netSalary,
+          leaveConversionDays: calc.leaveConversionDays || 0,
+          leaveConversionAmount: calc.leaveConversionAmount || 0,
           status: 'Calculated',
           calculatedAt: new Date(),
           calculatedBy: req.user?._id,
@@ -317,6 +322,8 @@ export async function reprocessEmployeePayrollRecord(req: Request, res: Response
   record.unroundedNetSalary = calc.unroundedNetSalary;
   record.roundingAdjustment = calc.roundingAdjustment;
   record.netSalary = calc.netSalary;
+  record.leaveConversionDays = calc.leaveConversionDays || 0;
+  record.leaveConversionAmount = calc.leaveConversionAmount || 0;
   record.status = 'Calculated';
   record.calculatedAt = new Date();
   record.calculatedBy = req.user?._id;
@@ -443,6 +450,8 @@ export async function getPayrollSummaryReport(req: Request, res: Response): Prom
   const totalTDS = records.reduce((sum, r) => sum + (r.tds || 0), 0);
   const totalDeductions = records.reduce((sum, r) => sum + r.totalDeductions, 0);
   const totalNet = records.reduce((sum, r) => sum + r.netSalary, 0);
+  const totalLeaveConversionAmount = records.reduce((sum, r) => sum + (r.leaveConversionAmount || 0), 0);
+  const totalLeaveConversionDays = records.reduce((sum, r) => sum + (r.leaveConversionDays || 0), 0);
   const totalEmployerContribution = totalPFEmployer + totalESIEmployer;
   const totalPayrollCost = totalGross + totalEmployerContribution;
 
@@ -457,6 +466,8 @@ export async function getPayrollSummaryReport(req: Request, res: Response): Prom
       total_esi_employer: totalESIEmployer,
       total_professional_tax: totalProfessionalTax,
       total_tds: totalTDS,
+      total_leave_conversion_amount: Math.round(totalLeaveConversionAmount * 100) / 100,
+      total_leave_conversion_days: totalLeaveConversionDays,
       total_deductions: Math.round(totalDeductions * 100) / 100,
       total_net_payroll: Math.round(totalNet * 100) / 100,
       total_employer_contribution: Math.round(totalEmployerContribution * 100) / 100,
@@ -540,18 +551,28 @@ export async function getAttendanceImpactReport(req: Request, res: Response): Pr
 }
 
 export async function getLeaveConversionReport(req: Request, res: Response): Promise<void> {
-  const { employee_id, year } = req.query;
+  const { employee_id, month, year } = req.query;
 
   const filter: any = { transactionType: 'ConversionToSalary' };
   if (employee_id) filter.employee = employee_id;
   if (year) filter.earnedYear = parseInt(year as string, 10);
+  if (month) filter.earnedMonth = parseInt(month as string, 10);
 
   const transactions = await LeaveLedger.find(filter)
     .populate('employee', 'name employeeCode department')
     .sort({ transactionDate: -1 });
 
+  const totalConvertedDays = transactions.reduce((sum, t) => sum + Math.abs(t.quantity), 0);
+  const totalConversionAmount = transactions.reduce((sum, t) => sum + (t.conversionAmount || 0), 0);
+  const uniqueEmployees = new Set(transactions.map((t) => String((t.employee as any)?._id || t.employee))).size;
+
   res.json({
     count: transactions.length,
+    summary: {
+      total_employees: uniqueEmployees,
+      total_converted_days: totalConvertedDays,
+      total_conversion_amount: Math.round(totalConversionAmount * 100) / 100,
+    },
     results: transactions.map((t) => {
       const emp = t.employee as any;
       return {
@@ -563,6 +584,8 @@ export async function getLeaveConversionReport(req: Request, res: Response): Pro
         leave_type: t.leaveType,
         converted_days: Math.abs(t.quantity),
         conversion_amount: t.conversionAmount || 0,
+        earned_month: t.earnedMonth,
+        earned_year: t.earnedYear,
         transaction_date: t.transactionDate,
         notes: t.notes,
       };
@@ -600,6 +623,8 @@ export async function exportPayrollCSV(req: Request, res: Response): Promise<voi
       'Basic Salary',
       'Gross Salary',
       'LOP & Attendance Deductions',
+      'Leave Encashed Days',
+      'Leave Encashment Amount',
       'PF Employee',
       'ESI Employee',
       'Professional Tax',
@@ -612,6 +637,9 @@ export async function exportPayrollCSV(req: Request, res: Response): Promise<voi
       'Bank Name',
       'Bank Account Number',
       'Bank IFSC',
+      'Bank Branch',
+      'PAN Number',
+      'UAN Number',
     ];
 
     const escapeCsv = (val: any) => {
@@ -644,6 +672,8 @@ export async function exportPayrollCSV(req: Request, res: Response): Promise<voi
         escapeCsv(snap?.basicSalary || 0),
         escapeCsv(r.grossSalary),
         escapeCsv(r.attendanceDeduction || 0),
+        escapeCsv(r.leaveConversionDays || 0),
+        escapeCsv(r.leaveConversionAmount || 0),
         escapeCsv(r.pfEmployee || 0),
         escapeCsv(r.esiEmployee || 0),
         escapeCsv(r.professionalTax || 0),
@@ -656,6 +686,9 @@ export async function exportPayrollCSV(req: Request, res: Response): Promise<voi
         escapeCsv(emp?.bankName || emp?.bank_name || ''),
         escapeCsv(emp?.bankAccountNumber || emp?.bank_account_number || ''),
         escapeCsv(emp?.bankIfsc || emp?.bank_ifsc || ''),
+        escapeCsv(emp?.bankBranch || emp?.bank_branch || ''),
+        escapeCsv(emp?.panNumber || emp?.pan_number || ''),
+        escapeCsv(emp?.uanNumber || emp?.uan_number || ''),
       ].join(',');
     });
 
@@ -666,6 +699,73 @@ export async function exportPayrollCSV(req: Request, res: Response): Promise<voi
   } catch (error: any) {
     console.error('[exportPayrollCSV Error]', error);
     res.status(500).json({ detail: error.message || 'Failed to export payroll report.' });
+  }
+}
+
+export async function getPayrollSettings(req: Request, res: Response): Promise<void> {
+  try {
+    let setting = await PayrollSetting.findOne({ isDefault: true }) || await PayrollSetting.findOne().sort({ updatedAt: -1 });
+    if (!setting) {
+      setting = await new PayrollSetting({
+        isDefault: true,
+        leaveConversionMonths: 3,
+        leaveEncashmentIntervalMonths: 3,
+        lastEncashmentMonth: 9,
+        lastEncashmentYear: 2026,
+        lastEncashmentDate: '2026-09-07',
+        enableQuarterlyEncashment: true,
+      }).save();
+    }
+    res.json(setting);
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to fetch payroll settings.' });
+  }
+}
+
+export async function updatePayrollSettings(req: Request, res: Response): Promise<void> {
+  try {
+    let setting = await PayrollSetting.findOne({ isDefault: true }) || await PayrollSetting.findOne().sort({ updatedAt: -1 });
+    if (!setting) {
+      setting = new PayrollSetting({ isDefault: true });
+    }
+
+    const {
+      leaveEncashmentIntervalMonths,
+      lastEncashmentMonth,
+      lastEncashmentYear,
+      lastEncashmentDate,
+      enableQuarterlyEncashment,
+      leaveConversionRateBase,
+      officeStartTime,
+      gracePeriodMinutes,
+      lateCountForHalfDay,
+      noonArrivalCutoff,
+      pfWageCeiling,
+      esiGrossCeiling,
+    } = req.body || {};
+
+    if (leaveEncashmentIntervalMonths !== undefined) setting.leaveEncashmentIntervalMonths = Number(leaveEncashmentIntervalMonths);
+    if (lastEncashmentMonth !== undefined) setting.lastEncashmentMonth = Number(lastEncashmentMonth);
+    if (lastEncashmentYear !== undefined) setting.lastEncashmentYear = Number(lastEncashmentYear);
+    if (lastEncashmentDate !== undefined) setting.lastEncashmentDate = String(lastEncashmentDate).trim();
+    if (enableQuarterlyEncashment !== undefined) setting.enableQuarterlyEncashment = Boolean(enableQuarterlyEncashment);
+    if (leaveConversionRateBase !== undefined) setting.leaveConversionRateBase = leaveConversionRateBase;
+    if (officeStartTime !== undefined) setting.officeStartTime = officeStartTime;
+    if (gracePeriodMinutes !== undefined) setting.gracePeriodMinutes = Number(gracePeriodMinutes);
+    if (lateCountForHalfDay !== undefined) setting.lateCountForHalfDay = Number(lateCountForHalfDay);
+    if (noonArrivalCutoff !== undefined) setting.noonArrivalCutoff = noonArrivalCutoff;
+    if (pfWageCeiling !== undefined) setting.pfWageCeiling = Number(pfWageCeiling);
+    if (esiGrossCeiling !== undefined) setting.esiGrossCeiling = Number(esiGrossCeiling);
+
+    setting.updatedBy = req.user?._id;
+    await setting.save();
+
+    res.json({
+      message: 'Payroll and leave encashment settings updated successfully.',
+      setting,
+    });
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Failed to update payroll settings.' });
   }
 }
 

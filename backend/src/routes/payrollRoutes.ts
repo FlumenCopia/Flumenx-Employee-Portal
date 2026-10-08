@@ -22,6 +22,8 @@ import {
   getAttendanceImpactReport,
   getLeaveConversionReport,
   exportPayrollCSV,
+  getPayrollSettings,
+  updatePayrollSettings,
 } from '../controllers/payrollController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { requirePermission } from '../middleware/rbac.js';
@@ -29,6 +31,11 @@ import { requirePermission } from '../middleware/rbac.js';
 const router = Router();
 
 router.use(authenticateToken);
+
+// Payroll & Leave Encashment Settings
+router.get('/payroll/settings/?', requirePermission('salary_slips', 'canView'), getPayrollSettings);
+router.put('/payroll/settings/?', requirePermission('salary_slips', 'canEdit'), updatePayrollSettings);
+router.post('/payroll/settings/?', requirePermission('salary_slips', 'canEdit'), updatePayrollSettings);
 
 // Reports & Excel Export
 router.get('/payroll/reports/summary/?', requirePermission('salary_slips', 'canView'), getPayrollSummaryReport);

@@ -645,6 +645,14 @@ export function EmployeeForm({
       probation_end_date: data.get("probation_end_date") || null,
       confirmation_date: data.get("confirmation_date") || null,
       location: data.get("location"),
+      bank_name: data.get("bank_name") || "",
+      bank_account_number: data.get("bank_account_number") || "",
+      bank_ifsc: data.get("bank_ifsc") || "",
+      bank_branch: data.get("bank_branch") || "",
+      pan_number: data.get("pan_number") || "",
+      uan_number: data.get("uan_number") || "",
+      pf_number: data.get("pf_number") || "",
+      esi_number: data.get("esi_number") || "",
       ...(!currentEmployee ? { password: data.get("password") } : {}),
     };
     try {
@@ -784,6 +792,83 @@ export function EmployeeForm({
           </label>
         )}
       </div>
+
+      <div className="editor-intro" style={{ marginTop: "24px" }}>
+        <span>02</span>
+        <div>
+          <h2>Banking & Statutory Details</h2>
+          <p>Bank account, IFSC, PAN, UAN, and statutory identification for salary disbursements.</p>
+        </div>
+      </div>
+      <div className="form-grid">
+        <label>
+          Bank Name
+          <input
+            name="bank_name"
+            defaultValue={currentEmployee?.bank_name || ""}
+            placeholder="e.g. HDFC Bank, ICICI Bank, SBI"
+          />
+        </label>
+        <label>
+          Bank Account Number
+          <input
+            name="bank_account_number"
+            defaultValue={currentEmployee?.bank_account_number || ""}
+            placeholder="e.g. 50100234567890"
+          />
+        </label>
+        <label>
+          Bank IFSC Code
+          <input
+            name="bank_ifsc"
+            defaultValue={currentEmployee?.bank_ifsc || ""}
+            placeholder="e.g. HDFC0001234"
+            style={{ textTransform: "uppercase" }}
+          />
+        </label>
+        <label>
+          Bank Branch
+          <input
+            name="bank_branch"
+            defaultValue={currentEmployee?.bank_branch || ""}
+            placeholder="e.g. Koramangala / MG Road"
+          />
+        </label>
+        <label>
+          PAN Card Number
+          <input
+            name="pan_number"
+            defaultValue={currentEmployee?.pan_number || ""}
+            placeholder="e.g. ABCDE1234F"
+            style={{ textTransform: "uppercase" }}
+          />
+        </label>
+        <label>
+          UAN Number (PF)
+          <input
+            name="uan_number"
+            defaultValue={currentEmployee?.uan_number || ""}
+            placeholder="e.g. 100987654321"
+          />
+        </label>
+        <label>
+          PF Account Number
+          <input
+            name="pf_number"
+            defaultValue={currentEmployee?.pf_number || ""}
+            placeholder="e.g. MH/BAN/0012345/000/0001234"
+          />
+        </label>
+        <label>
+          ESI Number
+          <input
+            name="esi_number"
+            defaultValue={currentEmployee?.esi_number || ""}
+            placeholder="e.g. 31001234560000001"
+          />
+        </label>
+      </div>
+
       <div className="form-actions">
         {onCancel ? (
           <button type="button" className="secondary-button" onClick={onCancel}>

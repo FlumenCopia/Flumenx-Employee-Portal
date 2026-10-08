@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { Employee } from '../models/Employee.js';
 import { LeaveLedger } from '../models/LeaveLedger.js';
+import { PayrollSetting } from '../models/PayrollSetting.js';
 
 export interface EmployeeLeaveBalanceSummary {
   employeeId: string;
@@ -162,9 +163,36 @@ export async function convertThreeMonthUnusedLeaveToSalary(
     return { convertedDays: 0, convertedAmount: 0 };
   }
 
-  // Quarterly Encashment: Encashed at every quarter month (Months 3, 6, 9, 12)
-  const isQuarterEncashmentMonth = [3, 6, 9, 12].includes(currentMonth);
-  if (!isQuarterEncashmentMonth) {
+  // Configurable Encashment Cycle: Default to quarter months [3, 6, 9, 12] or calculate from last encashment month & gap
+  let isEligibleEncashmentMonth = [3, 6, 9, 12].includes(currentMonth);
+  try {
+    const setting = await PayrollSetting.findOne({ isDefault: true }) || await PayrollSetting.findOne().sort({ updatedAt: -1 });
+    if (setting) {
+      if (setting.enableQuarterlyEncashment === false) {
+        return { convertedDays: 0, convertedAmount: 0 };
+      }
+      const interval = setting.leaveEncashmentIntervalMonths || 3;
+      const lastM = setting.lastEncashmentMonth || 9;
+      const lastY = setting.lastEncashmentYear || 2026;
+
+      const totalMonthsDiff = (currentYear - lastY) * 12 + (currentMonth - lastM);
+      if (totalMonthsDiff === 0) {
+        // Last encashed month itself (e.g. Month 9 September 2026)
+        isEligibleEncashmentMonth = true;
+      } else if (totalMonthsDiff > 0 && totalMonthsDiff % interval === 0) {
+        // Exact interval elapsed (e.g. 3 months gap -> Month 12 December, Month 3 March)
+        isEligibleEncashmentMonth = true;
+      } else if (totalMonthsDiff < 0) {
+        isEligibleEncashmentMonth = [3, 6, 9, 12].includes(currentMonth);
+      } else {
+        isEligibleEncashmentMonth = false;
+      }
+    }
+  } catch (err) {
+    console.error('[convertThreeMonthUnusedLeaveToSalary] Error reading PayrollSetting, using quarterly fallback:', err);
+  }
+
+  if (!isEligibleEncashmentMonth) {
     return { convertedDays: 0, convertedAmount: 0 };
   }
 
