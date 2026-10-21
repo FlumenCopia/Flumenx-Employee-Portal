@@ -268,6 +268,7 @@ export async function createClientDeliverable(req: Request, res: Response): Prom
 
     // Try linking with actual Client entity if exists
     const clientDoc = await Client.findOne({ name: { $regex: new RegExp(`^${trimmedClientName}$`, 'i') } });
+    const targetClientId = req.body.client && mongoose.Types.ObjectId.isValid(req.body.client) ? req.body.client : clientDoc?._id;
 
     const pTarget = Number(postersTarget) || 0;
     const pDelivered = Number(postersDelivered) || 0;
@@ -275,7 +276,7 @@ export async function createClientDeliverable(req: Request, res: Response): Prom
     const vDelivered = Number(videosDelivered) || 0;
 
     const newRecord = await ClientDeliverableTracker.create({
-      client: clientDoc?._id,
+      client: targetClientId,
       clientName: trimmedClientName,
       year: cleanYear,
       month: cleanMonth,

@@ -35,6 +35,7 @@ import { Modal } from "@/features/common/Modal";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ToastContext";
 import type {
+  Client,
   ClientDeliverableTracker,
   ClientDeliverablesSummary,
   DeliveredItem,
@@ -78,6 +79,11 @@ export function ClientDeliverablesPage() {
   const [yearlyReport, setYearlyReport] = useState<YearlyDeliverablesReportResponse | null>(null);
   const [yearlyLoading, setYearlyLoading] = useState(false);
   const [selectedClientForYearly, setSelectedClientForYearly] = useState<string>("ALL");
+
+  // Portal Registered Clients for Dropdown
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [isCustomClient, setIsCustomClient] = useState(false);
 
   // Modal 1: Add / Edit Client Deliverable Target
   const [targetModalOpen, setTargetModalOpen] = useState(false);
@@ -171,6 +177,17 @@ export function ClientDeliverablesPage() {
     }
   };
 
+  // Fetch portal clients for dropdown
+  useEffect(() => {
+    api<Client[]>("/clients")
+      .then((res) => {
+        if (Array.isArray(res)) {
+          setClients(res);
+        }
+      })
+      .catch((err) => console.error("Could not load clients for dropdown:", err));
+  }, []);
+
   useEffect(() => {
     if (activeTab === "monthly") {
       loadDeliverables();
@@ -182,6 +199,8 @@ export function ClientDeliverablesPage() {
   // Open Target Modal for New Client
   const openNewTargetModal = () => {
     setEditingRecord(null);
+    setSelectedClientId("");
+    setIsCustomClient(false);
     setClientNameInput("");
     setMonthInput(selectedMonth === "ALL" ? "October" : selectedMonth);
     setYearInput(selectedYear);
@@ -200,6 +219,16 @@ export function ClientDeliverablesPage() {
   // Open Target Modal for Editing Existing Record
   const openEditTargetModal = (rec: ClientDeliverableTracker) => {
     setEditingRecord(rec);
+    const matched = clients.find(
+      (c) => (rec.client && String(c.id) === String(rec.client)) || c.name.toLowerCase() === rec.clientName.toLowerCase()
+    );
+    if (matched) {
+      setSelectedClientId(String(matched.id));
+      setIsCustomClient(false);
+    } else {
+      setSelectedClientId("");
+      setIsCustomClient(true);
+    }
     setClientNameInput(rec.clientName);
     setMonthInput(rec.month);
     setYearInput(rec.year);
@@ -219,13 +248,14 @@ export function ClientDeliverablesPage() {
   const handleSaveTarget = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!clientNameInput.trim()) {
-      toast.error("Please enter a client name");
+      toast.error("Please enter or select a client");
       return;
     }
 
     setSubmittingTarget(true);
     try {
       const payload = {
+        client: selectedClientId && !isCustomClient ? selectedClientId : undefined,
         clientName: clientNameInput.trim(),
         month: monthInput.trim(),
         year: yearInput,
@@ -834,10 +864,10 @@ export function ClientDeliverablesPage() {
                       <th style={{ padding: "12px 16px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", fontSize: "11px" }}>Client</th>
                       <th style={{ padding: "12px 16px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", fontSize: "11px" }}>Month & Cycle</th>
                       <th style={{ padding: "12px 16px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", fontSize: "11px", textAlign: "center" }} colSpan={3}>
-                        Posters (Target / Published / Pending)
+                        Posters & Creatives (Target / Published / Pending)
                       </th>
                       <th style={{ padding: "12px 16px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", fontSize: "11px", textAlign: "center" }} colSpan={3}>
-                        Videos (Target / Published / Pending)
+                        Videos & Reels (Target / Published / Pending)
                       </th>
                       <th style={{ padding: "12px 16px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", fontSize: "11px" }}>Extra Works & Notes</th>
                       <th style={{ padding: "12px 16px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", fontSize: "11px", textAlign: "center" }}>Post Links</th>
@@ -1376,14 +1406,28 @@ export function ClientDeliverablesPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
               <div>
                 <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px" }}>
-                  Client Name *
+                  Select Client from Portal *
                 </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. GRAPHITE HOMES"
-                  value={clientNameInput}
-                  onChange={(e) => setClientNameInput(e.target.value)}
+                <select
+                  value={isCustomClient ? "__custom__" : (selectedClientId || "")}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "__custom__") {
+                      setIsCustomClient(true);
+                      setSelectedClientId("");
+                      setClientNameInput("");
+                    } else if (val) {
+                      setIsCustomClient(false);
+                      setSelectedClientId(val);
+                      const matched = clients.find((c) => String(c.id) === val);
+                      if (matched) {
+                        setClientNameInput(matched.name);
+                      }
+                    } else {
+                      setSelectedClientId("");
+                      setClientNameInput("");
+                    }
+                  }}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -1391,8 +1435,39 @@ export function ClientDeliverablesPage() {
                     border: "1px solid #DCE3E0",
                     background: "#FFFFFF",
                     fontSize: "13px",
+                    marginBottom: isCustomClient ? "8px" : "0",
                   }}
-                />
+                >
+                  <option value="">-- Choose Registered Client ({clients.length}) --</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.industry ? `(${c.industry})` : ""}
+                    </option>
+                  ))}
+                  <option value="__custom__">+ Enter Custom / Other Client Name</option>
+                </select>
+
+                {isCustomClient ? (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter custom client name (e.g. GRAPHITE HOMES)"
+                    value={clientNameInput}
+                    onChange={(e) => setClientNameInput(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid #087A5B",
+                      background: "#FFFFFF",
+                      fontSize: "13px",
+                    }}
+                  />
+                ) : clientNameInput ? (
+                  <div style={{ marginTop: "4px", fontSize: "11px", color: "#087A5B", fontWeight: 600 }}>
+                    ✓ Linked: {clientNameInput}
+                  </div>
+                ) : null}
               </div>
 
               <div>
@@ -1463,7 +1538,7 @@ export function ClientDeliverablesPage() {
             {/* Poster Target & Delivered */}
             <div style={{ padding: "14px", background: "rgba(0,0,0,0.02)", borderRadius: "8px", marginBottom: "16px" }}>
               <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
-                <ImageIcon size={14} /> Posters Quota
+                <ImageIcon size={14} /> Posters & Creatives Quota
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
                 <div>
@@ -1508,7 +1583,7 @@ export function ClientDeliverablesPage() {
             {/* Video Target & Delivered */}
             <div style={{ padding: "14px", background: "rgba(0,0,0,0.02)", borderRadius: "8px", marginBottom: "16px" }}>
               <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}>
-                <Film size={14} /> Videos Quota
+                <Film size={14} /> Videos & Reels Quota
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
                 <div>
@@ -1828,7 +1903,14 @@ export function ClientDeliverablesPage() {
                         {item.deliverableType === "video" || item.deliverableType === "reel" ? "🎬" : "🖼️"}
                       </span>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: "13px", color: "var(--text)" }}>{item.title}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                          <span style={{ fontWeight: 700, fontSize: "13px", color: "var(--text)" }}>{item.title}</span>
+                          {item.autoSynced && (
+                            <span style={{ padding: "2px 7px", borderRadius: "4px", fontSize: "10px", fontWeight: 700, background: "rgba(14, 165, 233, 0.12)", color: "#0284c7", border: "1px solid rgba(14, 165, 233, 0.3)" }}>
+                              ⚡ Task Auto-Synced
+                            </span>
+                          )}
+                        </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>
                           <span style={{ textTransform: "capitalize", fontWeight: 600 }}>{item.deliverableType}</span>
                           <span>•</span>

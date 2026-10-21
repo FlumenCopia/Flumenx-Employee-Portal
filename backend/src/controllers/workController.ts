@@ -10,6 +10,7 @@ import { User } from '../models/User.js';
 import { Project } from '../models/Project.js';
 import { ClientWorkShareLink } from '../models/ClientWorkShareLink.js';
 import { syncQuantityState, syncFromDeliverables, syncParentTaskProgression, calculateClientKPIHealth } from '../services/workSyncEngine.js';
+import { syncTaskApprovalToDeliverables, revertTaskApproval } from '../services/deliverableSyncEngine.js';
 import { createShareLink, generateShareToken, getValidShareLink } from '../services/shareLinkService.js';
 import { getRoleDataScope } from '../services/scopeResolver.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
@@ -1432,6 +1433,7 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     res.status(404).json({ detail: 'Work assignment not found.' });
     return;
   }
+  const previousStatus = assignment.status;
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
   const taskScope = await getRoleDataScope(req.user, 'TASKS');
@@ -1603,6 +1605,9 @@ export async function updateWorkAssignment(req: Request, res: Response): Promise
     await syncParentTaskProgression(assignment);
   }
 
+  // Auto-sync client deliverable counts on task approval or revert
+  await syncTaskApprovalToDeliverables(assignment, previousStatus);
+
   await assignment.populate('employee client project assignedBy reviewer reviewedBy parentTask');
   res.json(formatWorkAssignmentDoc(assignment));
 }
@@ -1613,6 +1618,7 @@ export async function reviewWorkAssignment(req: Request, res: Response): Promise
     res.status(404).json({ detail: 'Work assignment not found.' });
     return;
   }
+  const previousStatus = assignment.status;
 
   const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
   const taskScope = await getRoleDataScope(req.user, 'TASKS');
@@ -1665,6 +1671,9 @@ export async function reviewWorkAssignment(req: Request, res: Response): Promise
     await syncParentTaskProgression(assignment);
   }
 
+  // Auto-sync client deliverable counts on review approval or correction
+  await syncTaskApprovalToDeliverables(assignment, previousStatus);
+
   res.json(assignment);
 }
 
@@ -1684,6 +1693,8 @@ export async function deleteWorkAssignment(req: Request, res: Response): Promise
     res.status(404).json({ detail: 'Work assignment not found.' });
     return;
   }
+  // Revert any deliverable counts credited for this task
+  await revertTaskApproval(assignment);
   await WorkAssignment.findByIdAndDelete(assignment._id);
   res.status(204).send();
 }

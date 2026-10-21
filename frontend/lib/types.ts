@@ -1543,6 +1543,9 @@ export interface DeliveredItem {
   postUrl?: string;
   publishedDate?: string;
   notes?: string;
+  sourceTaskId?: string;
+  sourceTaskTitle?: string;
+  autoSynced?: boolean;
   createdAt?: string;
 }
 

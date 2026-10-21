@@ -8,6 +8,9 @@ export interface IDeliveredItem {
   publishedDate?: Date;
   notes?: string;
   loggedBy?: mongoose.Types.ObjectId;
+  sourceTaskId?: mongoose.Types.ObjectId;
+  sourceTaskTitle?: string;
+  autoSynced?: boolean;
   createdAt: Date;
 }
 
@@ -54,6 +57,9 @@ const deliveredItemSchema = new Schema<IDeliveredItem>(
     publishedDate: { type: Date, default: () => new Date() },
     notes: { type: String, default: '' },
     loggedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    sourceTaskId: { type: Schema.Types.ObjectId, ref: 'WorkAssignment', sparse: true },
+    sourceTaskTitle: { type: String, default: '' },
+    autoSynced: { type: Boolean, default: false },
     createdAt: { type: Date, default: () => new Date() },
   },
   { _id: false }
