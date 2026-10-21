@@ -54,12 +54,13 @@ export function AdminAttendancePage() {
   const canManualEntry = hasPermission(user, "ATTENDANCE", "manual_entry");
   const canPolicySettings = hasPermission(user, "ATTENDANCE", "policy_settings");
   const canReportsExport = hasPermission(user, "ATTENDANCE", "reports_export");
+  const userRole = (user?.portal_role || user?.role || "").toUpperCase();
   const canAdminExit =
-    user?.role === "SUPER_ADMIN" ||
+    userRole === "SUPER_ADMIN" ||
     Boolean(user?.is_superuser) ||
-    user?.role === "ADMIN" ||
-    user?.role === "HR" ||
-    hasPermission(user, "ATTENDANCE", "canEdit");
+    Boolean((user as any)?.isSuperuser) ||
+    userRole === "ADMIN" ||
+    userRole === "HR";
 
   const [filter, setFilter] = useState("All");
   const [date, setDate] = useState(() => getTodayISTDateString());

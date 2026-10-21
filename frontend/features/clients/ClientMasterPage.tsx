@@ -13,6 +13,7 @@ import {
   Globe,
   Layers,
   ListTodo,
+  PackageCheck,
   Paperclip,
   Pencil,
   Plus,
@@ -542,6 +543,25 @@ export function ClientMasterPage({ role }: Props) {
                 <Briefcase size={16} /> Add New Client
               </button>
 
+              <a
+                href="/clients/deliverables"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 14px",
+                  borderRadius: "8px",
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  color: "#087A5B",
+                  fontWeight: 700,
+                  fontSize: "13px",
+                  textDecoration: "none",
+                }}
+              >
+                <PackageCheck size={14} /> Monthly Deliverables
+              </a>
+
               <button
                 type="button"
                 onClick={fetchData}
@@ -884,7 +904,28 @@ export function ClientMasterPage({ role }: Props) {
                           gap: "4px",
                         }}
                       >
-                        <Calendar size={13} /> Tasks & Calendar
+                        <Calendar size={13} /> Tasks
+                      </a>
+
+                      <a
+                        href={`/clients/deliverables`}
+                        style={{
+                          flex: 1,
+                          padding: "7px 10px",
+                          borderRadius: "6px",
+                          background: "rgba(8, 122, 91, 0.08)",
+                          color: "var(--color-primary, #087A5B)",
+                          border: "1px solid rgba(8, 122, 91, 0.25)",
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          textDecoration: "none",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <PackageCheck size={13} /> Deliverables
                       </a>
 
                       <button

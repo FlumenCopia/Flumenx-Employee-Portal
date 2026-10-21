@@ -1534,5 +1534,99 @@ export type ExecutiveFinancialSummary = {
   monthlyTrends: { month: string; revenue: number; expense: number }[];
 };
 
+export type DeliverableType = 'poster' | 'video' | 'reel' | 'carousel' | 'story' | 'extra' | 'other';
+
+export interface DeliveredItem {
+  id: string;
+  deliverableType: DeliverableType;
+  title: string;
+  postUrl?: string;
+  publishedDate?: string;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface DeliverableTypeCount {
+  target: number;
+  delivered: number;
+  pending: number;
+}
+
+export interface ClientDeliverableTracker {
+  _id: string;
+  client?: string;
+  clientName: string;
+  year: number;
+  month: string;
+  cycleLabel?: string;
+  posters: DeliverableTypeCount;
+  videos: DeliverableTypeCount;
+  yearlyTargetPosters: number;
+  yearlyTargetVideos: number;
+  extraWorksNotes?: string;
+  deliveredItems: DeliveredItem[];
+  status: 'ACTIVE' | 'COMPLETED' | 'ON_HOLD';
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientDeliverablesSummary {
+  totalClients: number;
+  totalTargetPosters: number;
+  totalDeliveredPosters: number;
+  totalPendingPosters: number;
+  totalTargetVideos: number;
+  totalDeliveredVideos: number;
+  totalPendingVideos: number;
+  totalTargetAll: number;
+  totalDeliveredAll: number;
+  totalPendingAll: number;
+  overallCompletionRate: number;
+  totalExtraWorksCount: number;
+  totalReferenceLinksCount: number;
+}
+
+export interface YearlyClientMonthStats {
+  month: string;
+  cycleLabel: string;
+  posters: DeliverableTypeCount;
+  videos: DeliverableTypeCount;
+  extraWorksNotes: string;
+  deliveredItems: DeliveredItem[];
+  linksCount: number;
+  status: string;
+}
+
+export interface YearlyClientTotals {
+  targetPosters: number;
+  deliveredPosters: number;
+  pendingPosters: number;
+  targetVideos: number;
+  deliveredVideos: number;
+  pendingVideos: number;
+  totalTarget: number;
+  totalDelivered: number;
+  totalPending: number;
+  totalExtraWorksCount: number;
+  totalLinksCount: number;
+  completionRate: number;
+  overallCompletionRate?: number;
+}
+
+export interface YearlyClientReportRow {
+  clientName: string;
+  yearlyTargetPosters: number;
+  yearlyTargetVideos: number;
+  months: Record<string, YearlyClientMonthStats>;
+  totals: YearlyClientTotals;
+}
+
+export interface YearlyDeliverablesReportResponse {
+  year: number;
+  clients: YearlyClientReportRow[];
+  agencyGrandTotals: YearlyClientTotals;
+}
+
 
 

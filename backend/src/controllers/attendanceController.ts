@@ -1418,6 +1418,13 @@ export async function triggerForcedCheckoutHandler(req: Request, res: Response):
 }
 
 export async function superAdminCheckoutHandler(req: Request, res: Response): Promise<void> {
+  const userRole = ((req.user as any)?.role || '').toUpperCase();
+  const isAuthorized = (req.user as any)?.isSuperuser || userRole === 'SUPER_ADMIN' || userRole === 'ADMIN' || userRole === 'HR';
+  if (!isAuthorized) {
+    res.status(403).json({ detail: 'Only Admins and HR are authorized to perform manual exits.' });
+    return;
+  }
+
   const { attendance_id, employee_id, check_out_time, date, notes, attendance_status } = req.body;
 
   let record: any = null;

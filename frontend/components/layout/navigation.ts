@@ -19,6 +19,7 @@ import {
   MapPin,
   Megaphone,
   MessageSquare,
+  PackageCheck,
   Pencil,
   Settings,
   Shield,
@@ -47,6 +48,7 @@ export const iconMap: Record<string, LucideIcon> = {
   UserRound,
   Clock3,
   BriefcaseBusiness,
+  PackageCheck,
   Megaphone,
   MessageSquare,
   BarChart3,
@@ -95,6 +97,7 @@ const adminNav = [
   // Clients & Projects
   ["Clients Master", "/clients", BriefcaseBusiness],
   ["Client Tasks & Calendar", "/clients/tasks", Calendar],
+  ["Client Deliverables", "/clients/deliverables", PackageCheck],
   ["Team Work", "/team-work", Users],
 
   // People & HR
@@ -155,6 +158,7 @@ const hrNav = [
   // Clients & Projects
   ["Clients Master", "/clients", BriefcaseBusiness],
   ["Client Tasks & Calendar", "/clients/tasks", Calendar],
+  ["Client Deliverables", "/clients/deliverables", PackageCheck],
 
   // People & HR
   ["Employees Directory", "/employees", Users],
@@ -181,6 +185,7 @@ const accountantNav = [
   // Clients & Projects
   ["Clients Master", "/clients", BriefcaseBusiness],
   ["Client Tasks & Calendar", "/clients/tasks", Calendar],
+  ["Client Deliverables", "/clients/deliverables", PackageCheck],
   ["Team Work", "/team-work", Users],
 
   // Finance & Accounts
@@ -210,6 +215,7 @@ const bdoNav = [
   // Clients & Projects
   ["Clients Master", "/clients", BriefcaseBusiness],
   ["Client Tasks & Calendar", "/clients/tasks", Calendar],
+  ["Client Deliverables", "/clients/deliverables", PackageCheck],
 
   // People & HR
   ["My Attendance", "/attendance", CalendarCheck],
@@ -233,6 +239,7 @@ const teamLeadNav = [
 
   // Clients & Projects
   ["Client Tasks & Calendar", "/clients/tasks", Calendar],
+  ["Client Deliverables", "/clients/deliverables", PackageCheck],
   ["Team Work", "/team-work", Users],
 
   // People & HR
@@ -548,6 +555,9 @@ export function normalizeWorkspaceRoute(routePath: string, workspaceRole: Worksp
   }
   if (pathname === "/tools" || pathname === "/admin/tools" || pathname.endsWith("/tools")) {
     return "/tools";
+  }
+  if (pathname === "/clients/deliverables" || pathname === "/hr/deliverables" || pathname === "/admin/clients/deliverables" || pathname.endsWith("/clients/deliverables")) {
+    return "/clients/deliverables";
   }
   if (pathname === "/clients/tasks" || pathname === "/admin/clients/tasks" || pathname.endsWith("/clients/tasks")) {
     return "/clients/tasks";
