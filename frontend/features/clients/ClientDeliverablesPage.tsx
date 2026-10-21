@@ -470,7 +470,7 @@ export function ClientDeliverablesPage() {
   }, [records, searchQuery]);
 
   return (
-    <div className="client-deliverables-page" style={{ padding: "0 4px 60px 4px" }}>
+    <div className="client-deliverables-page" style={{ padding: "8px 8px 60px 8px" }}>
       {/* Top Header */}
       <PageHeader
         eyebrow="AGENCY OPERATIONS / HR TRACKING"
@@ -486,12 +486,13 @@ export function ClientDeliverablesPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
-                padding: "8px 12px",
+                padding: "8px 14px",
                 fontSize: "12px",
                 fontWeight: 600,
                 borderRadius: "8px",
-                border: "1px solid var(--borderL)",
-                background: "var(--panel)",
+                border: "1px solid #DCE3E0",
+                background: "#FFFFFF",
+                color: "#18231F",
                 cursor: "pointer",
               }}
               title="Re-import / sync numbers from Clients Monthly count.xlsx"
@@ -506,12 +507,13 @@ export function ClientDeliverablesPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
-                padding: "8px 12px",
+                padding: "8px 14px",
                 fontSize: "12px",
                 fontWeight: 600,
                 borderRadius: "8px",
-                border: "1px solid var(--borderL)",
-                background: "var(--panel)",
+                border: "1px solid #DCE3E0",
+                background: "#FFFFFF",
+                color: "#18231F",
                 cursor: "pointer",
               }}
               title="Copy monthly target quotas to another month"
@@ -526,12 +528,13 @@ export function ClientDeliverablesPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
-                padding: "8px 12px",
+                padding: "8px 14px",
                 fontSize: "12px",
                 fontWeight: 600,
                 borderRadius: "8px",
-                border: "1px solid var(--borderL)",
-                background: "var(--panel)",
+                border: "1px solid #DCE3E0",
+                background: "#FFFFFF",
+                color: "#18231F",
                 cursor: "pointer",
               }}
             >
@@ -549,8 +552,8 @@ export function ClientDeliverablesPage() {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "12px",
-          borderBottom: "1px solid var(--borderL)",
+          gap: "10px",
+          borderBottom: "1px solid #DCE3E0",
           marginBottom: "24px",
           paddingBottom: "12px",
         }}
@@ -562,14 +565,15 @@ export function ClientDeliverablesPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: "8px",
-            padding: "8px 18px",
+            padding: "9px 18px",
             fontSize: "13px",
             fontWeight: 700,
             borderRadius: "8px",
-            border: "none",
+            border: activeTab === "monthly" ? "1px solid #087A5B" : "1px solid #DCE3E0",
             cursor: "pointer",
-            background: activeTab === "monthly" ? "var(--teal)" : "transparent",
-            color: activeTab === "monthly" ? "#ffffff" : "var(--muted)",
+            background: activeTab === "monthly" ? "#087A5B" : "#FFFFFF",
+            color: activeTab === "monthly" ? "#FFFFFF" : "#4A5568",
+            boxShadow: activeTab === "monthly" ? "0 2px 4px rgba(8, 122, 91, 0.25)" : "none",
             transition: "all 0.15s ease",
           }}
         >
@@ -583,14 +587,15 @@ export function ClientDeliverablesPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: "8px",
-            padding: "8px 18px",
+            padding: "9px 18px",
             fontSize: "13px",
             fontWeight: 700,
             borderRadius: "8px",
-            border: "none",
+            border: activeTab === "yearly" ? "1px solid #087A5B" : "1px solid #DCE3E0",
             cursor: "pointer",
-            background: activeTab === "yearly" ? "var(--teal)" : "transparent",
-            color: activeTab === "yearly" ? "#ffffff" : "var(--muted)",
+            background: activeTab === "yearly" ? "#087A5B" : "#FFFFFF",
+            color: activeTab === "yearly" ? "#FFFFFF" : "#4A5568",
+            boxShadow: activeTab === "yearly" ? "0 2px 4px rgba(8, 122, 91, 0.25)" : "none",
             transition: "all 0.15s ease",
           }}
         >
@@ -654,9 +659,9 @@ export function ClientDeliverablesPage() {
               justifyContent: "space-between",
               gap: "12px",
               padding: "14px 18px",
-              background: "var(--panel)",
+              background: "#FFFFFF",
               borderRadius: "12px",
-              border: "1px solid var(--borderL)",
+              border: "1px solid #DCE3E0",
               marginBottom: "20px",
               flexWrap: "wrap",
             }}
@@ -671,8 +676,8 @@ export function ClientDeliverablesPage() {
                   style={{
                     padding: "6px 12px",
                     borderRadius: "8px",
-                    border: "1px solid var(--borderL)",
-                    background: "var(--surface)",
+                    border: "1px solid #DCE3E0",
+                    background: "#FFFFFF",
                     color: "inherit",
                     fontWeight: 600,
                     fontSize: "13px",
@@ -696,8 +701,8 @@ export function ClientDeliverablesPage() {
                   style={{
                     padding: "6px 12px",
                     borderRadius: "8px",
-                    border: "1px solid var(--borderL)",
-                    background: "var(--surface)",
+                    border: "1px solid #DCE3E0",
+                    background: "#FFFFFF",
                     color: "inherit",
                     fontWeight: 600,
                     fontSize: "13px",
@@ -722,8 +727,8 @@ export function ClientDeliverablesPage() {
                   style={{
                     padding: "6px 12px",
                     borderRadius: "8px",
-                    border: "1px solid var(--borderL)",
-                    background: "var(--surface)",
+                    border: "1px solid #DCE3E0",
+                    background: "#FFFFFF",
                     color: "inherit",
                     fontWeight: 600,
                     fontSize: "13px",
@@ -751,8 +756,8 @@ export function ClientDeliverablesPage() {
                   padding: "7px 12px 7px 32px",
                   fontSize: "12px",
                   borderRadius: "8px",
-                  border: "1px solid var(--borderL)",
-                  background: "var(--surface)",
+                  border: "1px solid #DCE3E0",
+                  background: "#FFFFFF",
                   color: "inherit",
                   outline: "none",
                 }}
@@ -781,9 +786,9 @@ export function ClientDeliverablesPage() {
           {/* Master Deliverables Table */}
           <div
             style={{
-              background: "var(--panel)",
+              background: "#FFFFFF",
               borderRadius: "12px",
-              border: "1px solid var(--borderL)",
+              border: "1px solid #DCE3E0",
               overflow: "hidden",
               boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
             }}
@@ -812,8 +817,8 @@ export function ClientDeliverablesPage() {
                       fontSize: "12px",
                       fontWeight: 600,
                       borderRadius: "8px",
-                      border: "1px solid var(--borderL)",
-                      background: "var(--surface)",
+                      border: "1px solid #DCE3E0",
+                      background: "#FFFFFF",
                       cursor: "pointer",
                     }}
                   >
@@ -825,7 +830,7 @@ export function ClientDeliverablesPage() {
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
                   <thead>
-                    <tr style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid var(--borderL)" }}>
+                    <tr style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid #DCE3E0" }}>
                       <th style={{ padding: "12px 16px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", fontSize: "11px" }}>Client</th>
                       <th style={{ padding: "12px 16px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", fontSize: "11px" }}>Month & Cycle</th>
                       <th style={{ padding: "12px 16px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", fontSize: "11px", textAlign: "center" }} colSpan={3}>
@@ -838,7 +843,7 @@ export function ClientDeliverablesPage() {
                       <th style={{ padding: "12px 16px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", fontSize: "11px", textAlign: "center" }}>Post Links</th>
                       <th style={{ padding: "12px 16px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", fontSize: "11px", textAlign: "right" }}>Actions</th>
                     </tr>
-                    <tr style={{ background: "rgba(0,0,0,0.01)", borderBottom: "1px solid var(--borderL)", fontSize: "11px", color: "var(--muted)" }}>
+                    <tr style={{ background: "rgba(0,0,0,0.01)", borderBottom: "1px solid #DCE3E0", fontSize: "11px", color: "var(--muted)" }}>
                       <th style={{ padding: "6px 16px" }}></th>
                       <th style={{ padding: "6px 16px" }}></th>
                       <th style={{ padding: "6px 8px", textAlign: "center", fontWeight: 600 }}>Target</th>
@@ -862,7 +867,7 @@ export function ClientDeliverablesPage() {
                         <tr
                           key={rec._id}
                           style={{
-                            borderBottom: "1px solid var(--borderL)",
+                            borderBottom: "1px solid #DCE3E0",
                             transition: "background 0.1s ease",
                           }}
                           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.015)")}
@@ -877,7 +882,7 @@ export function ClientDeliverablesPage() {
                                   height: "28px",
                                   borderRadius: "6px",
                                   background: "rgba(8, 122, 91, 0.1)",
-                                  color: "var(--teal)",
+                                  color: "#087A5B",
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
@@ -914,7 +919,7 @@ export function ClientDeliverablesPage() {
                           {/* Posters Delivered (+1 Quick Button) */}
                           <td style={{ padding: "14px 8px", textAlign: "center" }}>
                             <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                              <span style={{ fontWeight: 700, color: "var(--teal)" }}>
+                              <span style={{ fontWeight: 700, color: "#087A5B" }}>
                                 {rec.posters?.delivered || 0}
                               </span>
                               <button
@@ -928,7 +933,7 @@ export function ClientDeliverablesPage() {
                                   borderRadius: "4px",
                                   border: "1px solid rgba(8, 122, 91, 0.3)",
                                   background: "rgba(8, 122, 91, 0.08)",
-                                  color: "var(--teal)",
+                                  color: "#087A5B",
                                   cursor: "pointer",
                                 }}
                               >
@@ -954,7 +959,7 @@ export function ClientDeliverablesPage() {
                           {/* Videos Delivered (+1 Quick Button) */}
                           <td style={{ padding: "14px 8px", textAlign: "center" }}>
                             <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                              <span style={{ fontWeight: 700, color: "var(--teal)" }}>
+                              <span style={{ fontWeight: 700, color: "#087A5B" }}>
                                 {rec.videos?.delivered || 0}
                               </span>
                               <button
@@ -968,7 +973,7 @@ export function ClientDeliverablesPage() {
                                   borderRadius: "4px",
                                   border: "1px solid rgba(8, 122, 91, 0.3)",
                                   background: "rgba(8, 122, 91, 0.08)",
-                                  color: "var(--teal)",
+                                  color: "#087A5B",
                                   cursor: "pointer",
                                 }}
                               >
@@ -1024,9 +1029,9 @@ export function ClientDeliverablesPage() {
                                 fontSize: "11px",
                                 fontWeight: 600,
                                 borderRadius: "6px",
-                                border: "1px solid var(--borderL)",
-                                background: linksCount > 0 ? "rgba(8, 122, 91, 0.08)" : "var(--surface)",
-                                color: linksCount > 0 ? "var(--teal)" : "var(--muted)",
+                                border: "1px solid #DCE3E0",
+                                background: linksCount > 0 ? "rgba(8, 122, 91, 0.08)" : "#FFFFFF",
+                                color: linksCount > 0 ? "#087A5B" : "var(--muted)",
                                 cursor: "pointer",
                               }}
                               title="Click to view reference links & completed items"
@@ -1046,14 +1051,16 @@ export function ClientDeliverablesPage() {
                                   display: "inline-flex",
                                   alignItems: "center",
                                   gap: "4px",
-                                  padding: "5px 9px",
-                                  fontSize: "11px",
-                                  fontWeight: 600,
+                                  padding: "6px 12px",
+                                  fontSize: "12px",
+                                  fontWeight: 700,
                                   borderRadius: "6px",
-                                  border: "1px solid rgba(8, 122, 91, 0.4)",
-                                  background: "var(--teal)",
-                                  color: "#ffffff",
+                                  border: "1px solid #087A5B",
+                                  background: "#087A5B",
+                                  color: "#FFFFFF",
                                   cursor: "pointer",
+                                  whiteSpace: "nowrap",
+                                  boxShadow: "0 1px 2px rgba(8, 122, 91, 0.2)",
                                 }}
                                 title="Log a completed poster/video and add post reference URL"
                               >
@@ -1067,8 +1074,8 @@ export function ClientDeliverablesPage() {
                                   padding: "5px 7px",
                                   fontSize: "11px",
                                   borderRadius: "6px",
-                                  border: "1px solid var(--borderL)",
-                                  background: "var(--surface)",
+                                  border: "1px solid #DCE3E0",
+                                  background: "#FFFFFF",
                                   cursor: "pointer",
                                   color: "var(--text)",
                                 }}
@@ -1115,9 +1122,9 @@ export function ClientDeliverablesPage() {
               justifyContent: "space-between",
               gap: "12px",
               padding: "16px 20px",
-              background: "var(--panel)",
+              background: "#FFFFFF",
               borderRadius: "12px",
-              border: "1px solid var(--borderL)",
+              border: "1px solid #DCE3E0",
               marginBottom: "24px",
               flexWrap: "wrap",
             }}
@@ -1131,8 +1138,8 @@ export function ClientDeliverablesPage() {
                   style={{
                     padding: "6px 12px",
                     borderRadius: "8px",
-                    border: "1px solid var(--borderL)",
-                    background: "var(--surface)",
+                    border: "1px solid #DCE3E0",
+                    background: "#FFFFFF",
                     fontWeight: 600,
                     fontSize: "13px",
                     cursor: "pointer",
@@ -1152,8 +1159,8 @@ export function ClientDeliverablesPage() {
                   style={{
                     padding: "6px 12px",
                     borderRadius: "8px",
-                    border: "1px solid var(--borderL)",
-                    background: "var(--surface)",
+                    border: "1px solid #DCE3E0",
+                    background: "#FFFFFF",
                     fontWeight: 600,
                     fontSize: "13px",
                     cursor: "pointer",
@@ -1183,8 +1190,8 @@ export function ClientDeliverablesPage() {
                   fontSize: "12px",
                   fontWeight: 600,
                   borderRadius: "8px",
-                  border: "1px solid var(--borderL)",
-                  background: "var(--surface)",
+                  border: "1px solid #DCE3E0",
+                  background: "#FFFFFF",
                   cursor: "pointer",
                 }}
               >
@@ -1240,14 +1247,14 @@ export function ClientDeliverablesPage() {
               {/* Agency Grand Matrix Table */}
               <div
                 style={{
-                  background: "var(--panel)",
+                  background: "#FFFFFF",
                   borderRadius: "12px",
-                  border: "1px solid var(--borderL)",
+                  border: "1px solid #DCE3E0",
                   overflow: "hidden",
                   marginBottom: "30px",
                 }}
               >
-                <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--borderL)", background: "rgba(0,0,0,0.01)" }}>
+                <div style={{ padding: "16px 20px", borderBottom: "1px solid #DCE3E0", background: "rgba(0,0,0,0.01)" }}>
                   <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700 }}>
                     {selectedYear} Client Deliverables Matrix (Month-wise & Yearly Totals)
                   </h3>
@@ -1259,7 +1266,7 @@ export function ClientDeliverablesPage() {
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", textAlign: "left" }}>
                     <thead>
-                      <tr style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid var(--borderL)" }}>
+                      <tr style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid #DCE3E0" }}>
                         <th style={{ padding: "10px 14px", fontWeight: 700, color: "var(--muted)" }}>Client Name</th>
                         {ALL_MONTHS.map((m) => (
                           <th key={m} style={{ padding: "10px 8px", textAlign: "center", fontWeight: 700, color: "var(--muted)" }}>
@@ -1278,7 +1285,7 @@ export function ClientDeliverablesPage() {
                     <tbody>
                       {yearlyReport.clients.map((c) => {
                         return (
-                          <tr key={c.clientName} style={{ borderBottom: "1px solid var(--borderL)" }}>
+                          <tr key={c.clientName} style={{ borderBottom: "1px solid #DCE3E0" }}>
                             <td style={{ padding: "12px 14px", fontWeight: 700 }}>
                               {c.clientName}
                             </td>
@@ -1298,18 +1305,18 @@ export function ClientDeliverablesPage() {
                               return (
                                 <td key={m} style={{ padding: "12px 8px", textAlign: "center" }}>
                                   <div style={{ fontSize: "11px", fontWeight: 600 }}>{pTot}</div>
-                                  <div style={{ fontSize: "11px", color: "var(--teal)" }}>{vTot}</div>
+                                  <div style={{ fontSize: "11px", color: "#087A5B" }}>{vTot}</div>
                                 </td>
                               );
                             })}
 
                             {/* Totals */}
                             <td style={{ padding: "12px 10px", textAlign: "center", fontWeight: 600 }}>{c.totals.targetPosters}</td>
-                            <td style={{ padding: "12px 10px", textAlign: "center", fontWeight: 700, color: "var(--teal)" }}>{c.totals.deliveredPosters}</td>
+                            <td style={{ padding: "12px 10px", textAlign: "center", fontWeight: 700, color: "#087A5B" }}>{c.totals.deliveredPosters}</td>
                             <td style={{ padding: "12px 10px", textAlign: "center", fontWeight: 600 }}>{c.totals.targetVideos}</td>
-                            <td style={{ padding: "12px 10px", textAlign: "center", fontWeight: 700, color: "var(--teal)" }}>{c.totals.deliveredVideos}</td>
+                            <td style={{ padding: "12px 10px", textAlign: "center", fontWeight: 700, color: "#087A5B" }}>{c.totals.deliveredVideos}</td>
                             <td style={{ padding: "12px 10px", textAlign: "center", fontWeight: 700 }}>{c.totals.totalTarget}</td>
-                            <td style={{ padding: "12px 10px", textAlign: "center", fontWeight: 700, color: "var(--teal)" }}>{c.totals.totalDelivered}</td>
+                            <td style={{ padding: "12px 10px", textAlign: "center", fontWeight: 700, color: "#087A5B" }}>{c.totals.totalDelivered}</td>
                             <td style={{ padding: "12px 10px", textAlign: "center" }}>
                               <span
                                 style={{
@@ -1318,7 +1325,7 @@ export function ClientDeliverablesPage() {
                                   fontSize: "11px",
                                   fontWeight: 700,
                                   background: c.totals.completionRate >= 100 ? "rgba(16, 185, 129, 0.15)" : "rgba(8, 122, 91, 0.1)",
-                                  color: c.totals.completionRate >= 100 ? "#059669" : "var(--teal)",
+                                  color: c.totals.completionRate >= 100 ? "#059669" : "#087A5B",
                                 }}
                               >
                                 {c.totals.completionRate}%
@@ -1329,7 +1336,7 @@ export function ClientDeliverablesPage() {
                       })}
 
                       {/* Footer Row: Agency Totals */}
-                      <tr style={{ background: "rgba(8, 122, 91, 0.05)", fontWeight: 700, borderTop: "2px solid var(--borderL)" }}>
+                      <tr style={{ background: "rgba(8, 122, 91, 0.05)", fontWeight: 700, borderTop: "2px solid #DCE3E0" }}>
                         <td style={{ padding: "14px 14px", fontWeight: 800 }}>AGENCY TOTALS</td>
                         {ALL_MONTHS.map((m) => (
                           <td key={m} style={{ padding: "14px 8px", textAlign: "center" }}>
@@ -1337,13 +1344,13 @@ export function ClientDeliverablesPage() {
                           </td>
                         ))}
                         <td style={{ padding: "14px 10px", textAlign: "center" }}>{yearlyReport.agencyGrandTotals.targetPosters}</td>
-                        <td style={{ padding: "14px 10px", textAlign: "center", color: "var(--teal)" }}>{yearlyReport.agencyGrandTotals.deliveredPosters}</td>
+                        <td style={{ padding: "14px 10px", textAlign: "center", color: "#087A5B" }}>{yearlyReport.agencyGrandTotals.deliveredPosters}</td>
                         <td style={{ padding: "14px 10px", textAlign: "center" }}>{yearlyReport.agencyGrandTotals.targetVideos}</td>
-                        <td style={{ padding: "14px 10px", textAlign: "center", color: "var(--teal)" }}>{yearlyReport.agencyGrandTotals.deliveredVideos}</td>
+                        <td style={{ padding: "14px 10px", textAlign: "center", color: "#087A5B" }}>{yearlyReport.agencyGrandTotals.deliveredVideos}</td>
                         <td style={{ padding: "14px 10px", textAlign: "center" }}>{yearlyReport.agencyGrandTotals.totalTarget}</td>
-                        <td style={{ padding: "14px 10px", textAlign: "center", color: "var(--teal)" }}>{yearlyReport.agencyGrandTotals.totalDelivered}</td>
+                        <td style={{ padding: "14px 10px", textAlign: "center", color: "#087A5B" }}>{yearlyReport.agencyGrandTotals.totalDelivered}</td>
                         <td style={{ padding: "14px 10px", textAlign: "center" }}>
-                          <span style={{ padding: "3px 8px", borderRadius: "6px", background: "var(--teal)", color: "#fff" }}>
+                          <span style={{ padding: "3px 8px", borderRadius: "6px", background: "#087A5B", color: "#fff" }}>
                             {yearlyReport.agencyGrandTotals.overallCompletionRate}%
                           </span>
                         </td>
@@ -1381,8 +1388,8 @@ export function ClientDeliverablesPage() {
                     width: "100%",
                     padding: "8px 12px",
                     borderRadius: "8px",
-                    border: "1px solid var(--borderL)",
-                    background: "var(--surface)",
+                    border: "1px solid #DCE3E0",
+                    background: "#FFFFFF",
                     fontSize: "13px",
                   }}
                 />
@@ -1401,8 +1408,8 @@ export function ClientDeliverablesPage() {
                     width: "100%",
                     padding: "8px 12px",
                     borderRadius: "8px",
-                    border: "1px solid var(--borderL)",
-                    background: "var(--surface)",
+                    border: "1px solid #DCE3E0",
+                    background: "#FFFFFF",
                     fontSize: "13px",
                   }}
                 />
@@ -1421,8 +1428,8 @@ export function ClientDeliverablesPage() {
                     width: "100%",
                     padding: "8px 12px",
                     borderRadius: "8px",
-                    border: "1px solid var(--borderL)",
-                    background: "var(--surface)",
+                    border: "1px solid #DCE3E0",
+                    background: "#FFFFFF",
                     fontSize: "13px",
                   }}
                 >
@@ -1445,8 +1452,8 @@ export function ClientDeliverablesPage() {
                     width: "100%",
                     padding: "8px 12px",
                     borderRadius: "8px",
-                    border: "1px solid var(--borderL)",
-                    background: "var(--surface)",
+                    border: "1px solid #DCE3E0",
+                    background: "#FFFFFF",
                     fontSize: "13px",
                   }}
                 />
@@ -1468,7 +1475,7 @@ export function ClientDeliverablesPage() {
                     min={0}
                     value={postersTargetInput}
                     onChange={(e) => setPostersTargetInput(Number(e.target.value))}
-                    style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid var(--borderL)", fontSize: "13px" }}
+                    style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid #DCE3E0", fontSize: "13px" }}
                   />
                 </div>
                 <div>
@@ -1480,7 +1487,7 @@ export function ClientDeliverablesPage() {
                     min={0}
                     value={postersDeliveredInput}
                     onChange={(e) => setPostersDeliveredInput(Number(e.target.value))}
-                    style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid var(--borderL)", fontSize: "13px" }}
+                    style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid #DCE3E0", fontSize: "13px" }}
                   />
                 </div>
                 <div>
@@ -1492,7 +1499,7 @@ export function ClientDeliverablesPage() {
                     min={0}
                     value={yearlyTargetPostersInput}
                     onChange={(e) => setYearlyTargetPostersInput(Number(e.target.value))}
-                    style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid var(--borderL)", fontSize: "13px" }}
+                    style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid #DCE3E0", fontSize: "13px" }}
                   />
                 </div>
               </div>
@@ -1513,7 +1520,7 @@ export function ClientDeliverablesPage() {
                     min={0}
                     value={videosTargetInput}
                     onChange={(e) => setVideosTargetInput(Number(e.target.value))}
-                    style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid var(--borderL)", fontSize: "13px" }}
+                    style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid #DCE3E0", fontSize: "13px" }}
                   />
                 </div>
                 <div>
@@ -1525,7 +1532,7 @@ export function ClientDeliverablesPage() {
                     min={0}
                     value={videosDeliveredInput}
                     onChange={(e) => setVideosDeliveredInput(Number(e.target.value))}
-                    style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid var(--borderL)", fontSize: "13px" }}
+                    style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid #DCE3E0", fontSize: "13px" }}
                   />
                 </div>
                 <div>
@@ -1537,7 +1544,7 @@ export function ClientDeliverablesPage() {
                     min={0}
                     value={yearlyTargetVideosInput}
                     onChange={(e) => setYearlyTargetVideosInput(Number(e.target.value))}
-                    style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid var(--borderL)", fontSize: "13px" }}
+                    style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid #DCE3E0", fontSize: "13px" }}
                   />
                 </div>
               </div>
@@ -1557,8 +1564,8 @@ export function ClientDeliverablesPage() {
                   width: "100%",
                   padding: "8px 12px",
                   borderRadius: "8px",
-                  border: "1px solid var(--borderL)",
-                  background: "var(--surface)",
+                  border: "1px solid #DCE3E0",
+                  background: "#FFFFFF",
                   fontSize: "13px",
                   fontFamily: "inherit",
                 }}
@@ -1574,8 +1581,8 @@ export function ClientDeliverablesPage() {
                   padding: "8px 16px",
                   fontSize: "13px",
                   borderRadius: "8px",
-                  border: "1px solid var(--borderL)",
-                  background: "var(--surface)",
+                  border: "1px solid #DCE3E0",
+                  background: "#FFFFFF",
                   cursor: "pointer",
                 }}
               >
@@ -1609,8 +1616,8 @@ export function ClientDeliverablesPage() {
                   width: "100%",
                   padding: "8px 12px",
                   borderRadius: "8px",
-                  border: "1px solid var(--borderL)",
-                  background: "var(--surface)",
+                  border: "1px solid #DCE3E0",
+                  background: "#FFFFFF",
                   fontSize: "13px",
                   cursor: "pointer",
                 }}
@@ -1637,8 +1644,8 @@ export function ClientDeliverablesPage() {
                   width: "100%",
                   padding: "8px 12px",
                   borderRadius: "8px",
-                  border: "1px solid var(--borderL)",
-                  background: "var(--surface)",
+                  border: "1px solid #DCE3E0",
+                  background: "#FFFFFF",
                   fontSize: "13px",
                 }}
               />
@@ -1654,7 +1661,7 @@ export function ClientDeliverablesPage() {
                     href={logItemPostUrl.trim()}
                     target="_blank"
                     rel="noreferrer"
-                    style={{ fontSize: "11px", color: "var(--teal)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "3px" }}
+                    style={{ fontSize: "11px", color: "#087A5B", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "3px" }}
                   >
                     <ExternalLink size={11} /> Test Link
                   </a>
@@ -1669,8 +1676,8 @@ export function ClientDeliverablesPage() {
                   width: "100%",
                   padding: "8px 12px",
                   borderRadius: "8px",
-                  border: "1px solid var(--borderL)",
-                  background: "var(--surface)",
+                  border: "1px solid #DCE3E0",
+                  background: "#FFFFFF",
                   fontSize: "13px",
                 }}
               />
@@ -1689,8 +1696,8 @@ export function ClientDeliverablesPage() {
                     width: "100%",
                     padding: "8px 12px",
                     borderRadius: "8px",
-                    border: "1px solid var(--borderL)",
-                    background: "var(--surface)",
+                    border: "1px solid #DCE3E0",
+                    background: "#FFFFFF",
                     fontSize: "13px",
                   }}
                 />
@@ -1724,8 +1731,8 @@ export function ClientDeliverablesPage() {
                   width: "100%",
                   padding: "8px 12px",
                   borderRadius: "8px",
-                  border: "1px solid var(--borderL)",
-                  background: "var(--surface)",
+                  border: "1px solid #DCE3E0",
+                  background: "#FFFFFF",
                   fontSize: "13px",
                 }}
               />
@@ -1740,8 +1747,8 @@ export function ClientDeliverablesPage() {
                   padding: "8px 16px",
                   fontSize: "13px",
                   borderRadius: "8px",
-                  border: "1px solid var(--borderL)",
-                  background: "var(--surface)",
+                  border: "1px solid #DCE3E0",
+                  background: "#FFFFFF",
                   cursor: "pointer",
                 }}
               >
@@ -1784,9 +1791,9 @@ export function ClientDeliverablesPage() {
                   fontSize: "12px",
                   fontWeight: 600,
                   borderRadius: "6px",
-                  border: "1px solid var(--teal)",
+                  border: "1px solid #087A5B",
                   background: "rgba(8, 122, 91, 0.08)",
-                  color: "var(--teal)",
+                  color: "#087A5B",
                   cursor: "pointer",
                 }}
               >
@@ -1811,7 +1818,7 @@ export function ClientDeliverablesPage() {
                       justifyContent: "space-between",
                       padding: "12px 14px",
                       borderRadius: "8px",
-                      border: "1px solid var(--borderL)",
+                      border: "1px solid #DCE3E0",
                       background: "rgba(0,0,0,0.015)",
                       gap: "12px",
                     }}
@@ -1840,7 +1847,7 @@ export function ClientDeliverablesPage() {
                               target="_blank"
                               rel="noreferrer"
                               style={{
-                                color: "var(--teal)",
+                                color: "#087A5B",
                                 fontSize: "11px",
                                 fontWeight: 600,
                                 display: "inline-flex",
@@ -1869,8 +1876,8 @@ export function ClientDeliverablesPage() {
                           style={{
                             padding: "6px",
                             borderRadius: "6px",
-                            border: "1px solid var(--borderL)",
-                            background: "var(--surface)",
+                            border: "1px solid #DCE3E0",
+                            background: "#FFFFFF",
                             cursor: "pointer",
                             color: "var(--muted)",
                           }}
@@ -1924,7 +1931,7 @@ export function ClientDeliverablesPage() {
                 <select
                   value={copyFromMonth}
                   onChange={(e) => setCopyFromMonth(e.target.value)}
-                  style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--borderL)", fontSize: "13px" }}
+                  style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #DCE3E0", fontSize: "13px" }}
                 >
                   {ALL_MONTHS.map((m) => (
                     <option key={m} value={m}>{m}</option>
@@ -1940,7 +1947,7 @@ export function ClientDeliverablesPage() {
                   type="number"
                   value={copyFromYear}
                   onChange={(e) => setCopyFromYear(Number(e.target.value))}
-                  style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--borderL)", fontSize: "13px" }}
+                  style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #DCE3E0", fontSize: "13px" }}
                 />
               </div>
             </div>
@@ -1953,7 +1960,7 @@ export function ClientDeliverablesPage() {
                 <select
                   value={copyToMonth}
                   onChange={(e) => setCopyToMonth(e.target.value)}
-                  style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--borderL)", fontSize: "13px" }}
+                  style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #DCE3E0", fontSize: "13px" }}
                 >
                   {ALL_MONTHS.map((m) => (
                     <option key={m} value={m}>{m}</option>
@@ -1969,7 +1976,7 @@ export function ClientDeliverablesPage() {
                   type="number"
                   value={copyToYear}
                   onChange={(e) => setCopyToYear(Number(e.target.value))}
-                  style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--borderL)", fontSize: "13px" }}
+                  style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #DCE3E0", fontSize: "13px" }}
                 />
               </div>
             </div>
@@ -1983,7 +1990,7 @@ export function ClientDeliverablesPage() {
                 placeholder="e.g. OCT-26 TO NOV 25"
                 value={copyCycleLabel}
                 onChange={(e) => setCopyCycleLabel(e.target.value)}
-                style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--borderL)", fontSize: "13px" }}
+                style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #DCE3E0", fontSize: "13px" }}
               />
             </div>
 
@@ -1992,7 +1999,7 @@ export function ClientDeliverablesPage() {
                 type="button"
                 onClick={() => setCopyModalOpen(false)}
                 className="btn-secondary"
-                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid var(--borderL)", fontSize: "13px" }}
+                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #DCE3E0", fontSize: "13px" }}
               >
                 Cancel
               </button>

@@ -68,6 +68,9 @@
   --gold: var(--color-primary);
   --primary-green: var(--color-primary);
   --accent-green: var(--color-primary);
+  --teal: var(--color-primary);
+  --teal-hover: var(--color-primary-hover);
+  --borderL: var(--color-border);
   --soft-brand-bg: var(--color-primary-subtle);
   --neon: var(--color-primary);
   --sidebar-bg: #0B0F12;
