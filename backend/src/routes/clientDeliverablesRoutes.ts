@@ -5,6 +5,7 @@ import {
   createClientDeliverable,
   updateClientDeliverable,
   logDeliveredItem,
+  updateDeliveredItem,
   deleteDeliveredItem,
   copyMonthTargets,
   deleteClientDeliverable,
@@ -31,9 +32,10 @@ router.put('/client-deliverables/:id/?', requirePermission('client_deliverables'
 router.patch('/client-deliverables/:id/?', requirePermission('client_deliverables', 'canEdit'), updateClientDeliverable);
 router.delete('/client-deliverables/:id/?', requirePermission('client_deliverables', 'canDelete'), deleteClientDeliverable);
 
-// Logging individual delivered deliverables with post reference URL
+// Logging and updating individual delivered deliverables with post reference URL
 router.post('/client-deliverables/:id/log-item/?', requirePermission('client_deliverables', 'canEdit'), logDeliveredItem);
 router.patch('/client-deliverables/:id/log-item/?', requirePermission('client_deliverables', 'canEdit'), logDeliveredItem);
+router.patch('/client-deliverables/:id/items/:itemId/?', requirePermission('client_deliverables', 'canEdit'), updateDeliveredItem);
 router.delete('/client-deliverables/:id/items/:itemId/?', requirePermission('client_deliverables', 'canEdit'), deleteDeliveredItem);
 
 export default router;

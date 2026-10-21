@@ -130,11 +130,34 @@ export async function applyTaskApproval(task: IWorkAssignment): Promise<void> {
     tracker.posters.pending = Math.max(0, (tracker.posters.target || 0) - tracker.posters.delivered);
   }
 
+  // Auto-extract any link or attachment URL from the task
+  let detectedUrl = '';
+  if (task.attachments && Array.isArray(task.attachments) && task.attachments.length > 0) {
+    const lastAtt = task.attachments[task.attachments.length - 1];
+    if (lastAtt && lastAtt.url && lastAtt.url !== '#' && lastAtt.url.startsWith('http')) {
+      detectedUrl = lastAtt.url;
+    }
+  }
+
+  if (!detectedUrl && task.description) {
+    const urlMatch = task.description.match(/https?:\/\/[^\s<>"')]+/i);
+    if (urlMatch) {
+      detectedUrl = urlMatch[0];
+    }
+  }
+
+  if (!detectedUrl && task.reviewNote) {
+    const urlMatch = task.reviewNote.match(/https?:\/\/[^\s<>"')]+/i);
+    if (urlMatch) {
+      detectedUrl = urlMatch[0];
+    }
+  }
+
   tracker.deliveredItems.push({
     id: crypto.randomUUID(),
     deliverableType: type,
     title: task.title || 'Completed Task',
-    postUrl: '',
+    postUrl: detectedUrl,
     publishedDate: date,
     notes: `Auto-logged via Task Approval: ${task.title} (${task.unit || 'task'})`,
     sourceTaskId: task._id as mongoose.Types.ObjectId,

@@ -464,6 +464,41 @@ export async function deleteDeliveredItem(req: Request, res: Response): Promise<
 }
 
 /**
+ * PATCH /api/client-deliverables/:id/items/:itemId
+ * Update post URL, title, or notes for an existing delivered item
+ */
+export async function updateDeliveredItem(req: Request, res: Response): Promise<void> {
+  try {
+    const { id, itemId } = req.params;
+    const { postUrl, title, notes } = req.body;
+
+    const record = await ClientDeliverableTracker.findById(id);
+    if (!record) {
+      res.status(404).json({ detail: 'Deliverable tracker record not found' });
+      return;
+    }
+
+    const item = record.deliveredItems.find((i) => i.id === itemId);
+    if (!item) {
+      res.status(404).json({ detail: 'Delivered item not found' });
+      return;
+    }
+
+    if (postUrl !== undefined) item.postUrl = String(postUrl).trim();
+    if (title !== undefined) item.title = String(title).trim();
+    if (notes !== undefined) item.notes = String(notes).trim();
+
+    record.updatedBy = req.user?._id as any;
+    await record.save();
+
+    res.json({ success: true, item, record });
+  } catch (err: any) {
+    console.error('[ClientDeliverables] Error updating delivered item:', err);
+    res.status(500).json({ detail: err.message || 'Failed to update delivered item' });
+  }
+}
+
+/**
  * POST /api/client-deliverables/copy-month
  * Copy all client targets from one month to another with 1 click
  */

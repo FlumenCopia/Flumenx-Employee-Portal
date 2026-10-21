@@ -116,6 +116,9 @@ export function ClientDeliverablesPage() {
   // Drawer / Modal 3: View Reference Links
   const [linksDrawerOpen, setLinksDrawerOpen] = useState(false);
   const [activeTrackerForLinks, setActiveTrackerForLinks] = useState<ClientDeliverableTracker | null>(null);
+  const [editingUrlItemId, setEditingUrlItemId] = useState<string | null>(null);
+  const [urlEditInput, setUrlEditInput] = useState("");
+  const [savingUrl, setSavingUrl] = useState(false);
 
   // Modal 4: Copy Targets From Previous Month
   const [copyModalOpen, setCopyModalOpen] = useState(false);
@@ -377,6 +380,44 @@ export function ClientDeliverablesPage() {
       loadDeliverables();
     } catch (err: any) {
       toast.error(err.message || "Failed to remove item");
+    }
+  };
+
+  // Save / Update URL for an individual delivered item
+  const handleSaveItemUrl = async (itemId: string) => {
+    if (!activeTrackerForLinks) return;
+    setSavingUrl(true);
+    try {
+      await api(`/client-deliverables/${activeTrackerForLinks._id}/items/${itemId}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ postUrl: urlEditInput.trim() }),
+      });
+      // Update local drawer state
+      const updated = {
+        ...activeTrackerForLinks,
+        deliveredItems: activeTrackerForLinks.deliveredItems.map((i) =>
+          i.id === itemId ? { ...i, postUrl: urlEditInput.trim() } : i
+        ),
+      };
+      setActiveTrackerForLinks(updated);
+      setRecords((prev) =>
+        prev.map((r) =>
+          r._id === activeTrackerForLinks._id
+            ? {
+                ...r,
+                deliveredItems: r.deliveredItems.map((i) =>
+                  i.id === itemId ? { ...i, postUrl: urlEditInput.trim() } : i
+                ),
+              }
+            : r
+        )
+      );
+      toast.success("Post URL updated successfully!");
+      setEditingUrlItemId(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update URL");
+    } finally {
+      setSavingUrl(false);
     }
   };
 
@@ -1922,27 +1963,119 @@ export function ClientDeliverablesPage() {
                             </>
                           )}
                         </div>
-                        {item.postUrl ? (
-                          <div style={{ marginTop: "4px" }}>
-                            <a
-                              href={item.postUrl}
-                              target="_blank"
-                              rel="noreferrer"
+                        {editingUrlItemId === item.id ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "6px", flexWrap: "wrap" }}>
+                            <input
+                              type="url"
+                              value={urlEditInput}
+                              onChange={(e) => setUrlEditInput(e.target.value)}
+                              placeholder="Paste post link (e.g. https://instagram.com/p/...)"
                               style={{
-                                color: "#087A5B",
+                                padding: "4px 8px",
                                 fontSize: "11px",
+                                borderRadius: "4px",
+                                border: "1px solid #087A5B",
+                                minWidth: "240px",
+                              }}
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveItemUrl(item.id)}
+                              disabled={savingUrl}
+                              style={{
+                                padding: "4px 8px",
+                                fontSize: "11px",
+                                borderRadius: "4px",
+                                background: "#087A5B",
+                                color: "#fff",
+                                border: "none",
+                                cursor: "pointer",
                                 fontWeight: 600,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "4px",
-                                wordBreak: "break-all",
                               }}
                             >
-                              <ExternalLink size={11} /> {item.postUrl}
-                            </a>
+                              {savingUrl ? "Saving..." : "Save"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingUrlItemId(null)}
+                              style={{
+                                padding: "4px 8px",
+                                fontSize: "11px",
+                                borderRadius: "4px",
+                                background: "#F1F5F9",
+                                border: "1px solid #CBD5E1",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Cancel
+                            </button>
                           </div>
                         ) : (
-                          <span style={{ fontSize: "11px", color: "var(--muted)", fontStyle: "italic" }}>No URL attached</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+                            {item.postUrl ? (
+                              <>
+                                <a
+                                  href={item.postUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{
+                                    color: "#087A5B",
+                                    fontSize: "11px",
+                                    fontWeight: 600,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    wordBreak: "break-all",
+                                  }}
+                                >
+                                  <ExternalLink size={11} /> {item.postUrl}
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingUrlItemId(item.id);
+                                    setUrlEditInput(item.postUrl || "");
+                                  }}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "var(--muted)",
+                                    fontSize: "11px",
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                    padding: 0,
+                                  }}
+                                  title="Edit URL"
+                                >
+                                  edit
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingUrlItemId(item.id);
+                                  setUrlEditInput("");
+                                }}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  padding: "3px 8px",
+                                  fontSize: "11px",
+                                  fontWeight: 600,
+                                  borderRadius: "4px",
+                                  background: "rgba(8, 122, 91, 0.08)",
+                                  color: "#087A5B",
+                                  border: "1px solid rgba(8, 122, 91, 0.25)",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <Plus size={11} /> Attach Post Link
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
