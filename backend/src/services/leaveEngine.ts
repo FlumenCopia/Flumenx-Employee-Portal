@@ -2,8 +2,15 @@ import mongoose from 'mongoose';
 import { Employee } from '../models/Employee.js';
 import { LeaveLedger } from '../models/LeaveLedger.js';
 import { LeaveRequest } from '../models/LeaveRequest.js';
+import { CompanyHoliday } from '../models/CompanyHoliday.js';
 import { PayrollSetting } from '../models/PayrollSetting.js';
-import { getAttendanceCycleForMonth, getAttendanceCycleForDate, AttendanceCycleInfo } from '../utils/tzUtils.js';
+import {
+  getAttendanceCycleForMonth,
+  getAttendanceCycleForDate,
+  AttendanceCycleInfo,
+  getISTDateString,
+  getCompanyStartOfDay,
+} from '../utils/tzUtils.js';
 
 export interface EmployeeLeaveBalanceSummary {
   employeeId: string;
@@ -18,6 +25,103 @@ export interface EmployeeLeaveBalanceSummary {
   cyclePeriod?: string;
   cycleMonth?: number;
   cycleYear?: number;
+}
+
+/**
+ * Calculates net working leave days between two dates in Asia/Kolkata timezone.
+ * Strictly excludes:
+ * 1. Sundays (standard weekly offs).
+ * 2. Official Company Holidays (CompanyHoliday where isActive !== false).
+ */
+export async function calculateWorkingLeaveDays(
+  startDateInput: Date | string,
+  endDateInput: Date | string,
+  isHalfDay: boolean = false
+): Promise<{
+  workingDays: number;
+  totalCalendarDays: number;
+  sundaysCount: number;
+  holidaysCount: number;
+  excludedDates: string[];
+}> {
+  if (isHalfDay) {
+    return {
+      workingDays: 0.5,
+      totalCalendarDays: 1,
+      sundaysCount: 0,
+      holidaysCount: 0,
+      excludedDates: [],
+    };
+  }
+
+  const sDate = typeof startDateInput === 'string' ? getCompanyStartOfDay(startDateInput) : new Date(startDateInput);
+  const eDate = typeof endDateInput === 'string' ? getCompanyStartOfDay(endDateInput) : new Date(endDateInput);
+
+  if (isNaN(sDate.getTime()) || isNaN(eDate.getTime()) || sDate > eDate) {
+    return {
+      workingDays: 0,
+      totalCalendarDays: 0,
+      sundaysCount: 0,
+      holidaysCount: 0,
+      excludedDates: [],
+    };
+  }
+
+  const startStr = getISTDateString(sDate);
+  const endStr = getISTDateString(eDate);
+
+  // Fetch active company holidays in date range
+  const holidays = await CompanyHoliday.find({
+    isActive: { $ne: false },
+    $or: [
+      { date: { $gte: sDate, $lte: new Date(eDate.getTime() + 24 * 3600 * 1000) } },
+      { dateStr: { $gte: startStr, $lte: endStr } },
+    ],
+  });
+
+  const holidayDateMap = new Map<string, string>();
+  holidays.forEach((h) => {
+    const dKey = h.dateStr || (h.date ? getISTDateString(h.date) : null);
+    if (dKey) holidayDateMap.set(dKey, h.name || 'Holiday');
+  });
+
+  let workingDays = 0;
+  let totalCalendarDays = 0;
+  let sundaysCount = 0;
+  let holidaysCount = 0;
+  const excludedDates: string[] = [];
+
+  let cur = new Date(sDate.getTime());
+  const endTime = eDate.getTime();
+
+  while (cur.getTime() <= endTime) {
+    totalCalendarDays++;
+    const dStr = getISTDateString(cur);
+    const dayOfWeek = cur.getDay(); // 0 is Sunday in JS
+
+    const isSunday = dayOfWeek === 0;
+    const isHoliday = holidayDateMap.has(dStr);
+
+    if (isSunday) {
+      sundaysCount++;
+      excludedDates.push(`${dStr} (Sunday)`);
+    } else if (isHoliday) {
+      holidaysCount++;
+      excludedDates.push(`${dStr} (${holidayDateMap.get(dStr)})`);
+    } else {
+      workingDays++;
+    }
+
+    cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
+  }
+
+  return {
+    workingDays,
+    totalCalendarDays,
+    sundaysCount,
+    holidaysCount,
+    excludedDates,
+  };
 }
 
 /**
@@ -137,8 +241,8 @@ export async function getEmployeeLeaveBalance(
         if (lStart >= cycleStart && lEnd <= cycleEnd && typeof l.daysCount === 'number' && l.daysCount > 0) {
           availedThisMonth += l.daysCount;
         } else {
-          const days = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 3600 * 24)) + 1;
-          availedThisMonth += Math.max(0, days);
+          const workingInfo = await calculateWorkingLeaveDays(effectiveStart, effectiveEnd, false);
+          availedThisMonth += workingInfo.workingDays;
         }
       }
     }

@@ -39,6 +39,15 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   const [employees, setEmployees] = useState<any[]>([]);
   const [isHalfDay, setIsHalfDay] = useState(false);
   const [halfDayPeriod, setHalfDayPeriod] = useState<"First Half" | "Second Half">("First Half");
+  const [modalStartDate, setModalStartDate] = useState("");
+  const [modalEndDate, setModalEndDate] = useState("");
+  const [dayEstimate, setDayEstimate] = useState<{
+    workingDays: number;
+    totalCalendarDays: number;
+    sundaysCount: number;
+    holidaysCount: number;
+    excludedDates: string[];
+  } | null>(null);
   const [balances, setBalances] = useState<{
     totalPaidLeaveBalance: number;
     sickLeaveBalance: number;
@@ -175,6 +184,65 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   };
 
   useEffect(() => { loadLeaves(); }, [page]);
+
+  useEffect(() => {
+    if (!modal) {
+      setModalStartDate("");
+      setModalEndDate("");
+      setDayEstimate(null);
+      return;
+    }
+    if (isHalfDay) {
+      setDayEstimate(null);
+      return;
+    }
+    if (!modalStartDate) {
+      setDayEstimate(null);
+      return;
+    }
+    const end = modalEndDate || modalStartDate;
+    if (modalStartDate > end) {
+      setDayEstimate(null);
+      return;
+    }
+
+    let cancel = false;
+    api<{
+      workingDays: number;
+      totalCalendarDays: number;
+      sundaysCount: number;
+      holidaysCount: number;
+      excludedDates: string[];
+    }>(`/leaves/calculate-days/?start_date=${modalStartDate}&end_date=${end}&is_half_day=false`)
+      .then((res) => {
+        if (!cancel) setDayEstimate(res);
+      })
+      .catch(() => {
+        if (cancel) return;
+        let cur = new Date(modalStartDate);
+        const e = new Date(end);
+        let wk = 0;
+        let sun = 0;
+        let tot = 0;
+        while (cur <= e) {
+          tot++;
+          if (cur.getDay() === 0) sun++;
+          else wk++;
+          cur.setDate(cur.getDate() + 1);
+        }
+        setDayEstimate({
+          workingDays: wk,
+          totalCalendarDays: tot,
+          sundaysCount: sun,
+          holidaysCount: 0,
+          excludedDates: [],
+        });
+      });
+
+    return () => {
+      cancel = true;
+    };
+  }, [modal, modalStartDate, modalEndDate, isHalfDay]);
 
   async function decide(id: number, status: "Approved" | "Rejected" | "Pending") {
     if (decisionPendingId !== null) return;
@@ -764,16 +832,82 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
               </div>
             </>
           ) : (
-            <div className="two-col">
-              <label>
-                From
-                <input name="start_date" type="date" required />
-              </label>
-              <label>
-                To
-                <input name="end_date" type="date" required />
-              </label>
-            </div>
+            <>
+              <div className="two-col">
+                <label>
+                  From
+                  <input
+                    name="start_date"
+                    type="date"
+                    value={modalStartDate}
+                    onChange={(e) => setModalStartDate(e.target.value)}
+                    required
+                  />
+                </label>
+                <label>
+                  To
+                  <input
+                    name="end_date"
+                    type="date"
+                    value={modalEndDate}
+                    onChange={(e) => setModalEndDate(e.target.value)}
+                    required
+                  />
+                </label>
+              </div>
+              {dayEstimate && (
+                <div
+                  style={{
+                    background:
+                      dayEstimate.sundaysCount > 0 || dayEstimate.holidaysCount > 0
+                        ? "rgba(16, 185, 129, 0.08)"
+                        : "rgba(37, 99, 235, 0.06)",
+                    border:
+                      dayEstimate.sundaysCount > 0 || dayEstimate.holidaysCount > 0
+                        ? "1px solid rgba(16, 185, 129, 0.25)"
+                        : "1px solid rgba(37, 99, 235, 0.2)",
+                    padding: "10px 14px",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    color: "var(--foreground)",
+                    lineHeight: "1.5",
+                    marginBottom: "8px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom:
+                        dayEstimate.sundaysCount > 0 || dayEstimate.holidaysCount > 0 ? "4px" : "0",
+                    }}
+                  >
+                    <span>
+                      📅 <strong>Duration:</strong> {dayEstimate.workingDays} Working Day
+                      {dayEstimate.workingDays === 1 ? "" : "s"}
+                    </span>
+                    <span style={{ fontSize: "11px", color: "var(--muted)" }}>
+                      ({dayEstimate.totalCalendarDays} calendar day
+                      {dayEstimate.totalCalendarDays === 1 ? "" : "s"})
+                    </span>
+                  </div>
+                  {(dayEstimate.sundaysCount > 0 || dayEstimate.holidaysCount > 0) && (
+                    <div style={{ color: "#065f46", fontSize: "11px", fontWeight: 600 }}>
+                      ✨ Automatically excluded:{" "}
+                      {dayEstimate.sundaysCount > 0
+                        ? `${dayEstimate.sundaysCount} Sunday(s)`
+                        : ""}
+                      {dayEstimate.sundaysCount > 0 && dayEstimate.holidaysCount > 0 ? " & " : ""}
+                      {dayEstimate.holidaysCount > 0
+                        ? `${dayEstimate.holidaysCount} Holiday(s)`
+                        : ""}
+                      . Sundays and official company holidays are not deducted from your leave quota!
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           <label>

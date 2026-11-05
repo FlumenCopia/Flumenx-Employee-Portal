@@ -4,7 +4,7 @@ import { LeaveRequest } from '../models/LeaveRequest.js';
 import { Employee } from '../models/Employee.js';
 import { LeaveLedger } from '../models/LeaveLedger.js';
 import { AuditLog } from '../models/AuditLog.js';
-import { getEmployeeLeaveBalance } from '../services/leaveEngine.js';
+import { getEmployeeLeaveBalance, calculateWorkingLeaveDays } from '../services/leaveEngine.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { getRoleDataScope } from '../services/scopeResolver.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
@@ -116,9 +116,16 @@ export async function createLeave(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const daysCount = isHalfDayBool
-    ? 0.5
-    : Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24)) + 1;
+  // Calculate working days strictly excluding Sundays and official company holidays
+  const workingDaysInfo = await calculateWorkingLeaveDays(startDate, endDate, isHalfDayBool);
+  const daysCount = workingDaysInfo.workingDays;
+
+  if (daysCount <= 0 && !isHalfDayBool) {
+    res.status(400).json({
+      detail: `The selected date range (${workingDaysInfo.excludedDates.join(', ')}) contains only Sundays or company holidays. No leave deduction is required.`
+    });
+    return;
+  }
 
   if (empId) {
     const targetEmp = await Employee.findById(empId);
@@ -552,6 +559,25 @@ export async function setCarryForwardBalance(req: Request, res: Response): Promi
     });
   } catch (error: any) {
     res.status(500).json({ detail: error.message || 'Failed to update leave balances.' });
+  }
+}
+
+export async function calculateLeaveDays(req: Request, res: Response): Promise<void> {
+  try {
+    const { start_date, end_date, is_half_day } = req.query;
+    if (!start_date) {
+      res.status(400).json({ detail: 'start_date is required.' });
+      return;
+    }
+    const isHalf = is_half_day === 'true' || is_half_day === '1';
+    const result = await calculateWorkingLeaveDays(
+      start_date as string,
+      (end_date as string) || (start_date as string),
+      isHalf
+    );
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message || 'Error calculating working leave days.' });
   }
 }
 
