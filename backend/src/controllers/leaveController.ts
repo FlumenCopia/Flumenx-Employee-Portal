@@ -252,39 +252,55 @@ export async function updateLeave(req: Request, res: Response): Promise<void> {
   if (status === 'Approved' && previousStatus !== 'Approved' && emp) {
     if (['Sick', 'Casual', 'Annual'].includes(leave.leaveType) && emp.employmentStatus === 'Permanent') {
       const deductQuantity = leave.daysCount || (leave.isHalfDay ? 0.5 : 1.0);
-      const currentBal = await getEmployeeLeaveBalance(emp._id);
       const primaryType = leave.leaveType === 'Annual' ? 'Casual' : (leave.leaveType as 'Sick' | 'Casual');
+      const startDateStr = leave.startDate ? leave.startDate.toISOString().split('T')[0] : '';
+
+      // Purge any prior/duplicate Availed or Adjustment entries for this leave request
+      await LeaveLedger.deleteMany({
+        employee: emp._id,
+        $or: [
+          { leaveRequest: leave._id },
+          ...(startDateStr ? [
+            { transactionType: 'Availed', notes: { $regex: startDateStr } },
+            { transactionType: 'ManualAdjustment', notes: { $regex: startDateStr } },
+            { transactionType: 'ManualAdjustment', notes: { $regex: 'status changed from Approved to' } },
+          ] : []),
+        ],
+      });
+
+      const currentBal = await getEmployeeLeaveBalance(emp._id);
 
       await new LeaveLedger({
         employee: emp._id,
+        leaveRequest: leave._id,
         leaveType: primaryType,
         transactionType: 'Availed',
         quantity: -deductQuantity,
         balanceAfter: Math.max(0, currentBal.totalPaidLeaveBalance - deductQuantity),
         transactionDate: new Date(),
-        notes: `Leave availed: ${deductQuantity} day(s) ${leave.leaveType} (${leave.startDate ? leave.startDate.toISOString().split('T')[0] : ''})`,
+        notes: `Leave availed: ${deductQuantity} day(s) ${leave.leaveType} (${startDateStr})`,
         createdBy: req.user?._id || null,
       }).save();
     }
   }
 
-  // If previously approved and now unapproved/rejected: restore days to LeaveLedger
+  // If previously approved and now unapproved/rejected (reverted): restore days to LeaveLedger
   if (previousStatus === 'Approved' && status && status !== 'Approved' && emp) {
     if (['Sick', 'Casual', 'Annual'].includes(leave.leaveType) && emp.employmentStatus === 'Permanent') {
-      const restoreQuantity = leave.daysCount || (leave.isHalfDay ? 0.5 : 1.0);
-      const currentBal = await getEmployeeLeaveBalance(emp._id);
-      const primaryType = leave.leaveType === 'Annual' ? 'Casual' : (leave.leaveType as 'Sick' | 'Casual');
+      const startDateStr = leave.startDate ? leave.startDate.toISOString().split('T')[0] : '';
 
-      await new LeaveLedger({
+      // Clean up / remove any Availed or Adjustment entries associated with this leave request
+      await LeaveLedger.deleteMany({
         employee: emp._id,
-        leaveType: primaryType,
-        transactionType: 'ManualAdjustment',
-        quantity: restoreQuantity,
-        balanceAfter: currentBal.totalPaidLeaveBalance + restoreQuantity,
-        transactionDate: new Date(),
-        notes: `Leave revoked/unapproved: ${restoreQuantity} day(s) ${leave.leaveType} restored (status changed from Approved to ${status})`,
-        createdBy: req.user?._id || null,
-      }).save();
+        $or: [
+          { leaveRequest: leave._id },
+          ...(startDateStr ? [
+            { transactionType: 'Availed', notes: { $regex: startDateStr } },
+            { transactionType: 'ManualAdjustment', notes: { $regex: startDateStr } },
+            { transactionType: 'ManualAdjustment', notes: { $regex: 'status changed from Approved to' } },
+          ] : []),
+        ],
+      });
     }
   }
 
@@ -419,20 +435,18 @@ export async function deleteLeave(req: Request, res: Response): Promise<void> {
   if (leave.status === 'Approved' && leave.employee) {
     const emp = await Employee.findById(leave.employee);
     if (emp && ['Sick', 'Casual', 'Annual'].includes(leave.leaveType) && emp.employmentStatus === 'Permanent') {
-      const restoreQuantity = leave.daysCount || (leave.isHalfDay ? 0.5 : 1.0);
-      const currentBal = await getEmployeeLeaveBalance(emp._id);
-      const primaryType = leave.leaveType === 'Annual' ? 'Casual' : (leave.leaveType as 'Sick' | 'Casual');
-
-      await new LeaveLedger({
+      const startDateStr = leave.startDate ? leave.startDate.toISOString().split('T')[0] : '';
+      await LeaveLedger.deleteMany({
         employee: emp._id,
-        leaveType: primaryType,
-        transactionType: 'ManualAdjustment',
-        quantity: restoreQuantity,
-        balanceAfter: currentBal.totalPaidLeaveBalance + restoreQuantity,
-        transactionDate: new Date(),
-        notes: `Leave cancelled/deleted: ${restoreQuantity} day(s) ${leave.leaveType} restored`,
-        createdBy: req.user?._id || null,
-      }).save();
+        $or: [
+          { leaveRequest: leave._id },
+          ...(startDateStr ? [
+            { transactionType: 'Availed', notes: { $regex: startDateStr } },
+            { transactionType: 'ManualAdjustment', notes: { $regex: startDateStr } },
+            { transactionType: 'ManualAdjustment', notes: { $regex: 'status changed from Approved to' } },
+          ] : []),
+        ],
+      });
     }
   }
 
@@ -442,9 +456,9 @@ export async function deleteLeave(req: Request, res: Response): Promise<void> {
 
 export async function setCarryForwardBalance(req: Request, res: Response): Promise<void> {
   try {
-    const { employee_id, carry_forward_days, notes } = req.body;
-    if (!employee_id || carry_forward_days === undefined) {
-      res.status(400).json({ detail: 'Employee ID and carry_forward_days are required.' });
+    const { employee_id, carry_forward_days, sick_leave_balance, casual_leave_balance, notes } = req.body;
+    if (!employee_id) {
+      res.status(400).json({ detail: 'Employee ID is required.' });
       return;
     }
 
@@ -454,27 +468,68 @@ export async function setCarryForwardBalance(req: Request, res: Response): Promi
       return;
     }
 
-    if (emp.employmentStatus === 'Probation') {
+    const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+
+    if (emp.employmentStatus === 'Probation' && !isSuper && carry_forward_days !== undefined && Number(carry_forward_days) > 0) {
       res.status(400).json({ detail: 'Cannot set carry-forward leaves for employees on Probation. Only Permanent employees are eligible.' });
       return;
     }
 
-    const targetCarryForward = Math.max(0, Math.round(Number(carry_forward_days) * 10) / 10);
     const currentBal = await getEmployeeLeaveBalance(emp._id);
-    const remainingMonthQuota = Math.max(0, 2 - currentBal.availedThisMonth);
-    const targetTotalPaid = targetCarryForward + remainingMonthQuota;
-    const delta = Math.round((targetTotalPaid - currentBal.totalPaidLeaveBalance) * 10) / 10;
 
-    if (delta !== 0) {
-      await new LeaveLedger({
-        employee: emp._id,
-        leaveType: 'Casual',
-        transactionType: 'ManualAdjustment',
-        quantity: delta,
-        balanceAfter: Math.max(0, currentBal.totalPaidLeaveBalance + delta),
-        notes: notes ? String(notes).trim() : `Admin set carry forward to ${targetCarryForward} days (delta: ${delta > 0 ? '+' : ''}${delta})`,
-        createdBy: req.user?._id,
-      }).save();
+    // 1. Adjust Sick Leave Balance if explicitly provided
+    if (sick_leave_balance !== undefined && sick_leave_balance !== null && String(sick_leave_balance).trim() !== '') {
+      const targetSick = Math.max(0, Math.round(Number(sick_leave_balance) * 10) / 10);
+      const deltaSick = Math.round((targetSick - currentBal.sickLeaveBalance) * 10) / 10;
+      if (deltaSick !== 0) {
+        await new LeaveLedger({
+          employee: emp._id,
+          leaveType: 'Sick',
+          transactionType: 'ManualAdjustment',
+          quantity: deltaSick,
+          balanceAfter: Math.max(0, currentBal.sickLeaveBalance + deltaSick),
+          notes: notes ? `${notes} (Sick balance adjusted: ${deltaSick > 0 ? '+' : ''}${deltaSick})` : `Admin adjusted Sick leave balance to ${targetSick} days (delta: ${deltaSick > 0 ? '+' : ''}${deltaSick})`,
+          createdBy: req.user?._id,
+        }).save();
+      }
+    }
+
+    // 2. Adjust Casual Leave Balance if explicitly provided
+    if (casual_leave_balance !== undefined && casual_leave_balance !== null && String(casual_leave_balance).trim() !== '') {
+      const targetCasual = Math.max(0, Math.round(Number(casual_leave_balance) * 10) / 10);
+      const deltaCasual = Math.round((targetCasual - currentBal.casualLeaveBalance) * 10) / 10;
+      if (deltaCasual !== 0) {
+        await new LeaveLedger({
+          employee: emp._id,
+          leaveType: 'Casual',
+          transactionType: 'ManualAdjustment',
+          quantity: deltaCasual,
+          balanceAfter: Math.max(0, currentBal.casualLeaveBalance + deltaCasual),
+          notes: notes ? `${notes} (Casual balance adjusted: ${deltaCasual > 0 ? '+' : ''}${deltaCasual})` : `Admin adjusted Casual leave balance to ${targetCasual} days (delta: ${deltaCasual > 0 ? '+' : ''}${deltaCasual})`,
+          createdBy: req.user?._id,
+        }).save();
+      }
+    }
+
+    // 3. Adjust Carry Forward Days if explicitly provided
+    if (carry_forward_days !== undefined && carry_forward_days !== null && String(carry_forward_days).trim() !== '') {
+      const targetCarryForward = Math.max(0, Math.round(Number(carry_forward_days) * 10) / 10);
+      const midBal = await getEmployeeLeaveBalance(emp._id);
+      const remainingMonthQuota = Math.max(0, 2 - midBal.availedThisMonth);
+      const targetTotalPaid = targetCarryForward + remainingMonthQuota;
+      const delta = Math.round((targetTotalPaid - midBal.totalPaidLeaveBalance) * 10) / 10;
+
+      if (delta !== 0) {
+        await new LeaveLedger({
+          employee: emp._id,
+          leaveType: 'Casual',
+          transactionType: 'ManualAdjustment',
+          quantity: delta,
+          balanceAfter: Math.max(0, midBal.totalPaidLeaveBalance + delta),
+          notes: notes ? String(notes).trim() : `Admin set carry forward to ${targetCarryForward} days (delta: ${delta > 0 ? '+' : ''}${delta})`,
+          createdBy: req.user?._id,
+        }).save();
+      }
     }
 
     const updatedBal = await getEmployeeLeaveBalance(emp._id);
@@ -482,18 +537,18 @@ export async function setCarryForwardBalance(req: Request, res: Response): Promi
     try {
       await AuditLog.create({
         user: req.user?._id,
-        action: 'UPDATE_CARRY_FORWARD',
+        action: 'UPDATE_LEAVE_BALANCES',
         module: 'LEAVES',
-        details: `Updated carry forward for ${emp.name} (${emp.employeeCode}) to ${targetCarryForward} days (prev: ${currentBal.carriedForwardBalance})`,
+        details: `Updated leave balances for ${emp.name} (${emp.employeeCode}): Sick=${updatedBal.sickLeaveBalance}, Casual=${updatedBal.casualLeaveBalance}, CarryForward=${updatedBal.carriedForwardBalance}, TotalPaid=${updatedBal.totalPaidLeaveBalance}`,
       });
     } catch (err) {}
 
     res.json({
-      message: `Carry forward balance for ${emp.name} successfully set to ${targetCarryForward} days`,
+      message: `Leave balances for ${emp.name} successfully updated.`,
       balance: updatedBal,
     });
   } catch (error: any) {
-    res.status(500).json({ detail: error.message || 'Failed to update carry forward balance.' });
+    res.status(500).json({ detail: error.message || 'Failed to update leave balances.' });
   }
 }
 

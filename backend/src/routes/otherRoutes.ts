@@ -38,6 +38,7 @@ router.get('/dashboard/?', getDashboardStats);
 router.get('/leaves/?', requirePermission('leaves', 'canView'), getLeaves);
 router.get('/leaves/balances/?', requirePermission('leaves', 'canView'), getLeaveBalances);
 router.post('/leaves/carry-forward/set/?', requirePermission('leaves', 'canEdit'), setCarryForwardBalance);
+router.post('/leaves/adjust-balance/?', requirePermission('leaves', 'canEdit'), setCarryForwardBalance);
 router.post('/leaves/?', requirePermission('leaves', 'canCreate'), createLeave);
 router.put('/leaves/:id/?', requirePermission('leaves', 'canEdit'), updateLeave);
 router.patch('/leaves/:id/?', requirePermission('leaves', 'canEdit'), updateLeave);

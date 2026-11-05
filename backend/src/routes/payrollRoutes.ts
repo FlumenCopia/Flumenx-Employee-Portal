@@ -24,6 +24,7 @@ import {
   exportPayrollCSV,
   getPayrollSettings,
   updatePayrollSettings,
+  adjustPayrollRecord,
 } from '../controllers/payrollController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { requirePermission } from '../middleware/rbac.js';
@@ -66,5 +67,7 @@ router.post('/payroll/:id/approve/?', requirePermission('salary_slips', 'canEdit
 router.post('/payroll/:id/pay/?', requirePermission('salary_slips', 'canEdit'), markPaidPayrollRecord);
 router.post('/payroll/:id/unlock/?', requirePermission('salary_slips', 'canEdit'), reopenPayrollRecord);
 router.post('/payroll/:id/reopen/?', requirePermission('salary_slips', 'canEdit'), reopenPayrollRecord);
+router.post('/payroll/:id/adjust/?', requirePermission('salary_slips', 'canEdit'), adjustPayrollRecord);
+router.patch('/payroll/:id/adjust/?', requirePermission('salary_slips', 'canEdit'), adjustPayrollRecord);
 
 export default router;

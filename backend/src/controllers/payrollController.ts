@@ -41,14 +41,22 @@ export async function getPayrollRecords(req: Request, res: Response): Promise<vo
   }
 
   const records = await PayrollRecord.find(filter)
-    .populate('employee', 'name employeeCode department designation employmentStatus')
+    .populate('employee', 'name employeeCode department designation employmentStatus status')
     .populate('calculatedBy', 'username')
     .populate('approvedBy', 'username')
     .sort({ year: -1, month: -1, createdAt: -1 });
 
+  // Exclude unapproved/draft records of Inactive employees from processing
+  const visibleRecords = records.filter((r) => {
+    const emp = r.employee as any;
+    if (!emp) return false;
+    if (emp.status === 'Inactive' && r.status === 'Calculated') return false;
+    return true;
+  });
+
   res.json({
-    count: records.length,
-    results: records,
+    count: visibleRecords.length,
+    results: visibleRecords,
   });
 }
 
@@ -102,6 +110,11 @@ export async function calculateEmployeePayrollPreview(req: Request, res: Respons
     return;
   }
 
+  if (emp.status === 'Inactive') {
+    res.status(400).json({ detail: `Employee ${emp.name} is Inactive and cannot be processed for salary.` });
+    return;
+  }
+
   const structure = await EmployeeSalaryStructure.findOne({ employee: emp._id, isActive: true });
   if (!structure) {
     res.status(400).json({ detail: `Salary structure not configured for employee ${emp.name} (${emp.employeeCode}). Please configure salary structure first.` });
@@ -110,6 +123,13 @@ export async function calculateEmployeePayrollPreview(req: Request, res: Respons
 
   const cycle = getAttendanceCycleForMonth(y, m);
   const attendance = await calculateAttendanceForCycle(emp._id as any, cycle);
+
+  const hasAttendanceThisMonth = attendance.presentDays > 0 || attendance.halfDays > 0 || attendance.paidLeaveDays > 0;
+  if (!hasAttendanceThisMonth) {
+    res.status(400).json({ detail: `Employee ${emp.name} has no attendance records or approved paid leaves for ${cycle.cycleName} and cannot be processed for salary.` });
+    return;
+  }
+
   const calculation = await computePayroll(structure, attendance, m, y);
 
   res.json({
@@ -137,7 +157,8 @@ export async function processPayrollCycleHandler(req: Request, res: Response): P
   const y = parseInt(year, 10);
   const cycle = getAttendanceCycleForMonth(y, m);
 
-  let empQuery: any = { status: { $ne: 'Inactive' } };
+  // Inactive employees are strictly excluded from salary processes
+  let empQuery: any = { status: 'Active' };
   if (department && department !== 'All' && department !== 'all') {
     empQuery.department = department;
   }
@@ -150,9 +171,12 @@ export async function processPayrollCycleHandler(req: Request, res: Response): P
 
   const processedRecords: any[] = [];
   const errors: any[] = [];
+  const skippedNoAttendance: any[] = [];
 
   for (const emp of employees) {
     try {
+      if (emp.status === 'Inactive') continue;
+
       const structure = await EmployeeSalaryStructure.findOne({ employee: emp._id, isActive: true });
       if (!structure) {
         errors.push({ employee: emp.name, code: emp.employeeCode, reason: 'Missing salary structure' });
@@ -167,6 +191,18 @@ export async function processPayrollCycleHandler(req: Request, res: Response): P
       }
 
       const attendance = await calculateAttendanceForCycle(emp._id as any, cycle);
+
+      // CRITICAL RULE: If employee has NO attendance in the salary month (zero check-ins, zero half days, and zero approved paid leaves), DO NOT calculate salary!
+      const hasAttendanceThisMonth = attendance.presentDays > 0 || attendance.halfDays > 0 || attendance.paidLeaveDays > 0;
+      if (!hasAttendanceThisMonth) {
+        // Clean up any stale draft record for an employee who has 0 attendance
+        if (existing && existing.status === 'Calculated') {
+          await PayrollRecord.findByIdAndDelete(existing._id);
+        }
+        skippedNoAttendance.push({ employee: emp.name, code: emp.employeeCode, reason: 'Zero attendance in cycle' });
+        continue;
+      }
+
       const calc = await computePayroll(structure, attendance, m, y);
 
       if (existing) {
@@ -296,6 +332,11 @@ export async function reprocessEmployeePayrollRecord(req: Request, res: Response
   }
 
   const emp = record.employee as any;
+  if (!emp || emp.status === 'Inactive') {
+    res.status(400).json({ detail: `Employee is Inactive and cannot be processed for salary.` });
+    return;
+  }
+
   const structure = await EmployeeSalaryStructure.findOne({ employee: emp._id, isActive: true });
   if (!structure) {
     res.status(400).json({ detail: `No active salary structure found for employee ${emp.name}` });
@@ -304,6 +345,13 @@ export async function reprocessEmployeePayrollRecord(req: Request, res: Response
 
   const cycle = getAttendanceCycleForMonth(record.year, record.month);
   const attendance = await calculateAttendanceForCycle(emp._id, cycle);
+
+  const hasAttendanceThisMonth = attendance.presentDays > 0 || attendance.halfDays > 0 || attendance.paidLeaveDays > 0;
+  if (!hasAttendanceThisMonth) {
+    res.status(400).json({ detail: `Employee ${emp.name} has no attendance records or approved paid leaves for ${cycle.cycleName}. Salary cannot be computed.` });
+    return;
+  }
+
   const calc = await computePayroll(structure, attendance, record.month, record.year);
 
   const prevNet = record.netSalary;
@@ -768,4 +816,61 @@ export async function updatePayrollSettings(req: Request, res: Response): Promis
     res.status(500).json({ detail: err.message || 'Failed to update payroll settings.' });
   }
 }
+
+export async function adjustPayrollRecord(req: Request, res: Response): Promise<void> {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    res.status(400).json({ detail: 'Invalid payroll ID format.' });
+    return;
+  }
+
+  const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+  if (!isSuper) {
+    res.status(403).json({ detail: 'Only Super Admin can manually adjust payroll records.' });
+    return;
+  }
+
+  const record = await PayrollRecord.findById(id).populate('employee', 'name employeeCode');
+  if (!record) {
+    res.status(404).json({ detail: 'Payroll record not found.' });
+    return;
+  }
+
+  const {
+    net_salary,
+    gross_salary,
+    attendance_deduction,
+    tds,
+    professional_tax,
+    notes,
+  } = req.body;
+
+  if (net_salary !== undefined) record.netSalary = Math.round(Number(net_salary) * 100) / 100;
+  if (gross_salary !== undefined) record.grossSalary = Math.round(Number(gross_salary) * 100) / 100;
+  if (attendance_deduction !== undefined) record.attendanceDeduction = Math.round(Number(attendance_deduction) * 100) / 100;
+  if (tds !== undefined) record.tds = Math.round(Number(tds) * 100) / 100;
+  if (professional_tax !== undefined) record.professionalTax = Math.round(Number(professional_tax) * 100) / 100;
+
+  if (notes) {
+    (record as any).adminNotes = String(notes).trim();
+  }
+
+  await record.save();
+
+  try {
+    await AuditLog.create({
+      user: req.user?._id,
+      action: 'ADJUST_PAYROLL_RECORD',
+      module: 'PAYROLL',
+      details: `Super Admin manually adjusted payroll for ${(record.employee as any)?.name} - New Net: ₹${record.netSalary}, Gross: ₹${record.grossSalary}`,
+    });
+  } catch (err) {}
+
+  res.json({
+    message: `Payroll record for ${(record.employee as any)?.name} successfully adjusted.`,
+    record,
+  });
+}
+
 

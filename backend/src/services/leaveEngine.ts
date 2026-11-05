@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { Employee } from '../models/Employee.js';
 import { LeaveLedger } from '../models/LeaveLedger.js';
+import { LeaveRequest } from '../models/LeaveRequest.js';
 import { PayrollSetting } from '../models/PayrollSetting.js';
 
 export interface EmployeeLeaveBalanceSummary {
@@ -51,15 +52,43 @@ export async function getEmployeeLeaveBalance(
     };
   }
 
-  const transactions = await LeaveLedger.find({ employee: employeeId }).sort({ transactionDate: 1 });
+  let transactions = await LeaveLedger.find({ employee: employeeId }).sort({ transactionDate: 1 });
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
 
+  // If permanent employee has no ledger records, auto-seed 1 Sick + 1 Casual opening balance
+  if (emp.employmentStatus === 'Permanent' && transactions.length === 0) {
+    const joinYear = emp.joiningDate ? new Date(emp.joiningDate).getFullYear() : currentYear;
+    const joinMonth = emp.joiningDate ? new Date(emp.joiningDate).getMonth() + 1 : currentMonth;
+
+    const opSick = new LeaveLedger({
+      employee: employeeId,
+      leaveType: 'Sick',
+      transactionType: 'OpeningBalance',
+      quantity: 1,
+      balanceAfter: 1,
+      earnedMonth: joinMonth,
+      earnedYear: joinYear,
+      notes: 'Initial monthly sick leave balance (Auto-initialized)',
+    });
+    const opCasual = new LeaveLedger({
+      employee: employeeId,
+      leaveType: 'Casual',
+      transactionType: 'OpeningBalance',
+      quantity: 1,
+      balanceAfter: 1,
+      earnedMonth: joinMonth,
+      earnedYear: joinYear,
+      notes: 'Initial monthly casual leave balance (Auto-initialized)',
+    });
+    await Promise.all([opSick.save(), opCasual.save()]);
+    transactions = [opSick, opCasual];
+  }
+
   let sick = 0;
   let casual = 0;
-  let availedThisMonth = 0;
   let convertedToSalary = 0;
 
   transactions.forEach((tx) => {
@@ -69,14 +98,36 @@ export async function getEmployeeLeaveBalance(
     if (tx.transactionType === 'ConversionToSalary') {
       convertedToSalary += Math.abs(tx.quantity);
     }
+  });
 
-    if (tx.transactionType === 'Availed') {
-      const txDate = new Date(tx.transactionDate);
-      if (txDate.getMonth() + 1 === currentMonth && txDate.getFullYear() === currentYear) {
-        availedThisMonth += Math.abs(tx.quantity);
+  // Calculate actual approved paid leaves taken in the current calendar month
+  const startOfMonth = new Date(currentYear, currentMonth - 1, 1);
+  const endOfMonth = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
+
+  const approvedLeaves = await LeaveRequest.find({
+    employee: employeeId,
+    status: 'Approved',
+    leaveType: { $in: ['Sick', 'Casual', 'Annual'] },
+    startDate: { $lte: endOfMonth },
+    endDate: { $gte: startOfMonth },
+  });
+
+  let availedThisMonth = 0;
+  for (const l of approvedLeaves) {
+    const isHalf = Boolean(l.isHalfDay);
+    if (isHalf) {
+      availedThisMonth += 0.5;
+    } else {
+      const lStart = new Date(l.startDate);
+      const lEnd = new Date(l.endDate || l.startDate);
+      const effectiveStart = lStart < startOfMonth ? startOfMonth : lStart;
+      const effectiveEnd = lEnd > endOfMonth ? endOfMonth : lEnd;
+      if (effectiveStart <= effectiveEnd) {
+        const days = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 3600 * 24)) + 1;
+        availedThisMonth += Math.max(0, days);
       }
     }
-  });
+  }
 
   const totalPaid = Math.max(0, Math.round((sick + casual) * 10) / 10);
   const carriedForward = Math.max(0, Math.round((totalPaid - Math.max(0, 2 - availedThisMonth)) * 10) / 10);

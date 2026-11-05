@@ -10,6 +10,7 @@ export type LeaveLedgerTransactionType =
 
 export interface ILeaveLedger extends Document {
   employee: mongoose.Types.ObjectId;
+  leaveRequest?: mongoose.Types.ObjectId | null;
   leaveType: 'Sick' | 'Casual' | 'Annual' | 'Unpaid';
   transactionType: LeaveLedgerTransactionType;
   quantity: number; // positive for additions, negative for deductions
@@ -26,6 +27,7 @@ export interface ILeaveLedger extends Document {
 const leaveLedgerSchema = new Schema<ILeaveLedger>(
   {
     employee: { type: Schema.Types.ObjectId, ref: 'Employee', required: true, index: true },
+    leaveRequest: { type: Schema.Types.ObjectId, ref: 'LeaveRequest', default: null, index: true },
     leaveType: {
       type: String,
       enum: ['Sick', 'Casual', 'Annual', 'Unpaid'],
