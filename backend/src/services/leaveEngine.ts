@@ -97,7 +97,8 @@ export async function calculateWorkingLeaveDays(
   while (cur.getTime() <= endTime) {
     totalCalendarDays++;
     const dStr = getISTDateString(cur);
-    const dayOfWeek = cur.getDay(); // 0 is Sunday in JS
+    const [yr, mo, da] = dStr.split('-').map(Number);
+    const dayOfWeek = new Date(Date.UTC(yr, mo - 1, da, 12, 0, 0)).getUTCDay(); // 0 is Sunday in IST calendar
 
     const isSunday = dayOfWeek === 0;
     const isHoliday = holidayDateMap.has(dStr);
