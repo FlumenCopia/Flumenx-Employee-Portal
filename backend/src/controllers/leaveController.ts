@@ -250,9 +250,9 @@ export async function updateLeave(req: Request, res: Response): Promise<void> {
 
   // If approved and was not previously approved: deduct days from LeaveLedger
   if (status === 'Approved' && previousStatus !== 'Approved' && emp) {
-    if (['Sick', 'Casual', 'Annual'].includes(leave.leaveType) && emp.employmentStatus === 'Permanent') {
+    if (leave.leaveType !== 'Unpaid' && emp.employmentStatus === 'Permanent') {
       const deductQuantity = leave.daysCount || (leave.isHalfDay ? 0.5 : 1.0);
-      const primaryType = leave.leaveType === 'Annual' ? 'Casual' : (leave.leaveType as 'Sick' | 'Casual');
+      const primaryType = leave.leaveType === 'Sick' ? 'Sick' : 'Casual';
       const startDateStr = leave.startDate ? leave.startDate.toISOString().split('T')[0] : '';
 
       // Purge any prior/duplicate Availed or Adjustment entries for this leave request
@@ -286,7 +286,7 @@ export async function updateLeave(req: Request, res: Response): Promise<void> {
 
   // If previously approved and now unapproved/rejected (reverted): restore days to LeaveLedger
   if (previousStatus === 'Approved' && status && status !== 'Approved' && emp) {
-    if (['Sick', 'Casual', 'Annual'].includes(leave.leaveType) && emp.employmentStatus === 'Permanent') {
+    if (leave.leaveType !== 'Unpaid' && emp.employmentStatus === 'Permanent') {
       const startDateStr = leave.startDate ? leave.startDate.toISOString().split('T')[0] : '';
 
       // Clean up / remove any Availed or Adjustment entries associated with this leave request
@@ -367,7 +367,10 @@ export async function decideLeave(req: Request, res: Response): Promise<void> {
 }
 
 export async function getLeaveBalances(req: Request, res: Response): Promise<void> {
-  const { employee_id, all } = req.query;
+  const { employee_id, all, year, month } = req.query;
+
+  const targetYear = year ? parseInt(year as string, 10) : undefined;
+  const targetMonth = month ? parseInt(month as string, 10) : undefined;
 
   if (all === 'true') {
     const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
@@ -383,7 +386,7 @@ export async function getLeaveBalances(req: Request, res: Response): Promise<voi
     const employees = await Employee.find(filter).sort({ employeeCode: 1, name: 1 });
     const results = await Promise.all(
       employees.map(async (emp) => {
-        const bal = await getEmployeeLeaveBalance(emp._id);
+        const bal = await getEmployeeLeaveBalance(emp._id, targetYear, targetMonth);
         return {
           employee_id: emp._id,
           employee_name: emp.name,
@@ -410,7 +413,7 @@ export async function getLeaveBalances(req: Request, res: Response): Promise<voi
     return;
   }
 
-  const balance = await getEmployeeLeaveBalance(new mongoose.Types.ObjectId(targetEmpId as string));
+  const balance = await getEmployeeLeaveBalance(new mongoose.Types.ObjectId(targetEmpId as string), targetYear, targetMonth);
   res.json(balance);
 }
 
@@ -434,7 +437,7 @@ export async function deleteLeave(req: Request, res: Response): Promise<void> {
 
   if (leave.status === 'Approved' && leave.employee) {
     const emp = await Employee.findById(leave.employee);
-    if (emp && ['Sick', 'Casual', 'Annual'].includes(leave.leaveType) && emp.employmentStatus === 'Permanent') {
+    if (emp && leave.leaveType !== 'Unpaid' && emp.employmentStatus === 'Permanent') {
       const startDateStr = leave.startDate ? leave.startDate.toISOString().split('T')[0] : '';
       await LeaveLedger.deleteMany({
         employee: emp._id,

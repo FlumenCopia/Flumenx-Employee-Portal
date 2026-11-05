@@ -46,6 +46,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
     monthlyPaidQuota: number;
     availedThisMonth: number;
     carriedForwardBalance: number;
+    cyclePeriod?: string;
   } | null>(null);
 
   const [adminView, setAdminView] = useState<"requests" | "balances">("requests");
@@ -278,7 +279,7 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
       <div>
         <span>AVAILED THIS MONTH</span>
         <strong style={{ color: "#3b82f6" }}>{balances ? balances.availedThisMonth.toFixed(1) : "0.0"}</strong>
-        <small>taken this cycle</small>
+        <small>{balances?.cyclePeriod ? balances.cyclePeriod : "taken this cycle (26th-25th)"}</small>
       </div>
       <div>
         <span>{isEmployee ? "PENDING" : "PENDING REVIEW"}</span>
@@ -336,8 +337,13 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", gap: "16px", flexWrap: "wrap" }}>
-          <div style={{ fontSize: "13px", color: "var(--muted)" }}>
-            Permanent staff accrue <strong>2.0 paid leaves/month</strong> (1 Sick + 1 Casual).
+          <div style={{ fontSize: "13px", color: "var(--muted)", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <span>Permanent staff accrue <strong>2.0 paid leaves/month</strong> (1 Sick + 1 Casual).</span>
+            {allBalances[0]?.cyclePeriod && (
+              <span style={{ background: "rgba(16, 185, 129, 0.12)", color: "#065f46", padding: "3px 10px", borderRadius: "6px", fontWeight: 700, fontSize: "12px", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
+                🗓️ Cycle: {allBalances[0].cyclePeriod}
+              </span>
+            )}
           </div>
           <input
             type="text"

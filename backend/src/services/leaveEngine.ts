@@ -3,6 +3,7 @@ import { Employee } from '../models/Employee.js';
 import { LeaveLedger } from '../models/LeaveLedger.js';
 import { LeaveRequest } from '../models/LeaveRequest.js';
 import { PayrollSetting } from '../models/PayrollSetting.js';
+import { getAttendanceCycleForMonth, getAttendanceCycleForDate, AttendanceCycleInfo } from '../utils/tzUtils.js';
 
 export interface EmployeeLeaveBalanceSummary {
   employeeId: string;
@@ -14,14 +15,20 @@ export interface EmployeeLeaveBalanceSummary {
   availedThisMonth: number;
   carriedForwardBalance: number;
   convertedToSalary: number;
+  cyclePeriod?: string;
+  cycleMonth?: number;
+  cycleYear?: number;
 }
 
 /**
  * Returns current active leave balance for an employee.
+ * Follows Flumenx Company Policy: Salary and Leave cycle is evaluated from the 26th of (Month - 1) to the 25th of Month in IST.
  * Probation employees have strictly 0 paid leave balance.
  */
 export async function getEmployeeLeaveBalance(
-  employeeId: mongoose.Types.ObjectId
+  employeeId: mongoose.Types.ObjectId,
+  year?: number,
+  month?: number
 ): Promise<EmployeeLeaveBalanceSummary> {
   const emp = await Employee.findById(employeeId);
   if (!emp) {
@@ -38,6 +45,15 @@ export async function getEmployeeLeaveBalance(
     };
   }
 
+  // Company Policy: Salary and Leave cycle strictly follows the 26th of (Month - 1) to 25th of Month
+  const cycle: AttendanceCycleInfo = (year && month)
+    ? getAttendanceCycleForMonth(year, month)
+    : getAttendanceCycleForDate(new Date());
+
+  const { cycleStart, cycleEnd } = cycle;
+  const currentMonth = cycle.month;
+  const currentYear = cycle.year;
+
   if (emp.employmentStatus === 'Probation') {
     return {
       employeeId: employeeId.toString(),
@@ -49,14 +65,13 @@ export async function getEmployeeLeaveBalance(
       availedThisMonth: 0,
       carriedForwardBalance: 0,
       convertedToSalary: 0,
+      cyclePeriod: cycle.readablePeriod,
+      cycleMonth: currentMonth,
+      cycleYear: currentYear,
     };
   }
 
   let transactions = await LeaveLedger.find({ employee: employeeId }).sort({ transactionDate: 1 });
-
-  const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
 
   // If permanent employee has no ledger records, auto-seed 1 Sick + 1 Casual opening balance
   if (emp.employmentStatus === 'Permanent' && transactions.length === 0) {
@@ -100,31 +115,31 @@ export async function getEmployeeLeaveBalance(
     }
   });
 
-  // Calculate actual approved paid leaves taken in the current calendar month
-  const startOfMonth = new Date(currentYear, currentMonth - 1, 1);
-  const endOfMonth = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
-
+  // Calculate actual approved paid leaves taken in the current salary/attendance cycle (26th to 25th)
   const approvedLeaves = await LeaveRequest.find({
     employee: employeeId,
     status: 'Approved',
-    leaveType: { $in: ['Sick', 'Casual', 'Annual'] },
-    startDate: { $lte: endOfMonth },
-    endDate: { $gte: startOfMonth },
+    leaveType: { $ne: 'Unpaid' },
+    startDate: { $lte: cycleEnd },
+    endDate: { $gte: cycleStart },
   });
 
   let availedThisMonth = 0;
   for (const l of approvedLeaves) {
-    const isHalf = Boolean(l.isHalfDay);
-    if (isHalf) {
+    if (l.isHalfDay) {
       availedThisMonth += 0.5;
     } else {
       const lStart = new Date(l.startDate);
       const lEnd = new Date(l.endDate || l.startDate);
-      const effectiveStart = lStart < startOfMonth ? startOfMonth : lStart;
-      const effectiveEnd = lEnd > endOfMonth ? endOfMonth : lEnd;
+      const effectiveStart = lStart < cycleStart ? cycleStart : lStart;
+      const effectiveEnd = lEnd > cycleEnd ? cycleEnd : lEnd;
       if (effectiveStart <= effectiveEnd) {
-        const days = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 3600 * 24)) + 1;
-        availedThisMonth += Math.max(0, days);
+        if (lStart >= cycleStart && lEnd <= cycleEnd && typeof l.daysCount === 'number' && l.daysCount > 0) {
+          availedThisMonth += l.daysCount;
+        } else {
+          const days = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 3600 * 24)) + 1;
+          availedThisMonth += Math.max(0, days);
+        }
       }
     }
   }
@@ -142,6 +157,9 @@ export async function getEmployeeLeaveBalance(
     availedThisMonth: Math.round(availedThisMonth * 10) / 10,
     carriedForwardBalance: carriedForward,
     convertedToSalary: Math.round(convertedToSalary * 10) / 10,
+    cyclePeriod: cycle.readablePeriod,
+    cycleMonth: currentMonth,
+    cycleYear: currentYear,
   };
 }
 
