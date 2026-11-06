@@ -4,7 +4,7 @@ import { LeaveRequest } from '../models/LeaveRequest.js';
 import { Employee } from '../models/Employee.js';
 import { LeaveLedger } from '../models/LeaveLedger.js';
 import { AuditLog } from '../models/AuditLog.js';
-import { getEmployeeLeaveBalance, calculateWorkingLeaveDays } from '../services/leaveEngine.js';
+import { getEmployeeLeaveBalance, calculateWorkingLeaveDays, syncAllPermanentEmployeesAccruals } from '../services/leaveEngine.js';
 import { getEmployeeForUser } from '../utils/employeeResolver.js';
 import { getRoleDataScope } from '../services/scopeResolver.js';
 import { resolveUserPermissions } from '../services/permissionResolver.js';
@@ -578,6 +578,40 @@ export async function calculateLeaveDays(req: Request, res: Response): Promise<v
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ detail: err.message || 'Error calculating working leave days.' });
+  }
+}
+
+export async function runMonthlyAccruals(req: Request, res: Response): Promise<void> {
+  try {
+    const isSuper = req.user?.role === 'SUPER_ADMIN' || req.user?.isSuperuser;
+    if (!isSuper) {
+      res.status(403).json({ detail: 'Only Super Admin can execute monthly leave accruals.' });
+      return;
+    }
+
+    const { year, month } = req.body || {};
+    const parsedYear = year ? Number(year) : undefined;
+    const parsedMonth = month ? Number(month) : undefined;
+
+    const results = await syncAllPermanentEmployeesAccruals(parsedYear, parsedMonth);
+    const totalTransactions = results.reduce((acc, r) => acc + r.addedTransactions, 0);
+
+    try {
+      await AuditLog.create({
+        user: req.user?._id,
+        action: 'EXECUTE_MONTHLY_LEAVE_ACCRUALS',
+        module: 'LEAVES',
+        details: `Super Admin executed monthly leave accruals. Added ${totalTransactions} transactions across ${results.length} permanent employees.`,
+      });
+    } catch (err) {}
+
+    res.json({
+      success: true,
+      message: `Monthly leave accruals processed. Synced ${totalTransactions} transactions across ${results.length} permanent employees.`,
+      results,
+    });
+  } catch (error: any) {
+    res.status(500).json({ detail: error.message || 'Failed to process monthly accruals.' });
   }
 }
 

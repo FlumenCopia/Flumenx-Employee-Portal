@@ -82,6 +82,23 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
   const [carryForwardPending, setCarryForwardPending] = useState(false);
   const [carryForwardError, setCarryForwardError] = useState("");
 
+  const [runningAccrual, setRunningAccrual] = useState(false);
+
+  const handleRunAccruals = async () => {
+    if (!window.confirm("Run monthly leave accruals (+1 Sick, +1 Casual) for all active permanent employees?")) return;
+    setRunningAccrual(true);
+    try {
+      const res: any = await api("/leaves/run-accruals/", { method: "POST" });
+      setMessage(res?.message || "Monthly leave accruals processed successfully.");
+      loadAllBalances();
+      loadBalances();
+    } catch (err: any) {
+      setActionError(err?.message || "Failed to process monthly accruals.");
+    } finally {
+      setRunningAccrual(false);
+    }
+  };
+
   const openSetCarryForward = (b: any) => {
     setCarryForwardEmp({
       id: b.employee_id,
@@ -411,6 +428,31 @@ export function LeavesPage({ employee: propEmployee }: { employee?: boolean }) {
               <span style={{ background: "rgba(16, 185, 129, 0.12)", color: "#065f46", padding: "3px 10px", borderRadius: "6px", fontWeight: 700, fontSize: "12px", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
                 🗓️ Cycle: {allBalances[0].cyclePeriod}
               </span>
+            )}
+            {isSuperUser && (
+              <button
+                type="button"
+                onClick={handleRunAccruals}
+                disabled={runningAccrual}
+                title="Process monthly leave accruals (+1 Sick, +1 Casual) for all active permanent employees"
+                style={{
+                  padding: "4px 12px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  borderRadius: "6px",
+                  border: "1px solid rgba(8, 122, 91, 0.4)",
+                  background: "#087A5B",
+                  color: "#FFFFFF",
+                  cursor: runningAccrual ? "wait" : "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {runningAccrual ? "⏳ Running..." : "⚡ Run Monthly Accrual"}
+              </button>
             )}
           </div>
           <input

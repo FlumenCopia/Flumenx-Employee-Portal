@@ -159,10 +159,10 @@ export async function getEmployeeLeaveBalance(
   const currentMonth = cycle.month;
   const currentYear = cycle.year;
 
-  if (emp.employmentStatus === 'Probation') {
+  if (emp.employmentStatus !== 'Permanent') {
     return {
       employeeId: employeeId.toString(),
-      employmentStatus: 'Probation',
+      employmentStatus: emp.employmentStatus,
       sickLeaveBalance: 0,
       casualLeaveBalance: 0,
       totalPaidLeaveBalance: 0,
@@ -176,36 +176,10 @@ export async function getEmployeeLeaveBalance(
     };
   }
 
+  // Ensure all past and current monthly leave accruals (1 Sick + 1 Casual) are credited
+  await syncEmployeeMonthlyAccruals(employeeId, currentYear, currentMonth);
+
   let transactions = await LeaveLedger.find({ employee: employeeId }).sort({ transactionDate: 1 });
-
-  // If permanent employee has no ledger records, auto-seed 1 Sick + 1 Casual opening balance
-  if (emp.employmentStatus === 'Permanent' && transactions.length === 0) {
-    const joinYear = emp.joiningDate ? new Date(emp.joiningDate).getFullYear() : currentYear;
-    const joinMonth = emp.joiningDate ? new Date(emp.joiningDate).getMonth() + 1 : currentMonth;
-
-    const opSick = new LeaveLedger({
-      employee: employeeId,
-      leaveType: 'Sick',
-      transactionType: 'OpeningBalance',
-      quantity: 1,
-      balanceAfter: 1,
-      earnedMonth: joinMonth,
-      earnedYear: joinYear,
-      notes: 'Initial monthly sick leave balance (Auto-initialized)',
-    });
-    const opCasual = new LeaveLedger({
-      employee: employeeId,
-      leaveType: 'Casual',
-      transactionType: 'OpeningBalance',
-      quantity: 1,
-      balanceAfter: 1,
-      earnedMonth: joinMonth,
-      earnedYear: joinYear,
-      notes: 'Initial monthly casual leave balance (Auto-initialized)',
-    });
-    await Promise.all([opSick.save(), opCasual.save()]);
-    transactions = [opSick, opCasual];
-  }
 
   let sick = 0;
   let casual = 0;
@@ -269,6 +243,189 @@ export async function getEmployeeLeaveBalance(
 }
 
 /**
+ * Automatically synchronizes monthly leave accruals (1 Sick + 1 Casual) for a permanent employee
+ * up to targetYear and targetMonth (defaults to the active attendance cycle).
+ * Fully idempotent: only credits missing months and never double-credits.
+ */
+export async function syncEmployeeMonthlyAccruals(
+  employeeId: mongoose.Types.ObjectId,
+  targetYear?: number,
+  targetMonth?: number
+): Promise<{ addedCount: number; monthsAccrued: string[] }> {
+  const emp = await Employee.findById(employeeId);
+  if (!emp || emp.employmentStatus !== 'Permanent' || emp.status !== 'Active') {
+    return { addedCount: 0, monthsAccrued: [] };
+  }
+
+  const cycle = (targetYear && targetMonth)
+    ? getAttendanceCycleForMonth(targetYear, targetMonth)
+    : getAttendanceCycleForDate(new Date());
+
+  const endYear = cycle.year;
+  const endMonth = cycle.month;
+
+  const existingTransactions = await LeaveLedger.find({ employee: employeeId });
+  const creditedMonths = new Set(
+    existingTransactions
+      .filter((t) => (t.transactionType === 'OpeningBalance' || t.transactionType === 'MonthlyAccrual') && t.earnedYear && t.earnedMonth)
+      .map((t) => `${t.earnedYear}-${t.earnedMonth}`)
+  );
+
+  // Determine baseline start month and year
+  let startYear = 2026;
+  let startMonth = 8;
+
+  const op = existingTransactions.find((t) => t.transactionType === 'OpeningBalance' && t.earnedYear && t.earnedMonth);
+  if (op && op.earnedYear && op.earnedMonth) {
+    startYear = op.earnedYear;
+    startMonth = op.earnedMonth;
+  } else {
+    // If no OpeningBalance exists, check joining date
+    const joinDate = emp.joiningDate ? new Date(emp.joiningDate) : ((emp as any).createdAt ? new Date((emp as any).createdAt) : new Date());
+    const jY = joinDate.getFullYear();
+    const jM = joinDate.getMonth() + 1;
+    if (jY > 2026 || (jY === 2026 && jM >= 8)) {
+      startYear = jY;
+      startMonth = jM;
+    } else {
+      startYear = 2026;
+      startMonth = 8;
+    }
+
+    // Seed OpeningBalance for baseline month if not credited
+    const baselineKey = `${startYear}-${startMonth}`;
+    if (!creditedMonths.has(baselineKey)) {
+      await Promise.all([
+        new LeaveLedger({
+          employee: employeeId,
+          leaveType: 'Sick',
+          transactionType: 'OpeningBalance',
+          quantity: 1,
+          balanceAfter: 1,
+          earnedMonth: startMonth,
+          earnedYear: startYear,
+          notes: `Initial monthly sick leave balance (${startMonth}/${startYear})`,
+        }).save(),
+        new LeaveLedger({
+          employee: employeeId,
+          leaveType: 'Casual',
+          transactionType: 'OpeningBalance',
+          quantity: 1,
+          balanceAfter: 1,
+          earnedMonth: startMonth,
+          earnedYear: startYear,
+          notes: `Initial monthly casual leave balance (${startMonth}/${startYear})`,
+        }).save(),
+      ]);
+      creditedMonths.add(baselineKey);
+    }
+  }
+
+  // Iterate month by month from (startYear, startMonth + 1) up to (endYear, endMonth)
+  let curY = startYear;
+  let curM = startMonth + 1;
+  if (curM > 12) {
+    curM = 1;
+    curY += 1;
+  }
+
+  const monthsAccrued: string[] = [];
+  let addedCount = 0;
+
+  while (curY < endYear || (curY === endYear && curM <= endMonth)) {
+    const key = `${curY}-${curM}`;
+    if (!creditedMonths.has(key)) {
+      await Promise.all([
+        new LeaveLedger({
+          employee: employeeId,
+          leaveType: 'Sick',
+          transactionType: 'MonthlyAccrual',
+          quantity: 1,
+          balanceAfter: 1,
+          earnedMonth: curM,
+          earnedYear: curY,
+          notes: `Monthly accrual for ${curM}/${curY}`,
+        }).save(),
+        new LeaveLedger({
+          employee: employeeId,
+          leaveType: 'Casual',
+          transactionType: 'MonthlyAccrual',
+          quantity: 1,
+          balanceAfter: 1,
+          earnedMonth: curM,
+          earnedYear: curY,
+          notes: `Monthly accrual for ${curM}/${curY}`,
+        }).save(),
+      ]);
+
+      creditedMonths.add(key);
+      monthsAccrued.push(key);
+      addedCount += 2;
+    }
+
+    curM++;
+    if (curM > 12) {
+      curM = 1;
+      curY++;
+    }
+  }
+
+  return { addedCount, monthsAccrued };
+}
+
+/**
+ * Syncs monthly leave accruals for all active permanent employees.
+ */
+export async function syncAllPermanentEmployeesAccruals(
+  targetYear?: number,
+  targetMonth?: number
+): Promise<Array<{ employeeId: string; name: string; addedTransactions: number; monthsAccrued: string[] }>> {
+  const cycle = (targetYear && targetMonth)
+    ? getAttendanceCycleForMonth(targetYear, targetMonth)
+    : getAttendanceCycleForDate(new Date());
+
+  const employees = await Employee.find({
+    employmentStatus: 'Permanent',
+    status: 'Active',
+  });
+
+  const results = [];
+  for (const emp of employees) {
+    const res = await syncEmployeeMonthlyAccruals(emp._id as mongoose.Types.ObjectId, cycle.year, cycle.month);
+    results.push({
+      employeeId: emp._id.toString(),
+      name: emp.name || (emp as any).first_name || 'Staff',
+      addedTransactions: res.addedCount,
+      monthsAccrued: res.monthsAccrued,
+    });
+  }
+  return results;
+}
+
+/**
+ * Starts a background scheduler to automatically check and run monthly leave accruals.
+ * Runs immediately on server startup, and checks every 6 hours thereafter.
+ */
+export function startMonthlyLeaveAccrualScheduler(intervalMs: number = 6 * 60 * 60 * 1000): NodeJS.Timeout {
+  console.log('[Leave Accrual Scheduler] 🚀 Automated monthly leave accrual engine initialized.');
+  // Initial run in background (non-blocking)
+  syncAllPermanentEmployeesAccruals().then((res) => {
+    const totalAdded = res.reduce((acc, r) => acc + r.addedTransactions, 0);
+    if (totalAdded > 0) {
+      console.log(`[Leave Accrual Scheduler] ✅ Synced ${totalAdded} missing leave accruals for permanent staff.`);
+    }
+  }).catch((err) => {
+    console.error('[Leave Accrual Scheduler] Error running startup accruals:', err);
+  });
+
+  return setInterval(() => {
+    syncAllPermanentEmployeesAccruals().catch((err) => {
+      console.error('[Leave Accrual Scheduler] Error running recurring accruals:', err);
+    });
+  }, intervalMs);
+}
+
+/**
  * Accrues 1 Sick and 1 Casual leave monthly for Permanent employees.
  */
 export async function accrueMonthlyLeave(
@@ -277,14 +434,14 @@ export async function accrueMonthlyLeave(
   year: number
 ): Promise<{ accrued: boolean; sick: number; casual: number }> {
   const emp = await Employee.findById(employeeId);
-  if (!emp || emp.employmentStatus !== 'Permanent') {
+  if (!emp || emp.employmentStatus !== 'Permanent' || emp.status !== 'Active') {
     return { accrued: false, sick: 0, casual: 0 };
   }
 
   // Check if accrual already ran for this employee and month/year
   const existing = await LeaveLedger.findOne({
     employee: employeeId,
-    transactionType: 'MonthlyAccrual',
+    transactionType: { $in: ['OpeningBalance', 'MonthlyAccrual'] },
     earnedMonth: month,
     earnedYear: year,
   });
@@ -293,31 +450,28 @@ export async function accrueMonthlyLeave(
     return { accrued: false, sick: 0, casual: 0 };
   }
 
-  const currentBal = await getEmployeeLeaveBalance(employeeId);
-
-  // Accrue 1 Sick Leave
-  await new LeaveLedger({
-    employee: employeeId,
-    leaveType: 'Sick',
-    transactionType: 'MonthlyAccrual',
-    quantity: 1,
-    balanceAfter: currentBal.sickLeaveBalance + 1,
-    earnedMonth: month,
-    earnedYear: year,
-    notes: `Monthly accrual for ${month}/${year}`,
-  }).save();
-
-  // Accrue 1 Casual Leave
-  await new LeaveLedger({
-    employee: employeeId,
-    leaveType: 'Casual',
-    transactionType: 'MonthlyAccrual',
-    quantity: 1,
-    balanceAfter: currentBal.casualLeaveBalance + 1,
-    earnedMonth: month,
-    earnedYear: year,
-    notes: `Monthly accrual for ${month}/${year}`,
-  }).save();
+  await Promise.all([
+    new LeaveLedger({
+      employee: employeeId,
+      leaveType: 'Sick',
+      transactionType: 'MonthlyAccrual',
+      quantity: 1,
+      balanceAfter: 1,
+      earnedMonth: month,
+      earnedYear: year,
+      notes: `Monthly accrual for ${month}/${year}`,
+    }).save(),
+    new LeaveLedger({
+      employee: employeeId,
+      leaveType: 'Casual',
+      transactionType: 'MonthlyAccrual',
+      quantity: 1,
+      balanceAfter: 1,
+      earnedMonth: month,
+      earnedYear: year,
+      notes: `Monthly accrual for ${month}/${year}`,
+    }).save(),
+  ]);
 
   return { accrued: true, sick: 1, casual: 1 };
 }
